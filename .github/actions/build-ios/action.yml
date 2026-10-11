@@ -41,7 +41,7 @@ runs:
         product_file: ${{ inputs.product_file }}
         product_name: ${{ inputs.product_name }}
     - name: Checkout Love
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         path: ./tools/love
         ref: ${{ inputs.love_version }}
@@ -49,7 +49,7 @@ runs:
         submodules: recursive
         fetch-depth: 1
     - name: Checkout iOS Framework SDK
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         path: ./tools/love-apple-dependencies
         ref: ${{ inputs.love_version }}
