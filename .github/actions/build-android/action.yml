@@ -109,7 +109,7 @@ runs:
         distribution: temurin
         java-version: ${{ inputs.android_java_version }}
     - name: Setup Android SDK
-      uses: android-actions/setup-android@v3.2.2
+      uses: android-actions/setup-android@v4.0.4
       with:
         cmdline-tools-version: ${{ inputs.android_cmdline_tools_version }}
         packages: >-
