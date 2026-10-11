@@ -54,7 +54,7 @@ runs:
     - name: Install tools
       uses: ./.github/actions/install-tools
     - name: Checkout love-android ${{ inputs.android_love_version }}
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         repository: love2d/love-android
         ref: ${{ inputs.android_love_version }}
@@ -62,7 +62,7 @@ runs:
         path: ./tools/love-android
         fetch-depth: 1
     - name: Checkout lua-https
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         repository: oval-tutu/lua-https
         submodules: recursive
