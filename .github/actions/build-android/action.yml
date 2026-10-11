@@ -103,7 +103,7 @@ runs:
         convert ./resources/icon.png -resize 192x192 ./tools/love-android/app/src/main/res/drawable-xxxhdpi/love.png
         convert ./resources/icon.png -resize 512x512 ./tools/love-android/love_icon_512x512.png
     - name: Get Java ${{ inputs.android_java_version }}
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v6
       with:
         cache: gradle
         distribution: temurin
