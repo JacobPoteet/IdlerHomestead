@@ -2,6 +2,7 @@
 -- The idle routine clears `autoClear` objects and anything sitting on a planned field tile.
 -- Emits "object.cleared" { object, tile, yields }.
 
+local Crops = require("src.sim.systems.crops")
 local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
 local Stats = require("src.sim.stats")
@@ -20,10 +21,9 @@ function Clearing.init(world)
     verb = "Clear",
     clickOrder = 20,
     candidates = function(w, _, add)
-      local plan = w.state.fields.plan
       for anchor, obj in pairs(w.state.grid.objects) do
         local def = w.registry:get("objects", obj.id)
-        if clearable(def) and (def.autoClear or plan[anchor]) then
+        if clearable(def) and (def.autoClear or Crops.isPlanned(w, anchor)) then
           add(anchor)
         end
       end

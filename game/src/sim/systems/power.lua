@@ -69,6 +69,13 @@ function Power.drain(world, anchor, amount)
   return true
 end
 
+--- Add `amount` kWh to a battery, limited by its capacity. Returns the amount stored.
+function Power.add(world, anchor, amount)
+  local stored = math.max(0, math.min(amount, Power.capacity(world, anchor) - Power.charge(world, anchor)))
+  world.state.power.charge[anchor] = Power.charge(world, anchor) + stored
+  return stored
+end
+
 function Power.tick(world, dt)
   local energy = Power.output(world) * dt / Calendar.hourLength(world)
   if energy <= 0 then

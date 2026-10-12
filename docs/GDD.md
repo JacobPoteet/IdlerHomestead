@@ -393,7 +393,7 @@ The **first run is meant to fail**, ideally while still feeling close. Runs 3–
 
 ### 12.1 Principles
 1. **Definitions vs. state.** Content lives in data files. Runtime state is plain tables that serialize directly. Systems never hard-code content IDs.
-2. **Systems talk through shared interfaces only:** the **resource ledger**, the **task board**, and the **event bus**.
+2. **Systems talk through shared interfaces only:** the **resource ledger**, the **task board**, and the **event bus**. A system's slice of `world.state` is private: other systems read it only through small accessor functions on the owner (`Food.crateOf`, `Crops.tileInUse`, `Land.truck`, `Actors.list`). `tests/test_architecture.lua` enforces this per state key; the grid is the one shared structure.
 3. **Simulation is separate from presentation.** Fixed tick, no LÖVE graphics calls in the sim. Grid coordinates only; projection lives in the renderer.
 4. **Components over inheritance.**
 5. **No magic numbers in systems.** Every balance value lives in data (§12.3).

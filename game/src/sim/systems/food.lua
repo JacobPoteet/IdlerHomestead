@@ -37,6 +37,11 @@ function Food.available(world, id)
   return Ledger.get(world, id) - (world.state.food.crate[id] or 0)
 end
 
+--- Units of a resource reserved in the sell crate.
+function Food.crateOf(world, id)
+  return world.state.food.crate[id] or 0
+end
+
 function Food.crateCount(world)
   local n = 0
   for _, count in pairs(world.state.food.crate) do

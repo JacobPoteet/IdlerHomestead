@@ -7,6 +7,7 @@
 
 local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
+local Land = require("src.sim.systems.land")
 local Ledger = require("src.sim.systems.ledger")
 local Power = require("src.sim.systems.power")
 
@@ -24,7 +25,7 @@ end
 --- Give this run's head starts from every known perk.
 function Perks.applyRunStart(world)
   local applied = {}
-  local truck = world.state.land.truck
+  local truck = Land.truck(world)
   for _, perk in ipairs(Journal.knownPerks(world)) do
     applied[#applied + 1] = perk.id
     local resources = perk.startingResources or {}
@@ -35,8 +36,7 @@ function Perks.applyRunStart(world)
       Inventory.addEquipment(world, id)
     end
     if perk.truckCharge then
-      local charge = math.min(Power.capacity(world, truck), Power.charge(world, truck) + perk.truckCharge)
-      world.state.power.charge[truck] = charge
+      Power.add(world, truck, perk.truckCharge)
     end
   end
   world.events:emit("perks.applied", { perks = applied })

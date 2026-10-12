@@ -37,6 +37,17 @@ function Crops.setPlan(world, i, cropId)
   return true
 end
 
+--- Is tile i part of the player's field layout (a planned crop)?
+function Crops.isPlanned(world, i)
+  return world.state.fields.plan[i] ~= nil
+end
+
+--- Is tile i tilled, planned or planted? (Such tiles can't take a placed object.)
+function Crops.tileInUse(world, i)
+  local state = world.state
+  return state.fields.tilled[i] == true or state.fields.plan[i] ~= nil or state.crops[i] ~= nil
+end
+
 local function cropFor(world, i, order)
   return (order and order.crop) or world.state.fields.plan[i]
 end

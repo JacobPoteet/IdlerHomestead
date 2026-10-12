@@ -12,6 +12,7 @@ local Ledger = require("src.sim.systems.ledger")
 local Food = require("src.sim.systems.food")
 local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
+local Land = require("src.sim.systems.land")
 local Power = require("src.sim.systems.power")
 
 local Market = {}
@@ -176,7 +177,7 @@ end
 -- Truck trips --------------------------------------------------------------------------
 
 function Market.truckCharge(world)
-  return Power.charge(world, world.state.land.truck)
+  return Power.charge(world, Land.truck(world))
 end
 
 function Market.canTrip(world)
@@ -188,7 +189,7 @@ function Market.startTrip(world)
   if world.state.market.inTown or not Market.canTrip(world) then
     return false
   end
-  Power.drain(world, world.state.land.truck, world.tuning.economy.tripCost)
+  Power.drain(world, Land.truck(world),world.tuning.economy.tripCost)
   world.state.market.inTown = true
   world.events:emit("market.trip", {})
   return true
@@ -203,7 +204,7 @@ function Market.crateQuote(world)
   local cargo = world.tuning.economy.cargoCapacity
   local lines, total, units = {}, 0, 0
   for _, res in ipairs(world.registry:all("resources")) do
-    local n = math.min(world.state.food.crate[res.id] or 0, cargo - units)
+    local n = math.min(Food.crateOf(world, res.id), cargo - units)
     if n > 0 then
       local price = Market.sellPrice(world, res.id)
       lines[#lines + 1] = { id = res.id, units = n, price = price }
