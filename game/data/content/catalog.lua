@@ -6,13 +6,14 @@
 --   equipment: an item kept for the run whose `modifiers` adjust stats (see src/sim/stats.lua).
 --   pickupOnly: can only be bought on a truck trip.
 return {
-  { id = "radish_seeds", name = "Radish seeds x5", page = "seeds", price = 4, starter = true, gives = { seed_radish = 5 } },
-  { id = "potato_seeds", name = "Seed potatoes x3", page = "seeds", price = 6, starter = true, gives = { seed_potato = 3 } },
-  { id = "canned_food", name = "Canned food x2", page = "supplies", price = 7, starter = true, gives = { canned_food = 2 } },
-  { id = "bait", name = "Bait x6", page = "fishing", price = 3, starter = true, gives = { bait = 6 } },
+  { id = "radish_seeds", name = "Radish seeds x5", line = "Fast crop, a light meal.", page = "seeds", price = 4, starter = true, gives = { seed_radish = 5 } },
+  { id = "potato_seeds", name = "Seed potatoes x3", line = "Slow crop that keeps for winter.", page = "seeds", price = 6, starter = true, gives = { seed_potato = 3 } },
+  { id = "canned_food", name = "Canned food x2", line = "Keeps forever. Emergency food.", page = "supplies", price = 7, starter = true, gives = { canned_food = 2 } },
+  { id = "bait", name = "Bait x6", line = "Faster bites; better idle catches.", page = "fishing", price = 3, starter = true, gives = { bait = 6 } },
   {
     id = "basic_rod",
     name = "Basic rod",
+    line = "Fish the creek.",
     page = "fishing",
     price = 10,
     starter = true,
@@ -22,6 +23,7 @@ return {
   {
     id = "smoker",
     name = "Smoker",
+    line = "Smoked fish keeps all winter.",
     page = "preserving",
     price = 30,
     needs = { "first_catch", "fish_spoil" },
@@ -31,6 +33,7 @@ return {
   {
     id = "sturdy_rod",
     name = "Sturdy rod",
+    line = "Holds bigger fish under tension.",
     page = "fishing",
     price = 25,
     needs = { "first_catch", "one_got_away" },
@@ -41,6 +44,7 @@ return {
   {
     id = "big_bucket",
     name = "Big bucket",
+    line = "Carries more water per trip.",
     page = "tools",
     price = 12,
     needs = { "bucket_hauling" },
@@ -51,7 +55,8 @@ return {
   {
     id = "axe",
     name = "Axe",
-    page = "tools",
+    line = "Fell trees and split wood faster.",
+    page = "shelter",
     price = 15,
     needs = { "felled_tree" },
     studyNights = 1,
@@ -61,6 +66,7 @@ return {
   {
     id = "woodshed",
     name = "Woodshed",
+    line = "Seasons firewood and stores much more.",
     page = "shelter",
     price = 35,
     needs = { "green_wood" },
@@ -70,6 +76,7 @@ return {
   {
     id = "wood_stove",
     name = "Wood stove",
+    line = "Gets far more heat from wood.",
     page = "shelter",
     price = 60,
     needs = { "first_fire", "cold_night" },
@@ -79,6 +86,7 @@ return {
   {
     id = "used_panel",
     name = "Used solar panel",
+    line = "More solar charge for the truck.",
     page = "power",
     price = 40,
     needs = { "first_trip" },
