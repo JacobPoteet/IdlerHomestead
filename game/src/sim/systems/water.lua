@@ -1,0 +1,40 @@
+-- Water hauling (GDD §5.3, rung 0): fill the bucket at the creek, carry it to the crops.
+-- The actor's bucket (actor.bucket = waterings left) is what makes distance to water matter.
+
+local Grid = require("src.sim.grid")
+local Tasks = require("src.sim.systems.tasks")
+local Crops = require("src.sim.systems.crops")
+
+local Water = {}
+
+function Water.init(world)
+  Tasks.register(world, {
+    id = "fetch_water",
+    category = "water",
+    verb = "Fill bucket",
+    clickOrder = 60,
+    candidates = function(w, actor, add)
+      -- Only head for the creek when the bucket is empty and something is thirsty.
+      if actor.bucket > 0 or not Crops.anyNeedsWater(w) then
+        return
+      end
+      local terrain = w.state.grid.terrain
+      for i = 1, #terrain do
+        if terrain[i] == "water" or terrain[i] == "ford" then
+          add(i)
+        end
+      end
+    end,
+    canDo = function(w, actor, i)
+      return Grid.terrain(w, i).water == true and actor.bucket < w.tuning.actors.bucketCapacity
+    end,
+    workTime = function(w)
+      return w.tuning.farming.fetchWaterTime
+    end,
+    complete = function(w, actor)
+      actor.bucket = w.tuning.actors.bucketCapacity
+    end,
+  })
+end
+
+return Water

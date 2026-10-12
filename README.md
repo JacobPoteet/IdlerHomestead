@@ -14,7 +14,7 @@ Project scaffolding comes from [bootstrap-love2d-project](https://github.com/Ova
 
 ## Testing
 
-The simulation layer is plain Lua and is tested headless through LÖVE (no window):
+The simulation layer is plain Lua and is tested headless through LÃ–VE (no window):
 
 ```
 lovec tests          # Windows (prints to the console)

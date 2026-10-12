@@ -7,4 +7,11 @@ return {
   "time",
   "save",
   "world",
+  "landgen",
+  "run",
+  "idle",
+  "actors",
+  "farming",
+  "needs",
+  "visuals",
 }
