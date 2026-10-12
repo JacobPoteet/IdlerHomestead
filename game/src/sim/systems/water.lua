@@ -11,6 +11,8 @@
 --   spending `tuning.water.dripUnitsPerWatering` from the stock, so the routine never has to haul.
 --   With the stock empty the zone is dry: crops thirst as before and the actor hauls by hand.
 --
+-- Rain (D51) also fills the cistern, for free, while it rains and a cistern exists (see tickRain).
+--
 -- Systems talk through the ledger (the "water" stock), the task board (fetch_water) and events.
 -- State: world.state.water = { acc = { [pump anchor] = fraction of a batch }, dry = { [drip anchor] =
 --   true while announced dry }, hand, drip, pumped = totals of waterings by hand / by drip lines /
@@ -78,10 +80,10 @@ function Water.fraction(world)
 end
 
 --- Waterings made so far this run: { hand = by the actor, drip = by drip lines, pumped = units
---- pumped into cisterns }.
+--- pumped into cisterns, rained = units the rain put in cisterns }.
 function Water.stats(world)
   local s = state(world)
-  return { hand = s.hand, drip = s.drip, pumped = s.pumped }
+  return { hand = s.hand, drip = s.drip, pumped = s.pumped, rained = s.rained }
 end
 
 -- Pumps -----------------------------------------------------------------------------------------
@@ -122,6 +124,24 @@ local function tickPumps(world, pumps, hours)
       end
       s.acc[anchor] = acc
     end
+  end
+end
+
+-- Rain ------------------------------------------------------------------------------------------
+
+-- Rain runs into the cistern for free (D51): `rainWaterRate` units an hour times the day's rainfall,
+-- up to capacity. Without a cistern there is nowhere to keep it.
+local function tickRain(world, hours)
+  local rainfall = Weather.rainfall(world)
+  if rainfall <= 0 or not Water.hasCistern(world) then
+    return
+  end
+  local s = state(world)
+  s.rain = s.rain + world.tuning.weather.rainWaterRate * rainfall * hours
+  if s.rain >= world.tuning.water.pumpBatch then
+    local added = Ledger.add(world, STOCK, s.rain, "rain")
+    s.rain = added < s.rain and 0 or s.rain - added
+    s.rained = s.rained + added
   end
 end
 
@@ -228,6 +248,8 @@ function Water.init(world)
   s.drip = s.drip or 0
   s.pumped = s.pumped or 0
   s.pumpedDay = s.pumpedDay or 0
+  s.rain = s.rain or 0
+  s.rained = s.rained or 0
   world.events:on("task.completed", function(e)
     if e.task == "water_crop" then
       s.hand = s.hand + 1
@@ -241,7 +263,7 @@ function Water.init(world)
     clickOrder = 60,
     candidates = function(w, actor, add)
       -- Only head for water when the bucket is empty and something is thirsty.
-      if actor.bucket > 0 or not Crops.anyNeedsWater(w) then
+      if actor.bucket > 0 or Weather.isRaining(w) or not Crops.anyNeedsWater(w) then
         return
       end
       for _, terrainId in ipairs({ "water", "ford" }) do
@@ -310,6 +332,7 @@ function Water.tick(world, dt)
   table.sort(pumps)
   table.sort(drips)
   tickPumps(world, pumps, dt / Calendar.hourLength(world))
+  tickRain(world, dt / Calendar.hourLength(world))
   tickDrip(world, drips)
 end
 

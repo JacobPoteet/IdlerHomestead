@@ -144,6 +144,9 @@ local function registerTasks(world)
     verb = "Water",
     clickOrder = 30,
     candidates = function(w, _, add)
+      if Weather.isRaining(w) then
+        return -- the rain does the watering; the routine finds other work
+      end
       for i, crop in pairs(w.state.crops) do
         if Crops.needsWater(crop) then
           add(i)
@@ -258,7 +261,11 @@ function Crops.tick(world, dt)
   end
   local farming, dayLength = world.tuning.farming, world.tuning.time.dayLength
   local dryRate = dt / (farming.moistureDays * dayLength)
+  local raining = Weather.isRaining(world) -- rain is free water for every crop (D51)
   for _, crop in pairs(world.state.crops) do
+    if raining then
+      crop.moisture = 1
+    end
     if crop.growth < 1 and crop.moisture > 0 then
       local def = world.registry:get("crops", crop.id)
       crop.growth = math.min(1, crop.growth + dt / (def.growDays * dayLength))

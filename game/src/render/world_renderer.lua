@@ -13,6 +13,7 @@ local Weather = require("src.sim.systems.weather")
 local Assets = require("src.render.assets")
 local Shaders = require("src.render.shaders")
 local Lighting = require("src.render.lighting")
+local WeatherFx = require("src.render.weather_fx")
 
 local Renderer = {}
 Renderer.__index = Renderer
@@ -31,6 +32,7 @@ function Renderer.new(world)
     world = world,
     tile = world.tuning.display.tileSize,
     time = 0,
+    fx = WeatherFx.new(world),
   }, Renderer)
   self:buildGround()
   self:buildWater()
@@ -159,8 +161,14 @@ function Renderer:buildWater()
   self.depthMap:setFilter("linear", "linear")
 end
 
+--- Falling rain over the graded world (call after drawGraded; `view` is the virtual screen).
+function Renderer:drawRain(view)
+  self.fx:drawRain(view)
+end
+
 function Renderer:update(dt)
   self.time = (self.time + dt) % 3600
+  self.fx:update(dt)
 end
 
 --- Lighting for the current in-game hour: tint, light, daylight. The authored keyframes are
@@ -172,7 +180,14 @@ function Renderer:lighting()
   local hour = Lighting.remap(now.hour, sunrise, sunset, v.lightKeysSunrise, v.lightKeysSunset)
   local tint, light, daylight = Lighting.at(hour, v.lightKeys)
   local season = v.seasonGrade[now.season].tint
-  return { tint[1] * season[1], tint[2] * season[2], tint[3] * season[3] }, light, daylight
+  local sky, skyLight = self.fx:grade() -- cloud and rain darken and cool the scene
+  return {
+    tint[1] * season[1] * sky[1],
+    tint[2] * season[2] * sky[2],
+    tint[3] * season[3] * sky[3],
+  },
+    light * skyLight,
+    daylight
 end
 
 --- How white the ground is (0..1) and how frozen the creek is: ramps in after the freeze and

@@ -124,6 +124,12 @@ function Homestead:subscribe()
     events:on("weather.forecast", function(e)
       self:queueToast(Forecast.news(world, e.piece))
     end),
+    events:on("weather.changed", function(e)
+      local news = Forecast.weatherNews(world, e.kind)
+      if news then
+        self:queueToast(news)
+      end
+    end),
     events:on("weather.froze", function()
       self:queueToast("The creek froze. Cut a hole to fish or fetch water.")
     end),
@@ -845,22 +851,26 @@ end
 -- Winter forecast under the top bar, from autumn on (GDD §4.1); loud during the cold snap.
 function Homestead:drawForecast()
   local world = self.world
-  local text, color
+  -- The weather pill comes first: today and the days ahead (D51).
+  local lines = { { "Weather: " .. Forecast.weather(world), theme.colors.text } }
   if Weather.isColdSnap(world) then
-    text, color = "Cold snap", theme.colors.danger
+    lines[#lines + 1] = { "Cold snap", theme.colors.danger }
   else
     local summary = Forecast.summary(world)
-    if not summary then
-      return
+    if summary then
+      local frozen = Weather.isFrozen(world)
+      lines[#lines + 1] = { (frozen and "This winter: " or "Forecast: ") .. summary, theme.colors.accent }
     end
-    local frozen = Weather.isFrozen(world)
-    text = (frozen and "This winter: " or "Forecast: ") .. summary
-    color = theme.colors.accent
   end
-  local w = Text.measure(text, "small") + 12
-  love.graphics.setColor(0, 0, 0, 0.45)
-  love.graphics.rectangle("fill", 4, self.topH + 4, w, 14, 3, 3)
-  Text.draw(text, 4, self.topH + 6, { size = "small", width = w, align = "center", color = color })
+  local y = self.topH + 4
+  for _, line in ipairs(lines) do
+    local text, color = line[1], line[2]
+    local w = Text.measure(text, "small") + 12
+    love.graphics.setColor(0, 0, 0, 0.45)
+    love.graphics.rectangle("fill", 4, y, w, 14, 3, 3)
+    Text.draw(text, 4, y + 2, { size = "small", width = w, align = "center", color = color })
+    y = y + 16
+  end
 end
 
 function Homestead:drawBottomBar(view)
@@ -1022,6 +1032,7 @@ function Homestead:draw()
   love.graphics.origin()
   self.renderer:drawGraded(self.canvas, tint, light, view.scale * self.camera:zoom())
   love.graphics.pop()
+  self.renderer:drawRain(view)
 
   -- HUD (not graded)
   ActionRing.draw(self.world, self.camera, view, { top = self.topH, bottom = view.h - self.bottomH })

@@ -18,6 +18,12 @@ local Weather = require("src.sim.systems.weather")
 
 local Fishing = {}
 
+--- How active the fish are today (1 = normal), from the weather: scales routine catch odds and
+--- how fast they bite when the player fishes (D51).
+function Fishing.activity(world)
+  return Weather.fishActivity(world)
+end
+
 function Fishing.hasRod(world)
   return Stats.modifier(world, "rod") >= 1
 end
@@ -142,6 +148,7 @@ function Fishing.init(world)
       if Ledger.remove(w, "bait", 1, "fishing") then
         chance = chance + cfg.baitIdleBonus
       end
+      chance = math.min(cfg.maxIdleChance, chance * Fishing.activity(w))
       if w:rng("fishing"):chance(chance) then
         local fish = Fishing.rollFish(w, "idle")
         if fish then

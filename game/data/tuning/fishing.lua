@@ -4,6 +4,7 @@ return {
   idleAttemptTime = 25, -- seconds the routine spends on one cast
   idleCatchChance = 0.5, -- chance a routine cast lands a (common) fish
   baitIdleBonus = 0.25, -- added catch chance when the routine uses a bait
+  maxIdleChance = 0.95, -- 0..1 ceiling on a routine cast's catch chance after the weather's fish activity multiplier
   -- Active fishing: approach, then the tension mini-game
   castTime = 0.6, -- seconds to set up at the bank before the mini-game opens
   biteDelayMin = 2, -- seconds before a bite (min)
