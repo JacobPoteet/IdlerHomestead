@@ -19,7 +19,7 @@ local function carveCreek(world, cfg, rng)
     if rng:chance(cfg.creekWanderChance) then
       x = x + (rng:chance(0.5) and 1 or -1)
     end
-    if rng:chance(0.08) then
+    if rng:chance(cfg.creekWidthChangeChance) then
       width = math.max(cfg.creekMinWidth, math.min(cfg.creekMaxWidth, width + (rng:chance(0.5) and 1 or -1)))
     end
     x = math.max(3, math.min(grid.w - width - 2, x))
@@ -45,7 +45,7 @@ local function placeRoadAndTruck(world, cfg, rng, creekRows)
   -- The truck goes on the wider side of the creek.
   local creekX = creekRows[midY][1]
   local fromLeft = creekX > grid.w / 2
-  local y = rng:int(math.floor(grid.h * 0.35), math.floor(grid.h * 0.65))
+  local y = rng:int(math.floor(grid.h * cfg.roadMinRow), math.floor(grid.h * cfg.roadMaxRow))
   local length = rng:int(cfg.roadMinLength, cfg.roadMaxLength)
   if fromLeft then
     length = math.min(length, creekRows[y][1] - 6)
@@ -55,7 +55,7 @@ local function placeRoadAndTruck(world, cfg, rng, creekRows)
   local x, step = fromLeft and 1 or grid.w, fromLeft and 1 or -1
   for _ = 1, length do
     grid.terrain[Grid.index(grid, x, y)] = "road"
-    if rng:chance(0.15) then
+    if rng:chance(cfg.roadWobbleChance) then
       local ny = y + (rng:chance(0.5) and 1 or -1)
       if ny > 2 and ny < grid.h - 1 then
         grid.terrain[Grid.index(grid, x, ny)] = "road"
