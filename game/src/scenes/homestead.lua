@@ -553,7 +553,9 @@ end
 function Homestead:drawControlBadge(view)
   local ctx = self.app.ctx
   local text, color
-  if self.world.control == "idle" then
+  if Actors.homesteader(self.world).asleep then
+    text, color = "Sleeping", theme.colors.textDim
+  elseif self.world.control == "idle" then
     text, color = "Routine running", theme.colors.accent
   else
     local remaining = ctx.tuning.idle.takeoverDelay - ctx.input:idleSeconds()

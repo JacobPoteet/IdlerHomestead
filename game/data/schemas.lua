@@ -31,6 +31,7 @@ return {
     powerOutput = "number?", -- peak kW in full sun (solar)
     battery = "number?", -- kWh of storage
     station = "string?", -- processor station id used by recipes (e.g. "smoker")
+    shelter = "boolean?", -- the homesteader sleeps here (GDD §5.3 shelter ladder)
   },
   crops = {
     name = "string",

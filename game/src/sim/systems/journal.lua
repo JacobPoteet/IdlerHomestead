@@ -3,8 +3,8 @@
 -- Notes are written from world events by data rules (data/content/notes.lua); the systems that
 -- emit those events never know the journal exists (GDD §12.1 #8). A catalog entry becomes an
 -- idea once every note in its `needs` is written. The player queues ideas to study; the head of
--- the queue makes progress during the night (longer nights study faster, equipment with a
--- `studySpeed` modifier speeds it up) and becomes known for good.
+-- the queue makes progress while the homesteader sleeps (longer nights study faster, equipment
+-- with a `studySpeed` modifier speeds it up) and becomes known for good.
 --
 -- Everything here lives in the save slot's meta, so it survives failed runs:
 --   world.meta.journal = {
@@ -17,6 +17,7 @@
 -- Emits "journal.note" { note }, "journal.idea" { item }, "journal.learned" { item }.
 
 local Calendar = require("src.sim.systems.calendar")
+local Sleep = require("src.sim.systems.sleep")
 local Stats = require("src.sim.stats")
 
 local Journal = {}
@@ -247,7 +248,7 @@ end
 function Journal.tick(world, dt)
   local j = journal(world)
   local head = j.queue[1]
-  if not head or not Calendar.isNight(world) then
+  if not head or not Sleep.homesteaderResting(world) then
     return
   end
   local cfg = world.tuning.study

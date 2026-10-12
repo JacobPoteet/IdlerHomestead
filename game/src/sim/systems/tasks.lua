@@ -142,6 +142,16 @@ function Tasks.jobForOrder(world, actor, i, order)
   return newJob(taskType, i, path, order)
 end
 
+--- A job for a specific task type and target (no player order), or nil if unreachable.
+function Tasks.jobFor(world, actor, taskId, target)
+  local taskType = Tasks.get(world, taskId)
+  local path = pathFor(world, actor, taskType, target)
+  if not path then
+    return nil
+  end
+  return newJob(taskType, target, path, nil)
+end
+
 --- The idle routine: the highest-priority category with a reachable task; within it, the
 --- target nearest by walking distance (one Dijkstra search over all candidates).
 function Tasks.chooseIdleJob(world, actor)

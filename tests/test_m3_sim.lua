@@ -10,6 +10,9 @@ local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Spoilage = require("src.sim.systems.spoilage")
 local Power = require("src.sim.systems.power")
+local Sleep = require("src.sim.systems.sleep")
+local Actors = require("src.sim.systems.actors")
+local Grid = require("src.sim.grid")
 
 local tun = tuningLoader.load()
 local reg = Registry.new():loadAll()
@@ -144,7 +147,7 @@ T.test("study: the queue only takes ideas and has a limit", function()
   T.eq(Journal.status(world, learnable[1].id), "idea")
 end)
 
-T.test("study: progresses only at night, then the item is known and buyable", function()
+T.test("study: progresses only while the homesteader sleeps, then the item is known", function()
   local world = newWorld(1)
   local learned = collect(world, "journal.learned")
   world.meta.journal.notes.first_catch = { day = 1 }
@@ -153,16 +156,16 @@ T.test("study: progresses only at night, then the item is known and buyable", fu
   setTime(world, 1, 9)
   run(world, HOUR * 4)
   T.eq(Journal.progress(world, "smoker"), 0, "no study during the day")
-  -- Two spring nights (sunset to sunrise) at the reference night length finish a 2-night study.
+  -- Two spring nights in bed at the reference length finish a 2-night study.
   local nights = reg:get("catalog", "smoker").studyNights
-  local sunrise, sunset = Calendar.daylight(world)
-  T.eq(sunrise + 24 - sunset, tun.study.nightHours, "spring nights are the reference length")
-  setTime(world, 1, sunset)
-  run(world, HOUR * (24 - sunset + sunrise))
+  local bed, wake = Sleep.bedtimeHours(world)
+  T.eq(wake + 24 - bed, tun.study.nightHours, "a spring night in bed is the reference length")
+  setTime(world, 1, bed)
+  run(world, HOUR * (24 - bed + wake))
   T.near(Journal.progress(world, "smoker"), 1 / nights, 0.01)
   T.eq(Journal.status(world, "smoker"), "studying")
-  setTime(world, 2, sunset)
-  run(world, HOUR * (24 - sunset + sunrise) + 1)
+  setTime(world, 2, bed)
+  run(world, HOUR * (24 - bed + wake) + 1)
   T.eq(Journal.status(world, "smoker"), "known")
   T.eq(#learned, 1)
   T.eq(#Journal.queue(world), 0)
@@ -218,4 +221,66 @@ T.test("calendar: daylight follows the season; solar follows daylight", function
   T.eq(Power.sun(world), 0)
   setTime(world, 1, winterSunrise - 0.5)
   T.truthy(Power.sun(world) > 0, "spring sun is already up")
+end)
+
+-- Sleep -----------------------------------------------------------------------------------
+
+local function nearTruck(world, actor)
+  local truck = world.state.land.truck
+  local tx, ty = Grid.coords(world.state.grid, truck)
+  return math.abs(actor.x - tx) <= 2.5 and math.abs(actor.y - ty) <= 1.5
+end
+
+T.test("sleep: the homesteader goes to bed in the truck and wakes at sunrise", function()
+  local world = newWorld(4)
+  world.control = "idle"
+  local started, woke = collect(world, "sleep.started"), collect(world, "sleep.woke")
+  local hs = Actors.homesteader(world)
+  local bed, wake = Sleep.bedtimeHours(world)
+  setTime(world, 1, bed - 1)
+  run(world, HOUR * 0.5)
+  T.falsy(hs.asleep, "still up in the evening")
+  setTime(world, 1, bed)
+  run(world, HOUR * 2)
+  T.truthy(hs.asleep, "in bed")
+  T.eq(#started, 1)
+  T.truthy(nearTruck(world, hs), "sleeps at the truck")
+  T.eq(hs.job, nil, "no routine work at night")
+  setTime(world, 2, wake - 0.1)
+  run(world, HOUR * 0.5)
+  T.falsy(hs.asleep, "up at sunrise")
+  T.eq(#woke, 1)
+end)
+
+T.test("sleep: a player order wakes the homesteader, who then goes back to bed", function()
+  local world = newWorld(4)
+  local hs = Actors.homesteader(world)
+  local bed = Sleep.bedtimeHours(world)
+  setTime(world, 1, bed)
+  run(world, HOUR * 2)
+  T.truthy(hs.asleep)
+  local grid = world.state.grid
+  local sx, sy = Grid.coords(grid, world.state.land.spawn)
+  local target
+  for r = 3, 8 do
+    local i = Grid.index(grid, sx, sy + r)
+    if Grid.inBounds(grid, sx, sy + r) and Grid.walkable(world, i) then
+      target = i
+      break
+    end
+  end
+  T.truthy(target, "found somewhere to walk")
+  T.truthy(Actors.order(world, hs, target))
+  run(world, 0.1)
+  T.falsy(hs.asleep, "woken by the order")
+  run(world, HOUR * 1.5)
+  T.truthy(hs.asleep, "back in bed once the order is done")
+end)
+
+T.test("sleep: winter means a longer night in bed", function()
+  local world = newWorld(1)
+  local bed, wake = Sleep.bedtimeHours(world)
+  setTime(world, tun.time.daysPerSeason * 3 + 1, 12)
+  local wbed, wwake = Sleep.bedtimeHours(world)
+  T.truthy(wwake + 24 - wbed > wake + 24 - bed + 3)
 end)
