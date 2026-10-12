@@ -40,6 +40,16 @@ return {
     autumn = { tint = { 1.04, 0.98, 0.90 }, saturation = 0.95 },
     winter = { tint = { 0.94, 0.98, 1.06 }, saturation = 0.78 },
   },
+  actionRing = { -- progress ring over the target tile while the homesteader works (D44); sizes in virtual UI pixels, so it is the same size at every zoom
+    radius = 9, -- outer radius; a ~20 px circle stays readable at 640x360 and on a phone
+    thickness = 3, -- ring width
+    minSeconds = 0.5, -- hide actions with less work than this (game seconds at 1x); they'd only flicker
+    backColor = { 0.06, 0.07, 0.06, 0.75 }, -- disc behind the ring so it reads on any ground
+    trackColor = { 0.93, 0.91, 0.84, 0.35 }, -- the unfilled part of the ring
+    orderedColor = { 0.89, 0.71, 0.36, 1 }, -- fill for actions the player ordered (matches the UI accent)
+    routineColor = { 0.62, 0.80, 0.84, 1 }, -- fill for actions the idle routine chose
+    segments = 28, -- polygon segments in a full circle
+  },
   vignette = 0.28, -- 0..1 darkening toward the screen edges
   grain = 0.035, -- 0..1 film grain strength
 }

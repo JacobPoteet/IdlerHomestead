@@ -5,7 +5,8 @@
 -- decides the rest: a seed tills/plants, the rod fishes. "Plan field" marks a rectangle (two taps)
 -- for the routine to farm; "Place" puts down equipment from the inventory. Tapping the truck opens
 -- the truck panel. After tuning.idle.takeoverDelay seconds without input (less with habits perks),
--- the routine takes over.
+-- the routine takes over; "Start routine" does it at once (D43). The speed button cycles the sim
+-- speed (paused/1x/2x/4x, D42); panels and the camera keep working while paused.
 
 local Camera = require("src.core.camera")
 local Session = require("src.session")
@@ -25,6 +26,7 @@ local Stats = require("src.sim.stats")
 local Power = require("src.sim.systems.power")
 local Processing = require("src.sim.systems.processing")
 local Renderer = require("src.render.world_renderer")
+local ActionRing = require("src.render.action_ring")
 local Assets = require("src.render.assets")
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
@@ -79,6 +81,8 @@ function Homestead:subscribe()
   end
   self.unsubscribe = {
     events:on("fishing.ready", function()
+      -- The fishing mini-game plays in real time: don't let the world race past it.
+      self.session:setSpeed(self.app.ctx.tuning.time.defaultSpeed)
       self.app:push(require("src.scenes.fishing").new(world, function(fish, size, first)
         self:showToast(string.format("%s%s, %d cm", first and "New! " or "", fish.name, size))
       end))
@@ -296,6 +300,7 @@ function Homestead:layout()
       self.app:push(require("src.scenes.routine").new(world))
     end,
   })
+  self:layoutControls(view)
   -- Right side: books and lists
   local rx = view.w - 6
   local function addRight(b)
@@ -336,6 +341,66 @@ function Homestead:layout()
   })
 end
 
+-- Speed and routine buttons: a column under the top bar, away from the (crowded) toolbar.
+function Homestead:speedLabel()
+  local speed = self.session:speed()
+  return speed == 0 and "Paused" or string.format("%gx", speed)
+end
+
+function Homestead:routineLabel()
+  if not self.session:canStartRoutine() then
+    return "Resting"
+  end
+  return self.world.control == "idle" and "Routine on" or "Start routine"
+end
+
+function Homestead:controlsKey()
+  return self:speedLabel() .. "|" .. self:routineLabel()
+end
+
+function Homestead:cycleSpeed()
+  self.session:cycleSpeed(self.app.ctx.tuning.time.speedSteps)
+  self:layout()
+end
+
+--- Hand over to the routine now (D43). Says why when it can't.
+function Homestead:startRoutine()
+  if self.world.control == "idle" then
+    return true -- already running
+  end
+  local ok = self.session:startRoutineNow()
+  if not ok then
+    self:showToast("The routine rests at night")
+  end
+  self:layout()
+  return ok
+end
+
+function Homestead:layoutControls(view)
+  local x2, y = view.w - 4, TOP_H + 4
+  local speedLabel, routineLabel = self:speedLabel(), self:routineLabel()
+  local function addCol(label, b)
+    b.label = label
+    b.w = math.max(54, math.ceil(Text.measure(label, "body")) + 14)
+    b.x, b.y, b.h = x2 - b.w, y, 24
+    self.buttons:add(b)
+    y = y + b.h + 4
+  end
+  addCol(speedLabel, {
+    style = self.session:speed() == 0 and "accent" or nil,
+    onPress = function()
+      self:cycleSpeed()
+    end,
+  })
+  addCol(routineLabel, {
+    enabled = routineLabel == "Start routine",
+    onPress = function()
+      self:startRoutine()
+    end,
+  })
+  self.controlsKeyShown = self:controlsKey()
+end
+
 function Homestead:openMenu()
   self.app:push(require("src.scenes.menu").new(function()
     self.app:switch(require("src.scenes.slots").new())
@@ -352,9 +417,9 @@ end
 
 function Homestead:update(dt)
   local ctx = self.app.ctx
-  local idle = ctx.input:idleSeconds() >= self:takeoverDelay()
+  self.session:update(dt) -- (also ends a hand-started routine at bedtime)
+  local idle = self.session:routineForced() or ctx.input:idleSeconds() >= self:takeoverDelay()
   self.session:setControl(idle and "idle" or "active")
-  self.session:update(dt)
   if self.failed then
     -- Condition hit zero: the run is over (GDD §4.3). Record it, then search & rescue.
     local slot, data = self.session.slot, self.session.data
@@ -371,6 +436,9 @@ function Homestead:update(dt)
         self:showToast(table.remove(self.toastQueue, 1))
       end
     end
+  end
+  if self:controlsKey() ~= self.controlsKeyShown then
+    self:layout()
   end
   -- The Journal button lights up while there's an idea to pick and nothing queued (GDD §8.1).
   if Journal.needsChoice(self.world) ~= self.journalPrompt then
@@ -449,6 +517,7 @@ function Homestead:tap(i)
   local hs = Actors.homesteader(world)
   local taskType = Actors.order(world, hs, i, { crop = self.seed, tool = self.tool })
   if taskType then
+    self.session:cancelRoutine() -- any order hands control back (D43)
     if taskType.id ~= "move" then
       self:showToast(taskType.verb)
     end
@@ -479,6 +548,10 @@ function Homestead:action(name, data)
     if self:inWorldArea(data.y) then
       self.selected = self:tileAt(data.x, data.y) -- inspect only
     end
+  elseif name == "speed" then
+    self:cycleSpeed()
+  elseif name == "routine" then
+    self:startRoutine()
   elseif name == "cancel" then
     if self.planStart then
       self.planStart = nil
@@ -611,6 +684,8 @@ function Homestead:drawControlBadge(view)
   local text, color
   if Actors.homesteader(self.world).asleep then
     text, color = "Sleeping", theme.colors.textDim
+  elseif self.session:speed() == 0 then
+    text, color = "Paused", theme.colors.accent
   elseif self.world.control == "idle" then
     text, color = "Routine running", theme.colors.accent
   else
@@ -708,6 +783,7 @@ function Homestead:draw()
   love.graphics.pop()
 
   -- HUD (not graded)
+  ActionRing.draw(self.world, self.camera, view, { top = TOP_H, bottom = view.h - BOTTOM_H })
   self:drawTopBar(view)
   self:drawForecast()
   self:drawBottomBar(view)

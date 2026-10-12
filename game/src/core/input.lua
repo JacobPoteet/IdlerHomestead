@@ -10,6 +10,8 @@
 --   zoom    {steps, x, y} mouse wheel, pinch, or +/- keys (x, y = anchor point)
 --   hover   {x, y}        mouse moved with no button (desktop only; never required by UI)
 --   cancel  {}            Escape / Android back
+--   speed   {}            Space: cycle the game speed (the on-screen button does the same)
+--   routine {}            R: start the idle routine now
 --
 -- Also tracks the time of the last real input for idle takeover (GDD §5.2).
 
@@ -227,6 +229,10 @@ function Input:keypressed(key)
   self:activity()
   if key == "escape" then
     self:emit("cancel")
+  elseif key == "space" then
+    self:emit("speed")
+  elseif key == "r" then
+    self:emit("routine")
   elseif ZOOM_KEYS[key] then
     local view = self.app.view
     self:emit("zoom", { steps = ZOOM_KEYS[key], x = view.w / 2, y = view.h / 2 })

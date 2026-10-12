@@ -17,16 +17,7 @@ function Debug:keypressed(key)
   elseif key == "f2" then
     local session = self.app.ctx.session
     if session then
-      local scales = self.app.ctx.tuning.time.debugTimeScales
-      local current = session.clock.timeScale
-      local nextScale = scales[1]
-      for i, s in ipairs(scales) do
-        if s == current then
-          nextScale = scales[i % #scales + 1]
-          break
-        end
-      end
-      session.clock.timeScale = nextScale
+      session:cycleSpeed(self.app.ctx.tuning.time.debugTimeScales)
     end
     return true
   end

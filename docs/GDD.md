@@ -117,7 +117,7 @@ A run lasts as many years as you survive. There is no "win screen". Each year as
 | **Decisions** (build, choose study, buy, plan fields, food rules, truck trips) | Player | **Never automated.** Pending decisions show as gentle notifications. |
 | **Efficiency** | Base × active multiplier | Base × idle multiplier (raised by upgrades) |
 
-Any input instantly hands control back. All multipliers live in tuning (§12.3) and will be iterated on heavily.
+Any input instantly hands control back. A **Start routine** button (key R) skips the wait and hands over at once (D43). All multipliers live in tuning (§12.3) and will be iterated on heavily.
 
 ### 5.3 Chores → automation ladder
 
@@ -190,7 +190,7 @@ Prices vary week to week. Some goods are in demand. Preserved goods sell for mor
 ## 7. Systems
 
 ### 7.1 Time & calendar
-- Fixed-step simulation tick, separate from rendering. Time scale adjustable (debug, and maybe player speed-up).
+- Fixed-step simulation tick, separate from rendering. Time scale adjustable: a debug key, and a player speed button (paused / 1x / 2x / 4x, D42).
 - **No offline progress.** Time only passes while the game is open. Keeps running when unfocused or minimized (desktop). Mobile suspends, so time pauses.
 - Day/night cycle, seasons, weather. Weather affects crops, solar, wind, fish activity, and threats.
 - **Nights** are when studying happens (§8.3).
@@ -480,7 +480,7 @@ Headless sim tests, plus a **balance harness** that simulates years with scripte
 | 1 | Exact tension mini-game feel (bite window, surge patterns, how much gear helps). | M2, by prototyping |
 | 2 | ~~Journal map layout: fixed hand-placed node positions, or auto-layout from data?~~ **Decided: auto-layout from data (D41).** | M3 |
 | 3 | Can studying also happen during the day (sitting at a desk instead of working)? | M3 |
-| 4 | Player time speed-up (2×, 3×)? Unlockable perk? | M3 |
+| 4 | ~~Player time speed-up (2×, 3×)? Unlockable perk?~~ **Decided: always available, paused/1x/2x/4x (D42).** | M3 |
 | 5 | Tile size final (16×16 vs. 32×32) once art direction / asset pack is chosen. | Before M7 art pass |
 | 6 | Does the widget follow the homesteader, or show a pinned spot (or both)? | M4 |
 
@@ -531,3 +531,6 @@ Headless sim tests, plus a **balance harness** that simulates years with scripte
 | D39 | **Recovery is a saved state.** Failing discards `run` immediately and stores the run summary in `meta`; the slot shows "Recovering in town" until the player heads out. The free study during recovery learns one current idea instantly. Notes remember which run wrote them, for the run summary. |
 | D40 | **Perks are journal nodes like catalog items** (needs + study nights), not a separate tree. Head starts apply once at the start of each run; habit and weather-sense perks are stat modifiers. |
 | D41 | **The journal map is auto-laid-out from data**, not hand-placed. A chapter lists the `page`s it holds; a node lands in the chapter whose pages list its `page`. Inside a chapter, notes sit in a column left of the nodes, ordered to keep lines from crossing, and chapters pack into columns left to right in file order. New content therefore never needs a position, and an empty chapter (animals, machines) stays hidden until it holds a node. A node's card offers *Order* for any known catalog item, so the journal map doubles as the shop view. |
+| D42 | **Player game speed** is a button (key Space) cycling `tuning.time.speedSteps` (paused, 1x, 2x, 4x), on the same sim time scale the F2 debug key uses (one mechanism: `Session:cycleSpeed`). Always available, not a perk. Paused stops the sim only: panels, the camera and orders still work (an order given while paused starts when you resume). Speed is runtime state, never saved: a new session (loading a slot, starting a new run after recovery) starts at `tuning.time.defaultSpeed`; opening panels keeps it; the fishing mini-game drops it back to default so the world doesn't race past a real-time minigame. The idle takeover delay counts real seconds, not game seconds, at every speed. |
+| D43 | **Start routine now.** A button (key R) makes the routine take over immediately. It is refused while the homesteader is resting (asleep, walking to bed, or any bedtime, D35) and the button reads "Resting". Control returns to the player on any order (a world tap that starts a task), as with normal takeover, after which the usual takeover delay counts from that moment; panning, zooming and opening panels do not cancel it. Bedtime ends it too, and the morning does not restart it (normal takeover applies). Whether reading a panel counts as "active" for the normal takeover is still open (#14). |
+| D44 | **Action progress ring.** The sim exposes `Actors.progress(world, actor)` (task, target, fraction, duration, remaining) for the current timed action; walking and instant actions (work time 0) have none. Render draws a circle that fills over the target tile, in UI pixels (constant size at any zoom), tinted differently for player and routine actions. Actions shorter than `visuals.actionRing.minSeconds` (0.5s of work) show no ring, to avoid flicker. Sizes and colors are in `data/tuning/visuals.lua`. |
