@@ -9,5 +9,6 @@ return {
   "notes",
   "catalog",
   "perks",
+  "chapters",
   "task_categories",
 }

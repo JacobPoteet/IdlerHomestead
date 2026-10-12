@@ -77,8 +77,13 @@ return {
     match = "table?", -- event field -> value, or { min = n } / { max = n }
     count = "number?", -- matching events needed (default 1)
   },
+  chapters = {
+    name = "string", -- region title on the journal map
+    pages = "table", -- node `page` values that belong to this chapter
+  },
   catalog = {
     name = "string",
+    line = "string", -- what it does, for the journal card (<= ~8 words)
     page = "string", -- catalog page / journal chapter grouping
     price = "number", -- $
     starter = "boolean?", -- known from the start; others are learned in the Field Journal
