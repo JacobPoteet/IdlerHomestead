@@ -87,6 +87,9 @@ local function decodeSlot(contents)
     return nil, err or "not a table"
   end
   local version = data.version or 0
+  if type(version) ~= "number" then
+    return nil, "save has an invalid version"
+  end
   if version > Save.FORMAT_VERSION then
     return nil, "save is from a newer version of the game"
   end
@@ -95,7 +98,11 @@ local function decodeSlot(contents)
     if not migrate then
       return nil, "no migration from save version " .. version
     end
-    data = migrate(data)
+    local ok, migrated = pcall(migrate, data)
+    if not ok or type(migrated) ~= "table" then
+      return nil, "migration from save version " .. version .. " failed"
+    end
+    data = migrated
     version = version + 1
     data.version = version
   end
@@ -126,8 +133,9 @@ function Save:write(index, data)
   self:checkIndex(index)
   data.version = Save.FORMAT_VERSION
   local contents = serialize.encode(data)
+  -- Only rotate a readable file into the backup; a corrupt main must never replace a good .bak.
   local previous = self.backend.read(mainPath(index))
-  if previous then
+  if previous and decodeSlot(previous) then
     self.backend.write(backupPath(index), previous)
   end
   local ok, err = self.backend.write(mainPath(index), contents)

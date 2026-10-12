@@ -73,9 +73,9 @@ end
 
 function Fishing.rollSize(world, fish)
   local rng = world:rng("fishing")
-  -- Bias toward the small end; big ones are special.
+  -- Product of two rolls skews toward the small end; big ones are special.
   local t = rng:float() * rng:float()
-  return math.floor(fish.sizeMin + (fish.sizeMax - fish.sizeMin) * (1 - t) * 0.5 + (fish.sizeMax - fish.sizeMin) * t + 0.5)
+  return math.floor(fish.sizeMin + (fish.sizeMax - fish.sizeMin) * t + 0.5)
 end
 
 --- Record a caught fish: adds it to stock and the persistent fish guide.
@@ -96,7 +96,6 @@ end
 
 function Fishing.init(world)
   world.meta.fishGuide = world.meta.fishGuide or {}
-  local cfg = world.tuning.fishing
   Tasks.register(world, {
     id = "fish",
     category = "fish",
@@ -116,7 +115,8 @@ function Fishing.init(world)
       end
       return Grid.terrain(w, i).water == true and Fishing.hasRod(w)
     end,
-    workTime = function(_, actor)
+    workTime = function(w, actor)
+      local cfg = w.tuning.fishing
       return actor.job and actor.job.ordered and cfg.castTime or cfg.idleAttemptTime
     end,
     complete = function(w, actor, i, order)
@@ -124,6 +124,7 @@ function Fishing.init(world)
         w.events:emit("fishing.ready", { tile = i, actor = actor.id })
         return
       end
+      local cfg = w.tuning.fishing
       local chance = cfg.idleCatchChance
       if Ledger.remove(w, "bait", 1, "fishing") then
         chance = chance + cfg.baitIdleBonus

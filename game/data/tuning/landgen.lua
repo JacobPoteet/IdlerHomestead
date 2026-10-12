@@ -5,7 +5,11 @@ return {
   creekMinWidth = 2, -- tiles
   creekMaxWidth = 3, -- tiles
   creekWanderChance = 0.35, -- per row, chance the creek shifts a tile sideways
+  creekWidthChangeChance = 0.08, -- per row, chance the creek widens or narrows by a tile
   fordCount = 2, -- shallow crossings over the creek
+  roadMinRow = 0.35, -- fraction of map height; highest row the road may enter on
+  roadMaxRow = 0.65, -- fraction of map height; lowest row the road may enter on
+  roadWobbleChance = 0.15, -- per tile, chance the road steps up or down a row
   roadMinLength = 10, -- tiles the road runs in from the map edge
   roadMaxLength = 16, -- tiles
   truckClearRadius = 3, -- tiles around the truck kept free of clutter
