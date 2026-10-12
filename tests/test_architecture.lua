@@ -19,6 +19,7 @@ local function simFiles()
     "game/src/sim/landgen.lua",
     "game/src/sim/noise.lua",
     "game/src/sim/stats.lua",
+    "game/src/sim/routine_rules.lua",
     "game/src/sim/minigames/fishing_model.lua",
     "game/src/meta/run.lua",
   }

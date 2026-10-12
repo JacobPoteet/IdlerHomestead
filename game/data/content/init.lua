@@ -12,4 +12,5 @@ return {
   "finds",
   "chapters",
   "task_categories",
+  "routine_conditions",
 }

@@ -470,3 +470,18 @@ T.test("balance: a full reach is cleared within a day of sun for a few kWh", fun
   T.truthy(perCrop > 0 and perCrop < 0.15, string.format("%.3f kWh a crop", perCrop))
   T.truthy(kwh < tun.economy.tripCost / 3, string.format("%.1f kWh for the field", kwh))
 end)
+
+T.test("harvester: ignores the routine's thresholds (they only steer the idle homesteader)", function()
+  local world, _, tiles = harvestWorld(3, 4)
+  for _, e in ipairs(world.state.priorities) do
+    if e.category == "harvest" then
+      e.cond = { kind = "hour_after", value = 23 } -- not before 23:00
+    end
+  end
+  T.falsy(Tasks.conditionMet(world, "harvest"), "at ten in the morning the harvest category waits")
+  local job = Tasks.chooseIdleJob(world, Actors.homesteader(world))
+  T.truthy(job == nil or job.task ~= "harvest", "the homesteader's routine skips the held-back category")
+  run(world, HOUR * 2)
+  T.eq(ripeCount(world, tiles), 0, "the machine harvests regardless")
+  T.truthy(Machines.done(world) > 0)
+end)
