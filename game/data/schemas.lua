@@ -37,6 +37,7 @@ return {
     vehicle = "boolean?", -- battery: the truck; charged in the "truck" priority tier, lends power only above a trip reserve
     placeNear = "string?", -- placement rule: must touch this terrain ("water": next to the creek; "road": beside the road, not on it)
     stand = "boolean?", -- roadside stand: sells capped crate goods each day (tuning.stand, GDD §6.4)
+    offRoad = "boolean?", -- placement rule: never on the road (the hen house)
     placeOn = "string?", -- placement rule: "waterTable" needs a tile with a high water table (wells, pumps; GDD §5.3)
     waterSource = "table?", -- a place to fill the bucket: { fillTime = seconds, stored? = draws on the cistern stock }
     pump = "table?", -- pumps water into cisterns: { rate = units per in-game hour at full power }; also needs a `sink`
@@ -48,6 +49,7 @@ return {
     splitter = "boolean?", -- wood is split into firewood here
     chop = "boolean?", -- an axe (chopSpeed) speeds up clearing it
     storage = "table?", -- resource -> extra storage capacity while placed
+    coop = "table?", -- hen house: { nest = eggs held, feeder = feed units held, waterer = water units held, guard = 0..1 chance a night raid is turned back }; see src/sim/systems/animals.lua
   },
   crops = {
     name = "string",

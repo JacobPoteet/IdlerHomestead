@@ -31,6 +31,7 @@ local Processing = require("src.sim.systems.processing")
 local Market = require("src.sim.systems.market")
 local Stand = require("src.sim.systems.stand")
 local Cat = require("src.sim.systems.cat")
+local Animals = require("src.sim.systems.animals")
 local Finds = require("src.sim.systems.finds")
 local Renderer = require("src.render.world_renderer")
 local ActionRing = require("src.render.action_ring")
@@ -121,6 +122,29 @@ function Homestead:subscribe()
         end
       end
       self:queueToast("Mice got into the stores: lost " .. table.concat(parts, ", "))
+    end),
+    events:on("animals.collected", function(e)
+      self:showToast(string.format("Collected %d egg%s", e.count, e.count == 1 and "" or "s"))
+    end),
+    events:on("animals.short", function(e)
+      if e.feed then
+        self:queueToast("The hens ran short of feed. Buy a sack or tend the coop.")
+      elseif e.water then
+        self:queueToast("The hens' waterer ran dry. Tend the coop.")
+      end
+    end),
+    events:on("animals.lost", function(e)
+      self:queueToast(e.reason == "thirst" and "A hen was lost: no water" or "A hen was lost: no feed")
+    end),
+    events:on("animals.predator", function(e)
+      if e.stopped then
+        self:queueToast("A fox tried the coop in the night. The door held.")
+      else
+        self:queueToast(string.format("A fox got into the coop: lost %d hen%s", e.killed, e.killed == 1 and "" or "s"))
+      end
+    end),
+    events:on("animals.nestFull", function()
+      self:queueToast("The nest box is full: the hens have stopped laying until you collect")
     end),
     events:on("routine.idleHint", function()
       -- Only while the player is looking at the world; panels would hide it (D55).
@@ -310,6 +334,13 @@ function Homestead:stats()
   if Water.hasCistern(world) then
     -- Cistern stock, once there is a cistern to hold it.
     stats[#stats + 1] = { "icon_water", string.format("%d%%", math.floor(Water.fraction(world) * 100 + 0.5)) }
+  end
+  if Animals.hasCoop(world) then
+    -- Hens (red when they are short of feed or water) and the eggs waiting in the nest box.
+    local flock = Animals.info(world)
+    local short = flock.hens > 0 and (flock.hungryDays > 0 or flock.thirstyDays > 0 or flock.feedDays < 1)
+    stats[#stats + 1] = { "icon_hen", string.format("%d/%d", flock.hens, flock.housing), short and theme.colors.danger or nil }
+    stats[#stats + 1] = { "icon_egg", tostring(flock.nest) }
   end
   return stats
 end
@@ -942,7 +973,8 @@ function Homestead:storageNotes()
   local world = self.world
   local notes, full = {}, {}
   for _, res in ipairs(world.registry:all("resources")) do
-    if res.id ~= "water" and Ledger.isFull(world, res.id) then
+    -- A full coop is not a warning (it only holds new hens at the gate), so hens are left out.
+    if res.id ~= "water" and res.category ~= "animal" and Ledger.isFull(world, res.id) then
       full[#full + 1] = res.name
     end
   end
@@ -1140,6 +1172,20 @@ function Homestead:tileInfo(i)
       else
         lines[#lines + 1] = "No sales yet"
       end
+    end
+    if obj.coop then
+      local flock = Animals.info(world)
+      lines[#lines + 1] = string.format("Hens %d / %d", flock.hens, flock.housing)
+      lines[#lines + 1] = string.format("Nest %d / %d eggs", flock.nest, flock.nestCap)
+      if flock.hens > 0 then
+        local days = flock.feedDays == math.huge and "" or string.format(" · %.0fd", flock.feedDays)
+        lines[#lines + 1] = string.format("Feed %.0f / %d%s", flock.feed, flock.feedCap, days)
+        lines[#lines + 1] = string.format("Water %.1f / %d", flock.water, flock.waterCap)
+        if flock.hungryDays > 0 or flock.thirstyDays > 0 then
+          lines[#lines + 1] = flock.thirstyDays > 0 and "Dry: tend the coop" or "Hungry: add feed"
+        end
+      end
+      lines[#lines + 1] = string.format("Fox guard %d%%", math.floor(flock.guard * 100 + 0.5))
     end
     if obj.heatSource then
       lines[#lines + 1] = string.format("Heat x%.1f · needs %d a night", obj.heatSource, Needs.warmthNeeded(world))

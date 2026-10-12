@@ -112,6 +112,12 @@ function Market.cannotBuy(world, id, pickup)
       end
     end
   end
+  -- Livestock need somewhere to live before they can be bought (D63): the hen store is the coop.
+  for res in pairs(item.gives or {}) do
+    if world.registry:get("resources", res).category == "animal" and Ledger.capacity(world, res) <= 0 then
+      return "needs a coop"
+    end
+  end
   -- Goods that could never fit in their store, even empty, must not be sold (D60).
   if Market.neverFits(world, id) then
     return "too big for storage"

@@ -214,6 +214,10 @@ Reading it:
 
 The scripted player earns about 70 dollars in year 1 and 155 in two years, so the features hardly start: alive at the end of winter 2 is 20 percent (none) against 30 percent (all); winter 2 fuel cover 0.28 against 0.37; the stand makes 4 dollars in year 2; the cat is owned by 100 percent and cuts food lost from 43.5 to 26.9 units. Treat scripted as the "not engaged" floor: it dies in winter 2 whichever way it plays. Part of that "failure" is the span edge (see the harness issue).
 
+### Chickens (#40, D63, D64)
+
+A seventh feature, `chickens`, is on by default: the policies buy the coop and the feed refill when known, the trip buys hens (three at a time) while the coop has room, the fence is bought after a raid takes hens, the scripted policy tends the coop through the routine's `animals` category, and the active one orders `tend_coop` itself. The report gains a "Chickens per run" line (eggs collected, hens lost, raids the coop turned back). Check, `policy=scripted,active seeds=3 years=1`: no failures either way, eggs collected 0 (scripted) and 2 (active) in year 1, because the coop sits behind the cat and stand in the shopping list and money is the limit (#143). Active, `seeds=6 years=2`: 52 eggs per run, 1.8 hens lost per run (foxes), 3.2 raids turned back, 0 of 6 failed, coop owned by 100 percent and the fence by 67. Unit-level sanity (tests): a six-hen flock earns in summer, about breaks even in winter at the catalog feed price.
+
 ### Follow-up issues
 
 - #124 power items make truck income unbounded

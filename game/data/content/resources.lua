@@ -39,6 +39,15 @@ return {
   -- Fresh produce
   { id = "radish", name = "Radish", category = "food", calories = 300, spoilDays = 4, value = 1 },
   { id = "potato", name = "Potato", category = "food", calories = 900, spoilDays = 20, value = 2, keepsForWinter = true },
+  -- Eggs (GDD §7.7, D63): laid by hens, collected from the coop's nest box. Capacity is a base cap
+  -- (a full store holds the eggs in the nest instead of losing them, D59).
+  { id = "egg", name = "Egg", category = "food", calories = 90, spoilDays = 14, value = 2, capacity = 40 },
+
+  -- Livestock (GDD §7.7, D63). Hens are a flock count in the ledger: their capacity is 0 until a coop
+  -- is placed (`storage` in objects.lua), so a hen needs a coop, and a full coop leaves new hens waiting.
+  { id = "hen", name = "Hen", category = "animal", capacity = 0 },
+  -- Layer feed: bought in sacks, kept in the ledger, and moved to the coop's feeder by the tend chore.
+  { id = "chicken_feed", name = "Chicken feed", category = "supply", capacity = 40 },
 
   -- Preserved food (keeps all winter; sells for more than fresh, GDD §6.2)
   { id = "smoked_fish", name = "Smoked fish", category = "preserved", calories = 700, value = 10 },

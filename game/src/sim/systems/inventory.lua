@@ -95,6 +95,9 @@ function Inventory.canPlace(world, id, i)
     if not terrain.walkable or terrain.water or world.occupancy[t] then
       return false
     end
+    if def.offRoad and terrain.id == "road" then
+      return false -- a henhouse does not go in the road
+    end
     if def.placeOn == "waterTable" and not Land.hasWaterTable(world, t) then
       return false -- wells and pumps need groundwater close to the surface
     end

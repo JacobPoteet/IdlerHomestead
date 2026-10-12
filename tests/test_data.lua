@@ -113,8 +113,10 @@ T.test("storage fit: every catalog item's gives fits its resource capacity", fun
   local reg = Registry.new():loadAll()
   for _, item in ipairs(reg:all("catalog")) do
     for res, amount in pairs(item.gives or {}) do
+      -- Livestock live in a coop or pen that adds the capacity (base 0); Market.cannotBuy asks for the housing first.
+      local housed = reg:get("resources", res).category == "animal"
       T.truthy(
-        amount <= baseCapacity(reg, res),
+        housed or amount <= baseCapacity(reg, res),
         string.format("catalog '%s' gives %d %s but its capacity is %s", item.id, amount, res, tostring(baseCapacity(reg, res)))
       )
     end

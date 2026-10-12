@@ -56,7 +56,8 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 | `solar_array` 32x16 (2x1), `battery_bank`, `micro_hydro`, `generator`, `electric_heater`, `lamp`, `chest_freezer` 16x16, `wind_turbine` 16x32 | various | M5 (placeholders) | Power network (#34). The turbine needs blade animation; the generator, heater and freezer need on/off art states (today a status light is drawn over them, see `visuals.powerLamp`). Icons `icon_<object>` and `icon_fuel` are 12x12. |
 | Roadside stand `roadside_stand` 32×24 (2×1 footprint, tall awning), icon `icon_roadside_stand` 12×12 (reused for the three upgrade icons) | M5 (placeholder) | Roadside stand (#37). Needs: real awning and table art, goods that show what is on sale, upgrade looks (sign, cooler, display rack). |
 | Cat actors `cat` 14×10 (sitting) and `cat_nap` 14×10 (curled up), icon `icon_cat` 12×12 (also `icon_shelter_cat`) | M5 (placeholder) | Mice and the cat (#36). Needs a real walk cycle, grooming, night sleep, a mouse. See #116. |
-| Chicken coop, goat shed, barn | various | M6–M7 | |
+| Chicken coop `chicken_coop` 32×24 (2×1 footprint), hen actor `hen` 10×9 (facing right, flipped in code), icons `icon_hen`, `icon_egg`, `icon_chicken_coop`, `icon_chicken_feed`, `icon_chicken_fence` 12×12 | M6 (placeholder) | Chickens (#40, D63). Needs: a real hen walk, peck and roost cycle, a chick, coop door open/closed art, a visible feeder and waterer, fence art around the run, eggs in the nest box (cream dots today, `visuals.hens`). |
+| Goat shed, barn | various | M6–M7 | Goats are a follow-up to #40. |
 
 ### Crops (16×16, 3 growth stages: sprout, growing, ready)
 

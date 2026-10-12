@@ -22,6 +22,7 @@
 -- tuning and content.
 
 local Actors = require("src.sim.systems.actors")
+local Animals = require("src.sim.systems.animals")
 local Calendar = require("src.sim.systems.calendar")
 local Crops = require("src.sim.systems.crops")
 local Features = require("features")
@@ -294,7 +295,8 @@ function Base:trip(world)
       wantsPickup = true
     end
   end
-  if total < POLICY.minTripValue and not wantsPickup then
+  local extra = Features.tripItems(world, self.features)
+  if total < POLICY.minTripValue and not wantsPickup and #extra == 0 then
     return
   end
   if Market.startTrip(world) then
@@ -303,6 +305,9 @@ function Base:trip(world)
       if not ownsOrPending(world, id) then
         Market.buyInTown(world, id)
       end
+    end
+    for _, id in ipairs(extra) do
+      Market.buyInTown(world, id)
     end
     Market.endTrip(world)
   end
@@ -631,6 +636,15 @@ function Active:choose(world, actor)
       if tryOrder(self, world, actor, candidates) then
         return true
       end
+    end
+  end
+  -- Tend the hens: eggs, feed and water (the routine does this itself, but an active player is quicker).
+  if self.features.chickens and Animals.needsTending(world) then
+    local coops = objectAnchors(world, function(def)
+      return def.coop ~= nil
+    end)
+    if #coops > 0 and tryOrder(self, world, actor, coops) then
+      return true
     end
   end
   -- Heading into the cold, firewood comes before new planting.

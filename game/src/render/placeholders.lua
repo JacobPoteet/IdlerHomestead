@@ -756,6 +756,99 @@ function P.drip_line(p)
   end
 end
 
+-- Chickens (GDD §7.7, D63) ----------------------------------------------------------------
+
+local HEN_BODY = { 0.80, 0.50, 0.28 }
+local HEN_DARK = { 0.60, 0.34, 0.18 }
+local HEN_COMB = { 0.84, 0.22, 0.22 }
+local COOP_WALL = { 0.72, 0.28, 0.24 }
+local COOP_WALL_DARK = { 0.56, 0.20, 0.18 }
+local COOP_ROOF = { 0.38, 0.30, 0.26 }
+local EGG_SHELL = { 0.96, 0.92, 0.82 }
+
+-- A hen, 10x9, facing right.
+function P.hen(p)
+  p:ellipse(5, 8, 4, 1, C.shadow)
+  p:rect(1, 3, 6, 4, HEN_BODY) -- body
+  p:rect(1, 5, 5, 1, HEN_DARK) -- wing
+  p:rect(0, 2, 2, 2, HEN_DARK) -- tail
+  p:rect(6, 1, 3, 3, HEN_BODY) -- head
+  p:px(7, 0, HEN_COMB)
+  p:px(8, 0, HEN_COMB)
+  p:px(9, 2, C.gold) -- beak
+  p:px(7, 2, C.tire) -- eye
+  p:px(8, 4, HEN_COMB) -- wattle
+  p:px(3, 7, C.gold) -- legs
+  p:px(5, 7, C.gold)
+end
+
+-- The coop (32x24): a small red henhouse on stilts with a ramp, nest box on the side and a pitched roof.
+function P.chicken_coop(p)
+  p:ellipse(16, 22, 15, 2, C.shadow)
+  p:rect(4, 8, 22, 12, COOP_WALL) -- walls
+  for x = 6, 24, 4 do
+    p:rect(x, 8, 1, 12, COOP_WALL_DARK) -- boards
+  end
+  p:rect(3, 6, 24, 2, COOP_ROOF) -- roof
+  p:rect(5, 4, 20, 2, COOP_ROOF)
+  p:rect(8, 2, 14, 2, COOP_ROOF)
+  p:rect(5, 20, 2, 2, C.barkDark) -- stilts
+  p:rect(23, 20, 2, 2, C.barkDark)
+  p:rect(12, 12, 6, 8, C.barkDark) -- pop door
+  p:rect(13, 13, 4, 7, { 0.12, 0.10, 0.09 })
+  p:rect(9, 19, 12, 1, C.barkLight) -- ramp
+  p:rect(8, 20, 3, 1, C.bark)
+  p:rect(26, 11, 5, 6, C.barkLight) -- nest box
+  p:rect(26, 10, 5, 1, C.bark)
+  p:rect(27, 13, 3, 3, C.barkDark)
+  p:px(28, 14, EGG_SHELL)
+end
+
+function P.icon_hen(p)
+  p:rect(2, 4, 6, 5, HEN_BODY)
+  p:rect(2, 7, 5, 1, HEN_DARK)
+  p:rect(1, 3, 2, 2, HEN_DARK)
+  p:rect(6, 2, 3, 3, HEN_BODY)
+  p:px(7, 1, HEN_COMB)
+  p:px(8, 1, HEN_COMB)
+  p:px(9, 3, C.gold)
+  p:px(7, 3, C.tire)
+  p:px(3, 9, C.gold)
+  p:px(6, 9, C.gold)
+end
+
+function P.icon_egg(p)
+  p:ellipse(6, 6, 3, 4, EGG_SHELL)
+  p:px(5, 4, C.white)
+  p:rect(4, 8, 4, 1, { 0.82, 0.76, 0.64 })
+end
+
+function P.icon_chicken_coop(p)
+  p:rect(1, 4, 10, 6, COOP_WALL)
+  p:rect(0, 3, 12, 1, COOP_ROOF)
+  p:rect(2, 1, 8, 2, COOP_ROOF)
+  p:rect(4, 6, 3, 4, C.barkDark)
+  p:rect(8, 7, 2, 2, EGG_SHELL)
+end
+
+function P.icon_chicken_feed(p)
+  p:rect(2, 3, 8, 8, C.barkLight) -- sack
+  p:rect(3, 2, 6, 1, C.bark)
+  p:rect(4, 1, 4, 1, C.bark)
+  for _, g in ipairs({ { 4, 5 }, { 6, 6 }, { 7, 8 }, { 4, 8 } }) do
+    p:px(g[1], g[2], C.gold) -- grain
+  end
+end
+
+function P.icon_chicken_fence(p)
+  p:rect(0, 8, 12, 1, C.metal)
+  p:rect(0, 4, 12, 1, C.metal)
+  for x = 1, 10, 3 do
+    p:rect(x, 2, 1, 9, C.bark)
+  end
+  p:px(5, 1, C.gold) -- the light
+end
+
 -- Roadside stand: a plank table under a striped awning, with crates of goods (32x24).
 function P.roadside_stand(p)
   local awningRed = { 0.74, 0.28, 0.24 }

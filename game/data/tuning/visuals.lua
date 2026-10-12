@@ -93,6 +93,15 @@ return {
       color = { 0.78, 0.88, 1.00, 0.7 }, -- r, g, b, alpha at full intensity
     },
   },
+  hens = { -- the flock around the coop (D63): drawn only by day, a pure function of the render clock
+    wander = 1.8, -- tiles each way from the coop's middle that a hen drifts
+    runDepth = 0.5, -- tiles in front of the coop the run reaches
+    speed = 0.3, -- radians per second of the slow drift
+    peckSpeed = 4, -- radians per second of the pecking bob
+    peckAbove = 0.8, -- sine level above which a hen pecks (dips one pixel)
+    eggMarker = { 0.96, 0.92, 0.82 }, -- colour of the egg dot drawn on the coop while eggs wait in the nest box
+    maxDrawn = 6, -- most hens drawn (more are real but share the run)
+  },
   vignette = 0.28, -- 0..1 darkening toward the screen edges
   grain = 0.035, -- 0..1 film grain strength
 }
