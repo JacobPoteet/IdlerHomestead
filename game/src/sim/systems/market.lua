@@ -4,7 +4,8 @@
 -- State: world.state.market = { orders = { { item, arriveDay } }, prices = { [resourceId] = mult },
 --                               specials = { [catalogId] = true }, week, inTown }
 -- Emits "market.ordered" { item }, "market.delivered" { item }, "market.sold" { earnings, units },
---       "market.trip" {}, "market.held" { item } (once per order, when a due delivery is waiting
+--       "market.trip" {}, "market.tripReady" {} (the truck's charge reached a full trip's worth),
+--       "market.held" { item } (once per order, when a due delivery is waiting
 --       for storage room; the order stays queued and is retried every tick),
 --       "market.cancelled" { item, amount } (player cancelled a held order, refunded),
 --       "market.refunded" { item, amount } (an order that could never fit its store, refunded).
@@ -209,7 +210,20 @@ function Market.cancelHeld(world, index)
   return refund(world, index, "market.cancelled")
 end
 
+-- Emits "market.tripReady" {} each time the truck's charge climbs to a full trip (the edge, never
+-- while it merely stays ready, and not for a truck that starts ready). Old saves have no flag yet.
+local function watchTripReady(world)
+  local m = world.state.market
+  local ready = Market.canTrip(world)
+  local was = m.tripReady
+  m.tripReady = ready
+  if ready and was == false and not m.inTown then
+    world.events:emit("market.tripReady", {})
+  end
+end
+
 function Market.tick(world)
+  watchTripReady(world)
   local orders = world.state.market.orders
   if #orders == 0 then
     return

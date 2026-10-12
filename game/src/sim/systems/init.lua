@@ -29,4 +29,5 @@ return {
   "actors",
   "machines",
   "routine",
+  "ftue",
 }

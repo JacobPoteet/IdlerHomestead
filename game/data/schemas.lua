@@ -150,6 +150,18 @@ return {
   task_categories = {
     name = "string",
   },
+  ftue = { -- first-time tip cards (GDD D69); see src/sim/systems/ftue.lua and the header of content/ftue.lua
+    title = "string", -- card title and Tips list label (<= ~3 words)
+    text = "string", -- card body; {domain.key} tokens are read from tuning
+    trigger = "string?", -- event name, or "start"
+    match = "table?", -- { field = value } the event payload must equal
+    delay = "number?", -- game seconds from trigger to due (default tuning.ftue.defaultDelay)
+    after = "table?", -- { step, seconds }: also due this long after that step was dismissed
+    retire = "table?", -- event names after which the step is marked seen without a card
+    doneFlag = "string?", -- meta flag that means another card already told it
+    card = "boolean?", -- false: never queues a card
+    replay = "string?", -- "spoil": Tips shows the live spoilage explanation
+  },
   routine_conditions = {
     name = "string", -- what the panel's kind button says
     measure = "string", -- "foodDays" | "stock" | "seasonIndex" | "hour"

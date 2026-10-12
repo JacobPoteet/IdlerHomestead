@@ -27,6 +27,7 @@ return {
   "study",
   "weather",
   "threats",
+  "ftue",
   "visuals",
   "ui",
 }

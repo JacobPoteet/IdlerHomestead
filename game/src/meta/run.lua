@@ -14,6 +14,7 @@
 
 local Calendar = require("src.sim.systems.calendar")
 local Events = require("src.core.events")
+local Ftue = require("src.sim.systems.ftue")
 local Journal = require("src.sim.systems.journal")
 
 local Run = {}
@@ -100,6 +101,7 @@ end
 function Run.startNext(data)
   local career = Run.career(data.meta)
   career.runs = career.runs + 1
+  Ftue.endForRun(data.meta) -- the tip cards are for the first run only (D69)
   data.meta.recovery = nil
   data.run = nil
   if data.header then

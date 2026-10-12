@@ -31,7 +31,7 @@ function Driver.new(opts)
     shots = {},
     backend = Save.memoryBackend(), -- never the real save directory
   }, Driver)
-  self.game = Game.new({ backend = self.backend })
+  self.game = Game.new({ backend = self.backend, tips = false })
   self:frames(2)
   return self
 end
@@ -203,7 +203,10 @@ function Driver:nearestObject(ids)
 end
 
 --- Title -> slot list -> new homestead -> playing. Leaves the homestead scene on top.
-function Driver:newGame()
+--- opts.tips = true starts the slot with the first-time tip cards on (off by default so they never
+--- cover another scenario's screenshots).
+function Driver:newGame(opts)
+  self.game.app.ctx.tips = opts ~= nil and opts.tips == true
   self:press("Play")
   self:press("New")
   self:press("Start")

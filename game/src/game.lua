@@ -17,7 +17,8 @@ local Game = {}
 Game.__index = Game
 
 --- opts.backend: save backend to use instead of the player's save directory (tools/driver passes an
---- in-memory one so scripted runs never touch real saves).
+--- in-memory one so scripted runs never touch real saves). opts.tips = false starts new slots with
+--- the first-time tip cards off.
 function Game.new(opts)
   local tuning = tuningLoader.load()
   local ctx = {
@@ -25,6 +26,7 @@ function Game.new(opts)
     registry = Registry.new():loadAll(),
     store = Save.new((opts and opts.backend) or Save.loveBackend(), { slotCount = tuning.save.slotCount }),
     platform = platform,
+    tips = not (opts and opts.tips == false), -- first-time tip cards for new slots (tools/driver turns them off)
     session = nil, -- set by the homestead scene while a slot is being played
   }
   local app = App.new(ctx)
