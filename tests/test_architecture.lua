@@ -51,6 +51,7 @@ local STATE_OWNERS = {
   condition = "needs",
   crops = "crops",
   fields = "crops",
+  finds = "finds",
   food = "food",
   inventory = "inventory",
   land = "land",

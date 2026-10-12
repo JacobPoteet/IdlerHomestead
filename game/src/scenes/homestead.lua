@@ -28,6 +28,7 @@ local Land = require("src.sim.systems.land")
 local Water = require("src.sim.systems.water")
 local Processing = require("src.sim.systems.processing")
 local Stand = require("src.sim.systems.stand")
+local Finds = require("src.sim.systems.finds")
 local Renderer = require("src.render.world_renderer")
 local ActionRing = require("src.render.action_ring")
 local Assets = require("src.render.assets")
@@ -148,6 +149,10 @@ function Homestead:subscribe()
     end),
     events:on("weather.coldSnap", function(e)
       self:queueToast(e.active and "Cold snap! Fires need far more wood." or "The cold snap broke.")
+    end),
+    events:on("finds.picked", function(e)
+      local def = world.registry:get("finds", e.find)
+      self:queueToast("Took: " .. def.name .. " · " .. def.line)
     end),
     events:on("journal.learned", function(e)
       local where = Journal.kindOf(world, e.item) == "perks" and "from your next run" or "now in the catalog"
@@ -583,6 +588,11 @@ function Homestead:update(dt)
     return
   end
   self.renderer:update(dt)
+  -- A find waits for a free screen (not behind the fishing mini-game or a panel), also after a load.
+  if Finds.pending(self.world) and self.app:top() == self then
+    self.app:push(require("src.scenes.finds").new(self.world))
+    return
+  end
   if self.toast then
     self.toast.time = self.toast.time - dt
     if self.toast.time <= 0 then

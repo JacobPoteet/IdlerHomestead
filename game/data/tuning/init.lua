@@ -20,6 +20,7 @@ return {
   "power",
   "economy",
   "stand",
+  "finds",
   "study",
   "weather",
   "visuals",

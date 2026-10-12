@@ -20,6 +20,7 @@ return {
   "firewood",
   "market",
   "stand",
+  "finds",
   "needs",
   "sleep",
   "actors",
