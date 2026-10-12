@@ -513,7 +513,7 @@ Headless sim tests, plus a **balance harness** that simulates years with scripte
 | D27 | **Food rules:** pantry reserve slider + winter stock slider + optional per-item pin. |
 | D28 | **Shaders are a core part of the look** (water, color grading, grain now; weather, lights, seasons later). Pixel-art friendly, parameters in tuning, live reload. |
 | D29 | **Starter crops: radish** (fast, light) **and potato** (slow, calorie-dense). |
+| D30 | **Seed in hand:** tapping open ground with a seed selected tills and plans it for that crop; with an empty hand you just walk. A **Plan field** tool marks rectangles for the idle routine to farm. |
 | D31 | **The sell crate is a reservation on stock**, not a separate store: crated food stays edible and keeps spoiling; selling removes it. |
 | D32 | **Equipment = catalog items with stat modifiers** (rods, big bucket). Systems combine a tuning base with the owned modifiers. |
 | D33 | **Every plot guarantees a walkable path from the truck to the creek** (land generation clears blockers along it). |
-| D30 | **Seed in hand:** tapping open ground with a seed selected tills and plans it for that crop; with an empty hand you just walk. A **Plan field** tool marks rectangles for the idle routine to farm. |
