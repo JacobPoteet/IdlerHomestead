@@ -292,4 +292,116 @@ function P.icon_heart(p)
   p:px(3, 4, C.white)
 end
 
+function P.folding_panel(p)
+  p:ellipse(8, 14, 7, 1, C.shadow)
+  p:rect(5, 11, 1, 3, C.metal) -- stand
+  p:rect(10, 11, 1, 3, C.metal)
+  p:rect(1, 3, 14, 9, C.metal) -- frame
+  p:rect(2, 4, 12, 7, { 0.16, 0.24, 0.42 }) -- cells
+  for x = 5, 11, 3 do
+    p:rect(x, 4, 1, 7, { 0.30, 0.40, 0.60 })
+  end
+  p:rect(2, 7, 12, 1, { 0.30, 0.40, 0.60 })
+  p:px(3, 5, C.white)
+end
+
+function P.smoker(p)
+  p:ellipse(8, 22, 6, 2, C.shadow)
+  p:rect(3, 8, 10, 13, { 0.25, 0.25, 0.27 }) -- barrel body
+  p:rect(3, 8, 1, 13, { 0.36, 0.36, 0.38 })
+  p:rect(3, 12, 10, 1, { 0.18, 0.18, 0.2 })
+  p:rect(3, 17, 10, 1, { 0.18, 0.18, 0.2 })
+  p:rect(2, 6, 12, 2, { 0.32, 0.32, 0.34 }) -- lid
+  p:rect(7, 2, 2, 4, { 0.22, 0.22, 0.24 }) -- chimney
+  p:rect(6, 14, 4, 2, C.rust) -- firebox door
+  p:px(4, 20, C.metal)
+  p:px(11, 20, C.metal)
+end
+
+function P.bobber(p)
+  p:rect(3, 0, 1, 3, C.white)
+  p:circle(3, 5, 3, C.heart)
+  p:rect(0, 5, 7, 4, C.white)
+  p:ellipse(3, 8, 3, 1, C.white)
+end
+
+function P.icon_battery(p)
+  p:rect(1, 3, 9, 6, { 0.85, 0.85, 0.82 })
+  p:rect(10, 5, 1, 2, { 0.85, 0.85, 0.82 })
+  p:rect(2, 4, 7, 4, { 0.12, 0.12, 0.13 })
+  p:rect(2, 4, 4, 4, { 0.45, 0.82, 0.42 })
+end
+
+function P.icon_crate(p)
+  p:rect(1, 3, 10, 8, C.barkLight)
+  p:rect(1, 3, 10, 1, C.bark)
+  p:rect(1, 7, 10, 1, C.bark)
+  p:rect(1, 10, 10, 1, C.barkDark)
+  p:rect(3, 1, 2, 2, C.radish)
+  p:rect(7, 1, 2, 2, C.leaf)
+end
+
+function P.icon_rod(p)
+  for n = 0, 9 do
+    p:px(1 + n, 10 - n, C.barkLight)
+  end
+  p:px(2, 9, C.barkDark)
+  p:circle(3, 8, 1, C.metal)
+  for n = 0, 6 do
+    p:px(10, 1 + n, { 0.9, 0.9, 0.9, 0.7 })
+  end
+end
+
+function P.icon_smoked_fish(p)
+  p:ellipse(5, 6, 4, 2, { 0.62, 0.38, 0.20 })
+  p:rect(9, 4, 2, 5, { 0.52, 0.30, 0.16 })
+  p:px(3, 5, { 0.15, 0.1, 0.05 })
+  p:px(6, 1, { 0.7, 0.7, 0.7, 0.7 })
+  p:px(7, 0, { 0.7, 0.7, 0.7, 0.5 })
+end
+
+function P.icon_bait(p)
+  for n, c in ipairs({ { 2, 8 }, { 3, 7 }, { 4, 7 }, { 5, 6 }, { 6, 6 }, { 7, 5 }, { 8, 5 }, { 9, 4 } }) do
+    p:px(c[1], c[2], n % 2 == 0 and { 0.85, 0.50, 0.50 } or { 0.75, 0.42, 0.42 })
+  end
+end
+
+function P.icon_smoker(p)
+  p:rect(3, 4, 6, 7, { 0.25, 0.25, 0.27 })
+  p:rect(2, 3, 8, 1, { 0.36, 0.36, 0.38 })
+  p:rect(5, 1, 2, 2, { 0.22, 0.22, 0.24 })
+  p:rect(5, 7, 2, 2, C.rust)
+end
+
+function P.icon_folding_panel(p)
+  p:rect(1, 2, 10, 7, C.metal)
+  p:rect(2, 3, 8, 5, { 0.16, 0.24, 0.42 })
+  p:rect(5, 3, 1, 5, { 0.30, 0.40, 0.60 })
+  p:rect(3, 9, 1, 2, C.metal)
+  p:rect(8, 9, 1, 2, C.metal)
+end
+
+function P.icon_unknown(p)
+  p:ellipse(5, 6, 4, 2, { 0.35, 0.37, 0.36 })
+  p:rect(9, 4, 2, 5, { 0.30, 0.32, 0.31 })
+end
+
+local FISH_COLORS = {
+  icon_creek_chub = { { 0.62, 0.64, 0.58 }, { 0.80, 0.80, 0.74 } },
+  icon_sunfish = { { 0.35, 0.55, 0.40 }, { 0.92, 0.62, 0.25 } },
+  icon_brook_trout = { { 0.30, 0.38, 0.30 }, { 0.85, 0.45, 0.35 } },
+  icon_smallmouth_bass = { { 0.48, 0.45, 0.25 }, { 0.70, 0.66, 0.42 } },
+  icon_channel_catfish = { { 0.40, 0.42, 0.48 }, { 0.62, 0.64, 0.68 } },
+  icon_rainbow_trout = { { 0.45, 0.55, 0.50 }, { 0.90, 0.50, 0.62 } },
+  icon_golden_trout = { { 0.85, 0.65, 0.20 }, { 0.98, 0.85, 0.40 } },
+}
+
+function P.fish_icon(p, _, _, _, id)
+  local colors = FISH_COLORS[id] or FISH_COLORS.icon_creek_chub
+  p:ellipse(5, 6, 4, 2, colors[1])
+  p:rect(2, 6, 6, 1, colors[2]) -- belly stripe
+  p:rect(9, 4, 2, 5, colors[1]) -- tail
+  p:px(3, 5, { 0.05, 0.05, 0.05 })
+end
+
 return P

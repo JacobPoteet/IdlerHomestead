@@ -107,7 +107,7 @@ function Assets.load(manifest)
         h = e.h,
         rng = Rng.new(Rng.hash(item.id)),
       }, Painter)
-      painter(p, e.w, e.h, item.variant)
+      painter(p, e.w, e.h, item.variant, item.id)
     end
     love.graphics.pop()
     for _, item in ipairs(pending) do

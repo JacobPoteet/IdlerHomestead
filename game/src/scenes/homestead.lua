@@ -1,9 +1,10 @@
 -- The homestead: runs the session, draws the world, and turns taps into orders.
 --
 -- Controls (GDD §5.2, §10): tap a tile and the homesteader walks there and does the obvious
--- thing (clear, till, plant, water, harvest, fill bucket, walk). The seed in hand decides what
--- gets planted. "Plan field" marks a rectangle (two taps) for the idle routine to farm.
--- After tuning.idle.takeoverDelay seconds without input, the routine takes over.
+-- thing (clear, till, plant, water, harvest, fill bucket, load the smoker, walk). What's "in hand"
+-- decides the rest: a seed tills/plants, the rod fishes. "Plan field" marks a rectangle (two taps)
+-- for the routine to farm; "Place" puts down equipment from the inventory. Tapping the truck opens
+-- the truck panel. After tuning.idle.takeoverDelay seconds without input, the routine takes over.
 
 local Camera = require("src.core.camera")
 local Session = require("src.session")
@@ -13,6 +14,10 @@ local Ledger = require("src.sim.systems.ledger")
 local Actors = require("src.sim.systems.actors")
 local Crops = require("src.sim.systems.crops")
 local Needs = require("src.sim.systems.needs")
+local Food = require("src.sim.systems.food")
+local Inventory = require("src.sim.systems.inventory")
+local Power = require("src.sim.systems.power")
+local Processing = require("src.sim.systems.processing")
 local Renderer = require("src.render.world_renderer")
 local Assets = require("src.render.assets")
 local Buttons = require("src.ui.buttons")
@@ -25,7 +30,7 @@ Homestead.__index = Homestead
 
 local TOP_H = 24
 local BOTTOM_H = 34
-local TOAST_TIME = 2.2
+local TOAST_TIME = 2.6
 
 function Homestead.new()
   return setmetatable({}, Homestead)
@@ -51,13 +56,49 @@ function Homestead:enter(slot, data)
   self.camera.x, self.camera.y = (hs.x - 0.5) * tile, (hs.y - 0.5) * tile
   self.renderer = Renderer.new(self.world)
   self.buttons = Buttons.new(tuning.input.minTouchTarget)
-  self.mode = "act" -- "act" | "plan"
-  self.seed = nil -- crop id in hand, or nil
+  self.mode = "act" -- "act" | "plan" | "place"
+  self.seed = nil -- crop id in hand
+  self.tool = nil -- "rod" in hand
+  self.placing = nil -- object id being placed
   self.toast = nil
+  self:subscribe()
+end
+
+-- World events the player should hear about.
+function Homestead:subscribe()
+  local events, world = self.world.events, self.world
+  local function name(kind, id)
+    return world.registry:get(kind, id).name
+  end
+  self.unsubscribe = {
+    events:on("fishing.ready", function()
+      self.app:push(require("src.scenes.fishing").new(world, function(fish, size, first)
+        self:showToast(string.format("%s%s, %d cm", first and "New! " or "", fish.name, size))
+      end))
+    end),
+    events:on("fish.caught", function(e)
+      if e.mode == "idle" then
+        self:showToast("Caught a " .. name("fish", e.fish) .. (e.first and " (new!)" or ""))
+      end
+    end),
+    events:on("market.delivered", function(e)
+      self:showToast("Delivered: " .. name("catalog", e.item))
+      self:layout()
+    end),
+    events:on("processing.done", function(e)
+      self:showToast(string.format("%d %s ready", e.count, name("resources", e.output)))
+    end),
+    events:on("food.spoiled", function(e)
+      self:showToast(string.format("%d %s spoiled", e.amount, name("resources", e.resource)))
+    end),
+  }
 end
 
 function Homestead:exit()
   self:saveNow()
+  for _, off in ipairs(self.unsubscribe or {}) do
+    off()
+  end
   if self.app.ctx.session == self.session then
     self.app.ctx.session = nil
   end
@@ -92,7 +133,30 @@ function Homestead:showToast(text)
   self.toast = { text = text, time = TOAST_TIME }
 end
 
+function Homestead:toaster()
+  return function(text)
+    self:showToast(text)
+  end
+end
+
 -- HUD buttons --------------------------------------------------------------------------
+
+function Homestead:setHand(seed, tool)
+  self.seed, self.tool, self.mode, self.planStart, self.placing = seed, tool, "act", nil, nil
+  self:layout()
+end
+
+-- First object waiting in the inventory (sorted for stability), or nil.
+function Homestead:nextPlaceable()
+  local ids = {}
+  for id, count in pairs(self.world.state.inventory.objects) do
+    if count > 0 then
+      ids[#ids + 1] = id
+    end
+  end
+  table.sort(ids)
+  return ids[1]
+end
 
 function Homestead:layout()
   local view = self.app.view
@@ -117,47 +181,108 @@ function Homestead:layout()
     x = x + b.w + 4
     return b
   end
+  local inHand = self.mode == "act"
   add({
-    w = 44,
+    w = 40,
     label = "Hand",
-    selected = self.seed == nil and self.mode == "act",
+    selected = inHand and not self.seed and not self.tool,
     onPress = function()
-      self.seed, self.mode, self.planStart = nil, "act", nil
-      self:layout()
+      self:setHand(nil, nil)
     end,
   })
   for _, crop in ipairs(world.registry:all("crops")) do
     self.seedButtons[crop.id] = add({
-      w = 46,
+      w = 40,
       icon = "icon_" .. crop.seed,
       label = tostring(Ledger.get(world, crop.seed)),
-      selected = self.seed == crop.id,
+      selected = self.seed == crop.id and self.mode ~= "place",
       onPress = function()
-        self.seed = (self.seed == crop.id and self.mode == "act") and nil or crop.id
-        self:layout()
+        if self.seed == crop.id and inHand then
+          self:setHand(nil, nil)
+        else
+          self:setHand(crop.id, nil)
+        end
       end,
     })
   end
-  x = x + 6
   add({
-    w = 70,
-    label = self.mode == "plan" and "Planning" or "Plan field",
+    w = 30,
+    icon = "icon_rod",
+    label = "",
+    selected = inHand and self.tool == "rod",
+    onPress = function()
+      self:setHand(nil, self.tool ~= "rod" and "rod" or nil)
+    end,
+  })
+  x = x + 4
+  local placeable = self:nextPlaceable()
+  if placeable then
+    local def = world.registry:get("objects", placeable)
+    add({
+      w = 80,
+      label = "Place " .. def.name:lower(),
+      style = "accent",
+      selected = self.mode == "place",
+      onPress = function()
+        if self.mode == "place" then
+          self:setHand(nil, nil)
+        else
+          self.mode, self.placing, self.planStart = "place", placeable, nil
+          self:showToast("Tap where the " .. def.name:lower() .. " should go")
+          self:layout()
+        end
+      end,
+    })
+  end
+  add({
+    w = 46,
+    label = "Plan",
     selected = self.mode == "plan",
     onPress = function()
-      self.mode = self.mode == "plan" and "act" or "plan"
-      self.planStart = nil
       if self.mode == "plan" then
-        self:showToast(self.seed and "Tap two corners to plan " .. world.registry:get("crops", self.seed).name
-          or "Tap two corners to clear a plan")
+        self:setHand(self.seed, nil)
+        return
       end
+      self.mode, self.planStart, self.tool, self.placing = "plan", nil, nil, nil
+      self:showToast(self.seed and "Tap two corners to plan " .. world.registry:get("crops", self.seed).name
+        or "Tap two corners to clear a plan")
       self:layout()
     end,
   })
   add({
-    w = 62,
+    w = 54,
     label = "Routine",
     onPress = function()
       self.app:push(require("src.scenes.routine").new(world))
+    end,
+  })
+  -- Right side: books and lists
+  local rx = view.w - 6
+  local function addRight(b)
+    rx = rx - b.w
+    b.x, b.y, b.h = rx, y, 24
+    rx = rx - 4
+    self.buttons:add(b)
+  end
+  addRight({
+    w = 42,
+    label = "Fish",
+    onPress = function()
+      self.app:push(require("src.scenes.guide").new(world))
+    end,
+  })
+  addRight({
+    w = 56,
+    label = "Catalog",
+    onPress = function()
+      self.app:push(require("src.scenes.catalog").new(world, self:toaster()))
+    end,
+  })
+  addRight({
+    w = 52,
+    label = "Pantry",
+    onPress = function()
+      self.app:push(require("src.scenes.pantry").new(world))
     end,
   })
 end
@@ -185,6 +310,9 @@ function Homestead:update(dt)
   -- Seed counts change as you plant and harvest; keep the toolbar labels current.
   for cropId, button in pairs(self.seedButtons) do
     button.label = tostring(Ledger.get(self.world, self.world.registry:get("crops", cropId).seed))
+  end
+  if self.mode == "place" and Inventory.objectCount(self.world, self.placing) <= 0 then
+    self:setHand(nil, nil)
   end
 end
 
@@ -224,6 +352,7 @@ function Homestead:applyPlan(a, b)
 end
 
 function Homestead:tap(i)
+  local world = self.world
   self.selected = i
   if self.mode == "plan" then
     if not self.planStart then
@@ -234,8 +363,22 @@ function Homestead:tap(i)
     end
     return
   end
-  local hs = Actors.homesteader(self.world)
-  local taskType = Actors.order(self.world, hs, i, { crop = self.seed })
+  if self.mode == "place" then
+    if Inventory.place(world, self.placing, i) then
+      self:showToast("Placed " .. world.registry:get("objects", self.placing).name:lower())
+      self:setHand(nil, nil)
+    else
+      self:showToast("Can't place it there")
+    end
+    return
+  end
+  local obj = Grid.object(world, i)
+  if obj and obj.id == "truck" then
+    self.app:push(require("src.scenes.truck").new(world, self:toaster()))
+    return
+  end
+  local hs = Actors.homesteader(world)
+  local taskType = Actors.order(world, hs, i, { crop = self.seed, tool = self.tool })
   if taskType then
     if taskType.id ~= "move" then
       self:showToast(taskType.verb)
@@ -270,9 +413,8 @@ function Homestead:action(name, data)
   elseif name == "cancel" then
     if self.planStart then
       self.planStart = nil
-    elseif self.mode == "plan" then
-      self.mode = "act"
-      self:layout()
+    elseif self.mode ~= "act" then
+      self:setHand(self.seed, nil)
     else
       self:openMenu()
     end
@@ -287,14 +429,16 @@ end
 local function outlineTile(camera, i, grid, color, width)
   local x, y = Grid.coords(grid, i)
   local wx, wy = camera:tileToWorld(x, y)
+  local z = camera:zoom()
   love.graphics.setColor(color)
-  love.graphics.setLineWidth((width or 1) / camera:zoom())
-  love.graphics.rectangle("line", wx + 0.5 / camera:zoom(), wy + 0.5 / camera:zoom(), camera.tileSize - 1 / camera:zoom(), camera.tileSize - 1 / camera:zoom())
+  love.graphics.setLineWidth((width or 1) / z)
+  love.graphics.rectangle("line", wx + 0.5 / z, wy + 0.5 / z, camera.tileSize - 1 / z, camera.tileSize - 1 / z)
 end
 
 function Homestead:drawOverlays()
-  local grid, camera, tile = self.world.state.grid, self.camera, self.camera.tileSize
-  local hs = Actors.homesteader(self.world)
+  local world = self.world
+  local grid, camera, tile = world.state.grid, self.camera, self.camera.tileSize
+  local hs = Actors.homesteader(world)
   if hs.job and hs.job.task ~= "move" then
     outlineTile(camera, hs.job.target, grid, { 1, 0.9, 0.55, 0.6 })
   end
@@ -318,6 +462,16 @@ function Homestead:drawOverlays()
       (math.abs(ay - by) + 1) * tile
     )
   end
+  if self.mode == "place" and self.hover then
+    -- Ghost of the object being placed: tinted green where it fits, red where it doesn't.
+    local def = world.registry:get("objects", self.placing)
+    local sprite = Assets.sprite(self.placing)
+    local x, y = Grid.coords(grid, self.hover)
+    local ok = Inventory.canPlace(world, self.placing, self.hover)
+    love.graphics.setColor(ok and 0.6 or 1, ok and 1 or 0.45, ok and 0.6 or 0.45, 0.7)
+    local bottom = (y - 1 + (def.footprintH or 1)) * tile
+    love.graphics.draw(sprite.image, sprite.quad, (x - 1) * tile, bottom - sprite.h)
+  end
   if self.hover then
     outlineTile(camera, self.hover, grid, { 1, 1, 1, 0.35 })
   end
@@ -332,7 +486,7 @@ local function stat(icon, value, x, y)
   love.graphics.draw(sprite.image, sprite.quad, x, y)
   Text.draw(value, x + sprite.w + 3, y + 1, { size = "small" })
   local w = Text.measure(value, "small")
-  return x + sprite.w + 3 + w + 10
+  return x + sprite.w + 3 + w + 9
 end
 
 function Homestead:drawTopBar(view)
@@ -344,27 +498,35 @@ function Homestead:drawTopBar(view)
   local minute = math.floor((now.hour - hour) * 60)
   local season = now.season:gsub("^%l", string.upper)
   Text.draw(string.format("Day %d · %s · %02d:%02d", now.dayOfSeason, season, hour, minute), 8, 7, { size = "body" })
-  local x = 168
+  local truck = world.state.land.truck
+  local x = 162
   x = stat("icon_money", "$" .. Ledger.get(world, "money"), x, 6)
   x = stat("icon_food", string.format("%.1fd", Needs.foodDays(world)), x, 6)
   x = stat("icon_heart", tostring(math.floor(world.state.needs.condition + 0.5)), x, 6)
-  x = stat("icon_wood", tostring(Ledger.get(world, "wood")), x, 6)
-  x = stat("icon_stone", tostring(Ledger.get(world, "stone")), x, 6)
-  stat("icon_scrap", tostring(Ledger.get(world, "scrap")), x, 6)
+  x = stat("icon_battery", string.format("%d%%", math.floor(Power.charge(world, truck) / Power.capacity(world, truck) * 100)), x, 6)
+  x = stat("icon_crate", tostring(Food.crateCount(world)), x, 6)
+  stat("icon_wood", tostring(Ledger.get(world, "wood")), x, 6)
 end
 
 function Homestead:drawBottomBar(view)
   love.graphics.setColor(theme.colors.panel)
   love.graphics.rectangle("fill", 0, view.h - BOTTOM_H, view.w, BOTTOM_H)
+end
+
+function Homestead:drawControlBadge(view)
   local ctx = self.app.ctx
-  local remaining = ctx.tuning.idle.takeoverDelay - ctx.input:idleSeconds()
   local text, color
   if self.world.control == "idle" then
     text, color = "Routine running", theme.colors.accent
   else
-    text, color = string.format("You're in control · routine in %ds", math.max(0, math.ceil(remaining))), theme.colors.textDim
+    local remaining = ctx.tuning.idle.takeoverDelay - ctx.input:idleSeconds()
+    text, color = string.format("Routine in %ds", math.max(0, math.ceil(remaining))), theme.colors.textDim
   end
-  Text.draw(text, 0, view.h - BOTTOM_H + 12, { size = "small", width = view.w - 10, align = "right", color = color })
+  local w = Text.measure(text, "small") + 12
+  local x, y = view.w - w - 4, view.h - BOTTOM_H - 18
+  love.graphics.setColor(0, 0, 0, 0.45)
+  love.graphics.rectangle("fill", x, y, w, 14, 3, 3)
+  Text.draw(text, x, y + 2, { size = "small", width = w, align = "center", color = color })
 end
 
 function Homestead:tileInfo(i)
@@ -376,9 +538,24 @@ function Homestead:tileInfo(i)
   if terrain.tillable then
     lines[#lines + 1] = string.format("Soil %d%%", math.floor(grid.soil[i] * 100 + 0.5))
   end
-  local obj = Grid.object(world, i)
+  local obj, anchor = Grid.object(world, i)
   if obj then
     lines[#lines + 1] = obj.name
+    if obj.battery then
+      lines[#lines + 1] = string.format("Battery %.1f / %d kWh", Power.charge(world, anchor), obj.battery)
+    end
+    if obj.powerOutput then
+      lines[#lines + 1] = string.format("Solar %.2f kW now", obj.powerOutput * Power.sun(world))
+    end
+    if obj.station then
+      local batch = Processing.batch(world, anchor)
+      if batch then
+        local hours = batch.remaining / (world.tuning.time.dayLength / 24)
+        lines[#lines + 1] = string.format("Smoking %d · %.1fh left", batch.count, hours)
+      else
+        lines[#lines + 1] = "Idle"
+      end
+    end
   end
   local crop = world.state.crops[i]
   if crop then
@@ -399,7 +576,7 @@ function Homestead:drawInfo(view)
     local lines = self:tileInfo(self.selected)
     local h = #lines * 11 + 8
     local y = view.h - BOTTOM_H - h - 4
-    Draw.panel(4, y, 120, h)
+    Draw.panel(4, y, 132, h)
     for n, line in ipairs(lines) do
       Text.draw(line, 10, y + 4 + (n - 1) * 11, { size = "small", color = n == 1 and theme.colors.text or theme.colors.textDim })
     end
@@ -434,6 +611,7 @@ function Homestead:draw()
   -- HUD (not graded)
   self:drawTopBar(view)
   self:drawBottomBar(view)
+  self:drawControlBadge(view)
   self:drawInfo(view)
   self.buttons:draw()
 end
@@ -447,7 +625,7 @@ function Homestead:debugLines()
     priorities[#priorities + 1] = e.category .. (e.enabled and "" or "(off)")
   end
   return {
-    string.format("camera: %.0f,%.0f zoom=%dx  control=%s", c.x, c.y, c:zoom(), self.world.control),
+    string.format("camera: %.0f,%.0f zoom=%dx  control=%s mode=%s", c.x, c.y, c:zoom(), self.world.control, self.mode),
     string.format("homesteader: %.1f,%.1f bucket=%d job=%s", hs.x, hs.y, hs.bucket, job),
     "routine: " .. table.concat(priorities, " > "),
   }

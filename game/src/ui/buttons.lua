@@ -14,8 +14,15 @@ function Buttons.new(minSize)
   return setmetatable({ list = {}, minSize = minSize or 0, hovered = nil, pressed = nil }, Buttons)
 end
 
+local function key(b)
+  return b and (b.x .. ":" .. b.y .. ":" .. b.w .. ":" .. b.h) or nil
+end
+
+--- Remove all buttons. Hover/press state carries over to a rebuilt button at the same spot,
+--- so panels can relayout (e.g. to refresh prices) without breaking a click in progress.
 function Buttons:clear()
   self.list = {}
+  self.keepHovered, self.keepPressed = key(self.hovered), key(self.pressed)
   self.hovered, self.pressed = nil, nil
 end
 
@@ -28,6 +35,13 @@ function Buttons:add(b)
     b.enabled = true
   end
   self.list[#self.list + 1] = b
+  local k = key(b)
+  if k == self.keepHovered then
+    self.hovered = b
+  end
+  if k == self.keepPressed and b.enabled then
+    self.pressed = b
+  end
   return b
 end
 

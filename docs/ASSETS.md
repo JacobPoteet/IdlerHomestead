@@ -44,9 +44,9 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 | `junk` | 16×16 | M1 | Crate, tire, sheet metal. Gives scrap + a few dollars. |
 | `tree` | 16×32 | M1 | Needs 2–3 species and seasonal variants (bare in winter). |
 | `truck` | 32×24 | M1 | Electric pickup, 2×1 footprint. Later: charging cable, cargo states, trailer. |
-| Folding solar panel | 16×16 | M2 | Starting gear. |
-| Smoker | 16×24 | M2 | With smoke particles. |
-| Sell crate, delivery drop-off | 16×16 | M2 | |
+| `folding_panel` | 16×16 | M2 | Starting gear, placed beside the truck. |
+| `smoker` | 16×24 | M2 | Smoke puffs are drawn by the renderer while a batch runs. |
+| Sell crate, delivery drop-off | 16×16 | Later | The crate is only a HUD count for now; deliveries appear instantly. |
 | Woodpile / woodshed | 16×16 / 32×32 | M3 | Firewood stock shown visually. |
 | Shack / cabin | 32×32+ | M3 | |
 | Well + hand pump | 16×24 | M5 | |
@@ -77,7 +77,8 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 |---|---|
 | `icon_money`, `icon_food`, `icon_heart`, `icon_water`, `icon_wood`, `icon_stone`, `icon_scrap`, `icon_seed_radish`, `icon_seed_potato` | M1 |
 | Journal node icons (one per catalog item / perk), Note stamps | M3 |
-| Fish species icons for the fish guide | M2 |
+| `icon_<fish id>` for all 7 species (one tinted placeholder painter), `icon_unknown`, `icon_battery`, `icon_crate`, `icon_rod`, `icon_bait`, `icon_smoked_fish`, `icon_smoker`, `icon_folding_panel` | M2 |
+| `bobber` (8×10) for the fishing mini-game | M2 |
 
 ### Fonts
 
