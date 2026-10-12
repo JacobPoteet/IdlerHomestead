@@ -21,6 +21,7 @@ return {
   "economy",
   "stand",
   "finds",
+  "cat",
   "study",
   "weather",
   "visuals",

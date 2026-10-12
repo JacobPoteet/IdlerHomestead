@@ -231,7 +231,50 @@ function P.homesteader(p)
   p:px(9, 5, C.tire)
 end
 
+local CAT_FUR = { 0.78, 0.52, 0.28 }
+local CAT_DARK = { 0.55, 0.34, 0.18 }
+
+-- The cat, 14x10, sitting (facing right) and curled up napping.
+function P.cat(p)
+  p:ellipse(7, 9, 5, 1, C.shadow)
+  p:rect(3, 4, 7, 5, CAT_FUR) -- body
+  p:rect(3, 6, 7, 1, CAT_DARK)
+  p:rect(9, 1, 4, 4, CAT_FUR) -- head
+  p:px(9, 0, CAT_DARK) -- ears
+  p:px(12, 0, CAT_DARK)
+  p:px(11, 2, C.tire) -- eye
+  p:rect(0, 3, 3, 2, CAT_DARK) -- tail
+  p:px(0, 2, CAT_DARK)
+  p:rect(4, 8, 2, 1, C.white) -- paws
+  p:rect(8, 8, 2, 1, C.white)
+end
+
+function P.cat_nap(p)
+  p:ellipse(7, 9, 6, 1, C.shadow)
+  p:ellipse(7, 6, 6, 3, CAT_FUR)
+  p:rect(2, 5, 9, 1, CAT_DARK)
+  p:rect(9, 4, 4, 3, CAT_FUR) -- head tucked in
+  p:px(9, 3, CAT_DARK)
+  p:px(12, 3, CAT_DARK)
+  p:rect(10, 5, 2, 1, C.tire) -- closed eye
+  p:rect(1, 7, 4, 1, CAT_DARK) -- tail wrapped round
+end
+
 -- Icons ---------------------------------------------------------------------------------
+
+function P.icon_cat(p)
+  p:rect(2, 4, 8, 7, CAT_FUR)
+  p:rect(2, 1, 2, 3, CAT_FUR)
+  p:rect(8, 1, 2, 3, CAT_FUR)
+  p:px(3, 2, C.heart)
+  p:px(8, 2, C.heart)
+  p:px(4, 6, C.tire)
+  p:px(7, 6, C.tire)
+  p:px(5, 8, C.heart)
+  p:px(6, 8, C.heart)
+  p:rect(1, 7, 1, 1, C.white)
+  p:rect(10, 7, 1, 1, C.white)
+end
 
 function P.icon_money(p)
   p:circle(6, 6, 5, C.gold)
