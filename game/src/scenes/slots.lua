@@ -2,6 +2,7 @@
 
 local Save = require("src.core.save")
 local Run = require("src.meta.run")
+local Ftue = require("src.sim.systems.ftue")
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
 local Text = require("src.ui.text")
@@ -70,7 +71,9 @@ function Slots:newSlot(index)
     maxLength = tuning.save.maxNameLength,
     confirmLabel = "Start",
     onConfirm = function(name)
-      self:play(index, Save.newSlotData(name))
+      local data = Save.newSlotData(name)
+      Ftue.begin(data.meta, self.app.ctx.tips ~= false) -- a new slot gets the tip cards (D69); tools may turn them off
+      self:play(index, data)
     end,
   }))
 end

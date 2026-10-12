@@ -36,8 +36,15 @@ end
 
 --- Record real input for the idle takeover timer. Input while a browse panel (catalog, journal ...)
 --- is on top is not directing the homesteader, so it does not count (GDD D54).
-function Input:activity()
+function Input:activity(px, py)
   local top = self.app.top and self.app:top()
+  if top and px and top.ignoresActivityAt then
+    -- A tip card tap is reading, not directing the homesteader (D69).
+    local vx, vy = self.app:toVirtual(px, py)
+    if top:ignoresActivityAt(vx, vy) then
+      return
+    end
+  end
   if top then
     for _, name in ipairs(self.tuning.idle.browsePanels) do
       if top.name == name then
@@ -120,7 +127,7 @@ function Input:mousepressed(x, y, button, istouch)
   if istouch then
     return -- handled by the touch callbacks
   end
-  self:activity()
+  self:activity(x, y)
   if not self.pointer then
     self:pointerDown(x, y, button)
   end
@@ -130,7 +137,7 @@ function Input:mousemoved(x, y, _, _, istouch)
   if istouch then
     return
   end
-  self:activity()
+  self:activity(x, y)
   if self.pointer then
     self:pointerMove(x, y)
   else
@@ -143,7 +150,7 @@ function Input:mousereleased(x, y, button, istouch)
   if istouch then
     return
   end
-  self:activity()
+  self:activity(x, y)
   if self.pointer and self.pointer.button == button then
     self:pointerUp(x, y)
   end
@@ -164,7 +171,7 @@ local function distance(a, b)
 end
 
 function Input:touchpressed(id, x, y)
-  self:activity()
+  self:activity(x, y)
   self.touches[id] = { x = x, y = y }
   self.touchOrder[#self.touchOrder + 1] = id
   local count = #self.touchOrder
@@ -179,7 +186,7 @@ function Input:touchpressed(id, x, y)
 end
 
 function Input:touchmoved(id, x, y)
-  self:activity()
+  self:activity(x, y)
   local t = self.touches[id]
   if not t then
     return
@@ -204,7 +211,7 @@ function Input:touchmoved(id, x, y)
 end
 
 function Input:touchreleased(id, x, y)
-  self:activity()
+  self:activity(x, y)
   if not self.touches[id] then
     return
   end

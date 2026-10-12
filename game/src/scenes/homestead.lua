@@ -18,6 +18,7 @@ local Actors = require("src.sim.systems.actors")
 local Crops = require("src.sim.systems.crops")
 local Needs = require("src.sim.systems.needs")
 local Food = require("src.sim.systems.food")
+local Ftue = require("src.sim.systems.ftue")
 local Spoilage = require("src.sim.systems.spoilage")
 local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
@@ -564,6 +565,85 @@ function Homestead:layout()
   })
   self:placeToolbar(view, left, right)
   self:layoutControls(view)
+  self:layoutCard()
+end
+
+-- First-time tip card (D69, #152) ---------------------------------------------------------
+
+--- The tip card due now, or nil. It waits for the homestead to be on top (no panel, find or fishing
+--- game over it) and never pauses the sim.
+function Homestead:dueCard()
+  if self.app:top() ~= self or Finds.pending(self.world) then
+    return nil
+  end
+  return Ftue.current(self.world)
+end
+
+--- Build the card's rectangle and buttons: a panel above the toast line with the text and two buttons.
+function Homestead:layoutCard()
+  local ctx = self.app.ctx
+  local cfg, view = ctx.tuning.ftue, self.app.view
+  self.cardButtons = self.cardButtons or Buttons.new(ctx.tuning.input.minTouchTarget)
+  self.cardButtons:clear()
+  self.card, self.cardId = nil, nil
+  local due = self:dueCard()
+  if not due then
+    return
+  end
+  local pad = cfg.cardPadding
+  local w = math.min(cfg.cardMaxWidth, view.w - 2 * cfg.cardMargin)
+  local inner = w - 2 * pad
+  local _, titleH = Text.measure(due.title, "body")
+  local textH = Text.wrappedHeight(due.text, "small", inner)
+  local btnH = self.btnH
+  local h = pad + titleH + 3 + textH + pad + btnH + pad
+  local x = math.floor((view.w - w) / 2)
+  local y = math.floor(view.h - self.bottomH - cfg.cardBottomGap - h)
+  self.card = { x = x, y = y, w = w, h = h, title = due.title, text = due.text, titleH = titleH, textH = textH, pad = pad }
+  self.cardId = due.id
+  local bw = math.floor((inner - ctx.tuning.ui.buttonGap) / 2)
+  local by = y + h - pad - btnH
+  self.cardButtons:add({
+    x = x + pad,
+    y = by,
+    w = bw,
+    h = btnH,
+    label = "Skip tips",
+    onPress = function()
+      Ftue.skip(self.world)
+      self:showToast("Tips off. Menu > Tips turns them back on")
+      self:layoutCard()
+    end,
+  })
+  self.cardButtons:add({
+    x = x + w - pad - bw,
+    y = by,
+    w = bw,
+    h = btnH,
+    label = "Got it",
+    style = "accent",
+    onPress = function()
+      Ftue.dismiss(self.world, due.id)
+      self:layoutCard()
+    end,
+  })
+end
+
+--- Taps on the card read it rather than direct the homesteader, so they do not reset the takeover timer.
+function Homestead:ignoresActivityAt(x, y)
+  local c = self.card
+  return c ~= nil and x >= c.x and x < c.x + c.w and y >= c.y and y < c.y + c.h
+end
+
+function Homestead:drawCard()
+  local c = self.card
+  if not c then
+    return
+  end
+  Draw.panel(c.x, c.y, c.w, c.h)
+  Text.draw(c.title, c.x + c.pad, c.y + c.pad, { size = "body", color = theme.colors.accent })
+  Text.draw(c.text, c.x + c.pad, c.y + c.pad + c.titleH + 3, { size = "small", width = c.w - 2 * c.pad, color = theme.colors.text })
+  self.cardButtons:draw()
 end
 
 -- Place the toolbar buttons. On a wide view the tools sit left and the books right on one row;
@@ -747,6 +827,10 @@ function Homestead:update(dt)
     return
   end
   self:spoilageNews()
+  local due = self:dueCard()
+  if (due and due.id) ~= self.cardId then
+    self:layoutCard()
+  end
   if self.toast then
     self.toast.time = self.toast.time - dt
     if self.toast.time <= 0 then
@@ -864,6 +948,15 @@ function Homestead:tap(i)
 end
 
 function Homestead:action(name, data)
+  if self.card then
+    if self.cardButtons:action(name, data) then
+      return true
+    end
+    -- The card is solid: a tap on it never reaches the ground beneath.
+    if data.x and self:ignoresActivityAt(data.x, data.y) and (name == "press" or name == "select" or name == "context") then
+      return true
+    end
+  end
   if self.buttons:action(name, data) then
     return true
   end
@@ -1326,7 +1419,7 @@ function Homestead:drawInfo(view)
   if self.selected then
     local lines = self:tileInfo(self.selected)
     local h = #lines * 11 + 8
-    local y = view.h - self.bottomH - h - 4
+    local y = (self.card and self.card.y or view.h - self.bottomH) - h - 4 -- above the tip card when one is up
     Draw.panel(4, y, 132, h)
     for n, line in ipairs(lines) do
       Text.draw(line, 10, y + 4 + (n - 1) * 11, { size = "small", color = n == 1 and theme.colors.text or theme.colors.textDim })
@@ -1369,6 +1462,7 @@ function Homestead:draw()
   self:drawSleepBanner(view)
   self:drawInfo(view)
   self.buttons:draw()
+  self:drawCard()
 end
 
 function Homestead:debugLines()

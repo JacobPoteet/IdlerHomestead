@@ -93,3 +93,17 @@ T.test("systems only touch the world.state keys they own", function()
     end
   end
 end)
+
+-- The first-time tip state (D69) lives in the slot meta as meta.ftue and is owned by the ftue system;
+-- everything else goes through its accessors (Ftue.begin, Ftue.current, Ftue.dismiss ...).
+T.test("only the ftue system touches meta.ftue", function()
+  local files = { "game/src/scenes/homestead.lua", "game/src/scenes/tips.lua", "game/src/scenes/menu.lua", "game/src/scenes/slots.lua" }
+  for _, name in ipairs(require("src.sim.systems.init")) do
+    if name ~= "ftue" then
+      files[#files + 1] = "game/src/sim/systems/" .. name .. ".lua"
+    end
+  end
+  for _, path in ipairs(files) do
+    T.falsy(readFile(path):find("meta%.ftue"), path .. " reaches into meta.ftue; use the Ftue accessors")
+  end
+end)

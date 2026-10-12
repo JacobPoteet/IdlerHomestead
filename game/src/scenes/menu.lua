@@ -17,7 +17,7 @@ function Menu:enter()
 end
 
 function Menu:resize(view)
-  local w, h = 160, 112
+  local w, h = 160, 148
   self.box = { x = (view.w - w) / 2, y = (view.h - h) / 2, w = w, h = h }
   local b = self.box
   self.buttons:clear()
@@ -35,6 +35,16 @@ function Menu:resize(view)
   self.buttons:add({
     x = b.x + 12,
     y = b.y + 68,
+    w = b.w - 24,
+    h = 28,
+    label = "Tips",
+    onPress = function()
+      self.app:push(require("src.scenes.tips").new(self.app.ctx.session.world))
+    end,
+  })
+  self.buttons:add({
+    x = b.x + 12,
+    y = b.y + 104,
     w = b.w - 24,
     h = 28,
     label = "Save & exit",

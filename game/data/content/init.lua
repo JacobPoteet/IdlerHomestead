@@ -14,4 +14,5 @@ return {
   "chapters",
   "task_categories",
   "routine_conditions",
+  "ftue",
 }

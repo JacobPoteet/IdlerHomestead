@@ -25,6 +25,11 @@ local function dayFloat(world)
   return world.state.calendar.elapsed / time.dayLength + time.startHour / 24
 end
 
+--- Game seconds since the run began (a clock for other systems' timers).
+function Calendar.elapsed(world)
+  return world.state.calendar.elapsed
+end
+
 --- Snapshot of the date: { day, dayOfSeason, season, seasonIndex, year, hour, timeOfDay }.
 function Calendar.now(world)
   local time = world.tuning.time
