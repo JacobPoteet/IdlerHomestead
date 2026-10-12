@@ -6,8 +6,10 @@ local Stats = {}
 
 --- Sum of a stat's modifiers across owned equipment (0 if none).
 function Stats.modifier(world, name)
+  -- Required here, not at load, because Inventory (through Actors and Weather) requires Stats.
+  local Inventory = require("src.sim.systems.inventory")
   local total = 0
-  for itemId in pairs(world.state.inventory.equipment) do
+  for _, itemId in ipairs(Inventory.equipmentIds(world)) do
     local mods = world.registry:get("catalog", itemId).modifiers
     if mods and mods[name] then
       total = total + mods[name]

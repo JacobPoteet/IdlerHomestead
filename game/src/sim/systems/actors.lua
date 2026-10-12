@@ -12,6 +12,7 @@
 -- order wakes them.
 
 local Grid = require("src.sim.grid")
+local Land = require("src.sim.systems.land")
 local Sleep = require("src.sim.systems.sleep")
 local Stats = require("src.sim.stats")
 local Tasks = require("src.sim.systems.tasks")
@@ -36,7 +37,7 @@ function Actors.init(world)
     complete = function() end,
   })
   if not state.actors then
-    local x, y = Grid.coords(state.grid, state.land.spawn)
+    local x, y = Grid.coords(state.grid, Land.spawn(world))
     state.actors = {
       { id = 1, kind = "homesteader", x = x, y = y, bucket = 0, wait = 0 },
     }
@@ -51,6 +52,11 @@ end
 
 function Actors.homesteader(world)
   return world.state.actors[1]
+end
+
+--- All actors (array; empty before the actors system has initialised).
+function Actors.list(world)
+  return world.state.actors or {}
 end
 
 --- Queue a player order on tile i. opts: { crop = cropId } for planting/tilling.

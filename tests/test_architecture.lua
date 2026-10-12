@@ -37,3 +37,50 @@ T.test("sim modules never touch rendering or audio", function()
     T.falsy(text:find("math%.random"), path .. " uses math.random (use world:rng)")
   end
 end)
+
+-- Systems must not reach into each other's state (CLAUDE.md: "They never reach into another
+-- system's internals"). Each top-level key of `world.state` is owned by one system file; anything
+-- else goes through that system's accessor functions (Food.crateOf, Crops.tileInUse, Land.truck ...).
+-- The grid is the one genuinely shared structure (every system reads terrain and objects through
+-- it), as are world.lua's own bookkeeping keys, so those are allow-listed. A key not listed here
+-- (such as a nested field read through a local alias, `local state = world.state.food`) is ignored,
+-- so add every new top-level state key to this table.
+local STATE_OWNERS = {
+  actors = "actors",
+  calendar = "calendar",
+  condition = "needs",
+  crops = "crops",
+  fields = "crops",
+  food = "food",
+  inventory = "inventory",
+  land = "land",
+  ledger = "ledger",
+  market = "market",
+  needs = "needs",
+  perks = "perks",
+  perksApplied = "perks",
+  power = "power",
+  priorities = "tasks",
+  processing = "processing",
+  startingKitGiven = "land",
+  weather = "weather",
+}
+local SHARED_STATE = { grid = true, rng = true, seed = true, tick = true }
+
+T.test("systems only touch the world.state keys they own", function()
+  local files = { "game/src/sim/stats.lua" }
+  for _, name in ipairs(require("src.sim.systems.init")) do
+    files[#files + 1] = "game/src/sim/systems/" .. name .. ".lua"
+  end
+  for _, path in ipairs(files) do
+    local owner = path:match("([%w_]+)%.lua$")
+    local text = readFile(path)
+    for key in text:gmatch("state%.([%a_][%w_]*)") do
+      local keyOwner = STATE_OWNERS[key]
+      T.truthy(
+        SHARED_STATE[key] or keyOwner == nil or keyOwner == owner,
+        path .. " reads world.state." .. key .. " (owned by " .. tostring(keyOwner) .. "); use its accessor"
+      )
+    end
+  end
+end)

@@ -5,13 +5,26 @@
 -- State: world.state.inventory = { equipment = { [catalogId] = true }, objects = { [objectId] = count } }
 -- Emits "object.placed" { object, tile }.
 
+local Actors = require("src.sim.systems.actors")
+local Crops = require("src.sim.systems.crops")
 local Grid = require("src.sim.grid")
+local Land = require("src.sim.systems.land")
 local Ledger = require("src.sim.systems.ledger")
 
 local Inventory = {}
 
 function Inventory.hasEquipment(world, id)
   return world.state.inventory.equipment[id] == true
+end
+
+--- Ids of the catalog equipment owned this run (sorted).
+function Inventory.equipmentIds(world)
+  local ids = {}
+  for id in pairs(world.state.inventory.equipment) do
+    ids[#ids + 1] = id
+  end
+  table.sort(ids)
+  return ids
 end
 
 function Inventory.addEquipment(world, id)
@@ -77,10 +90,10 @@ function Inventory.canPlace(world, id, i)
     if not terrain.walkable or terrain.water or world.occupancy[t] then
       return false
     end
-    if world.state.fields.tilled[t] or world.state.fields.plan[t] or world.state.crops[t] then
+    if Crops.tileInUse(world, t) then
       return false
     end
-    for _, actor in ipairs(world.state.actors or {}) do
+    for _, actor in ipairs(Actors.list(world)) do
       if def.blocks and Grid.index(grid, math.floor(actor.x + 0.5), math.floor(actor.y + 0.5)) == t then
         return false
       end
@@ -112,7 +125,7 @@ end
 -- Place starting objects on the nearest free tiles around the spawn.
 local function placeNearSpawn(world, id)
   local grid = world.state.grid
-  local sx, sy = Grid.coords(grid, world.state.land.spawn)
+  local sx, sy = Grid.coords(grid, Land.spawn(world))
   for r = 1, 6 do
     for dy = -r, r do
       for dx = -r, r do

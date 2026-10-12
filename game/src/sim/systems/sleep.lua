@@ -36,7 +36,8 @@ end
 
 --- Is the homesteader resting? (GDD §8.1: study happens while the homesteader sleeps.)
 function Sleep.homesteaderResting(world)
-  return Sleep.resting(world.state.actors[1])
+  -- Required here, not at load, because Actors requires Sleep.
+  return Sleep.resting(require("src.sim.systems.actors").homesteader(world))
 end
 
 local function shelters(world)
@@ -94,7 +95,7 @@ function Sleep.tick(world)
   if Sleep.isBedtime(world) then
     return
   end
-  for _, actor in ipairs(world.state.actors) do
+  for _, actor in ipairs(require("src.sim.systems.actors").list(world)) do
     Sleep.wake(world, actor)
   end
 end

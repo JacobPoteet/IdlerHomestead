@@ -27,4 +27,14 @@ function Land.init(world)
   end
 end
 
+--- Tile index of the truck (the home base: starting battery, sleeping shelter, trips to town).
+function Land.truck(world)
+  return world.state.land.truck
+end
+
+--- Tile index where the homesteader starts (starting objects are placed around it).
+function Land.spawn(world)
+  return world.state.land.spawn
+end
+
 return Land
