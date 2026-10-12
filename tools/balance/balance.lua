@@ -5,7 +5,11 @@
 -- (seed, policy, tuning): all randomness is the sim's seeded streams plus a seeded policy stream.
 
 local Calendar = require("src.sim.systems.calendar")
+local Features = require("features")
 local Finds = require("src.sim.systems.finds")
+local Inventory = require("src.sim.systems.inventory")
+local Power = require("src.sim.systems.power")
+local Stand = require("src.sim.systems.stand")
 local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
@@ -110,12 +114,12 @@ end
 --- Simulate one run to its end or `years` years. Returns a result table:
 ---   alive, failDay, failSeason, failYear, cause, snaps[day], counters, winters[year].
 --- `session` carries the slot data (a fresh Session per run).
-local function playRun(ctx, session, policyName, seed, years)
+local function playRun(ctx, session, policyName, seed, years, features)
   local world = session.world
   local tuning = ctx.tuning
   local tickRate = tuning.time.tickRate
   local step = 1 / tickRate
-  local policy = Policies.new(policyName, world, seed)
+  local policy = Policies.new(policyName, world, seed, features)
   local decisionTicks = math.max(1, math.floor(tuning.idle.recheckInterval * tickRate + 0.5))
   local daysTotal = years * #tuning.time.seasons * tuning.time.daysPerSeason
   -- Day N+1 begins (daysTotal + 1 - startHour/24) days after the start.
@@ -127,9 +131,30 @@ local function playRun(ctx, session, policyName, seed, years)
     alive = true,
     snaps = {},
     winters = {},
-    counters = { harvested = 0, fish = 0, earned = 0, trips = 0 },
+    counters = {
+      harvested = 0,
+      fish = 0,
+      earned = 0, -- $ from truck sales
+      trips = 0,
+      kwhMade = 0, -- power: generated, wanted by sinks, served to sinks, wasted (full batteries)
+      kwhWanted = 0,
+      kwhServed = 0,
+      kwhWasted = 0,
+      warmNights = 0, -- nights that needed warmth, and how many were covered fully by electric heaters
+      electricNights = 0,
+      electricWarmth = 0,
+      miceRaids = 0, -- raids that cost food, raids the cat caught, units of food lost
+      miceCaught = 0,
+      miceLost = 0,
+      rainDays = 0,
+      cloudyDays = 0,
+      brownouts = 0,
+    },
+    finds = {}, -- find id -> times picked
     daysTotal = daysTotal,
+    features = Features.label(features or {}),
   }
+  local hourSeconds = tuning.time.dayLength / 24
   local damage = { hunger = 0, cold = 0 } -- Condition lost since the last day with no damage
   local last = { hunger = 0, cold = 0 }
   local failed = false
@@ -156,6 +181,29 @@ local function playRun(ctx, session, policyName, seed, years)
   events:on("market.trip", function()
     result.counters.trips = result.counters.trips + 1
   end)
+  events:on("needs.warmed", function(e)
+    local c = result.counters
+    if e.needed > 0 then
+      c.warmNights = c.warmNights + 1
+      c.electricWarmth = c.electricWarmth + e.electric
+      if e.electric >= e.needed - 1e-6 then
+        c.electricNights = c.electricNights + 1
+      end
+    end
+  end)
+  events:on("mice.raided", function(e)
+    result.counters.miceRaids = result.counters.miceRaids + 1
+    result.counters.miceLost = result.counters.miceLost + e.units
+  end)
+  events:on("mice.caught", function()
+    result.counters.miceCaught = result.counters.miceCaught + 1
+  end)
+  events:on("power.brownout", function()
+    result.counters.brownouts = result.counters.brownouts + 1
+  end)
+  events:on("finds.picked", function(e)
+    result.finds[e.find] = (result.finds[e.find] or 0) + 1
+  end)
   -- Registered after the sim's own handlers, so it sees the state after the night's food and warmth.
   events:on("calendar.newDay", function(e)
     local needs = tuning.needs
@@ -167,6 +215,14 @@ local function playRun(ctx, session, policyName, seed, years)
     end
     if not failed then
       result.snaps[e.day] = snapshot(world)
+      result.snaps[e.day].truckEarned = result.counters.earned
+      result.snaps[e.day].standEarned = Stand.total(world).earned
+      local kind = Weather.kind(world)
+      if Weather.isRaining(world) then
+        result.counters.rainDays = result.counters.rainDays + 1
+      elseif kind == "cloudy" then
+        result.counters.cloudyDays = result.counters.cloudyDays + 1
+      end
       local dayOfSeason = result.snaps[e.day].dayOfSeason
       -- First day of winter: how ready is the homestead?
       if dayOfSeason == 1 and Weather.isFrozenSeason(world, e.season) then
@@ -190,16 +246,23 @@ local function playRun(ctx, session, policyName, seed, years)
 
   local ticksRun = 0
   while ticksRun < capTicks and not failed do
-    -- A find is a modal for a player; the policies take the first option so they never stall on it.
+    -- A find is a modal for a player; the policy answers at once (by need, or the first option).
     local offer = Finds.pending(world)
     if offer then
-      Finds.choose(world, offer.choices[1])
+      Finds.choose(world, policy:chooseFind(world, offer))
     end
     if ticksRun % decisionTicks == 0 then
       policy:step(world)
     end
     world:tick(step)
     ticksRun = ticksRun + 1
+    -- Energy ledger (kW of the last tick x hours): made, wanted, served, wasted.
+    local flow, c = Power.flow(world), result.counters
+    local hours = step / hourSeconds
+    c.kwhMade = c.kwhMade + flow.generation * hours
+    c.kwhWanted = c.kwhWanted + flow.demand * hours
+    c.kwhServed = c.kwhServed + flow.served * hours
+    c.kwhWasted = c.kwhWasted + (flow.wasted or 0) * hours
   end
 
   if failed then
@@ -218,13 +281,26 @@ local function playRun(ctx, session, policyName, seed, years)
     end
   end
   result.final = snapshot(world)
+  result.final.truckEarned = result.counters.earned
+  result.final.standEarned = Stand.total(world).earned
+  -- Per-run facts read through public accessors.
+  local water = Features.waterStats(world)
+  result.counters.waterHand, result.counters.waterDrip = water.hand, water.drip
+  result.counters.waterPumped, result.counters.waterRained = water.pumped, water.rained
+  result.counters.standUnits = Stand.total(world).units
+  result.owned = {}
+  for _, id in ipairs({ "shelter_cat", "roadside_stand", "stand_sign", "stand_cooler", "stand_display", "well", "cistern", "dc_pump", "drip_line", "hand_pump", "solar_array", "battery_bank", "wind_turbine", "micro_hydro", "generator", "electric_heater", "lamp", "chest_freezer" }) do
+    if Inventory.owns(world, id) then
+      result.owned[id] = true
+    end
+  end
   return result
 end
 
 --- Play one seed. With `runs` > 1, a failed run is followed by recovery (the policy's free study)
 --- and a fresh run on new land with the knowledge kept (GDD §4.3); a run that survives the span
 --- ends the career there. Returns a list of run results.
-function Balance.playSeed(ctx, policyName, seed, years, runs)
+function Balance.playSeed(ctx, policyName, seed, years, runs, features)
   local data = Save.newSlotData("balance")
   local store = Save.new(Save.memoryBackend(), { slotCount = 1 })
   local results = {}
@@ -238,7 +314,7 @@ function Balance.playSeed(ctx, policyName, seed, years, runs)
       tuning = ctx.tuning,
       seed = runSeed,
     })
-    local result = playRun(ctx, session, policyName, runSeed, years)
+    local result = playRun(ctx, session, policyName, runSeed, years, features)
     result.run = r
     result.baseSeed = seed
     result.notesThisRun = 0
@@ -362,6 +438,53 @@ function Balance.summarize(ctx, results, years)
       }
     end
   end
+  -- Income by source per year, among runs alive at the end of that year (cumulative at the year's
+  -- last morning minus the year before).
+  local perYear = #ctx.tuning.time.seasons * ctx.tuning.time.daysPerSeason
+  summary.income = {}
+  for year = 1, years do
+    local truck, stand = {}, {}
+    local from, to = (year - 1) * perYear + 1, year * perYear + 1
+    for _, r in ipairs(results) do
+      local a, b = r.snaps[from] or (year == 1 and { truckEarned = 0, standEarned = 0 }), r.snaps[to]
+      if a and b then
+        truck[#truck + 1] = b.truckEarned - a.truckEarned
+        stand[#stand + 1] = b.standEarned - a.standEarned
+      end
+    end
+    if #truck > 0 then
+      summary.income[year] = { n = #truck, truck = quantiles(truck), stand = quantiles(stand) }
+    end
+  end
+
+  -- Per-run totals over the whole span (every seed, dead ones count for the days they lived).
+  local keys = {}
+  for k in pairs(results[1] and results[1].counters or {}) do
+    keys[#keys + 1] = k
+  end
+  table.sort(keys)
+  summary.totals, summary.owned, summary.finds = {}, {}, {}
+  for _, k in ipairs(keys) do
+    local values = {}
+    for _, r in ipairs(results) do
+      values[#values + 1] = r.counters[k] or 0
+    end
+    summary.totals[k] = quantiles(values)
+    local sum = 0
+    for _, v in ipairs(values) do
+      sum = sum + v
+    end
+    summary.totals[k].mean = sum / #values
+  end
+  for _, r in ipairs(results) do
+    for id in pairs(r.owned or {}) do
+      summary.owned[id] = (summary.owned[id] or 0) + 1
+    end
+    for id, count in pairs(r.finds or {}) do
+      summary.finds[id] = (summary.finds[id] or 0) + count
+    end
+  end
+  summary.features = results[1] and results[1].features or "none"
   return summary
 end
 
@@ -522,6 +645,91 @@ function Balance.printSummary(ctx, policyName, runIndex, summary, years)
       )
     end
   end
+end
+
+--- The per-feature metrics block of a summary: income by source, power, water, mice, finds, kit.
+function Balance.printFeatures(summary, years)
+  line("")
+  line("Features: " .. tostring(summary.features))
+  local function q(key)
+    return summary.totals[key]
+  end
+  for year = 1, years do
+    local inc = summary.income[year]
+    if inc then
+      local truck, stand = inc.truck.p50, inc.stand.p50
+      local share = truck + stand > 0 and stand / (truck + stand) or 0
+      line(
+        string.format(
+          "Income year %d (median of %d alive): truck $%s [p25-p75 %s-%s], stand $%s [%s-%s], stand share of the two %s",
+          year,
+          inc.n,
+          num(truck, 0),
+          num(inc.truck.p25, 0),
+          num(inc.truck.p75, 0),
+          num(stand, 0),
+          num(inc.stand.p25, 0),
+          num(inc.stand.p75, 0),
+          pct(share)
+        )
+      )
+    end
+  end
+  line(
+    string.format(
+      "Per run (mean): trips %.1f, truck $%.0f, stand units %.0f, harvested %.0f, fish %.0f",
+      q("trips").mean,
+      q("earned").mean,
+      q("standUnits").mean,
+      q("harvested").mean,
+      q("fish").mean
+    )
+  )
+  line(
+    string.format(
+      "Power kWh per run (mean): made %.0f, wanted %.0f, served %.0f, shed %.0f, wasted %.0f; brownout days %.1f; "
+        .. "nights needing warmth %.1f, fully electric %.1f (electric warmth %.0f)",
+      q("kwhMade").mean,
+      q("kwhWanted").mean,
+      q("kwhServed").mean,
+      q("kwhWanted").mean - q("kwhServed").mean,
+      q("kwhWasted").mean,
+      q("brownouts").mean,
+      q("warmNights").mean,
+      q("electricNights").mean,
+      q("electricWarmth").mean
+    )
+  )
+  line(
+    string.format(
+      "Water per run (mean): waterings by hand %.0f, by drip %.0f; cistern units pumped %.0f, rained %.0f; rain days %.1f, cloudy days %.1f",
+      q("waterHand").mean,
+      q("waterDrip").mean,
+      q("waterPumped").mean,
+      q("waterRained").mean,
+      q("rainDays").mean,
+      q("cloudyDays").mean
+    )
+  )
+  line(
+    string.format(
+      "Mice per run (mean): raids that took food %.1f (%.1f food units lost), raids the cat caught %.1f",
+      q("miceRaids").mean,
+      q("miceLost").mean,
+      q("miceCaught").mean
+    )
+  )
+  local owned, finds = {}, {}
+  for id, n in pairs(summary.owned) do
+    owned[#owned + 1] = string.format("%s %d%%", id, math.floor(100 * n / summary.n + 0.5))
+  end
+  table.sort(owned)
+  for id, n in pairs(summary.finds) do
+    finds[#finds + 1] = string.format("%s %.1f", id, n / summary.n)
+  end
+  table.sort(finds)
+  line("Owned at the end (share of seeds): " .. (#owned > 0 and table.concat(owned, ", ") or "-"))
+  line("Finds picked per run (mean): " .. (#finds > 0 and table.concat(finds, ", ") or "-"))
 end
 
 -- File output -------------------------------------------------------------------------------------

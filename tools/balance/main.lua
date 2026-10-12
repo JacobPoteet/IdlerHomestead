@@ -13,7 +13,10 @@ Idler Homestead balance harness. Usage:  lovec tools/balance [key=value ...]
   years=N                               years to simulate per run   (default 1)
   runs=N                                runs per career: a failed run is followed by recovery (free
                                         study) and a new run with the knowledge kept     (default 1)
-  trace=1                               also print the first seed of each policy day by day
+  features=all|none|a,b                 optional policy behaviours (default all): cat, stand, water,
+                                        power, finds, weather; `none` plays the harness as it was
+                                        before them. Policies: see docs/BALANCE.md
+  trace=1                              also print the first seed of each policy day by day
   out=path.csv|path.json                write per-day rows (csv) or summaries + runs (json)
   set=domain.key=value                  override a tuning number for what-if runs (repeatable),
                                         e.g. set=needs.coldDamage=15 set=needs.dailyWarmth.winter=3
@@ -60,25 +63,31 @@ function love.load(args)
     local years = tonumber(opts.years) or 1
     local runs = tonumber(opts.runs) or 1
     local quiet = opts.quiet ~= nil
+    local Features = require("features")
+    local features = Features.parse(opts.features)
 
     io.write(
       string.format(
-        "balance: policies=%s seeds=%d (from %d) years=%d runs=%d%s\n",
+        "balance: policies=%s seeds=%d (from %d) years=%d runs=%d features=%s%s\n",
         table.concat(names, ","),
         seeds,
         seed0,
         years,
         runs,
+        Features.label(features),
         #opts.sets > 0 and (" overrides: " .. table.concat(opts.sets, " ")) or ""
       )
     )
 
     local started = os.clock()
-    local all, report = {}, { config = { seeds = seeds, seed0 = seed0, years = years, runs = runs, overrides = opts.sets }, policies = {} }
+    local all, report = {}, {
+      config = { seeds = seeds, seed0 = seed0, years = years, runs = runs, overrides = opts.sets, features = Features.label(features) },
+      policies = {},
+    }
     for _, name in ipairs(names) do
       local byRun = {}
       for s = 0, seeds - 1 do
-        for _, result in ipairs(Balance.playSeed(ctx, name, seed0 + s, years, runs)) do
+        for _, result in ipairs(Balance.playSeed(ctx, name, seed0 + s, years, runs, features)) do
           byRun[result.run] = byRun[result.run] or {}
           table.insert(byRun[result.run], result)
           if opts.trace and s == 0 then
@@ -96,6 +105,7 @@ function love.load(args)
         if byRun[r] then
           local summary = Balance.summarize(ctx, byRun[r], years)
           Balance.printSummary(ctx, name, r, summary, years)
+          Balance.printFeatures(summary, years)
           entry.runs[#entry.runs + 1] = { run = r, summary = summary }
         end
       end
