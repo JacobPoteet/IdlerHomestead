@@ -13,6 +13,10 @@ local Power = require("src.sim.systems.power")
 local Sleep = require("src.sim.systems.sleep")
 local Actors = require("src.sim.systems.actors")
 local Grid = require("src.sim.grid")
+local Needs = require("src.sim.systems.needs")
+local Inventory = require("src.sim.systems.inventory")
+local Processing = require("src.sim.systems.processing")
+local Tasks = require("src.sim.systems.tasks")
 
 local tun = tuningLoader.load()
 local reg = Registry.new():loadAll()
@@ -283,4 +287,122 @@ T.test("sleep: winter means a longer night in bed", function()
   setTime(world, tun.time.daysPerSeason * 3 + 1, 12)
   local wbed, wwake = Sleep.bedtimeHours(world)
   T.truthy(wwake + 24 - wbed > wake + 24 - bed + 3)
+end)
+
+-- Firewood & warmth -----------------------------------------------------------------------
+
+local function onlyCategory(world, category)
+  for _, e in ipairs(world.state.priorities) do
+    e.enabled = e.category == category
+  end
+end
+
+local function objectAnchor(world, id)
+  for anchor, obj in pairs(world.state.grid.objects) do
+    if obj.id == id then
+      return anchor
+    end
+  end
+end
+
+local function dayIn(season)
+  for n, s in ipairs(tun.time.seasons) do
+    if s == season then
+      return (n - 1) * tun.time.daysPerSeason + 2
+    end
+  end
+end
+
+T.test("firewood: the starting kit has a campfire and a chopping block", function()
+  local world = newWorld(2)
+  T.truthy(objectAnchor(world, "campfire"))
+  T.truthy(objectAnchor(world, "chopping_block"))
+  T.truthy(reg:has("resources", tun.firewood.splitFrom))
+  T.truthy(reg:has("resources", tun.firewood.splitInto))
+end)
+
+T.test("firewood: the routine splits wood, keeping a little for the smoker", function()
+  local world = newWorld(2)
+  world.control = "idle"
+  onlyCategory(world, "fuel")
+  setTime(world, 1, 8)
+  Ledger.add(world, "wood", 10)
+  run(world, HOUR * 4)
+  T.eq(Ledger.get(world, "wood"), tun.firewood.keepWood)
+  T.eq(Ledger.get(world, "firewood"), 10 - tun.firewood.keepWood)
+end)
+
+T.test("warmth: cold nights burn the best fuel; nothing to burn costs condition", function()
+  local world = newWorld(2)
+  local warmed = collect(world, "needs.warmed")
+  setTime(world, dayIn("autumn"), 12)
+  local need = Needs.warmthNeeded(world)
+  T.truthy(need > 0, "autumn nights need a fire")
+  Ledger.add(world, "seasoned_firewood", need)
+  Ledger.add(world, "firewood", 10)
+  T.eq(Needs.warm(world), 0)
+  T.eq(Ledger.get(world, "seasoned_firewood"), 0, "seasoned wood burns first")
+  T.eq(Ledger.get(world, "firewood"), 10)
+  -- Green wood gives half the heat: twice as many logs.
+  T.eq(Needs.warm(world), 0)
+  T.eq(Ledger.get(world, "firewood"), 10 - need * 2)
+  T.eq(warmed[2].green, need * 2)
+  T.truthy(Journal.hasNote(world, "green_wood"))
+  Ledger.remove(world, "firewood", Ledger.get(world, "firewood"))
+  local before = world.state.needs.condition
+  T.eq(Needs.warm(world), 1)
+  T.eq(world.state.needs.condition, before - tun.needs.coldDamage)
+  T.truthy(Journal.hasNote(world, "cold_night"))
+end)
+
+T.test("warmth: summer needs no fire; without a heat source fuel doesn't help", function()
+  local world = newWorld(2)
+  setTime(world, dayIn("summer"), 12)
+  T.eq(Needs.warmthNeeded(world), 0)
+  T.eq(Needs.warm(world), 0)
+  setTime(world, dayIn("winter"), 12)
+  Grid.removeObject(world, objectAnchor(world, "campfire"))
+  Ledger.add(world, "seasoned_firewood", 20)
+  T.eq(Needs.warm(world), 1, "no fire to burn it in")
+  T.eq(Ledger.get(world, "seasoned_firewood"), 20)
+end)
+
+T.test("warmth: a fed but cold day doesn't restore condition", function()
+  local world = newWorld(2)
+  setTime(world, dayIn("winter"), 12)
+  world.state.needs.condition = 50
+  Ledger.add(world, "canned_food", 10)
+  Needs.daily(world)
+  T.eq(world.state.needs.condition, 50 - tun.needs.coldDamage)
+end)
+
+T.test("firewood: the woodshed stores more and seasons green wood", function()
+  local world = newWorld(2)
+  local base = Ledger.capacity(world, "seasoned_firewood")
+  Inventory.addObject(world, "woodshed")
+  local spot
+  for i = 1, #world.state.grid.terrain do
+    if Inventory.canPlace(world, "woodshed", i) then
+      spot = i
+      break
+    end
+  end
+  T.truthy(Inventory.place(world, "woodshed", spot))
+  T.truthy(Ledger.capacity(world, "seasoned_firewood") > base)
+  Ledger.add(world, "firewood", 20)
+  local recipe = reg:get("recipes", "season_wood")
+  Tasks.get(world, "load_station").complete(world, Actors.homesteader(world), spot)
+  T.eq(Processing.batch(world, spot).count, recipe.batch)
+  run(world, HOUR * recipe.hours + 1)
+  T.eq(Ledger.get(world, "seasoned_firewood"), recipe.batch)
+end)
+
+T.test("firewood: an axe halves felling and splitting time", function()
+  local world = newWorld(2)
+  local clear = Tasks.get(world, "clear")
+  local tree = objectAnchor(world, "tree")
+  T.truthy(tree, "the plot has trees")
+  local bare = clear.workTime(world, nil, tree)
+  Inventory.addEquipment(world, "axe")
+  T.near(clear.workTime(world, nil, tree), bare / 2, 1e-9)
 end)

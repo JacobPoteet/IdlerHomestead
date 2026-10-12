@@ -318,6 +318,122 @@ function P.smoker(p)
   p:px(11, 20, C.metal)
 end
 
+-- Heat & firewood ------------------------------------------------------------------------
+
+local FLAME = { 0.98, 0.62, 0.20 }
+local FLAME_HOT = { 1.00, 0.88, 0.45 }
+local SPLIT = { 0.78, 0.62, 0.40 } -- fresh-split wood face
+local SEASONED = { 0.62, 0.52, 0.40 }
+
+function P.campfire(p)
+  p:ellipse(8, 12, 7, 3, C.shadow)
+  for _, s in ipairs({ { 2, 11 }, { 5, 13 }, { 9, 13 }, { 12, 11 }, { 4, 9 }, { 11, 9 } }) do
+    p:rect(s[1], s[2], 3, 2, C.stoneDark)
+    p:px(s[1], s[2], C.stone)
+  end
+  p:rect(4, 10, 8, 2, C.bark) -- logs
+  p:rect(6, 9, 4, 1, C.barkDark)
+  p:rect(6, 5, 4, 5, FLAME)
+  p:rect(7, 3, 2, 3, FLAME)
+  p:rect(7, 7, 2, 3, FLAME_HOT)
+end
+
+function P.chopping_block(p)
+  p:ellipse(8, 13, 6, 2, C.shadow)
+  p:rect(3, 7, 10, 6, C.bark) -- stump
+  p:rect(3, 6, 10, 2, C.barkLight)
+  p:px(7, 6, C.barkDark)
+  p:px(9, 7, C.barkDark)
+  p:rect(10, 1, 1, 6, C.barkDark) -- axe handle stuck in the block
+  p:rect(8, 4, 4, 2, C.metal)
+end
+
+function P.woodshed(p)
+  p:ellipse(16, 22, 15, 2, C.shadow)
+  p:rect(1, 4, 30, 3, C.barkDark) -- roof
+  p:rect(0, 3, 32, 1, C.bark)
+  p:rect(2, 7, 2, 14, C.barkDark) -- posts
+  p:rect(28, 7, 2, 14, C.barkDark)
+  for row = 0, 3 do
+    for col = 0, 5 do
+      local x, y = 5 + col * 4 + (row % 2) * 2, 9 + row * 3
+      if x < 27 then
+        p:rect(x, y, 3, 3, C.bark)
+        p:px(x + 1, y + 1, SPLIT)
+      end
+    end
+  end
+end
+
+function P.wood_stove(p)
+  p:ellipse(8, 22, 7, 2, C.shadow)
+  p:rect(11, 0, 2, 9, { 0.20, 0.20, 0.22 }) -- stove pipe
+  p:rect(2, 9, 12, 11, { 0.16, 0.16, 0.18 }) -- body
+  p:rect(2, 9, 12, 1, { 0.30, 0.30, 0.32 })
+  p:rect(5, 13, 6, 4, { 0.10, 0.10, 0.11 }) -- door
+  p:rect(6, 14, 4, 2, FLAME)
+  p:rect(3, 20, 2, 2, { 0.16, 0.16, 0.18 }) -- feet
+  p:rect(11, 20, 2, 2, { 0.16, 0.16, 0.18 })
+end
+
+local function splitWood(p, face)
+  p:rect(1, 5, 5, 5, C.bark)
+  p:rect(2, 6, 3, 3, face)
+  p:rect(6, 5, 5, 5, C.bark)
+  p:rect(7, 6, 3, 3, face)
+  p:rect(3, 1, 5, 5, C.bark)
+  p:rect(4, 2, 3, 3, face)
+end
+
+function P.icon_firewood(p)
+  splitWood(p, SPLIT)
+end
+
+function P.icon_seasoned_firewood(p)
+  splitWood(p, SEASONED)
+  p:px(5, 3, C.barkDark) -- checks in dry wood
+  p:px(3, 7, C.barkDark)
+  p:px(8, 7, C.barkDark)
+end
+
+function P.icon_cold(p)
+  local ice = { 0.75, 0.88, 1.0 }
+  p:rect(5, 1, 1, 10, ice)
+  p:rect(1, 5, 10, 1, ice)
+  for d = 2, 8 do
+    p:px(d + 1, d, ice)
+    p:px(10 - d, d, ice)
+  end
+end
+
+function P.icon_axe(p)
+  p:rect(5, 2, 1, 9, C.barkLight)
+  p:rect(2, 2, 4, 3, C.metal)
+  p:px(2, 2, { 0.8, 0.82, 0.84 })
+end
+
+function P.icon_campfire(p)
+  p:rect(2, 8, 8, 2, C.bark)
+  p:rect(4, 4, 4, 4, FLAME)
+  p:rect(5, 2, 2, 3, FLAME)
+  p:rect(5, 6, 2, 2, FLAME_HOT)
+end
+
+function P.icon_woodshed(p)
+  p:rect(0, 2, 12, 2, C.barkDark)
+  p:rect(1, 4, 1, 7, C.barkDark)
+  p:rect(10, 4, 1, 7, C.barkDark)
+  p:rect(3, 6, 6, 5, C.bark)
+  p:px(4, 7, SPLIT)
+  p:px(7, 9, SPLIT)
+end
+
+function P.icon_wood_stove(p)
+  p:rect(8, 0, 2, 4, { 0.25, 0.25, 0.27 })
+  p:rect(1, 4, 10, 7, { 0.20, 0.20, 0.22 })
+  p:rect(4, 6, 4, 3, FLAME)
+end
+
 function P.bobber(p)
   p:rect(3, 0, 1, 3, C.white)
   p:circle(3, 5, 3, C.heart)

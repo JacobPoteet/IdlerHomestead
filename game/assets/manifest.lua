@@ -28,6 +28,10 @@ return {
     truck = { placeholder = "truck", w = 32, h = 24 },
     folding_panel = { placeholder = "folding_panel", w = 16, h = 16 },
     smoker = { placeholder = "smoker", w = 16, h = 24 },
+    campfire = { placeholder = "campfire", w = 16, h = 16 },
+    chopping_block = { placeholder = "chopping_block", w = 16, h = 16 },
+    woodshed = { placeholder = "woodshed", w = 32, h = 24 },
+    wood_stove = { placeholder = "wood_stove", w = 16, h = 24 },
 
     -- Crops: one sprite per growth stage (1 = sprout ... 3 = ready)
     radish = { placeholder = "radish", w = 16, h = 16, variants = 3 },
@@ -65,6 +69,13 @@ return {
     icon_unknown = { placeholder = "icon_unknown", w = 12, h = 12 },
     icon_note_blank = { placeholder = "icon_note_blank", w = 12, h = 12 },
     icon_spoiled = { placeholder = "fish_icon", w = 12, h = 12 },
+    icon_firewood = { placeholder = "icon_firewood", w = 12, h = 12 },
+    icon_seasoned_firewood = { placeholder = "icon_seasoned_firewood", w = 12, h = 12 },
+    icon_cold = { placeholder = "icon_cold", w = 12, h = 12 },
+    icon_axe = { placeholder = "icon_axe", w = 12, h = 12 },
+    icon_campfire = { placeholder = "icon_campfire", w = 12, h = 12 },
+    icon_woodshed = { placeholder = "icon_woodshed", w = 12, h = 12 },
+    icon_wood_stove = { placeholder = "icon_wood_stove", w = 12, h = 12 },
     icon_smoker = { placeholder = "icon_smoker", w = 12, h = 12 },
     icon_folding_panel = { placeholder = "icon_folding_panel", w = 12, h = 12 },
 

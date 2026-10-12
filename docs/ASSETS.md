@@ -46,6 +46,9 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 | `truck` | 32×24 | M1 | Electric pickup, 2×1 footprint. Later: charging cable, cargo states, trailer. |
 | `folding_panel` | 16×16 | M2 | Starting gear, placed beside the truck. |
 | `smoker` | 16×24 | M2 | Smoke puffs are drawn by the renderer while a batch runs. |
+| `campfire`, `chopping_block` | 16×16 | M3 | Starting kit, placed beside the truck. |
+| `woodshed` | 32×24 | M3 | 2×1 footprint; seasons firewood (no smoke). |
+| `wood_stove` | 16×24 | M3 | Better heat source than the campfire. |
 | Sell crate, delivery drop-off | 16×16 | Later | The crate is only a HUD count for now; deliveries appear instantly. |
 | Woodpile / woodshed | 16×16 / 32×32 | M3 | Firewood stock shown visually. |
 | Shack / cabin | 32×32+ | M3 | |
@@ -79,6 +82,7 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 | Journal node icons (one per catalog item / perk), Note stamps. Placeholders so far: `icon_note_blank` (unwritten note), `icon_spoiled` (fish gone off); other notes reuse existing icons | M3 |
 | `icon_<fish id>` for all 7 species (one tinted placeholder painter), `icon_unknown`, `icon_battery`, `icon_crate`, `icon_rod`, `icon_bait`, `icon_smoked_fish`, `icon_smoker`, `icon_folding_panel` | M2 |
 | `bobber` (8×10) for the fishing mini-game | M2 |
+| `icon_firewood`, `icon_seasoned_firewood`, `icon_cold`, `icon_axe`, `icon_campfire`, `icon_woodshed`, `icon_wood_stove` | M3 |
 
 ### Fonts
 
