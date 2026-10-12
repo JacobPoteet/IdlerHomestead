@@ -333,6 +333,7 @@ The journal is a **knowledge map**, not pages of prose. It's an interactive layo
 - **Tap a Note** → its one line plus when you got it. Longer flavor text is optional behind a "read more" tap.
 - **Journal and catalog share the same nodes.** The catalog is the same data as a shop view (known items, prices, specials, cart). One data model, two views.
 - **Text budget:** labels ≤ ~3 words, effect lines ≤ ~8 words, no paragraphs in menus.
+- *Built (M3):* `src/scenes/journal.lua` draws a pannable map (drag, arrow keys / WASD, mouse wheel; clipped to its viewport). Chapters are content (`data/content/chapters.lua`: each lists the node `page`s it holds, empty chapters are hidden) and `src/ui/journal_map.lua` lays them out: each chapter is a region with its note stamps on the left, its nodes on the right and a line from each stamp to the nodes that need it; regions are packed into columns in chapter order, each column as tall as the map viewport. A study-queue strip sits above the map (with the "nothing queued" prompt) and a notes strip below it (tap a stamp for its line and when and in which run it was written). Tapping a node opens the card over the bottom of the map: icon, name, effect line, needed stamps (filled / blank), study nights, price, and *Study* / *Remove* / *Order* (known catalog items go through `Market.order`, so the catalog and the journal stay one data model). Starter items show as known nodes with no stamps. Unknown nodes show a silhouette and "???" and never their name.
 
 ### 8.4 Run variety (lean in, pull back if needed)
 Land (§7.3), forecast and threat order, weekly catalog specials, "pick 1 of 3" finds, random events. All randomness uses a **seeded RNG per run** (reproducible for testing and bug reports).
@@ -477,7 +478,7 @@ Headless sim tests, plus a **balance harness** that simulates years with scripte
 | # | Question | Decide by |
 |---|---|---|
 | 1 | Exact tension mini-game feel (bite window, surge patterns, how much gear helps). | M2, by prototyping |
-| 2 | Journal map layout: fixed hand-placed node positions, or auto-layout from data? | M3 |
+| 2 | ~~Journal map layout: fixed hand-placed node positions, or auto-layout from data?~~ **Decided: auto-layout from data (D41).** | M3 |
 | 3 | Can studying also happen during the day (sitting at a desk instead of working)? | M3 |
 | 4 | Player time speed-up (2×, 3×)? Unlockable perk? | M3 |
 | 5 | Tile size final (16×16 vs. 32×32) once art direction / asset pack is chosen. | Before M7 art pass |
@@ -529,3 +530,4 @@ Headless sim tests, plus a **balance harness** that simulates years with scripte
 | D38 | **Food model shortcuts kept for now** (issue #11): spoilage stays aggregate (fraction of stock per day), smoked fish stays one generic resource, food rules re-sort on an hourly timer. Fresh food flagged `keepsForWinter` (potatoes) tops up the winter stock after the pantry, standing in for a root cellar until one exists. Revisit with the balance harness. |
 | D39 | **Recovery is a saved state.** Failing discards `run` immediately and stores the run summary in `meta`; the slot shows "Recovering in town" until the player heads out. The free study during recovery learns one current idea instantly. Notes remember which run wrote them, for the run summary. |
 | D40 | **Perks are journal nodes like catalog items** (needs + study nights), not a separate tree. Head starts apply once at the start of each run; habit and weather-sense perks are stat modifiers. |
+| D41 | **The journal map is auto-laid-out from data**, not hand-placed. A chapter lists the `page`s it holds; a node lands in the chapter whose pages list its `page`. Inside a chapter, notes sit in a column left of the nodes, ordered to keep lines from crossing, and chapters pack into columns left to right in file order. New content therefore never needs a position, and an empty chapter (animals, machines) stays hidden until it holds a node. A node's card offers *Order* for any known catalog item, so the journal map doubles as the shop view. |

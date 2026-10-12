@@ -61,6 +61,46 @@ function Journal.nodes(world)
   return list
 end
 
+--- The chapters of the knowledge map (data/content/chapters.lua) with the nodes they hold, in
+--- map order. A node belongs to the chapter that lists its `page`; chapters without nodes are left out.
+--- Returns { { id, name, nodes = { def, ... } }, ... }.
+function Journal.chapters(world)
+  local list, byPage = {}, {}
+  for _, chapter in ipairs(world.registry:all("chapters")) do
+    local entry = { id = chapter.id, name = chapter.name, nodes = {} }
+    list[#list + 1] = entry
+    for _, page in ipairs(chapter.pages) do
+      byPage[page] = byPage[page] or entry
+    end
+  end
+  for _, def in ipairs(Journal.nodes(world)) do
+    local entry = byPage[def.page]
+    if entry then
+      entry.nodes[#entry.nodes + 1] = def
+    end
+  end
+  local shown = {}
+  for _, entry in ipairs(list) do
+    if #entry.nodes > 0 then
+      shown[#shown + 1] = entry
+    end
+  end
+  return shown
+end
+
+--- The id of the chapter a node sits in, or nil if no chapter lists its page.
+function Journal.chapterOf(world, id)
+  local page = item(world, id).page
+  for _, chapter in ipairs(world.registry:all("chapters")) do
+    for _, listed in ipairs(chapter.pages) do
+      if listed == page then
+        return chapter.id
+      end
+    end
+  end
+  return nil
+end
+
 local function isStarter(world, id)
   return world.registry:has("catalog", id) and world.registry:get("catalog", id).starter == true
 end

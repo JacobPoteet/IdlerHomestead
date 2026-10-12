@@ -310,7 +310,7 @@ function Homestead:layout()
     label = "Journal",
     style = self.journalPrompt and "accent" or nil,
     onPress = function()
-      self.app:push(require("src.scenes.journal").new(world))
+      self.app:push(require("src.scenes.journal").new(world, self:toaster()))
     end,
   })
   addRight({

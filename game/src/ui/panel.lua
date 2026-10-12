@@ -29,13 +29,14 @@ function Panel.closeButton(buttons, box, onPress)
 end
 
 --- Draw a 12x12 icon by sprite id, falling back to a neutral icon.
-function Panel.icon(id, x, y, alpha)
+--- scale: whole-number magnification (default 1). tint: { r, g, b } multiplied into the sprite.
+function Panel.icon(id, x, y, alpha, scale, tint)
   if not Assets.has(id) then
     id = "icon_unknown"
   end
-  local s = Assets.sprite(id)
-  love.graphics.setColor(1, 1, 1, alpha or 1)
-  love.graphics.draw(s.image, s.quad, math.floor(x), math.floor(y))
+  tint = tint or { 1, 1, 1 }
+  love.graphics.setColor(tint[1], tint[2], tint[3], alpha or 1)
+  Assets.draw(id, math.floor(x), math.floor(y), scale or 1)
 end
 
 --- Icon id for a resource.

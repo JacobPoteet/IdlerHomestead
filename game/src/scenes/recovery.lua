@@ -5,6 +5,7 @@ local Journal = require("src.sim.systems.journal")
 local Run = require("src.meta.run")
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
+local NodeView = require("src.ui.node_view")
 local Panel = require("src.ui.panel")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
@@ -12,7 +13,10 @@ local theme = require("src.ui.theme")
 local Recovery = { name = "recovery", opaque = true }
 Recovery.__index = Recovery
 
-local ROW_H = 26
+local ROW_H = 28 -- an idea row: name and effect line
+local LEARN_W = 72 -- width of the Learn button
+local STAMP = 18 -- note stamp edge on an idea row
+local STAMP_GAP = 2
 local MAX_IDEAS = 5
 
 function Recovery.new()
@@ -59,12 +63,14 @@ function Recovery:layout()
     if n > MAX_IDEAS then
       break
     end
-    self.ideaRows[#self.ideaRows + 1] = { item = def, y = y }
+    local textW = self:textWidth(def)
+    local rowH = math.max(ROW_H, 14 + Text.wrappedHeight(def.line, "small", textW) + 2)
+    self.ideaRows[#self.ideaRows + 1] = { item = def, y = y, textW = textW }
     self.buttons:add({
-      x = b.x + b.w - 84,
+      x = b.x + b.w - LEARN_W - 12,
       y = y,
-      w = 72,
-      h = ROW_H - 4,
+      w = LEARN_W,
+      h = 24,
       label = "Learn",
       size = "small",
       style = "accent",
@@ -74,8 +80,14 @@ function Recovery:layout()
         self:layout()
       end,
     })
-    y = y + ROW_H
+    y = y + rowH
   end
+end
+
+-- Width for an idea row's name and effect line: what's left between the icon and the stamps.
+function Recovery:textWidth(def)
+  local stamps = #(def.needs or {}) * (STAMP + STAMP_GAP)
+  return self.box.w - 12 - 18 - LEARN_W - 12 - 8 - stamps - 8
 end
 
 function Recovery:action(name, data)
@@ -134,15 +146,16 @@ function Recovery:draw()
     })
   end
   for _, row in ipairs(self.ideaRows) do
-    Panel.icon(Panel.nodeIcon(registry, row.item), b.x + 12, row.y + 5)
-    Text.draw(row.item.name, b.x + 30, row.y + 5, { size = "small" })
-    for n, noteId in ipairs(row.item.needs or {}) do
-      Panel.icon(registry:get("notes", noteId).icon, b.x + 170 + (n - 1) * 14, row.y + 4)
-    end
+    Panel.icon(Panel.nodeIcon(registry, row.item), b.x + 12, row.y + 6)
+    Text.draw(row.item.name, b.x + 30, row.y + 1, { size = "small", width = row.textW })
+    Text.draw(row.item.line, b.x + 30, row.y + 13, { size = "small", width = row.textW, color = dim })
+    local stampsW = #(row.item.needs or {}) * (STAMP + STAMP_GAP)
+    NodeView.needStamps(self.metaWorld, row.item, b.x + b.w - LEARN_W - 12 - 8 - stampsW, row.y + 3, STAMP, STAMP_GAP)
   end
 
-  Text.draw("New land, same knowledge. Nothing else comes with you.", b.x + 12, b.y + b.h - 30, {
+  Text.draw("New land, same knowledge. Nothing else comes with you.", b.x + 12, b.y + b.h - 34, {
     size = "small",
+    width = b.w - 24 - 136, -- leave room for the Head out button
     color = dim,
   })
   self.buttons:draw()
