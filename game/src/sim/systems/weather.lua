@@ -32,10 +32,13 @@ local function rollWinter(world, year)
   local cfg = world.tuning.weather
   local rng = world:rng("weather")
   local extra = cfg.severityPerYear * (year - 1)
+  -- Later years also get longer cold snaps (D67); added after the roll, so the draws are unchanged.
+  local grow = world.tuning.threats.winter
+  local extraSnap = math.min(grow.maxExtraSnapDays, math.floor(grow.snapDaysPerYear * (year - 1)))
   local winter = {
     severity = math.floor(rng:range(cfg.severityMin + extra, cfg.severityMax + extra) * 100 + 0.5) / 100,
     snapStart = rng:int(cfg.snapStartMin, cfg.snapStartMax),
-    snapDays = rng:int(cfg.snapDaysMin, cfg.snapDaysMax),
+    snapDays = rng:int(cfg.snapDaysMin, cfg.snapDaysMax) + extraSnap,
   }
   state(world).winters[year] = winter
   return winter
@@ -198,10 +201,17 @@ function Weather.fishActivity(world)
   return Weather.current(world).fish
 end
 
---- Multiplier for threats (GDD §7.9). The hook for the future threat system: storms and wind raise it.
---- Nothing reads it yet (#97).
+--- Multiplier for threats (GDD §7.9): storms and wind raise it. Read by mice (D54), predators (D64)
+--- and the weather-driven growing-season threats (hail, D67).
 function Weather.threat(world)
   return Weather.current(world).threat
+end
+
+--- The threat multiplier of the day `offset` days ahead (0 = today), from the rolled sky. Past the
+--- rolled queue it is 1 (unknown weather counts as ordinary).
+function Weather.threatAhead(world, offset)
+  local kind = state(world).sky.days[offset + 1]
+  return kind and world.tuning.weather.kinds[kind].threat or 1
 end
 
 --- Wind multiplier of today's weather (1 = ordinary, above 1 = gusty). The hook for wind sway and

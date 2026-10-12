@@ -131,6 +131,22 @@ return {
     lacks = "table?", -- boosts the weight when true: { resource, below } | { object } | { equipment }
     effects = "table", -- { resources = { id = n }, objects = { id = n }, equipment = { catalogId }, truckCharge = kWh }
   },
+  threats = { -- growing-season threats (GDD §7.9, D67); see src/sim/systems/threats.lua
+    name = "string", -- label in toasts and the forecast (<= ~3 words)
+    line = "string", -- what it does (<= ~8 words)
+    icon = "string", -- sprite id
+    season = "string", -- season id it comes in
+    startDays = "table", -- { first, last } day of that season it may start on
+    span = "table", -- { min, max } days it lasts (a weather-driven threat may strike on any day of it)
+    hour = "number", -- in-game hour its effect lands (daily threats roll then)
+    minYear = "number", -- first year it can be scheduled
+    weight = "number", -- relative odds of being picked for a year
+    guard = "string", -- stat whose modifiers turn part of it aside (the countermeasure)
+    counter = "string", -- catalog id of the countermeasure (its modifiers name the guard stat)
+    strike = "table?", -- weather-driven: { chance = per day before weather, weatherPower = exponent on Weather.threat }; strikes once
+    damage = "table?", -- { share = 0..1 of crops hit at strength 1, kill = true, setback = growth lost, ripe = hits ripe crops, unripe = hits growing crops }
+    drought = "table?", -- { dryRate = extra drying multiplier at strength 1, witherHours = in-game hours dry before a crop withers }
+  },
   task_categories = {
     name = "string",
   },

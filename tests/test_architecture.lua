@@ -70,6 +70,7 @@ local STATE_OWNERS = {
   processing = "processing",
   stand = "stand",
   startingKitGiven = "land",
+  threats = "threats",
   water = "water",
   weather = "weather",
 }

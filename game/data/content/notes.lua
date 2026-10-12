@@ -196,6 +196,40 @@ return {
     event = "weather.coldSnap",
     match = { active = true },
   },
+  -- Threats (D67): each one writes its note the first time it strikes, which makes its
+  -- countermeasure an idea, so the next time (this run or the next) the player can prepare.
+  {
+    id = "hail_storm",
+    name = "Hail",
+    line = "Hail came down out of a summer storm.",
+    icon = "icon_hail",
+    event = "threat.struck",
+    match = { threat = "hail" },
+  },
+  {
+    id = "dry_spell",
+    name = "Dry spell",
+    line = "In a drought the beds dry by noon.",
+    icon = "icon_drought",
+    event = "threat.struck",
+    match = { threat = "drought" },
+  },
+  {
+    id = "locust_swarm",
+    name = "Locusts",
+    line = "A locust swarm came through the field.",
+    icon = "icon_locust",
+    event = "threat.struck",
+    match = { threat = "locusts" },
+  },
+  {
+    id = "early_frost",
+    name = "Early frost",
+    line = "Frost came before the harvest was in.",
+    icon = "icon_frost",
+    event = "threat.struck",
+    match = { threat = "early_frost" },
+  },
   {
     id = "first_smoke",
     name = "Smoked fish",

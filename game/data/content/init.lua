@@ -10,6 +10,7 @@ return {
   "catalog",
   "perks",
   "finds",
+  "threats",
   "chapters",
   "task_categories",
   "routine_conditions",

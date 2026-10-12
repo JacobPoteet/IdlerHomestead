@@ -42,6 +42,9 @@ function Balance.applyOverrides(list)
       assert(type(node) == "table", "override '" .. spec .. "': no such table")
     end
     local key = parts[#parts]
+    if rawget(node, key) == nil and tonumber(key) then
+      key = tonumber(key) -- a list entry, e.g. threats.count.1
+    end
     assert(#parts >= 2 and type(rawget(node, key)) == "number", "override '" .. spec .. "': no such number")
     node[key] = number
   end
@@ -150,6 +153,10 @@ local function playRun(ctx, session, policyName, seed, years, features)
       eggs = 0, -- chickens: eggs collected, hens lost to predators / hunger / thirst, raids the coop turned back
       hensLost = 0,
       foxStopped = 0,
+      threats = 0, -- growing-season threats (D67): scheduled ones that ran, ones that struck, crops lost / knocked back
+      threatsStruck = 0,
+      threatLost = 0,
+      threatDamaged = 0,
       rainDays = 0,
       cloudyDays = 0,
       brownouts = 0,
@@ -201,6 +208,13 @@ local function playRun(ctx, session, policyName, seed, years, features)
   end)
   events:on("mice.caught", function()
     result.counters.miceCaught = result.counters.miceCaught + 1
+  end)
+  events:on("threat.ended", function(e)
+    local c = result.counters
+    c.threats = c.threats + 1
+    c.threatsStruck = c.threatsStruck + (e.struck and 1 or 0)
+    c.threatLost = c.threatLost + e.lost
+    c.threatDamaged = c.threatDamaged + e.damaged
   end)
   events:on("animals.collected", function(e)
     result.counters.eggs = result.counters.eggs + e.count
@@ -733,6 +747,15 @@ function Balance.printFeatures(summary, years)
       q("miceRaids").mean,
       q("miceLost").mean,
       q("miceCaught").mean
+    )
+  )
+  line(
+    string.format(
+      "Threats per run (mean): %.1f came, %.1f struck; crops lost %.1f, knocked back %.1f (policies buy no countermeasures)",
+      q("threats").mean,
+      q("threatsStruck").mean,
+      q("threatLost").mean,
+      q("threatDamaged").mean
     )
   )
   line(

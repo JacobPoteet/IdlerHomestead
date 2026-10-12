@@ -128,6 +128,14 @@ return {
     icon_auto_harvester = { placeholder = "icon_auto_harvester", w = 12, h = 12 },
     icon_fuel = { placeholder = "icon_fuel", w = 12, h = 12 },
     icon_fuel_can = { placeholder = "icon_fuel", w = 12, h = 12 },
+    icon_hail = { placeholder = "icon_hail", w = 12, h = 12 },
+    icon_drought = { placeholder = "icon_drought", w = 12, h = 12 },
+    icon_locust = { placeholder = "icon_locust", w = 12, h = 12 },
+    icon_frost = { placeholder = "icon_frost", w = 12, h = 12 },
+    icon_hail_netting = { placeholder = "icon_hail_netting", w = 12, h = 12 },
+    icon_straw_mulch = { placeholder = "icon_straw_mulch", w = 12, h = 12 },
+    icon_row_covers = { placeholder = "icon_row_covers", w = 12, h = 12 },
+    icon_frost_cloth = { placeholder = "icon_frost_cloth", w = 12, h = 12 },
 
     -- Fishing mini-game
     bobber = { placeholder = "bobber", w = 8, h = 10 },

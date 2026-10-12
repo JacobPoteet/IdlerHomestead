@@ -520,6 +520,7 @@ local function ladderWorld(seed)
   local drip = place(world, "drip_line", cistern)
   setTime(world, SUMMER, 6)
   world.control = "idle"
+  world.state.threats.years[1] = {} -- no drought or hail in the way (threats are tested in test_threats.lua)
   for _, i in ipairs(freeTiles(world, drip, 5)) do
     Crops.setPlan(world, i, "radish")
   end

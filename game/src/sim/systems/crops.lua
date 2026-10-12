@@ -322,6 +322,58 @@ local function registerTasks(world)
   })
 end
 
+-- Threat hooks (D67): threats.lua damages crops only through these. ---------------------------
+
+--- Tiles with a crop in the ground, in tile order (deterministic for seeded rolls).
+function Crops.plantedTiles(world)
+  local tiles = {}
+  for i in pairs(world.state.crops) do
+    tiles[#tiles + 1] = i
+  end
+  table.sort(tiles)
+  return tiles
+end
+
+--- Is the crop on tile i ripe? (false if there is none)
+function Crops.isRipeAt(world, i)
+  local crop = world.state.crops[i]
+  return crop ~= nil and Crops.isMature(crop)
+end
+
+--- Knock the crop on tile i back by `setback` of its growth (a ripe crop has to ripen again).
+--- Returns true if there was a crop. Emits "crop.damaged" { crop, tile, cause }.
+function Crops.setBack(world, i, setback, cause)
+  local crop = world.state.crops[i]
+  if not crop then
+    return false
+  end
+  crop.growth = math.max(0, crop.growth - setback)
+  world.events:emit("crop.damaged", { crop = crop.id, tile = i, cause = cause })
+  return true
+end
+
+--- Destroy the crop on tile i (the tile stays tilled and planned, so the routine replants it).
+--- Returns true if there was a crop. Emits "crop.lost" { crop, tile, cause }.
+function Crops.destroy(world, i, cause)
+  local crop = world.state.crops[i]
+  if not crop then
+    return false
+  end
+  world.state.crops[i] = nil
+  world.events:emit("crop.lost", { crop = crop.id, tile = i, cause = cause })
+  return true
+end
+
+--- Dry every growing crop by `days` worth of moisture (a drought's extra evaporation).
+function Crops.evaporate(world, days)
+  local loss = days / world.tuning.farming.moistureDays
+  for _, crop in pairs(world.state.crops) do
+    if not Crops.isMature(crop) then
+      crop.moisture = math.max(0, crop.moisture - loss)
+    end
+  end
+end
+
 --- The first frost: every crop still in the ground dies (mature ones too).
 function Crops.frost(world)
   local tiles = {}
