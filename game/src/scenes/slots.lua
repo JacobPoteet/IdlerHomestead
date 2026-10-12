@@ -1,6 +1,7 @@
 -- Save slot selection (GDD §7.11): play, create, rename, or delete one of the slots.
 
 local Save = require("src.core.save")
+local Run = require("src.meta.run")
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
 local Text = require("src.ui.text")
@@ -45,13 +46,19 @@ local function describe(slot)
   end
   local h = slot.header
   local when = "New homestead"
-  if h.year and h.season then
+  if h.recovering then
+    when = "Recovering in town"
+  elseif h.year and h.season then
     when = string.format("Year %d · %s", h.year, capitalize(h.season))
   end
   return when, "Played " .. Draw.formatPlaytime(h.playtime)
 end
 
 function Slots:play(index, data)
+  if Run.isRecovering(data) then
+    self.app:switch(require("src.scenes.recovery").new(), index, data)
+    return
+  end
   self.app:switch(require("src.scenes.homestead").new(), index, data)
 end
 

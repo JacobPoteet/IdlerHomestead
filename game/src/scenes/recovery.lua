@@ -1,0 +1,151 @@
+-- Recovery in town (GDD §4.3): review the run, take the one free study, then head out to new
+-- land. Shown after the rescue, and on loading a slot that's still recovering.
+
+local Journal = require("src.sim.systems.journal")
+local Run = require("src.meta.run")
+local Buttons = require("src.ui.buttons")
+local Draw = require("src.ui.draw")
+local Panel = require("src.ui.panel")
+local Text = require("src.ui.text")
+local theme = require("src.ui.theme")
+
+local Recovery = { name = "recovery", opaque = true }
+Recovery.__index = Recovery
+
+local ROW_H = 26
+local MAX_IDEAS = 5
+
+function Recovery.new()
+  return setmetatable({}, Recovery)
+end
+
+function Recovery:enter(slot, data)
+  self.slot, self.data = slot, data
+  self.metaWorld = Run.metaWorld(self.app.ctx, data.meta)
+  self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
+  self.app.ctx.store:write(slot, data) -- recovering survives a quit
+end
+
+function Recovery:resize(view)
+  self.box = Panel.box(view, 460, view.h - 16)
+  self:layout()
+end
+
+function Recovery:headOut()
+  Run.startNext(self.data)
+  self.app:switch(require("src.scenes.homestead").new(), self.slot, self.data)
+end
+
+function Recovery:layout()
+  local b, recovery = self.box, self.data.meta.recovery
+  self.buttons:clear()
+  self.buttons:add({
+    x = b.x + b.w - 136,
+    y = b.y + b.h - 36,
+    w = 124,
+    h = 26,
+    label = "Head out",
+    style = "accent",
+    onPress = function()
+      self:headOut()
+    end,
+  })
+  self.ideaRows = {}
+  if recovery.freeStudyUsed then
+    return
+  end
+  local y = b.y + 150
+  for n, def in ipairs(Journal.ideas(self.metaWorld)) do
+    if n > MAX_IDEAS then
+      break
+    end
+    self.ideaRows[#self.ideaRows + 1] = { item = def, y = y }
+    self.buttons:add({
+      x = b.x + b.w - 84,
+      y = y,
+      w = 72,
+      h = ROW_H - 4,
+      label = "Learn",
+      size = "small",
+      style = "accent",
+      onPress = function()
+        Run.freeStudy(self.data, self.metaWorld, def.id)
+        self.app.ctx.store:write(self.slot, self.data)
+        self:layout()
+      end,
+    })
+    y = y + ROW_H
+  end
+end
+
+function Recovery:action(name, data)
+  self.buttons:action(name, data)
+  return true
+end
+
+local function capitalize(s)
+  return (s:gsub("^%l", string.upper))
+end
+
+function Recovery:draw()
+  local view, b = self.app.view, self.box
+  local recovery = self.data.meta.recovery
+  local s = recovery.summary
+  local registry = self.app.ctx.registry
+  local dim = theme.colors.textDim
+  love.graphics.setColor(0.07, 0.08, 0.10, 1)
+  love.graphics.rectangle("fill", 0, 0, view.w, view.h)
+  Draw.panel(b.x, b.y, b.w, b.h)
+  Text.draw("Recovering in town", b.x + 12, b.y + 10, { size = "heading" })
+  Text.draw(string.format("Run %d · lasted %d days · reached %s, year %d", s.run, s.days, capitalize(s.season), s.year),
+    b.x + 12, b.y + 34, { size = "small", color = dim })
+
+  Text.draw(string.format("Notes this run (%d)", #s.notes), b.x + 12, b.y + 54, { size = "small", color = dim })
+  local x = b.x + 12
+  for _, id in ipairs(s.notes) do
+    if x > b.x + b.w - 24 then
+      break
+    end
+    Panel.icon(registry:get("notes", id).icon, x, b.y + 68)
+    x = x + 16
+  end
+  if #s.notes == 0 then
+    Text.draw("None this time.", b.x + 12, b.y + 68, { size = "small", color = dim })
+  end
+
+  local y = b.y + 92
+  if recovery.finishedStudy then
+    Text.draw("Finished studying: " .. registry:get("catalog", recovery.finishedStudy).name, b.x + 12, y, {
+      size = "small",
+      color = theme.colors.accent,
+    })
+  end
+
+  Text.draw("One free study while you recover", b.x + 12, b.y + 132, { size = "small", color = dim })
+  if recovery.freeStudyUsed then
+    Text.draw("Learned: " .. registry:get("catalog", recovery.freeStudy).name, b.x + 12, b.y + 150, {
+      size = "body",
+      color = theme.colors.accent,
+    })
+  elseif #self.ideaRows == 0 then
+    Text.draw("No ideas yet. Notes from your next run will spark some.", b.x + 12, b.y + 150, {
+      size = "small",
+      color = dim,
+    })
+  end
+  for _, row in ipairs(self.ideaRows) do
+    Panel.icon(Panel.catalogIcon(row.item), b.x + 12, row.y + 5)
+    Text.draw(row.item.name, b.x + 30, row.y + 5, { size = "small" })
+    for n, noteId in ipairs(row.item.needs or {}) do
+      Panel.icon(registry:get("notes", noteId).icon, b.x + 170 + (n - 1) * 14, row.y + 4)
+    end
+  end
+
+  Text.draw("New land, same knowledge. Nothing else comes with you.", b.x + 12, b.y + b.h - 30, {
+    size = "small",
+    color = dim,
+  })
+  self.buttons:draw()
+end
+
+return Recovery
