@@ -23,6 +23,7 @@ return {
   "finds",
   "cat",
   "animals",
+  "threats",
   "needs",
   "sleep",
   "actors",

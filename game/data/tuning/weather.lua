@@ -25,7 +25,7 @@ return {
     -- wind: turbine multiplier on top of the wind model. flow: micro-hydro multiplier (rain swells the creek).
     -- fish: fish activity multiplier (1 = normal; more means quicker bites and better odds).
     -- rainfall: 0 = dry, otherwise a multiplier on rainWaterRate and it waters every crop (not while frozen).
-    -- threat: multiplier a future threat system reads for storm/hail/predator odds (GDD §7.9); unused today.
+    -- threat: multiplier on mice, predator and weather-driven threat (hail) odds (GDD §7.9, D54, D64, D67).
     -- days: shortest and longest spell of this kind, in whole days.
     clear = { label = "Clear", cloud = 0, wind = 1, flow = 1, fish = 1, rainfall = 0, threat = 1, days = { 1, 3 } },
     cloudy = { label = "Cloudy", cloud = 0.4, wind = 1, flow = 1, fish = 1.15, rainfall = 0, threat = 1, days = { 1, 2 } },

@@ -1,5 +1,8 @@
 -- Words for the winter forecast (GDD §4.1): the sim knows numbers, the player reads a few words.
 
+local Inventory = require("src.sim.systems.inventory")
+local Journal = require("src.sim.systems.journal")
+local Threats = require("src.sim.systems.threats")
 local Weather = require("src.sim.systems.weather")
 
 local Forecast = {}
@@ -62,6 +65,98 @@ function Forecast.weatherNews(world, kind)
     return "A windy day: good for turbines."
   end
   return nil
+end
+
+-- Threats (D67) -----------------------------------------------------------------------------
+
+local function when(days)
+  if days <= 0 then
+    return "today"
+  elseif days == 1 then
+    return "tomorrow"
+  end
+  return "in " .. days .. " days"
+end
+
+-- " · Row covers help" when the countermeasure is known but not owned, " · covered" when owned.
+local function counterHint(world, id)
+  local counter = world.registry:get("threats", id).counter
+  if Inventory.hasEquipment(world, counter) then
+    return " · covered"
+  elseif Journal.isKnown(world, counter) then
+    return " · " .. world.registry:get("catalog", counter).name .. " helps"
+  end
+  return ""
+end
+
+--- Forecast pills for threats the player knows about: { { text, active } } soonest first.
+--- "Locusts in 2 days · Row covers helps", "Hail season, 2 days left · hail likely tomorrow".
+function Forecast.threats(world)
+  local lines = {}
+  for _, t in ipairs(Threats.outlook(world)) do
+    local text
+    if not t.active then
+      text = t.name .. " " .. when(t.inDays)
+    elseif world.registry:get("threats", t.id).drought then
+      text = string.format("Drought, %s left: water often", plural(t.daysLeft, "day"))
+    elseif t.risk then
+      text = string.format("%s season, %s left", t.name, plural(t.daysLeft, "day"))
+    else
+      text = t.name .. " today"
+    end
+    if t.risk and t.risk >= world.tuning.threats.likelyAt then
+      text = text .. " · " .. t.name:lower() .. " likely " .. when(t.riskIn)
+    end
+    lines[#lines + 1] = { text .. counterHint(world, t.id), t.active }
+  end
+  return lines
+end
+
+--- Toast when a threat is announced.
+function Forecast.threatWarning(world, id, days)
+  local def = world.registry:get("threats", id)
+  local text = string.format("Warning: %s %s. %s", def.name:lower(), when(days), def.line)
+  local counter = world.registry:get("catalog", def.counter)
+  if Inventory.hasEquipment(world, def.counter) then
+    text = text .. " " .. counter.name .. " is ready."
+  elseif Journal.isKnown(world, def.counter) then
+    text = text .. " " .. counter.name .. " would help."
+  end
+  return text
+end
+
+--- Toast when a threat with a span begins (hail season, drought), or nil.
+function Forecast.threatStarted(world, id)
+  local def = world.registry:get("threats", id)
+  if def.strike then
+    return def.name .. " season: storms may bring " .. def.name:lower()
+  elseif def.drought then
+    return "Drought: the beds dry out fast. Keep them watered."
+  end
+  return nil
+end
+
+--- The summary toast when a threat is over.
+function Forecast.threatSummary(world, e)
+  local def = world.registry:get("threats", e.threat)
+  if not e.struck then
+    return string.format("The %s season passed without %s", def.name:lower(), def.name:lower())
+  end
+  local parts = {}
+  if e.lost > 0 then
+    parts[#parts + 1] = plural(e.lost, "crop") .. " lost"
+  end
+  if e.damaged > 0 then
+    parts[#parts + 1] = plural(e.damaged, "crop") .. " knocked back"
+  end
+  if e.saved > 0 then
+    parts[#parts + 1] = e.saved .. " saved by " .. world.registry:get("catalog", def.counter).name:lower()
+  end
+  local head = e.broken and (def.name .. " broken by rain") or (def.name .. " passed")
+  if #parts == 0 then
+    return head .. ": no harm done"
+  end
+  return head .. ": " .. table.concat(parts, ", ")
 end
 
 --- The toast for a newly revealed forecast piece.

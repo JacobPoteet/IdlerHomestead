@@ -849,6 +849,96 @@ function P.icon_chicken_fence(p)
   p:px(5, 1, C.gold) -- the light
 end
 
+-- Threats (D67): a hailstone cloud, a cracked sun, a locust, a frosted sprout; and their
+-- countermeasures (12x12 icons).
+local HAIL_CLOUD = { 0.52, 0.56, 0.62 }
+local HAIL_ICE = { 0.86, 0.93, 1.0 }
+local SUN = { 0.98, 0.78, 0.25 }
+local LOCUST = { 0.52, 0.62, 0.22 }
+local LOCUST_DARK = { 0.34, 0.42, 0.14 }
+local NET = { 0.85, 0.85, 0.80 }
+local STRAW = { 0.86, 0.74, 0.40 }
+
+function P.icon_hail(p)
+  p:rect(2, 1, 8, 4, HAIL_CLOUD)
+  p:rect(1, 2, 10, 2, HAIL_CLOUD)
+  for _, d in ipairs({ { 2, 6 }, { 5, 7 }, { 8, 6 }, { 3, 9 }, { 7, 10 } }) do
+    p:rect(d[1], d[2], 2, 2, HAIL_ICE)
+  end
+end
+
+function P.icon_drought(p)
+  p:rect(4, 1, 4, 4, SUN)
+  p:rect(3, 2, 6, 2, SUN)
+  p:rect(0, 7, 12, 4, C.soilDry)
+  p:px(3, 8, C.furrowDry)
+  p:px(4, 9, C.furrowDry)
+  p:px(8, 7, C.furrowDry)
+  p:px(7, 8, C.furrowDry)
+  p:px(8, 9, C.furrowDry)
+end
+
+function P.icon_locust(p)
+  p:rect(2, 5, 7, 3, LOCUST)
+  p:rect(8, 4, 3, 3, LOCUST)
+  p:px(10, 5, C.tire)
+  p:rect(3, 3, 5, 2, LOCUST_DARK) -- wing
+  p:px(3, 8, LOCUST_DARK)
+  p:px(2, 9, LOCUST_DARK)
+  p:px(6, 8, LOCUST_DARK)
+  p:px(7, 9, LOCUST_DARK)
+end
+
+function P.icon_frost(p)
+  p:rect(5, 5, 1, 6, C.leaf)
+  p:rect(2, 4, 3, 2, C.leafLight)
+  p:rect(6, 3, 3, 2, C.leafLight)
+  for _, d in ipairs({ { 1, 1 }, { 9, 1 }, { 2, 8 }, { 9, 8 }, { 5, 0 } }) do
+    p:px(d[1], d[2], HAIL_ICE)
+  end
+  p:px(2, 4, HAIL_ICE)
+  p:px(8, 3, HAIL_ICE)
+end
+
+-- A net or cloth over a small bed.
+local function cover(p, color)
+  p:rect(0, 9, 12, 2, C.soilDry)
+  p:rect(3, 6, 1, 3, C.leaf)
+  p:rect(8, 6, 1, 3, C.leaf)
+  p:rect(1, 3, 10, 1, color)
+  p:rect(1, 3, 1, 6, color)
+  p:rect(10, 3, 1, 6, color)
+end
+
+function P.icon_hail_netting(p)
+  cover(p, NET)
+  for x = 2, 9, 2 do
+    p:px(x, 4, NET)
+  end
+  p:rect(4, 0, 2, 2, HAIL_ICE)
+end
+
+function P.icon_row_covers(p)
+  cover(p, NET)
+  p:rect(2, 4, 8, 1, NET)
+  p:px(10, 1, LOCUST)
+end
+
+function P.icon_frost_cloth(p)
+  cover(p, { 0.92, 0.94, 0.98 })
+  p:rect(2, 4, 8, 2, { 0.92, 0.94, 0.98 })
+end
+
+function P.icon_straw_mulch(p)
+  p:rect(0, 8, 12, 3, C.soilWet)
+  p:rect(1, 7, 10, 2, STRAW)
+  p:px(2, 6, STRAW)
+  p:px(6, 6, STRAW)
+  p:px(9, 6, STRAW)
+  p:rect(5, 3, 1, 4, C.leaf)
+  p:rect(4, 2, 3, 2, C.leafLight)
+end
+
 -- Roadside stand: a plank table under a striped awning, with crates of goods (32x24).
 function P.roadside_stand(p)
   local awningRed = { 0.74, 0.28, 0.24 }

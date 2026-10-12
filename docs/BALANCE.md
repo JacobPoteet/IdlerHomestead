@@ -222,8 +222,22 @@ A seventh feature, `chickens`, is on by default: the policies buy the coop and t
 
 An eighth feature, `machines`, is on by default: the auto-harvester ($150) is the last entry of the shopping list (so saving for it never holds back survival kit) and is placed where its 7x7 reach covers the most field. The report's "Per run" line adds "crops picked by machines", and `auto_harvester` joins the owned list. Check, `policy=scripted,active seeds=3 years=1` (and `years=2`): it is never bought, so the output is identical to `features` without `machines` (byte for byte apart from the feature label and timing). Unit-level sanity (tests/test_machines.lua): a full reach of 48 ripe crops is cleared inside ten daylight hours for under 0.15 kWh a crop and well under a third of a truck trip's charge. Whole-run payoff is open (#144).
 
+### Threats (#41, #97, D67)
+
+Threats are part of the sim, not a feature switch: every run gets its yearly schedule. The policies buy no countermeasures (#153), so the harness shows them at full force. The report gains a "Threats per run" line (came, struck, crops lost, knocked back). `set=` now accepts list entries, so `set=threats.count.1=0 set=threats.count.2=0 set=threats.count.3=0` turns threats off for a comparison.
+
+`policy=scripted,active seeds=6 years=3`, before (no threats) and after:
+
+| | scripted alive end of Sp2 / Wi2 / Sp3 | active alive end of Wi3 | active truck income Y1 / Y2 / Y3 | active stand Y1 / Y2 / Y3 |
+| --- | --- | --- | --- | --- |
+| before | 100% / 50% / 0% | 83% (1 hunger death) | $197 / $314 / $986 | $12 / $119 / $315 |
+| after | 83% / 67% / 17% | 100% | $193 / $287 / $882 | $8 / $113 / $224 |
+
+Scripted truck income Y1 $59 to $48, Y2 $67 to $67. Per run: scripted 2.8 threats came, 2.3 struck, 8 crops lost; active 5.0 came, 4.3 struck, 56 crops lost and 13 knocked back. With 20 seeds x 2 years and a first-pass year-1 strength of 0.5, threats on against off: scripted alive at the end of Sp2 85% vs 95%, end of Wi2 40% both; active 95% both; active year-2 truck income $346 vs $280 (noise: the runs diverge as soon as a crop is lost). Year-1 strength was then lowered to 0.4 to keep year 1 gentle; the 6-seed table above is at 0.4.
+
 ### Follow-up issues
 
+- #153 harness policies do not prepare for threats
 - #144 harness policies never reach the auto-harvester
 - #124 power items make truck income unbounded
 - #125 the stand adds 44 percent of active year-2 income

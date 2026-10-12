@@ -26,6 +26,7 @@ return {
   "animals",
   "study",
   "weather",
+  "threats",
   "visuals",
   "ui",
 }

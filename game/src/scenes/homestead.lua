@@ -198,6 +198,19 @@ function Homestead:subscribe()
         self:queueToast(news)
       end
     end),
+    events:on("threat.warned", function(e)
+      self:queueToast(Forecast.threatWarning(world, e.threat, e.days))
+    end),
+    events:on("threat.started", function(e)
+      local news = Forecast.threatStarted(world, e.threat)
+      if news then
+        self:queueToast(news)
+      end
+    end),
+    events:on("threat.ended", function(e)
+      -- The summary goes first: the note the strike just wrote waits behind it.
+      self:urgentToast(Forecast.threatSummary(world, e))
+    end),
     events:on("weather.froze", function()
       self:queueToast("The creek froze. Cut a hole to fish or fetch water.")
     end),
@@ -281,6 +294,14 @@ function Homestead:queueToast(text)
     return
   end
   self.toastQueue[#self.toastQueue + 1] = text
+end
+
+--- Show now, putting whatever was showing back at the head of the queue (nothing is lost).
+function Homestead:urgentToast(text)
+  if self.toast then
+    table.insert(self.toastQueue, 1, self.toast.text)
+  end
+  self:showToast(text)
 end
 
 function Homestead:toaster()
@@ -1046,6 +1067,10 @@ function Homestead:drawForecast()
   local world = self.world
   -- The weather pill comes first: today and the days ahead (D51).
   local lines = { { "Weather: " .. Forecast.weather(world), theme.colors.text } }
+  -- Threats the player has been warned of (D67): amber while coming, red while they are on.
+  for _, t in ipairs(Forecast.threats(world)) do
+    lines[#lines + 1] = { t[1], t[2] and theme.colors.danger or theme.colors.accent }
+  end
   if Weather.isColdSnap(world) then
     lines[#lines + 1] = { "Cold snap", theme.colors.danger }
   else
