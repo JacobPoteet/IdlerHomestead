@@ -4,7 +4,8 @@
 -- State: world.state.market = { orders = { { item, arriveDay } }, prices = { [resourceId] = mult },
 --                               specials = { [catalogId] = true }, week, inTown }
 -- Emits "market.ordered" { item }, "market.delivered" { item }, "market.sold" { earnings, units },
---       "market.trip" {}.
+--       "market.trip" {}, "market.held" { item } (once per order, when a due delivery is waiting
+--       for storage room; the order stays queued and is retried every tick).
 
 local Calendar = require("src.sim.systems.calendar")
 local Ledger = require("src.sim.systems.ledger")
@@ -100,18 +101,28 @@ function Market.cannotBuy(world, id, pickup)
   if Ledger.get(world, "money") < cost then
     return "not enough money"
   end
+  -- Pickups are handed over on the spot, so they need room now; deliveries just wait for it.
+  if pickup and not Ledger.canHold(world, item.gives or {}) then
+    return "no room"
+  end
   return nil
 end
 
+-- Hand over a purchase. All-or-nothing: if its goods don't fit in storage yet, nothing is
+-- delivered and false is returned, so the caller can keep the order waiting.
 local function deliver(world, id)
   local item = world.registry:get("catalog", id)
+  local gives = item.gives or {}
+  if not Ledger.canHold(world, gives) then
+    return false
+  end
   local keys = {}
-  for res in pairs(item.gives or {}) do
+  for res in pairs(gives) do
     keys[#keys + 1] = res
   end
   table.sort(keys)
   for _, res in ipairs(keys) do
-    Ledger.add(world, res, item.gives[res], "delivery")
+    Ledger.add(world, res, gives[res], "delivery")
   end
   if item.object then
     Inventory.addObject(world, item.object)
@@ -120,6 +131,7 @@ local function deliver(world, id)
     Inventory.addEquipment(world, id)
   end
   world.events:emit("market.delivered", { item = id })
+  return true
 end
 
 --- Order from the catalog for delivery tomorrow morning. Returns true, or false + reason.
@@ -145,8 +157,16 @@ function Market.tick(world)
   while i <= #orders do
     local order = orders[i]
     if now.day > order.arriveDay or (now.day == order.arriveDay and now.hour >= world.tuning.economy.deliveryHour) then
-      table.remove(orders, i)
-      deliver(world, order.item)
+      if deliver(world, order.item) then
+        table.remove(orders, i)
+      else
+        -- No room yet: the order (already paid) stays on the truck's list and retries every tick.
+        if not order.held then
+          order.held = true
+          world.events:emit("market.held", { item = order.item })
+        end
+        i = i + 1
+      end
     else
       i = i + 1
     end

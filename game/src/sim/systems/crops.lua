@@ -63,6 +63,14 @@ local function eachPlanned(world, add, filter)
   end
 end
 
+-- Would the largest possible harvest of this crop fit in storage right now?
+local function harvestFits(world, crop)
+  local def = world.registry:get("crops", crop.id)
+  local farming = world.tuning.farming
+  local mostProduce = math.floor(def.yield * farming.soilYieldMax) + 1
+  return Ledger.room(world, def.produce) >= mostProduce and Ledger.room(world, def.seed) >= def.seedReturn[2]
+end
+
 local function registerTasks(world)
   local fields = world.state.fields
 
@@ -80,7 +88,8 @@ local function registerTasks(world)
     end,
     canDo = function(w, _, i)
       local crop = w.state.crops[i]
-      return crop ~= nil and Crops.isMature(crop)
+      -- A full store holds the harvest back: the crop stays in the ground until there is room.
+      return crop ~= nil and Crops.isMature(crop) and harvestFits(w, crop)
     end,
     workTime = function(w)
       return w.tuning.farming.harvestTime
@@ -95,8 +104,9 @@ local function registerTasks(world)
       local amount = math.max(1, math.floor(def.yield * mult + rng:float()))
       local seeds = rng:int(def.seedReturn[1], def.seedReturn[2])
       w.state.crops[i] = nil
-      Ledger.add(w, def.produce, amount, "harvest")
-      Ledger.add(w, def.seed, seeds, "harvest")
+      -- harvestFits guards the start of the job; storage can still fill while the work runs.
+      Ledger.addOrOverflow(w, def.produce, amount, "harvest")
+      Ledger.addOrOverflow(w, def.seed, seeds, "harvest")
       w.events:emit("crop.harvested", { crop = def.id, tile = i, amount = amount, seeds = seeds })
     end,
   })

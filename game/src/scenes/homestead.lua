@@ -99,6 +99,15 @@ function Homestead:subscribe()
     events:on("processing.done", function(e)
       self:showToast(string.format("%d %s ready", e.count, name("resources", e.output)))
     end),
+    events:on("market.held", function(e)
+      self:showToast(name("catalog", e.item) .. " is waiting at the gate: no room in storage")
+    end),
+    events:on("processing.blocked", function(e)
+      self:showToast(string.format("%d %s waiting: no room in storage", e.count, name("resources", e.output)))
+    end),
+    events:on("ledger.overflow", function(e)
+      self:showToast(string.format("Storage full: lost %d %s", e.lost, name("resources", e.id)))
+    end),
     events:on("food.spoiled", function(e)
       self:showToast(string.format("%d %s spoiled", e.amount, name("resources", e.resource)))
     end),
@@ -719,7 +728,10 @@ function Homestead:tileInfo(i)
     end
     if obj.station then
       local batch = Processing.batch(world, anchor)
-      if batch then
+      if batch and batch.blocked then
+        local recipe = world.registry:get("recipes", batch.recipe)
+        lines[#lines + 1] = string.format("%s done · %d waiting for storage room", recipe.name, batch.count)
+      elseif batch then
         local hours = batch.remaining / (world.tuning.time.dayLength / 24)
         local recipe = world.registry:get("recipes", batch.recipe)
         lines[#lines + 1] = string.format("%s %d · %.1fh left", recipe.name, batch.count, hours)
