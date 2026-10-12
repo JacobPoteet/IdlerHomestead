@@ -9,7 +9,8 @@ Project scaffolding comes from [bootstrap-love2d-project](https://github.com/Ova
 - Open `Workspace.code-workspace` in VS Code and install the recommended extensions.
 - <kbd>Ctrl</kbd>+<kbd>F5</kbd> runs the game, <kbd>F5</kbd> runs it under the debugger.
 - From a terminal: `love game`
-- <kbd>F3</kbd> toggles the performance overlay in-game.
+- In-game: drag (or arrow keys / WASD) to pan, mouse wheel / pinch / <kbd>+</kbd> <kbd>-</kbd> to zoom, click or tap to select.
+- Debug keys: <kbd>F1</kbd> debug overlay, <kbd>F2</kbd> cycle sim speed, <kbd>F3</kbd> performance overlay.
 
 ## Testing
 
