@@ -83,7 +83,7 @@ end
 --- Record a caught fish: adds it to stock and the persistent fish guide.
 function Fishing.land(world, fishId, size, mode)
   local fish = world.registry:get("fish", fishId)
-  Ledger.add(world, fish.id, 1, "fishing")
+  Ledger.addOrOverflow(world, fish.id, 1, "fishing")
   world.meta.fishGuide = world.meta.fishGuide or {}
   local entry = world.meta.fishGuide[fish.id]
   local first = entry == nil

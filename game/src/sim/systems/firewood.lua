@@ -15,7 +15,7 @@ local Firewood = {}
 local function splittable(world, order)
   local cfg = world.tuning.firewood
   local keep = order and 0 or cfg.keepWood
-  local room = Ledger.capacity(world, cfg.splitInto) - Ledger.get(world, cfg.splitInto)
+  local room = Ledger.room(world, cfg.splitInto)
   return math.max(0, math.min(cfg.splitBatch, Ledger.get(world, cfg.splitFrom) - keep, room))
 end
 
@@ -50,7 +50,7 @@ function Firewood.init(world)
       local cfg = w.tuning.firewood
       local n = splittable(w, order)
       if n > 0 and Ledger.remove(w, cfg.splitFrom, n, "split") then
-        Ledger.add(w, cfg.splitInto, n, "split")
+        Ledger.addOrOverflow(w, cfg.splitInto, n, "split") -- n was capped to the room, so this fits
       end
     end,
   })

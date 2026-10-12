@@ -51,7 +51,7 @@ function Clearing.init(world)
         if type(amount) == "table" then
           amount = rng:int(amount[1], amount[2])
         end
-        gained[id] = Ledger.add(w, id, amount, "clear")
+        gained[id] = Ledger.addOrOverflow(w, id, amount, "clear")
       end
       Grid.removeObject(w, anchor)
       w.events:emit("object.cleared", { object = def.id, tile = anchor, yields = gained })

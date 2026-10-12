@@ -3,7 +3,9 @@
 -- recipe's hours and the output goes straight into stock.
 --
 -- State: world.state.processing = { [anchor] = { recipe, count, remaining } } for running batches.
--- Emits "processing.started" { recipe, tile, count } and "processing.done" { recipe, tile, output, count }.
+-- Emits "processing.started" { recipe, tile, count }, "processing.done" { recipe, tile, output, count }
+-- (count = units that went into stock; a batch that doesn't fit is delivered in parts) and
+-- "processing.blocked" { recipe, tile, output, count } once when finished output is waiting for room.
 
 local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
@@ -105,12 +107,22 @@ end
 
 function Processing.tick(world, dt)
   for anchor, batch in pairs(world.state.processing) do
-    batch.remaining = batch.remaining - dt
+    batch.remaining = math.max(0, batch.remaining - dt)
     if batch.remaining <= 0 then
       local recipe = world.registry:get("recipes", batch.recipe)
-      world.state.processing[anchor] = nil
-      Ledger.add(world, recipe.output, batch.count, "processed")
-      world.events:emit("processing.done", { recipe = recipe.id, tile = anchor, output = recipe.output, count = batch.count })
+      -- Whatever fits goes into stock; the rest waits in the station (and keeps it busy)
+      -- until there is room, so a full store never swallows a finished batch.
+      local moved = Ledger.add(world, recipe.output, batch.count, "processed")
+      batch.count = batch.count - moved
+      if moved > 0 then
+        world.events:emit("processing.done", { recipe = recipe.id, tile = anchor, output = recipe.output, count = moved })
+      end
+      if batch.count <= 0 then
+        world.state.processing[anchor] = nil
+      elseif not batch.blocked then
+        batch.blocked = true
+        world.events:emit("processing.blocked", { recipe = recipe.id, tile = anchor, output = recipe.output, count = batch.count })
+      end
     end
   end
 end

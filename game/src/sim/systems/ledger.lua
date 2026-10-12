@@ -4,6 +4,11 @@
 -- Emits "ledger.changed" { id, delta, total, reason } whenever an amount changes.
 -- Capacity defaults to the resource definition's `capacity` (unlimited if absent);
 -- storage systems can override it per resource with setCapacity.
+--
+-- Ledger.add silently caps at capacity and reports how much fit. Callers that already took
+-- something from the player (money, inputs) must not lose the rest: check Ledger.room /
+-- Ledger.canHold first and hold the goods back, or use Ledger.addOrOverflow, which announces
+-- "ledger.overflow" { id, lost, reason } when goods had to be discarded.
 
 local Ledger = {}
 
@@ -51,6 +56,32 @@ function Ledger.add(world, id, amount, reason)
     change(world, id, added, reason)
   end
   return added
+end
+
+--- Units of a resource that still fit before hitting capacity.
+function Ledger.room(world, id)
+  return math.max(0, Ledger.capacity(world, id) - Ledger.get(world, id))
+end
+
+--- items: { [resourceId] = amount }. True if every amount fits at once.
+function Ledger.canHold(world, items)
+  for id, amount in pairs(items) do
+    if Ledger.room(world, id) < amount then
+      return false
+    end
+  end
+  return true
+end
+
+--- Add as much as fits and report the rest as discarded: emits "ledger.overflow" { id, lost, reason }.
+--- Returns the amount added and the amount lost.
+function Ledger.addOrOverflow(world, id, amount, reason)
+  local added = Ledger.add(world, id, amount, reason)
+  local lost = amount - added
+  if lost > 0 then
+    world.events:emit("ledger.overflow", { id = id, lost = lost, reason = reason })
+  end
+  return added, lost
 end
 
 --- Remove exactly `amount` if available. Returns true on success, false (and no change) otherwise.

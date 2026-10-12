@@ -102,7 +102,7 @@ function Truck:layout()
           y = y,
           w = 60,
           h = ROW_H - 2,
-          label = reason == "owned" and "Owned" or ("$" .. Market.itemPrice(world, item.id)),
+          label = reason == "owned" and "Owned" or reason == "no room" and "No room" or ("$" .. Market.itemPrice(world, item.id)),
           enabled = reason == nil,
           style = world.state.market.specials[item.id] and "accent" or nil,
           onPress = function()
