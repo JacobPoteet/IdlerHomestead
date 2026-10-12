@@ -1,5 +1,5 @@
 -- Screenshot driver CLI. From the repo root:
---   lovec tools/driver <scenario|all> [size=desktop|phone|both] [out=dir]
+--   lovec tools/driver <scenario|all> [size=desktop|phone|landscape|both] [out=dir]
 -- See tools/driver/README.md. Plays the real game through scripted input with an in-memory save
 -- store (never your real saves) and writes PNG screenshots.
 
@@ -81,7 +81,7 @@ end
 
 local USAGE = [[
 Idler Homestead screenshot driver. Usage:  lovec tools/driver <scenario|all> [key=value ...]
-  size=desktop|phone|both   window size to run at   (default both; desktop 1280x720, phone 390x844)
+  size=desktop|phone|landscape|both   window size to run at   (default both = all three;desktop 1280x720, phone 390x844, landscape 844x390)
   out=dir                   where PNGs go           (default docs/screens, must exist)
 Scenarios: ]]
 
@@ -92,7 +92,7 @@ local function run(opts)
   end
   local Driver = require("driver")
   local outDir = opts.out or (root .. "/docs/screens")
-  local sizes = { "desktop", "phone" }
+  local sizes = { "desktop", "phone", "landscape" }
   if opts.size and opts.size ~= "both" then
     sizes = { opts.size }
   end
