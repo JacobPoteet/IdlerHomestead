@@ -59,7 +59,7 @@ The issue's "about 17 s" single seed-year was measured before D57; at the merge 
 
 ### Policies
 
-- **idle**: the player never acts. The idle routine runs from the first second. It plans no field, so it never plants.
+- **idle**: the player never acts. The idle routine runs from the first second. Since D61 the routine plans a starter field when nothing is planned, so it plants (before D61 it never did).
 - **scripted**: day 1 plans one field tile per starting seed near the creek, then the routine runs. Each morning it makes a truck trip when the truck is charged and the crate is worth selling, orders the next item from a fixed buy list (woodshed, wood stove, axe, smoker, big bucket, sturdy rod, used panel), places delivered objects near the truck, and fills the study queue from a fixed list. It never gives a direct order.
 - **active**: everything `scripted` does, plus direct orders like an engaged player: harvest, water (bucket hauling), plant, till, load the smoker/woodshed, split wood, fell trees for the winter's fuel (worst-case severity plus the longest snap), clear junk for cash, hand-fish with the rod, grow the field as seeds come in, buy seeds and bait. It sleeps at night (no orders at bedtime) so study progresses, and hands control to the routine after the takeover delay when it has nothing to order. The fishing mini-game is a dice roll (75 percent landed) plus plausible game time. This is a diligent player with perfect execution, so treat it as an upper bound on what a human achieves.
 
@@ -93,7 +93,7 @@ Condition is the survival bar: active medians are 100 at every season end. Scrip
 
 Partly, and not for the player who engages.
 
-- **idle** fails far sooner than winter: the starting kit is 4 canned food (2 days) and the routine never plans a field, so everyone is dead by day 6. That is a floor, not a pacing signal (nobody plays that way). It does show that an unattended start is fatal; see the follow-up issue on a default field plan.
+- **idle** (before D61, #66) failed far sooner than winter: the starting kit is 4 canned food (2 days) and the routine never planned a field, so everyone was dead by day 6. With the starter field (D61) 10 of 10 seeds live through autumn (median 26 days survived of 28 tracked, still dying of hunger in winter because the idle player never sells, buys or chops fuel). The older table rows below are from before D61.
 - **scripted** (a fixed opening, then routine) fails 23 percent of the time by the end of the first winter, mostly in autumn and winter from cold, and fuel at winter start covers only about a third of the need. That is the right neighbourhood but too low a failure rate to call "usually fails".
 - **active** survives the first winter 97 percent of the time and two years 93 percent. This is the main mismatch: a diligent first-run player is not gated by winter. The two failures are hunger (empty larder at the end of winter), not cold.
 

@@ -11,6 +11,7 @@
 -- "crop.frosted" { crop, tile }.
 
 local Grid = require("src.sim.grid")
+local Land = require("src.sim.systems.land")
 local Ledger = require("src.sim.systems.ledger")
 local Tasks = require("src.sim.systems.tasks")
 local Weather = require("src.sim.systems.weather")
@@ -46,6 +47,85 @@ end
 function Crops.tileInUse(world, i)
   local state = world.state
   return state.fields.tilled[i] == true or state.fields.plan[i] ~= nil or state.crops[i] ~= nil
+end
+
+--- Is any tile planned, tilled or growing a crop? (A planned layout of any kind means the player
+--- or an earlier run of the routine already decided.)
+function Crops.hasAnyPlan(world)
+  local fields = world.state.fields
+  return next(fields.plan) ~= nil or next(fields.tilled) ~= nil or next(world.state.crops) ~= nil
+end
+
+-- Free tillable tiles near the truck, best first: close to water, close to the truck, good soil.
+local function starterTiles(world, count)
+  local cfg = world.tuning.farming
+  local grid, fields = world.state.grid, world.state.fields
+  local anchor = Land.truck(world) or Land.spawn(world)
+  local water = {}
+  for i = 1, #grid.terrain do
+    if Grid.terrain(world, i).water then
+      water[#water + 1] = i
+    end
+  end
+  local scored = {}
+  for i = 1, #grid.terrain do
+    if
+      Grid.distance(grid, i, anchor) <= cfg.starterRadius
+      and Grid.terrain(world, i).tillable
+      and not world.occupancy[i]
+      and not fields.tilled[i]
+      and not fields.plan[i]
+      and not world.state.crops[i]
+    then
+      local nearest = #water > 0 and math.huge or 0
+      for _, w in ipairs(water) do
+        nearest = math.min(nearest, Grid.distance(grid, i, w))
+      end
+      local score = cfg.starterWaterWeight * nearest
+        + cfg.starterTruckWeight * Grid.distance(grid, i, anchor)
+        - cfg.starterSoilWeight * grid.soil[i]
+      scored[#scored + 1] = { i = i, score = score }
+    end
+  end
+  table.sort(scored, function(a, b)
+    if a.score ~= b.score then
+      return a.score < b.score
+    end
+    return a.i < b.i
+  end)
+  local tiles = {}
+  for k = 1, math.min(count, #scored) do
+    tiles[k] = scored[k].i
+  end
+  return tiles
+end
+
+--- Plan the default starter field (tuning.farming.starterField) when nothing is planned, tilled or
+--- growing. Never overrides a player's layout. Skips frozen ground, crops that could not ripen
+--- before the freeze, and crops with no seed in stock (one tile per seed). Deterministic: no RNG.
+--- Returns the list of planned tile indices (empty if nothing was planned).
+function Crops.planStarter(world)
+  local planned = {}
+  if Crops.hasAnyPlan(world) or Weather.isFrozen(world) then
+    return planned
+  end
+  local cfg = world.tuning.farming
+  local daysLeft = Weather.daysToFreeze(world)
+  for _, entry in ipairs(cfg.starterField) do
+    local def = world.registry:get("crops", entry.crop)
+    local seeds = Ledger.get(world, def.seed)
+    local count = math.min(entry.tiles, seeds)
+    if count > 0 and daysLeft >= def.growDays + cfg.starterFrostMargin then
+      for _, i in ipairs(starterTiles(world, count)) do
+        Crops.setPlan(world, i, def.id)
+        planned[#planned + 1] = i
+      end
+    end
+  end
+  if #planned > 0 then
+    world.events:emit("crop.starterPlanned", { tiles = #planned })
+  end
+  return planned
 end
 
 local function cropFor(world, i, order)

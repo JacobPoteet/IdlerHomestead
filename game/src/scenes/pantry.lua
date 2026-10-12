@@ -76,6 +76,22 @@ function Pantry:layout()
     local y = b.y + 108 + (n - 1) * ROW_H
     self.rows[#self.rows + 1] = { res = res, y = y }
     local pin = food.pins[res.id] or false
+    if res.value then
+      -- "Not at the stand" pin (D62): a sellable good marked Truck stays in the crate for the truck.
+      local truckOnly = Food.truckOnly(world, res.id)
+      self.buttons:add({
+        x = b.x + b.w - 84 - 62,
+        y = y,
+        w = 58,
+        h = ROW_H - 2,
+        label = truckOnly and "Truck" or "Stand",
+        selected = truckOnly,
+        onPress = function()
+          Food.setTruckOnly(world, res.id, not truckOnly)
+          self:layout()
+        end,
+      })
+    end
     self.buttons:add({
       x = b.x + b.w - 84,
       y = y,
@@ -113,14 +129,16 @@ function Pantry:draw()
   Text.draw(string.format("Keep %d days of food to eat", food.pantryDays), b.x + 12, self.pantryY + 6, { size = "small" })
   Text.draw(string.format("Preserve %d days for winter", food.winterDays), b.x + 12, self.winterY + 6, { size = "small" })
   Text.draw("Stock", b.x + 12, b.y + 94, { size = "small", color = theme.colors.textDim })
-  Text.draw("For sale", b.x + 200, b.y + 94, { size = "small", color = theme.colors.textDim })
+  Text.draw("For sale", b.x + 150, b.y + 94, { size = "small", color = theme.colors.textDim })
+  Text.draw("Sell at", b.x + b.w - 146, b.y + 94, { size = "small", color = theme.colors.textDim })
+  Text.draw("Rule", b.x + b.w - 84, b.y + 94, { size = "small", color = theme.colors.textDim })
   for _, row in ipairs(self.rows) do
     local res = row.res
     Panel.icon(Panel.resourceIcon(res.id), b.x + 12, row.y + 4)
     Text.draw(string.format("%s  x%d", res.name, Ledger.get(world, res.id)), b.x + 30, row.y + 5, { size = "small" })
     local crate = food.crate[res.id]
     if crate then
-      Text.draw(tostring(crate), b.x + 200, row.y + 5, { size = "small", color = theme.colors.accent })
+      Text.draw(tostring(crate), b.x + 150, row.y + 5, { size = "small", color = theme.colors.accent })
     end
   end
   if #self.rows == 0 then

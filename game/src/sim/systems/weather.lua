@@ -61,6 +61,21 @@ function Weather.isFrozen(world)
   return Weather.isFrozenSeason(world, Calendar.now(world).season)
 end
 
+--- Days until the ground freezes, counting today (0 when already frozen; math.huge if never).
+function Weather.daysToFreeze(world)
+  local time = world.tuning.time
+  local now = Calendar.now(world)
+  if Weather.isFrozenSeason(world, now.season) then
+    return 0
+  end
+  for n, s in ipairs(time.seasons) do
+    if Weather.isFrozenSeason(world, s) then
+      return (n - now.seasonIndex) * time.daysPerSeason - now.dayOfSeason + 1
+    end
+  end
+  return math.huge
+end
+
 function Weather.isColdSnap(world)
   if not Weather.isFrozen(world) then
     return false
