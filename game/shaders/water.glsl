@@ -5,6 +5,7 @@
 //  - ripples drift downstream along `flow`
 //  - sparkles scaled by daylight
 //  - animated foam where the water meets the bank
+//  - `ice` (0..1) freezes it over: pale, still, with crack lines
 
 uniform float time;
 uniform Image depthMap;      // R: 0 at the bank .. 1 at the deepest point; one texel per tile, linear filtered
@@ -19,6 +20,9 @@ uniform float sparkle;       // 0..1 highlight strength
 uniform float foamWidth;     // depth band past the bank line where foam can appear
 uniform float bankDepth;     // depth-map value exactly at the bank line
 uniform float daylight;      // 0..1 from the lighting system
+uniform float ice;           // 0 = open water .. 1 = frozen solid
+uniform vec3 iceColor;
+uniform vec3 iceDeepColor;
 
 varying vec2 worldPos;
 
@@ -70,6 +74,14 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     float wobble = noise(px * 0.25 + vec2(time * 0.8, -time * 1.1));
     float foam = step(depth, bankDepth + foamWidth * (0.3 + 0.9 * wobble));
     col = mix(col, foamColor, foam * 0.8);
+
+    // Ice: pale and still, darker over deep water, with fine cracks along noise ridges.
+    vec3 iceCol = mix(iceColor, iceDeepColor, smoothstep(bankDepth, 0.95, depth) * 0.6);
+    float cn = noise(px * 0.12);
+    float crack = step(abs(cn - 0.5), 0.025);
+    iceCol = mix(iceCol, iceDeepColor * 0.85, crack * 0.7);
+    iceCol *= 0.97 + hash(floor(px / 3.0)) * 0.06;
+    col = mix(col, iceCol, ice);
 
     return vec4(col, 1.0) * color;
 }

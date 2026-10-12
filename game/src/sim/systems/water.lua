@@ -5,6 +5,7 @@ local Grid = require("src.sim.grid")
 local Tasks = require("src.sim.systems.tasks")
 local Crops = require("src.sim.systems.crops")
 local Stats = require("src.sim.stats")
+local Weather = require("src.sim.systems.weather")
 
 local Water = {}
 
@@ -26,7 +27,7 @@ function Water.init(world)
       end
       local terrain = w.state.grid.terrain
       for i = 1, #terrain do
-        if terrain[i] == "water" or terrain[i] == "ford" then
+        if (terrain[i] == "water" or terrain[i] == "ford") and Weather.waterTarget(w, i) then
           add(i)
         end
       end
@@ -34,10 +35,11 @@ function Water.init(world)
     canDo = function(w, actor, i)
       return Grid.terrain(w, i).water == true and actor.bucket < Water.bucketCapacity(w)
     end,
-    workTime = function(w)
-      return w.tuning.farming.fetchWaterTime
+    workTime = function(w, _, i)
+      return w.tuning.farming.fetchWaterTime + Weather.iceWork(w, i)
     end,
-    complete = function(w, actor)
+    complete = function(w, actor, i)
+      Weather.openHole(w, i)
       actor.bucket = Water.bucketCapacity(w)
     end,
   })

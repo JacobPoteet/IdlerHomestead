@@ -8,6 +8,7 @@
 
 local Calendar = require("src.sim.systems.calendar")
 local Ledger = require("src.sim.systems.ledger")
+local Weather = require("src.sim.systems.weather")
 
 local Needs = {}
 
@@ -72,9 +73,9 @@ function Needs.warmthInStock(world)
   return total * Needs.heatEfficiency(world)
 end
 
---- Warmth needed per night this season.
+--- Warmth needed tonight: the season's base, scaled by the winter's severity and any cold snap.
 function Needs.warmthNeeded(world)
-  return world.tuning.needs.dailyWarmth[Calendar.now(world).season]
+  return world.tuning.needs.dailyWarmth[Calendar.now(world).season] * Weather.warmthMultiplier(world)
 end
 
 --- Eat today's food. Returns the shortfall (0..1).

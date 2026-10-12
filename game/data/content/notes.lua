@@ -108,6 +108,28 @@ return {
     match = { shortfall = { min = 0.001 } },
   },
   {
+    id = "first_frost",
+    name = "First frost",
+    line = "The creek froze over in one night.",
+    icon = "icon_cold",
+    event = "weather.froze",
+  },
+  {
+    id = "frost_garden",
+    name = "Frost-bitten",
+    line = "Frost took what I hadn't harvested.",
+    icon = "icon_seed_radish",
+    event = "crop.frosted",
+  },
+  {
+    id = "cold_snap",
+    name = "Cold snap",
+    line = "A cold snap burns wood twice as fast.",
+    icon = "icon_cold",
+    event = "weather.coldSnap",
+    match = { active = true },
+  },
+  {
     id = "first_smoke",
     name = "Smoked fish",
     line = "Smoked fish keeps for months.",

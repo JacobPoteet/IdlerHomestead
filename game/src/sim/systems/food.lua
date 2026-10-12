@@ -5,9 +5,10 @@
 -- Rules, re-applied every tuning.food.rulesInterval in-game hours:
 --   1. Preserved food fills the winter stock first: winterDays of eating.
 --   2. Fresh food (has spoilDays) fills the pantry: pantryDays of eating.
---   3. Fresh food that a placed processor can preserve is held for preserving while the winter
+--   3. Fresh food that keeps for winter (potatoes) tops up the winter stock.
+--   4. Fresh food that a placed processor can preserve is held for preserving while the winter
 --      stock is short.
---   4. Everything else that has a sale value goes in the crate (plus autoSell goods like scrap).
+--   5. Everything else that has a sale value goes in the crate (plus autoSell goods like scrap).
 -- Per-item pins override: "keep" (never sell), "sell" (always sell), "preserve" (hold to preserve).
 --
 -- State: world.state.food = { pantryDays, winterDays, pins = { [id] = pin }, crate = { [id] = n }, nextSort }
@@ -88,6 +89,11 @@ function Food.sort(world)
       local keep = math.min(amount, math.ceil(math.max(0, pantryLeft) / res.calories))
       pantryLeft = pantryLeft - keep * res.calories
       local rest = amount - keep
+      if rest > 0 and res.keepsForWinter and winterLeft > 0 then
+        local store = math.min(rest, math.ceil(winterLeft / res.calories))
+        winterLeft = winterLeft - store * res.calories
+        rest = rest - store
+      end
       if rest > 0 and preservable[res.category] and winterLeft > 0 then
         rest = 0 -- hold it for the processor
       end

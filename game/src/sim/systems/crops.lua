@@ -4,12 +4,16 @@
 --   world.state.fields = { tilled = { [i] = true }, plan = { [i] = cropId } }
 --     plan: the player's field layout. The idle routine tills, plants and replants planned tiles.
 --   world.state.crops = { [i] = { id, growth = 0..1, moisture = 0..1 } }
--- Crops grow only while moist; one watering lasts tuning.farming.moistureDays.
--- Emits "crop.planted" { crop, tile } and "crop.harvested" { crop, tile, amount, seeds }.
+-- Crops grow only while moist; one watering lasts tuning.farming.moistureDays. Nothing grows or
+-- can be planted while the ground is frozen, and the first frost kills whatever is still in the
+-- ground (GDD §4.1).
+-- Emits "crop.planted" { crop, tile }, "crop.harvested" { crop, tile, amount, seeds } and
+-- "crop.frosted" { crop, tile }.
 
 local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
 local Tasks = require("src.sim.systems.tasks")
+local Weather = require("src.sim.systems.weather")
 
 local Crops = {}
 
@@ -138,6 +142,9 @@ local function registerTasks(world)
       end)
     end,
     canDo = function(w, _, i, order)
+      if Weather.isFrozen(w) then
+        return false
+      end
       return fields.tilled[i] == true and not w.state.crops[i] and hasSeed(w, cropFor(w, i, order))
     end,
     workTime = function(w)
@@ -184,14 +191,34 @@ local function registerTasks(world)
   })
 end
 
+--- The first frost: every crop still in the ground dies (mature ones too).
+function Crops.frost(world)
+  local tiles = {}
+  for i in pairs(world.state.crops) do
+    tiles[#tiles + 1] = i
+  end
+  table.sort(tiles)
+  for _, i in ipairs(tiles) do
+    local crop = world.state.crops[i]
+    world.state.crops[i] = nil
+    world.events:emit("crop.frosted", { crop = crop.id, tile = i })
+  end
+end
+
 function Crops.init(world)
   local state = world.state
   state.fields = state.fields or { tilled = {}, plan = {} }
   state.crops = state.crops or {}
   registerTasks(world)
+  world.events:on("weather.froze", function()
+    Crops.frost(world)
+  end)
 end
 
 function Crops.tick(world, dt)
+  if Weather.isFrozen(world) then
+    return
+  end
   local farming, dayLength = world.tuning.farming, world.tuning.time.dayLength
   local dryRate = dt / (farming.moistureDays * dayLength)
   for _, crop in pairs(world.state.crops) do

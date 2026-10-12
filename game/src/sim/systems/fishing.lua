@@ -14,6 +14,7 @@ local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
 local Stats = require("src.sim.stats")
 local Tasks = require("src.sim.systems.tasks")
+local Weather = require("src.sim.systems.weather")
 
 local Fishing = {}
 
@@ -111,7 +112,7 @@ function Fishing.init(world)
     candidates = function(w, _, add)
       local terrain = w.state.grid.terrain
       for i = 1, #terrain do
-        if terrain[i] == "water" then
+        if terrain[i] == "water" and Weather.waterTarget(w, i) then
           add(i)
         end
       end
@@ -122,11 +123,13 @@ function Fishing.init(world)
       end
       return Grid.terrain(w, i).water == true and Fishing.hasRod(w)
     end,
-    workTime = function(w, actor)
+    workTime = function(w, actor, i)
       local cfg = w.tuning.fishing
-      return actor.job and actor.job.ordered and cfg.castTime or cfg.idleAttemptTime
+      -- In winter, cut through the ice first (once per hole): ice fishing.
+      return (actor.job and actor.job.ordered and cfg.castTime or cfg.idleAttemptTime) + Weather.iceWork(w, i)
     end,
     complete = function(w, actor, i, order)
+      Weather.openHole(w, i)
       if order then
         w.events:emit("fishing.ready", { tile = i, actor = actor.id })
         return

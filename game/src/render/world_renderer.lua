@@ -8,6 +8,7 @@ local Grid = require("src.sim.grid")
 local Calendar = require("src.sim.systems.calendar")
 local Water = require("src.sim.systems.water")
 local Processing = require("src.sim.systems.processing")
+local Weather = require("src.sim.systems.weather")
 local Assets = require("src.render.assets")
 local Shaders = require("src.render.shaders")
 local Lighting = require("src.render.lighting")
@@ -121,12 +122,38 @@ function Renderer:update(dt)
   self.time = (self.time + dt) % 3600
 end
 
---- Lighting for the current in-game hour: tint, light, daylight.
+--- Lighting for the current in-game hour: tint, light, daylight. The authored keyframes are
+--- stretched to the season's sunrise and sunset, then tinted for the season.
 function Renderer:lighting()
-  return Lighting.at(Calendar.now(self.world).hour, self.world.tuning.visuals.lightKeys)
+  local world, v = self.world, self.world.tuning.visuals
+  local now = Calendar.now(world)
+  local sunrise, sunset = Calendar.daylight(world)
+  local hour = Lighting.remap(now.hour, sunrise, sunset, v.lightKeysSunrise, v.lightKeysSunset)
+  local tint, light, daylight = Lighting.at(hour, v.lightKeys)
+  local season = v.seasonGrade[now.season].tint
+  return { tint[1] * season[1], tint[2] * season[2], tint[3] * season[3] }, light, daylight
 end
 
-function Renderer:drawWater(daylight)
+--- How white the ground is (0..1) and how frozen the creek is: ramps in after the freeze and
+--- melts away after the thaw. Purely visual, derived from the calendar.
+function Renderer:winterAmounts()
+  local world, v = self.world, self.world.tuning.visuals
+  local now = Calendar.now(world)
+  local days = now.dayOfSeason - 1 + now.timeOfDay
+  if Weather.isFrozen(world) then
+    return math.min(1, days / v.snowRampDays), math.min(1, days / v.iceRampDays)
+  end
+  local seasons = world.tuning.time.seasons
+  local previous = seasons[(now.seasonIndex - 2) % #seasons + 1]
+  if now.year > 1 or now.seasonIndex > 1 then
+    if Weather.isFrozenSeason(world, previous) then
+      return math.max(0, 1 - days / v.snowMeltDays), math.max(0, 1 - days / v.iceRampDays)
+    end
+  end
+  return 0, 0
+end
+
+function Renderer:drawWater(daylight, ice)
   local shader = Shaders.get("water")
   local v = self.world.tuning.visuals
   local land = self.world.state.land
@@ -146,6 +173,9 @@ function Renderer:drawWater(daylight)
       foamWidth = v.waterFoamWidth,
       bankDepth = BANK_DEPTH,
       daylight = daylight,
+      ice = ice,
+      iceColor = v.iceColor,
+      iceDeepColor = v.iceDeepColor,
     })
     love.graphics.setShader(shader)
     love.graphics.setColor(1, 1, 1, 1)
@@ -187,9 +217,30 @@ function Renderer:draw(alpha, visible, daylight)
     return x >= x1 and x <= x2 and y >= y1 and y <= y2
   end
 
+  local snow, ice = self:winterAmounts()
+  local v = world.tuning.visuals
+  local snowShader = snow > 0 and Shaders.get("snow")
+  if snowShader then
+    Shaders.send(snowShader, {
+      amount = snow,
+      snowColor = v.snowColor,
+      shadeColor = v.snowShade,
+      clumpScale = v.snowClumpScale,
+    })
+    love.graphics.setShader(snowShader)
+  end
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(self.ground, 0, 0)
-  self:drawWater(daylight)
+  love.graphics.setShader()
+  self:drawWater(daylight, ice)
+  -- Ice holes: dark open water in the frozen creek.
+  love.graphics.setColor(v.iceHoleColor)
+  for i in pairs(ice > 0 and world.state.weather.holes or {}) do
+    if onScreen(i) then
+      local x, y = Grid.coords(grid, i)
+      love.graphics.ellipse("fill", (x - 0.5) * tile, (y - 0.5) * tile, 4, 3)
+    end
+  end
   love.graphics.setColor(1, 1, 1, 1)
   for _, i in ipairs(self.fords) do
     if onScreen(i) then
@@ -315,7 +366,7 @@ function Renderer:drawGraded(canvas, tint, light, pixelSize)
     Shaders.send(shader, {
       tint = tint,
       light = light,
-      saturation = v.saturation,
+      saturation = v.saturation * v.seasonGrade[Calendar.now(self.world).season].saturation,
       vignette = v.vignette,
       grain = v.grain,
       time = self.time,

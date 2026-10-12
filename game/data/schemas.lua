@@ -7,6 +7,7 @@ return {
     capacity = "number?", -- default storage cap; absent means unlimited until storage buildings set one
     calories = "number?", -- food energy per unit; present means it can be eaten
     spoilDays = "number?", -- average days until a unit spoils; absent = keeps
+    keepsForWinter = "boolean?", -- fresh food that keeps long enough to count toward the winter stock
     value = "number?", -- base sale price in $; absent = can't be sold
     autoSell = "boolean?", -- non-food goods sent to the sell crate by default
     heat = "number?", -- warmth per unit burned in a heat source; present means it's fuel
