@@ -5,7 +5,7 @@ Idle / roguelite homestead game in LÖVE 11.5 (LuaJIT). The design source of tru
 ## Running
 - `love game` (or `lovec game` on Windows for console output). LÖVE is installed at `C:\Program Files\LOVE`.
 - Tests: `lovec tests` (optional name filter, e.g. `lovec tests m3`). Headless (no window or GPU needed); exits 1 if any test failed or a test file errored. CI (`.github/workflows/ci.yml`) runs exactly this on push to main and on PRs.
-- Balance harness (headless whole-run simulation, not part of the test suite): `lovec tools/balance policy=all seeds=20 years=1 [out=file.csv|json] [set=needs.coldDamage=15]`. Policies: idle, scripted, active. Details and findings in [docs/BALANCE.md](docs/BALANCE.md); `lovec tools/balance help=1` lists options.
+- Balance harness (headless whole-run simulation, not part of the test suite): `lovec tools/balance policy=all seeds=20 years=1 [out=file.csv|json] [set=needs.coldDamage=15] [jobs=N] [profile=1]`. Seeds run on worker threads (`jobs`, default CPU count; output identical to `jobs=1`); `profile=1` samples the sim with LuaJIT's profiler. Policies: idle, scripted, active. Details and findings in [docs/BALANCE.md](docs/BALANCE.md); `lovec tools/balance help=1` lists options.
 - Screenshot driver (plays the real game with scripted input, in-memory saves; needs a window): `lovec tools/driver <scenario|all> [size=desktop|phone|both] [out=dir]`. Scenarios in `tools/driver/scenarios/`; see [tools/driver/README.md](tools/driver/README.md). Use it to verify UI changes.
 - Debug keys: F1 overlay, F2 sim speed, F3 performance overlay, F6 reload tuning + shaders live.
 

@@ -16,42 +16,50 @@ local DIRS = {
   { -1, -1, SQRT2 },
 }
 
--- Binary min-heap of { node, f }.
-local function push(heap, node, f)
-  heap[#heap + 1] = { node, f }
-  local i = #heap
+-- Binary min-heap kept as parallel arrays (nodes, keys) plus a size, so a push allocates nothing.
+-- The sift order and comparisons are exactly those of the original table-of-pairs heap, so ties
+-- pop in the same order and paths are unchanged (#123).
+local function push(nodes, keys, size, node, f)
+  size = size + 1
+  nodes[size], keys[size] = node, f
+  local i = size
   while i > 1 do
     local parent = math.floor(i / 2)
-    if heap[parent][2] <= heap[i][2] then
+    if keys[parent] <= keys[i] then
       break
     end
-    heap[parent], heap[i] = heap[i], heap[parent]
+    nodes[parent], nodes[i] = nodes[i], nodes[parent]
+    keys[parent], keys[i] = keys[i], keys[parent]
     i = parent
   end
+  return size
 end
 
-local function pop(heap)
-  local top = heap[1]
-  local last = table.remove(heap)
-  if #heap > 0 then
-    heap[1] = last
+local function pop(nodes, keys, size)
+  local top = nodes[1]
+  local lastNode, lastKey = nodes[size], keys[size]
+  nodes[size], keys[size] = nil, nil
+  size = size - 1
+  if size > 0 then
+    nodes[1], keys[1] = lastNode, lastKey
     local i = 1
     while true do
       local l, r, smallest = i * 2, i * 2 + 1, i
-      if l <= #heap and heap[l][2] < heap[smallest][2] then
+      if l <= size and keys[l] < keys[smallest] then
         smallest = l
       end
-      if r <= #heap and heap[r][2] < heap[smallest][2] then
+      if r <= size and keys[r] < keys[smallest] then
         smallest = r
       end
       if smallest == i then
         break
       end
-      heap[smallest], heap[i] = heap[i], heap[smallest]
+      nodes[smallest], nodes[i] = nodes[i], nodes[smallest]
+      keys[smallest], keys[i] = keys[i], keys[smallest]
       i = smallest
     end
   end
-  return top[1]
+  return top, size
 end
 
 --- Find a path from tile `start` to any tile where isGoal(i) is true.
@@ -63,8 +71,9 @@ function Pathfind.find(world, start, isGoal, target, noHeuristic)
   if isGoal(start) then
     return {}
   end
+  local w, h = grid.w, grid.h
   local tx, ty = Grid.coords(grid, target)
-  local function h(i)
+  local function heuristic(i)
     if noHeuristic then
       return 0
     end
@@ -72,10 +81,22 @@ function Pathfind.find(world, start, isGoal, target, noHeuristic)
     local dx, dy = math.abs(x - tx), math.abs(y - ty)
     return math.max(dx, dy) + (SQRT2 - 1) * math.min(dx, dy)
   end
-  local open, came, g, closed = {}, {}, { [start] = 0 }, {}
-  push(open, start, h(start))
-  while #open > 0 do
-    local current = pop(open)
+  -- Walkability and walk cost cannot change during one search, so each tile is looked up once.
+  local walkMemo = {}
+  local function walkable(i)
+    local v = walkMemo[i]
+    if v == nil then
+      v = Grid.walkable(world, i)
+      walkMemo[i] = v
+    end
+    return v
+  end
+  local nodes, keys, size = {}, {}, 0
+  local came, g, closed = {}, { [start] = 0 }, {}
+  size = push(nodes, keys, size, start, heuristic(start))
+  while size > 0 do
+    local current
+    current, size = pop(nodes, keys, size)
     if not closed[current] then
       if isGoal(current) then
         local path = {}
@@ -86,22 +107,26 @@ function Pathfind.find(world, start, isGoal, target, noHeuristic)
         return path
       end
       closed[current] = true
-      local cx, cy = Grid.coords(grid, current)
-      for _, d in ipairs(DIRS) do
+      local cx = (current - 1) % w + 1
+      local cy = (current - cx) / w + 1
+      local gCurrent = g[current]
+      for k = 1, #DIRS do
+        local d = DIRS[k]
         local nx, ny = cx + d[1], cy + d[2]
-        if Grid.inBounds(grid, nx, ny) then
-          local n = Grid.index(grid, nx, ny)
-          local ok = not closed[n] and Grid.walkable(world, n)
+        if nx >= 1 and ny >= 1 and nx <= w and ny <= h then
+          local n = (ny - 1) * w + nx
+          local ok = not closed[n] and walkable(n)
           if ok and d[3] > 1 then
             -- No cutting corners past blocked tiles.
-            ok = Grid.walkable(world, Grid.index(grid, nx, cy)) and Grid.walkable(world, Grid.index(grid, cx, ny))
+            ok = walkable((cy - 1) * w + nx) and walkable((ny - 1) * w + cx)
           end
           if ok then
-            local cost = g[current] + d[3] * Grid.walkCost(world, n)
-            if not g[n] or cost < g[n] then
+            local cost = gCurrent + d[3] * Grid.walkCost(world, n)
+            local old = g[n]
+            if not old or cost < old then
               g[n] = cost
               came[n] = current
-              push(open, n, cost + h(n))
+              size = push(nodes, keys, size, n, cost + heuristic(n))
             end
           end
         end

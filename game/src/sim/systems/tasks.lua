@@ -8,6 +8,10 @@
 --   candidates(world, actor, add)        idle routine: call add(tileIndex) for each possible target
 --   canDo(world, actor, i, order)        is the task valid on tile i right now? `order` is set for
 --                                        player orders ({ crop = ... }), nil for the idle routine
+--   canDoCandidate(world, actor, i)      optional: canDo(world, actor, i, nil) for a tile that
+--                                        `candidates` just offered, minus the checks `candidates`
+--                                        already made once for every tile (e.g. owning a rod);
+--                                        the idle search uses it instead of canDo (#77)
 --   workTime(world, actor, i)            seconds of work at 1x efficiency
 --   complete(world, actor, i, order)     apply the result
 --   standOn                              true: actor must stand on the tile (default: within 1)
@@ -162,8 +166,19 @@ function Tasks.chooseIdleJob(world, actor)
       local targets, taskAt, any = {}, {}, false
       for _, t in ipairs(world.taskTypes.list) do
         if t.category == entry.category and t.candidates then
+          local canDoCandidate = t.canDoCandidate
+          local canDo = t.canDo
           t.candidates(world, actor, function(i)
-            if not taskAt[i] and not reservedByOther(world, actor, t.id, i) and t.canDo(world, actor, i, nil) then
+            if taskAt[i] or reservedByOther(world, actor, t.id, i) then
+              return
+            end
+            local ok
+            if canDoCandidate then
+              ok = canDoCandidate(world, actor, i)
+            else
+              ok = canDo(world, actor, i, nil)
+            end
+            if ok then
               targets[i] = t.standOn == true
               taskAt[i] = t
               any = true

@@ -16,7 +16,12 @@ Idler Homestead balance harness. Usage:  lovec tools/balance [key=value ...]
   features=all|none|a,b                 optional policy behaviours (default all): cat, stand, water,
                                         power, finds, weather; `none` plays the harness as it was
                                         before them. Policies: see docs/BALANCE.md
-  trace=1                              also print the first seed of each policy day by day
+  jobs=N                                worker threads that play seeds in parallel (default: the
+                                        CPU count, at most 16); jobs=1 plays them one after another
+                                        in this thread. The report and out= files are identical.
+  profile=1|N                           sample the sim with LuaJIT's profiler (forces jobs=1) and
+                                        print the top 25 (or N) lines and functions
+  trace=1                               also print the first seed of each policy day by day
   out=path.csv|path.json                write per-day rows (csv) or summaries + runs (json)
   set=domain.key=value                  override a tuning number for what-if runs (repeatable),
                                         e.g. set=needs.coldDamage=15 set=needs.dailyWarmth.winter=3
@@ -79,7 +84,53 @@ function love.load(args)
       )
     )
 
-    local started = os.clock()
+    local function clock()
+      return love.timer and love.timer.getTime() or os.clock()
+    end
+    local started = clock()
+
+    -- jobs > 1: play every (policy, seed) on worker threads first, then report from the stored
+    -- results in the same order as the plain loop below (identical output, see parallel.lua).
+    local Parallel = require("parallel")
+    local jobs = math.min(tonumber(opts.jobs) or Parallel.defaultJobs(), #names * seeds)
+    local Profile
+    if opts.profile then
+      jobs = 1 -- the profiler samples this thread only
+      Profile = require("profile")
+      Profile.start()
+    end
+    local played
+    if jobs > 1 then
+      if not quiet then
+        io.write(string.format("parallel: %d worker threads\n", jobs))
+      end
+      local nextReport = 10
+      played = Parallel.play({
+        names = names,
+        seeds = seeds,
+        seed0 = seed0,
+        years = years,
+        runs = runs,
+        features = opts.features,
+        sets = opts.sets,
+        jobs = jobs,
+        onProgress = function(done, total)
+          if not quiet and (done >= nextReport or done == total) then
+            nextReport = done + 10
+            io.write(string.format("  %d/%d seeds played (%.0fs)\n", done, total, clock() - started))
+            io.flush()
+          end
+        end,
+      })
+      quiet = true -- the per-policy progress lines below would only repeat the above
+    end
+    local function playSeed(name, seed)
+      if played then
+        return played[name][seed]
+      end
+      return Balance.playSeed(ctx, name, seed, years, runs, features)
+    end
+
     local all, report = {}, {
       config = { seeds = seeds, seed0 = seed0, years = years, runs = runs, overrides = opts.sets, features = Features.label(features) },
       policies = {},
@@ -87,7 +138,7 @@ function love.load(args)
     for _, name in ipairs(names) do
       local byRun = {}
       for s = 0, seeds - 1 do
-        for _, result in ipairs(Balance.playSeed(ctx, name, seed0 + s, years, runs, features)) do
+        for _, result in ipairs(playSeed(name, seed0 + s)) do
           byRun[result.run] = byRun[result.run] or {}
           table.insert(byRun[result.run], result)
           if opts.trace and s == 0 then
@@ -96,7 +147,7 @@ function love.load(args)
           all[#all + 1] = result
         end
         if not quiet and ((s + 1) % 10 == 0 or s + 1 == seeds) then
-          io.write(string.format("  %s: %d/%d seeds (%.0fs)\n", name, s + 1, seeds, os.clock() - started))
+          io.write(string.format("  %s: %d/%d seeds (%.0fs)\n", name, s + 1, seeds, clock() - started))
           io.flush()
         end
       end
@@ -111,7 +162,10 @@ function love.load(args)
       end
       report.policies[name] = entry
     end
-    io.write(string.format("\nTotal: %.1fs\n", os.clock() - started))
+    if Profile then
+      io.write("\n", Profile.stop(tonumber(opts.profile) and tonumber(opts.profile) > 1 and tonumber(opts.profile) or 25))
+    end
+    io.write(string.format("\nTotal: %.1fs%s\n", clock() - started, played and string.format(" (%d worker threads)", jobs) or ""))
 
     if opts.out then
       if opts.out:lower():match("%.json$") then

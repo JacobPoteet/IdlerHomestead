@@ -29,6 +29,7 @@
 -- once a day per tier when a tier is served less than it wants.
 
 local Calendar = require("src.sim.systems.calendar")
+local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
 local Weather = require("src.sim.systems.weather")
 
@@ -96,14 +97,18 @@ end
 
 --- Solar intensity 0..1 for the current hour: a sine arc between the season's sunrise and sunset,
 --- scaled by the season's output (low sun and snow on the panels in winter) and by cloud cover.
-function Power.sun(world)
-  local sunrise, sunset = Calendar.daylight(world)
-  local now = Calendar.now(world)
+local function sunAt(world, now, env)
+  local daylight = world.tuning.time.daylight[now.season]
+  local sunrise, sunset = daylight[1], daylight[2]
   if now.hour <= sunrise or now.hour >= sunset then
     return 0
   end
   local arc = math.sin(math.pi * (now.hour - sunrise) / (sunset - sunrise))
-  return arc * world.tuning.power.seasonalOutput[now.season] * (1 - Weather.powerInputs(world).cloud)
+  return arc * world.tuning.power.seasonalOutput[now.season] * (1 - env.cloud)
+end
+
+function Power.sun(world)
+  return sunAt(world, Calendar.now(world), Weather.powerInputs(world))
 end
 
 --- Wind strength 0..1 right now (the model behind turbine output).
@@ -123,10 +128,11 @@ local function updateWind(world, hours, now)
 end
 
 -- kW a non-fuel source makes at its peak scaled by the current conditions.
-local function sourceOutput(world, src, season, env)
+local function sourceOutput(world, src, now, env)
   local cfg = world.tuning.power
+  local season = now.season
   if src.curve == "solar" then
-    return src.peak * Power.sun(world)
+    return src.peak * sunAt(world, now, env)
   elseif src.curve == "wind" then
     local w = cfg.wind
     return src.peak * cfg.curves.wind[season] * (w.floor + (1 - w.floor) * state(world).wind.value) * env.wind
@@ -137,24 +143,9 @@ local function sourceOutput(world, src, season, env)
 end
 
 -- Anchors of power objects (sources, batteries, sinks), sorted so every pass is deterministic.
+-- The lists are Grid's cached index (read-only), not rebuilt every tick.
 local function scan(world)
-  local sources, sinks, banks = {}, {}, {}
-  for anchor, obj in pairs(world.state.grid.objects) do
-    local def = world.registry:get("objects", obj.id)
-    if def.source then
-      sources[#sources + 1] = anchor
-    end
-    if def.sink then
-      sinks[#sinks + 1] = anchor
-    end
-    if def.battery then
-      banks[#banks + 1] = anchor
-    end
-  end
-  table.sort(sources)
-  table.sort(sinks)
-  table.sort(banks)
-  return sources, sinks, banks
+  return Grid.anchorsWith(world, "source"), Grid.anchorsWith(world, "sink"), Grid.anchorsWith(world, "battery")
 end
 
 local function defAt(world, anchor)
@@ -469,6 +460,8 @@ local function runGenerators(world, gens, left, need, hours)
   return got
 end
 
+local scratchTiers = {}
+
 function Power.tick(world, dt)
   local s, cfg = state(world), world.tuning.power
   local hours = dt / Calendar.hourLength(world)
@@ -490,7 +483,7 @@ function Power.tick(world, dt)
       left[anchor] = src.peak
       flow.sources[anchor] = 0
     else
-      local out = sourceOutput(world, src, now.season, env)
+      local out = sourceOutput(world, src, now, env)
       flow.sources[anchor] = out
       generation = generation + out
     end
@@ -504,9 +497,15 @@ function Power.tick(world, dt)
       break
     end
   end
-  local tiers = {}
+  -- Per-tick scratch (never saved, never read after this tick): reused so a tick allocates less.
+  local tiers = scratchTiers
   for _, id in ipairs(s.order) do
-    tiers[id] = { demand = 0, served = 0, direct = 0, charging = 0 }
+    local tier = tiers[id]
+    if not tier then
+      tier = {}
+      tiers[id] = tier
+    end
+    tier.demand, tier.served, tier.direct, tier.charging = 0, 0, 0, 0
   end
   local demanded = {}
   for _, anchor in ipairs(sinks) do

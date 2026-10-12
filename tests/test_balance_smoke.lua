@@ -36,6 +36,33 @@ T.test("balance harness: summaries, careers after failure, and tuning overrides"
   end, "no such number")
 end)
 
+-- Parallel seeds (parallel.lua, worker.lua; issue #123) -------------------------------------------
+
+local Parallel = require("parallel")
+
+T.test("balance parallel: results survive the thread boundary exactly", function()
+  local value = { 0.1, 1 / 3, -2.5e-300, 2 ^ 60 + 1, 0, 7, "a\tb\n\"c\"", true, { [3] = false, x = { y = math.huge } } }
+  local back = Parallel.decode(Parallel.encode(value))
+  T.same(back, value)
+  T.eq(Parallel.decode(Parallel.encode(-math.huge)), -math.huge)
+  local nan = Parallel.decode(Parallel.encode(0 / 0))
+  T.truthy(nan ~= nan, "NaN stays NaN")
+end)
+
+T.test("balance parallel: worker threads give the same results as playing in this thread", function()
+  local years, all = 0.125, require("features").parse("all")
+  local played = Parallel.play({ names = { "idle", "scripted" }, seeds = 2, seed0 = 3, years = years, runs = 1, sets = {}, jobs = 2 })
+  for _, name in ipairs({ "idle", "scripted" }) do
+    for seed = 3, 4 do
+      local here = Balance.playSeed(ctx, name, seed, years, 1, all)
+      T.same(played[name][seed], here, name .. " seed " .. seed .. " matches")
+    end
+  end
+  T.errors(function()
+    Parallel.play({ names = { "nope" }, seeds = 1, seed0 = 1, years = years, runs = 1, jobs = 2 })
+  end, "unknown policy")
+end)
+
 -- Optional policy behaviours (features.lua) ----------------------------------------------------------
 
 local Features = require("features")

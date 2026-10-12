@@ -45,17 +45,9 @@ end
 
 -- Objects ---------------------------------------------------------------------------------------
 
--- Anchors of placed objects whose definition has `key`, ascending so every pass is deterministic.
-local function anchorsWith(world, key)
-  local list = {}
-  for anchor, obj in pairs(world.state.grid.objects) do
-    if world.registry:get("objects", obj.id)[key] then
-      list[#list + 1] = anchor
-    end
-  end
-  table.sort(list)
-  return list
-end
+-- Anchors of placed objects whose definition has `key`, ascending so every pass is deterministic
+-- (Grid's cached index: read-only).
+local anchorsWith = Grid.anchorsWith
 
 local function defAt(world, anchor)
   return world.registry:get("objects", world.state.grid.objects[anchor].id)
@@ -238,6 +230,15 @@ local function fillObject(world, i)
   return def and def.waterSource and def or nil
 end
 
+-- Can a bucket be filled at tile i (a source with water, or the creek itself)?
+local function canFill(world, i)
+  local def = fillObject(world, i)
+  if def then
+    return not def.waterSource.stored or Ledger.get(world, STOCK) >= 1
+  end
+  return Grid.terrain(world, i).water == true
+end
+
 function Water.init(world)
   local s = world.state.water or {}
   world.state.water = s
@@ -266,6 +267,10 @@ function Water.init(world)
       if actor.bucket > 0 or Weather.isRaining(w) or not Crops.anyNeedsWater(w) then
         return
       end
+      -- canDo's bucket check, made once here for every tile (canDoCandidate skips it).
+      if actor.bucket >= Water.bucketCapacity(w) then
+        return
+      end
       for _, terrainId in ipairs({ "water", "ford" }) do
         for _, i in ipairs(Grid.bankTiles(w, terrainId)) do
           if Weather.waterTarget(w, i) then
@@ -281,11 +286,10 @@ function Water.init(world)
       if actor.bucket >= Water.bucketCapacity(w) then
         return false
       end
-      local def = fillObject(w, i)
-      if def then
-        return not def.waterSource.stored or Ledger.get(w, STOCK) >= 1
-      end
-      return Grid.terrain(w, i).water == true
+      return canFill(w, i)
+    end,
+    canDoCandidate = function(w, _, i)
+      return canFill(w, i)
     end,
     workTime = function(w, _, i)
       local def = fillObject(w, i)
@@ -318,22 +322,10 @@ function Water.init(world)
 end
 
 function Water.tick(world, dt)
-  -- One pass over the placed objects for both lists (ascending anchors, so every run is the same).
-  local pumps, drips = {}, {}
-  for anchor, obj in pairs(world.state.grid.objects) do
-    local def = world.registry:get("objects", obj.id)
-    if def.pump then
-      pumps[#pumps + 1] = anchor
-    end
-    if def.drip then
-      drips[#drips + 1] = anchor
-    end
-  end
-  table.sort(pumps)
-  table.sort(drips)
-  tickPumps(world, pumps, dt / Calendar.hourLength(world))
+  -- Ascending anchors (so every run is the same), from Grid's cached index.
+  tickPumps(world, Grid.anchorsWith(world, "pump"), dt / Calendar.hourLength(world))
   tickRain(world, dt / Calendar.hourLength(world))
-  tickDrip(world, drips)
+  tickDrip(world, Grid.anchorsWith(world, "drip"))
 end
 
 return Water
