@@ -1,0 +1,77 @@
+name: CI
+
+# Runs the headless test suite on every push to main and on every pull request.
+# Kept separate from build.yml (tag-triggered release build).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests (LÖVE 11.5)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      LOVE_VERSION: "11.5"
+      # The test runner disables the window, graphics and audio modules, but make any stray SDL
+      # initialisation harmless on a display-less runner.
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Cache LÖVE AppImage
+        id: cache-love
+        uses: actions/cache@v4
+        with:
+          path: ~/love-cache
+          key: love-${{ env.LOVE_VERSION }}-x86_64-appimage
+
+      - name: Download LÖVE
+        if: steps.cache-love.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/love-cache
+          curl -fsSL --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 300 \
+            "https://github.com/love2d/love/releases/download/${LOVE_VERSION}/love-${LOVE_VERSION}-x86_64.AppImage" \
+            -o ~/love-cache/love.AppImage
+          chmod +x ~/love-cache/love.AppImage
+
+      - name: Extract LÖVE (no FUSE needed)
+        run: |
+          mkdir -p ~/love-extract
+          cd ~/love-extract
+          ~/love-cache/love.AppImage --appimage-extract > /dev/null
+          # A small wrapper that runs the AppImage's own AppRun (sets up its bundled libraries).
+          mkdir -p ~/bin
+          printf '#!/bin/sh\nexec "%s/love-extract/squashfs-root/AppRun" "$@"\n' "$HOME" > ~/bin/love
+          chmod +x ~/bin/love
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Show LÖVE version
+        run: love --version
+
+      - name: Run tests
+        # tests/main.lua exits 1 if any test fails or a test file errors, which fails this step.
+        # shell: bash enables pipefail, so love's exit code survives the pipe to tee.
+        shell: bash
+        run: love tests | tee test-output.txt
+
+      - name: Summarise results
+        if: always()
+        run: |
+          {
+            echo '### Test output'
+            echo '```'
+            tail -n 40 test-output.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
