@@ -31,11 +31,15 @@ return {
     footprintH = "number?", -- tiles tall (default 1)
     placeable = "boolean?", -- can be placed by the player from inventory
     source = "table?", -- power source: { curve = "solar"|"wind"|"hydro"|"fuel", peak = kW, fuel?, fuelPerKwh? } (GDD §7.5)
-    sink = "table?", -- power sink: { tier, draw = kW, schedule = "always"|"dark"|"heat", inertia? = hours, effects? = { name -> amount } }
+    sink = "table?", -- power sink: { tier, draw = kW, schedule = "always"|"dark"|"heat"|"fill" (fill needs `fills` = resource id), inertia? = hours, effects? = { name -> amount } }
     maxRate = "number?", -- battery: most kW it can charge or discharge at (absent = unlimited)
     efficiency = "number?", -- battery: fraction of charging energy that is stored (absent = 1)
     vehicle = "boolean?", -- battery: the truck; charged in the "truck" priority tier, lends power only above a trip reserve
     placeNear = "string?", -- placement rule: must touch this terrain flag ("water": next to the creek)
+    placeOn = "string?", -- placement rule: "waterTable" needs a tile with a high water table (wells, pumps; GDD §5.3)
+    waterSource = "table?", -- a place to fill the bucket: { fillTime = seconds, stored? = draws on the cistern stock }
+    pump = "table?", -- pumps water into cisterns: { rate = units per in-game hour at full power }; also needs a `sink`
+    drip = "table?", -- drip line: { radius = tiles }; waters thirsty crops in range from the cistern stock, no actor
     battery = "number?", -- kWh of storage
     station = "string?", -- processor station id used by recipes (e.g. "smoker")
     shelter = "boolean?", -- the homesteader sleeps here (GDD §5.3 shelter ladder)

@@ -77,7 +77,8 @@ function Inventory.refreshStorage(world)
 end
 
 --- Can an object of this type be placed with its top-left at tile i? (Objects with
---- `placeNear = "water"`, like micro-hydro, must also touch a water tile.)
+--- `placeNear = "water"`, like micro-hydro, must also touch a water tile; `placeOn = "waterTable"`,
+--- like wells and pumps, needs a tile with a high enough water table.)
 function Inventory.canPlace(world, id, i)
   local grid = world.state.grid
   local def = world.registry:get("objects", id)
@@ -91,6 +92,9 @@ function Inventory.canPlace(world, id, i)
     local terrain = Grid.terrain(world, t)
     if not terrain.walkable or terrain.water or world.occupancy[t] then
       return false
+    end
+    if def.placeOn == "waterTable" and not Land.hasWaterTable(world, t) then
+      return false -- wells and pumps need groundwater close to the surface
     end
     if def.placeNear == "water" and not touchesWater then
       local tx, ty = Grid.coords(grid, t)

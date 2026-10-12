@@ -171,6 +171,46 @@ local function ensureWaterAccess(world, spawn)
   end
 end
 
+--- Fill grid.waterTable[i] (0..1: how close groundwater is to the surface) from the seed. It uses
+--- its own random stream ("watertable"), so it never disturbs the plot and runs saved before the
+--- water table existed can gain the same table for their seed (Land.init calls this when missing).
+function Landgen.waterTable(world)
+  local cfg = world.tuning.water.table
+  local grid = world.state.grid
+  local sample = Noise.value(world:rng("watertable"), grid.w, grid.h, cfg.noiseScale)
+  local reach = cfg.creekReach
+  local creek = {}
+  for i = 1, #grid.terrain do
+    if grid.terrain[i] == "water" then
+      creek[#creek + 1] = i
+    end
+  end
+  -- Nearness to the creek (0..1) by a bounded spread from each creek tile.
+  local near = {}
+  for _, c in ipairs(creek) do
+    local cx, cy = Grid.coords(grid, c)
+    for dy = -reach, reach do
+      for dx = -reach, reach do
+        if Grid.inBounds(grid, cx + dx, cy + dy) then
+          local i = Grid.index(grid, cx + dx, cy + dy)
+          local closeness = 1 - math.max(math.abs(dx), math.abs(dy)) / reach
+          if closeness > (near[i] or 0) then
+            near[i] = closeness
+          end
+        end
+      end
+    end
+  end
+  grid.waterTable = {}
+  for y = 1, grid.h do
+    for x = 1, grid.w do
+      local i = Grid.index(grid, x, y)
+      local value = sample(x, y) * (1 - cfg.creekWeight) + (near[i] or 0) * cfg.creekWeight
+      grid.waterTable[i] = math.floor(math.max(0, math.min(1, value)) * 100 + 0.5) / 100
+    end
+  end
+end
+
 --- Fill world.state.grid and world.state.land for a fresh run.
 function Landgen.generate(world)
   local tuning = world.tuning

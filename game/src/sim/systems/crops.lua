@@ -56,6 +56,22 @@ local function hasSeed(world, cropId)
   return cropId ~= nil and Ledger.get(world, world.registry:get("crops", cropId).seed) > 0
 end
 
+--- Is there a crop on tile i that is dry and not yet grown?
+function Crops.needsWaterAt(world, i)
+  local crop = world.state.crops[i]
+  return crop ~= nil and Crops.needsWater(crop)
+end
+
+--- Water the crop on tile i (drip lines, sprinklers). Returns true if it was dry.
+function Crops.waterTile(world, i)
+  local crop = world.state.crops[i]
+  if crop and Crops.needsWater(crop) then
+    crop.moisture = 1
+    return true
+  end
+  return false
+end
+
 local function anyCropNeedsWater(world)
   for _, crop in pairs(world.state.crops) do
     if Crops.needsWater(crop) then

@@ -4,7 +4,8 @@
 -- Content (data/content/objects.lua):
 --   source  { curve = "solar"|"wind"|"hydro"|"fuel", peak kW }   (fuel adds fuel, fuelPerKwh)
 --   battery kWh, with optional maxRate (kW), efficiency (kept fraction when charging), vehicle
---   sink    { tier, draw kW, schedule = "always"|"dark"|"heat", inertia hours, effects }
+--   sink    { tier, draw kW, schedule = "always"|"dark"|"heat"|"fill", inertia hours, effects }
+--           ("fill" wants power only while resource `fills` has storage room: pumps, #35)
 -- Knobs live in data/tuning/power.lua; weather inputs come from Weather.powerInputs (#39).
 --
 -- Each tick, in priority order (state.order: sink tiers and the charge tiers "bank"/"truck"):
@@ -278,6 +279,9 @@ local function wantsPower(world, sink, now, thermostat)
   elseif sink.schedule == "heat" then
     -- Heats in the dark of cold seasons until tonight's warmth is made (a thermostat).
     return dark and thermostat.need > 0 and state(world).warmth < thermostat.need
+  elseif sink.schedule == "fill" then
+    -- Runs while there is room in the store it fills (a pump with an empty cistern; sink.fills is a resource id).
+    return Ledger.room(world, sink.fills) > 0
   end
   error("unknown sink schedule '" .. tostring(sink.schedule) .. "'")
 end

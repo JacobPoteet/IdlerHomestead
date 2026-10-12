@@ -650,6 +650,108 @@ function P.icon_note_blank(p)
   p:px(5, 8, { 0.40, 0.42, 0.40 })
 end
 
+-- Water ladder (GDD §5.3): well, hand pump, cistern, solar pump, drip line.
+local WATER_DEEP = { 0.18, 0.34, 0.50 }
+local HOSE = { 0.16, 0.17, 0.18 }
+
+function P.well(p)
+  p:ellipse(8, 22, 7, 2, C.shadow)
+  p:rect(2, 14, 12, 8, C.stone) -- stone ring
+  p:rect(2, 14, 12, 1, C.stoneLight)
+  p:rect(4, 15, 8, 3, WATER_DEEP) -- the dark water inside
+  p:rect(4, 15, 8, 1, C.water)
+  p:rect(2, 20, 12, 2, C.stoneDark)
+  p:rect(2, 4, 2, 11, C.bark) -- posts
+  p:rect(12, 4, 2, 11, C.bark)
+  p:rect(1, 2, 14, 3, C.rust) -- little roof
+  p:rect(1, 2, 14, 1, C.barkLight)
+  p:rect(4, 7, 8, 1, C.barkLight) -- windlass with its rope
+  p:rect(8, 8, 1, 6, C.pebble)
+end
+
+function P.hand_pump(p)
+  p:ellipse(8, 15, 6, 1, C.shadow)
+  p:rect(3, 12, 10, 3, C.stoneDark) -- stone base
+  p:rect(3, 12, 10, 1, C.stone)
+  p:rect(7, 4, 3, 8, C.metal) -- body
+  p:rect(7, 4, 1, 8, C.stoneLight)
+  p:rect(3, 3, 8, 2, CASE) -- handle
+  p:rect(2, 2, 2, 3, CASE_LIGHT)
+  p:rect(10, 7, 4, 2, C.metal) -- spout
+  p:px(13, 9, C.water)
+end
+
+function P.cistern(p)
+  p:ellipse(16, 15, 14, 1, C.shadow)
+  p:rect(2, 4, 28, 11, { 0.48, 0.52, 0.55 }) -- tank
+  p:rect(2, 4, 28, 2, { 0.64, 0.68, 0.70 })
+  for x = 7, 25, 6 do -- ribs
+    p:rect(x, 6, 1, 9, { 0.36, 0.40, 0.43 })
+  end
+  p:rect(12, 2, 8, 2, C.metal) -- lid hatch
+  p:rect(26, 10, 4, 2, C.metal) -- tap
+  p:px(29, 12, C.water)
+end
+
+function P.dc_pump(p)
+  p:ellipse(8, 15, 6, 1, C.shadow)
+  p:rect(2, 7, 9, 8, { 0.22, 0.38, 0.62 }) -- motor housing
+  p:rect(2, 7, 9, 1, { 0.40, 0.56, 0.80 })
+  p:rect(4, 9, 5, 2, CELL_LINE) -- little solar cell
+  p:rect(11, 9, 3, 3, C.metal) -- pump head
+  p:rect(13, 4, 2, 6, C.metal) -- riser pipe
+  p:rect(5, 4, 3, 3, CASE) -- junction box
+  p:px(6, 5, { 0.45, 0.82, 0.42 })
+end
+
+function P.drip_line(p)
+  p:rect(1, 8, 14, 1, HOSE) -- the hose
+  p:rect(7, 2, 1, 7, HOSE)
+  p:rect(6, 9, 3, 2, C.metal) -- feed fitting
+  for _, e in ipairs({ { 3, 9 }, { 11, 9 }, { 7, 3 }, { 3, 7 }, { 12, 7 } }) do -- emitters
+    p:px(e[1], e[2], C.water)
+  end
+end
+
+function P.icon_well(p)
+  p:rect(1, 6, 10, 5, C.stone)
+  p:rect(3, 7, 6, 2, WATER_DEEP)
+  p:rect(1, 1, 10, 2, C.rust)
+  p:rect(2, 3, 1, 3, C.bark)
+  p:rect(9, 3, 1, 3, C.bark)
+end
+
+function P.icon_hand_pump(p)
+  p:rect(5, 3, 2, 7, C.metal)
+  p:rect(2, 2, 6, 1, CASE_LIGHT)
+  p:rect(3, 10, 6, 1, C.stoneDark)
+  p:rect(7, 6, 3, 1, C.metal)
+  p:px(9, 7, C.water)
+end
+
+function P.icon_cistern(p)
+  p:rect(1, 3, 10, 7, { 0.48, 0.52, 0.55 })
+  p:rect(1, 3, 10, 1, { 0.64, 0.68, 0.70 })
+  p:rect(4, 4, 1, 6, { 0.36, 0.40, 0.43 })
+  p:rect(8, 4, 1, 6, { 0.36, 0.40, 0.43 })
+  p:px(10, 8, C.water)
+end
+
+function P.icon_dc_pump(p)
+  p:rect(1, 5, 6, 5, { 0.22, 0.38, 0.62 })
+  p:rect(7, 6, 2, 3, C.metal)
+  p:rect(8, 2, 1, 5, C.metal)
+  p:px(3, 7, CELL_LINE)
+end
+
+function P.icon_drip_line(p)
+  p:rect(1, 6, 10, 1, HOSE)
+  p:rect(5, 2, 1, 5, HOSE)
+  for _, e in ipairs({ { 2, 7 }, { 9, 7 }, { 5, 3 }, { 2, 5 }, { 9, 5 } }) do
+    p:px(e[1], e[2], C.water)
+  end
+end
+
 local FISH_COLORS = {
   icon_spoiled = { { 0.45, 0.50, 0.25 }, { 0.62, 0.60, 0.32 } }, -- a fish gone off (journal note)
   icon_creek_chub = { { 0.62, 0.64, 0.58 }, { 0.80, 0.80, 0.74 } },

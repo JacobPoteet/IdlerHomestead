@@ -55,6 +55,28 @@ function Renderer:drawPowerLamp(anchor, def, x, y)
   love.graphics.setColor(1, 1, 1, 1)
 end
 
+--- Status light on a drip line: blue while the cistern can feed it, red when the zone is dry.
+function Renderer:drawDripLamp(anchor, x, y)
+  local world, v = self.world, self.world.tuning.visuals
+  local size = v.powerLamp.size
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.rectangle("fill", x - 1, y - 1, size + 2, size + 2)
+  love.graphics.setColor(v.waterLamp[Water.dripState(world, anchor)])
+  love.graphics.rectangle("fill", x, y, size, size)
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
+--- Level bar over a cistern: how full the shared water stock is.
+function Renderer:drawCisternGauge(x, y)
+  local world, g = self.world, self.world.tuning.visuals.waterGauge
+  local fraction = Water.fraction(world)
+  love.graphics.setColor(g.back)
+  love.graphics.rectangle("fill", x - 1, y - 1, g.width + 2, g.height + 2)
+  love.graphics.setColor(fraction < world.tuning.water.lowFraction and g.low or g.fill)
+  love.graphics.rectangle("fill", x, y, math.floor(g.width * fraction + 0.5), g.height)
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
 local function variantFor(i, count)
   -- Stable per-tile variant without touching the sim RNG.
   local h = (i * 2654435761) % 4294967296
@@ -322,6 +344,12 @@ function Renderer:draw(alpha, visible, daylight)
           end
           if def.sink or (def.source and def.source.curve == "fuel") then
             self:drawPowerLamp(anchor, def, (x - 1) * tile + sprite.w - 4, bottom - sprite.h + 1)
+          end
+          if def.drip then
+            self:drawDripLamp(anchor, (x - 1) * tile + sprite.w - 4, bottom - sprite.h + 1)
+          end
+          if def.waterSource and def.waterSource.stored then
+            self:drawCisternGauge((x - 1) * tile + 2, bottom - sprite.h + 1)
           end
         end,
       }

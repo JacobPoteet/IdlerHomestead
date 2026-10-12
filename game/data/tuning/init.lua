@@ -12,6 +12,7 @@ return {
   "idle",
   "actors",
   "farming",
+  "water",
   "needs",
   "firewood",
   "food",

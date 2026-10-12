@@ -110,3 +110,15 @@ The squeeze (design goal): in winter an array plus a bank, heater, freezer and l
 Prices are meant to put each power item a few trips out: array $110, bank $80, turbine $140, hydro $160, generator $90, heater $50, lamp $15, freezer $90, fuel x5 $15. They are unvalidated against real play.
 
 Harness effect: `lovec tools/balance policy=scripted,active seeds=5 years=1` gives the same survival before and after (0 of 5 fail for both policies), with money and fuel medians within noise and about 3 percent more run time. The policies never buy power items, so the harness does not measure them; see the follow-up issue to teach them a power buy list.
+
+## Water ladder (#35, D50)
+
+Per in-game day a field of N crops wants N waterings (`farming.moistureDays` = 1). One cistern unit is one watering by bucket, or two by drip line (`water.dripUnitsPerWatering` 0.5).
+
+| thing | number | note |
+|---|---|---|
+| solar pump (0.4 kW, 5 units/h) | up to ~50 units on a sunny summer day, ~20 in winter | scaled by `Power.sinkRatio`; it draws nothing once the cistern is full |
+| cistern (60 units) | a full day for about 60 crops by bucket, 120 by drip | stock is shared and capacity adds up per cistern |
+| bucket fill | creek 1.5 s, dug well 1.2 s, hand pump 0.6 s, cistern 0.4 s | a bucket holds 6 waterings (10 with the big bucket) |
+
+Prices: dug well $20, hand pump $40, cistern $55, solar pump $70, drip line $25 (unvalidated against play). Harness effect: `lovec tools/balance policy=scripted,active seeds=5 years=1` gives identical survival, money, food and fuel numbers before and after, because no policy buys the rungs yet (#90); only the "journal nodes learned" and "ideas waiting" medians move by about one, because the well becomes a new idea once the bucket-hauling note is written and the policies study whatever is waiting.

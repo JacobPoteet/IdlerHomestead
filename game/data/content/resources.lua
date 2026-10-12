@@ -20,6 +20,10 @@ return {
   { id = "firewood", name = "Green firewood", category = "firewood", heat = 0.5, capacity = 30 },
   { id = "seasoned_firewood", name = "Seasoned firewood", category = "fuel", heat = 1, capacity = 20 },
 
+  -- Stored water (GDD §5.3): pumped into cisterns, drawn by buckets and drip lines. Capacity comes
+  -- only from cisterns (`storage` in objects.lua), so a pump with no cistern has nowhere to put it.
+  { id = "water", name = "Water", category = "supply", capacity = 0 },
+
   -- Generator fuel (GDD §7.5): burned only when the homestead is short of power.
   { id = "fuel", name = "Fuel", category = "supply", capacity = 20 },
 
