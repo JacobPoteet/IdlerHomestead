@@ -100,6 +100,61 @@ function Session:routineForced()
   return self.routineNow == true
 end
 
+--- Is the homesteader asleep right now (in bed, not just walking there)?
+function Session:sleeping()
+  return Actors.homesteader(self.world).asleep == true
+end
+
+--- Skip the rest of the night: the sim runs at tuning.time.skipSpeed until the homesteader wakes.
+--- Returns false when nobody is asleep (D56).
+function Session:skipNight()
+  if not self:sleeping() then
+    return false
+  end
+  self.skipping = true
+  return true
+end
+
+function Session:skippingNight()
+  return self.skipping == true and self:sleeping()
+end
+
+--- The sim speed actually applied: the player's speed, raised automatically while asleep (D56).
+--- A pause stays a pause. Sleep speed never lowers a speed the player chose above it.
+function Session:effectiveSpeed()
+  local chosen = self.clock.timeScale
+  if chosen == 0 or not self:sleeping() then
+    return chosen
+  end
+  local time = self.tuning.time
+  return math.max(chosen, self.skipping and time.skipSpeed or time.sleepSpeed)
+end
+
+--- Run the due ticks at the effective speed. The tick that wakes the homesteader ends a fast
+--- stretch there and then, so a skip lands on the morning tick whatever the frame size (D56).
+function Session:advanceSim(dt)
+  local clock = self.clock
+  local chosen = clock.timeScale
+  local effective = self:effectiveSpeed()
+  if effective == chosen then
+    self.skipping = false
+    clock:advance(dt, self.tick)
+    return
+  end
+  clock.timeScale = effective
+  clock:advance(dt, function(step)
+    self.tick(step)
+    if clock.timeScale ~= chosen and not self:sleeping() then
+      clock.timeScale = chosen
+      clock.accumulator = 0 -- drop the fast leftover rather than run it past the morning
+    end
+  end)
+  clock.timeScale = chosen
+  if not self:sleeping() then
+    self.skipping = false
+  end
+end
+
 --- Advance real time: runs due sim ticks, accrues playtime, autosaves on the interval.
 function Session:update(dt)
   local canStart = self:canStartRoutine()
@@ -116,7 +171,7 @@ function Session:update(dt)
     self:setControl("idle")
   end
   self.couldStart = canStart
-  self.clock:advance(dt, self.tick)
+  self:advanceSim(dt)
   local header = self.data.header
   header.playtime = (header.playtime or 0) + dt
   self.sinceSave = self.sinceSave + dt

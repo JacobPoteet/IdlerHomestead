@@ -12,6 +12,7 @@ local Camera = require("src.core.camera")
 local Session = require("src.session")
 local Grid = require("src.sim.grid")
 local Calendar = require("src.sim.systems.calendar")
+local Sleep = require("src.sim.systems.sleep")
 local Ledger = require("src.sim.systems.ledger")
 local Actors = require("src.sim.systems.actors")
 local Crops = require("src.sim.systems.crops")
@@ -517,11 +518,21 @@ end
 
 -- Speed and routine buttons: a column under the top bar, away from the (crowded) toolbar.
 function Homestead:speedLabel()
-  local speed = self.session:speed()
+  local speed = self.session:effectiveSpeed() -- fast while asleep (D56)
   return speed == 0 and "Paused" or string.format("%gx", speed)
 end
 
+--- Skip the rest of the night (D56): only while asleep.
+function Homestead:skipNight()
+  if self.session:skipNight() then
+    self:layout()
+  end
+end
+
 function Homestead:routineLabel()
+  if self.session:sleeping() then
+    return self.session:skippingNight() and "Skipping..." or "Skip night"
+  end
   if not self.session:canStartRoutine() then
     return "Resting"
   end
@@ -571,12 +582,22 @@ function Homestead:layoutControls(view)
       self:cycleSpeed()
     end,
   })
-  addCol(routineLabel, {
-    enabled = routineLabel == "Start routine",
-    onPress = function()
-      self:startRoutine()
-    end,
-  })
+  if self.session:sleeping() then
+    addCol(routineLabel, { -- the routine rests at night, so its slot becomes the skip control
+      enabled = routineLabel == "Skip night",
+      style = "accent",
+      onPress = function()
+        self:skipNight()
+      end,
+    })
+  else
+    addCol(routineLabel, {
+      enabled = routineLabel == "Start routine",
+      onPress = function()
+        self:startRoutine()
+      end,
+    })
+  end
   addCol("Power", {
     style = Power.satisfaction(self.world) < 1 and "danger" or nil, -- lit while the homestead is short of power
     onPress = function()
@@ -754,6 +775,8 @@ function Homestead:action(name, data)
     self:cycleSpeed()
   elseif name == "routine" then
     self:startRoutine()
+  elseif name == "skipNight" then
+    self:skipNight()
   elseif name == "cancel" then
     if self.planStart then
       self.planStart = nil
@@ -916,11 +939,40 @@ function Homestead:drawForecast()
     Text.draw(text, 4, y + 2, { size = "small", width = w, align = "center", color = color })
     y = y + 16
   end
+  self.forecastBottom = y -- the sleep banner sits below the pills, so they never overlap on a narrow view
 end
 
 function Homestead:drawBottomBar(view)
   love.graphics.setColor(theme.colors.panel)
   love.graphics.rectangle("fill", 0, view.h - self.bottomH, view.w, self.bottomH)
+end
+
+--- "5 h to morning" / "40 min to morning" while sleeping (D56).
+function Homestead:untilMorningText()
+  local hours = Sleep.hoursUntilMorning(self.world)
+  if hours < 1 then
+    return string.format("%d min to morning", math.max(1, math.ceil(hours * 60)))
+  end
+  return string.format("%d h to morning", math.ceil(hours))
+end
+
+--- A centred pill under the top bar while the homesteader sleeps: what is happening, how long
+--- is left and how fast time is passing (D56). The Skip night button sits in the control column.
+function Homestead:drawSleepBanner(view)
+  if not self.session:sleeping() then
+    return
+  end
+  local speed = self.session:effectiveSpeed()
+  local text = string.format("Zzz  Sleeping · %s · %gx", self:untilMorningText(), speed)
+  if speed == 0 then
+    text = "Sleeping · paused"
+  end
+  local w, h = Text.measure(text, "body")
+  w = w + 20
+  local x, y = math.floor((view.w - w) / 2), math.max(self.topH + 6, (self.forecastBottom or 0) + 2)
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.rectangle("fill", x, y, w, h + 8, 6, 6)
+  Text.draw(text, x, y + 4, { size = "body", width = w, align = "center", color = theme.colors.accent })
 end
 
 function Homestead:drawControlBadge(view)
@@ -1098,6 +1150,7 @@ function Homestead:draw()
   self:drawForecast()
   self:drawBottomBar(view)
   self:drawControlBadge(view)
+  self:drawSleepBanner(view)
   self:drawInfo(view)
   self.buttons:draw()
 end

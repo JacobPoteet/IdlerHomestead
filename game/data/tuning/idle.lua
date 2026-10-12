@@ -7,6 +7,6 @@ return {
   recheckInterval = 1, -- seconds an idle homesteader waits before looking for work again
   -- Input in these scenes (names, see src/scenes) does not reset the takeover timer: reading a panel is not directing the homesteader (D55)
   browsePanels = { "catalog", "journal", "pantry", "power", "guide", "truck", "routine" }, -- scene names; panel input is ignored by the takeover timer
-  hintAfter = 45, -- game seconds (~1/3 of a day) idle with the routine off before the "press R" hint
-  hintInterval = 120, -- game seconds between idle hints, so it nags at most about once a day
+  hintAfter = 45, -- game seconds (about 1/7 of a day; deliberately real-time feel, D56) idle with the routine off before the "press R" hint
+  hintInterval = 120, -- game seconds between idle hints, so it nags at most about twice a day
 }

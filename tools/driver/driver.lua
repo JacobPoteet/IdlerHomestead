@@ -51,7 +51,7 @@ function Driver:advance(hours)
   local ctx = self.game.app.ctx
   local seconds = hours * ctx.tuning.time.dayLength / 24
   local session = ctx.session
-  local speed = session and session:speed() or 1
+  local speed = session and session:effectiveSpeed() or 1 -- includes the automatic sleep speed (D56)
   if speed <= 0 then
     error("advance(): the game is paused; unpause first", 2)
   end

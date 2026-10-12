@@ -18,8 +18,8 @@ return {
   cat = { -- the cat that answers them
     walkSpeed = 1.6, -- tiles per second
     wanderRadius = 7, -- tiles from the spawn point the cat roams
-    idleSeconds = { min = 4, max = 14 }, -- game seconds the cat sits before its next move (a day is 128 s)
-    napSeconds = { min = 12, max = 30 }, -- game seconds a nap in a sunny spot lasts (an in-game hour is ~5 s)
+    idleSeconds = { min = 4, max = 14 }, -- game seconds the cat sits before its next move (a day is 320 s)
+    napSeconds = { min = 12, max = 30 }, -- game seconds a nap in a sunny spot lasts (an in-game hour is ~13 s)
     napChance = 0.5, -- probability that the next move is toward a sunny spot rather than a random tile
     sunnyTries = 8, -- random tiles sampled when looking for a sunny spot
     shadeRadius = 1, -- tiles; a spot with a tree this close is shaded, not sunny
