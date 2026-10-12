@@ -647,6 +647,15 @@ function Active:choose(world, actor)
       return true
     end
   end
+  -- Tend the goats: milk (it spoils fast), hay and water.
+  if self.features.goats and Animals.needsTendingPen(world) then
+    local pens = objectAnchors(world, function(def)
+      return def.pen ~= nil
+    end)
+    if #pens > 0 and tryOrder(self, world, actor, pens) then
+      return true
+    end
+  end
   -- Heading into the cold, firewood comes before new planting.
   if daysToFreeze(world) <= world.tuning.time.daysPerSeason and self:fuel(world, actor) then
     return true

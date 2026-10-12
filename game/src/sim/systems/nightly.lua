@@ -10,7 +10,7 @@
 -- State: world.state.nightly = { open = { ... }, ready = { ... }? }
 --   open  = { ate = { [food id] = n }, burned = { [fuel id] = n }, calories, hungry (shortfall sum 0..),
 --             cold (shortfall sum), warmthNeeded, electric, raided = { [id] = n }, caught (mice the cat
---             caught), killed (hens lost to a fox), stopped (fox raids turned back), spoil = { lost, total }?,
+--             caught), killed (hens lost to a fox), killedGoats (goats lost to one), stopped (fox raids turned back), spoil = { lost, total }?,
 --             learned = { ids }, slept (game seconds), sleepAt (game seconds, set while in bed),
 --             study = { id, name, from, total }?, condition0? }
 --   ready = the closed ledger plus { day, hours, study = { id, name, from, to, total, learned }?,
@@ -36,6 +36,7 @@ local function blank()
     raided = {},
     caught = 0,
     killed = 0,
+    killedGoats = 0,
     stopped = 0,
     learned = {},
     slept = 0,
@@ -149,7 +150,8 @@ function Nightly.init(world)
     if e.stopped then
       acc.stopped = acc.stopped + 1
     else
-      acc.killed = acc.killed + e.killed
+      local field = e.kind == "goats" and "killedGoats" or "killed"
+      acc[field] = acc[field] + e.killed
     end
   end)
   ev:on("journal.learned", function(e)

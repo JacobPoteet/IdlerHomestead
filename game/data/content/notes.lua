@@ -130,10 +130,17 @@ return {
   {
     id = "fox_raid",
     name = "Fox in the night",
-    line = "Something got into the coop overnight.",
+    line = "Something got at the animals overnight.",
     icon = "icon_hen",
     event = "animals.predator",
     match = { killed = { min = 1 } },
+  },
+  {
+    id = "first_milk",
+    name = "First milk",
+    line = "Warm milk, and it will not keep.",
+    icon = "icon_milk",
+    event = "animals.milked",
   },
   {
     id = "full_battery",

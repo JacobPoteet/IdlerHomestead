@@ -406,6 +406,13 @@ function Renderer:draw(alpha, visible, daylight)
           if def.waterSource and def.waterSource.stored then
             self:drawCisternGauge((x - 1) * tile + 2, bottom - sprite.h + 1)
           end
+          if def.pen and Animals.pail(world) > 0 then
+            -- Milk waiting in the pail shows as white dots by the shed door.
+            love.graphics.setColor(world.tuning.visuals.goats.milkMarker)
+            for n = 0, math.min(2, Animals.pail(world) - 1) do
+              love.graphics.rectangle("fill", (x - 1) * tile + 3 + n * 3, bottom - sprite.h + 12, 2, 3)
+            end
+          end
           if def.coop and Animals.nest(world) > 0 then
             -- Eggs waiting in the nest box show as cream dots on its side.
             love.graphics.setColor(world.tuning.visuals.hens.eggMarker)
@@ -418,6 +425,7 @@ function Renderer:draw(alpha, visible, daylight)
     end
   end
   self:addHens(items, x1, x2, y1, y2)
+  self:addGoats(items, x1, x2, y1, y2)
   for _, actor in ipairs(world.state.actors) do
     local ax = actor.prevX + (actor.x - actor.prevX) * alpha
     local ay = actor.prevY + (actor.y - actor.prevY) * alpha
@@ -502,6 +510,49 @@ function Renderer:addHens(items, x1, x2, y1, y2)
             local sprite = Assets.sprite("hen")
             love.graphics.setColor(1, 1, 1, 1)
             local dy = pecking and 1 or 0
+            local x = math.floor(feetX + 0.5)
+            local y = math.floor(feetY - sprite.h + 0.5) + dy
+            if facing > 0 then
+              love.graphics.draw(sprite.image, sprite.quad, x - math.floor(sprite.w / 2), y)
+            else
+              love.graphics.draw(sprite.image, sprite.quad, x + math.floor(sprite.w / 2), y, 0, -1, 1)
+            end
+          end,
+        }
+      end
+    end
+  end
+end
+
+--- Queue the herd for the y-sorted pass. Goats browse the yard of each pen by day (they stay in the
+--- shed at night and in a storm); like the hens, their drift is a pure function of the render clock.
+function Renderer:addGoats(items, x1, x2, y1, y2)
+  local world, tile = self.world, self.tile
+  local cfg = world.tuning.visuals.goats
+  local goats = math.min(Animals.goats(world), cfg.maxDrawn)
+  if goats == 0 or Calendar.isNight(world) or Weather.kind(world) == "storm" then
+    return
+  end
+  local grid = world.state.grid
+  for _, anchor in ipairs(Grid.anchorsWith(world, "pen")) do
+    local ax, ay = Grid.coords(grid, anchor)
+    local def = world.registry:get("objects", grid.objects[anchor].id)
+    local fw, fh = def.footprintW or 1, def.footprintH or 1
+    if ax + fw >= x1 and ax <= x2 and ay + fh >= y1 and ay <= y2 then
+      for n = 1, goats do
+        local phase = n * 2.399
+        local sway = math.sin(self.time * cfg.speed + phase)
+        local depth = 0.5 + 0.5 * math.sin(self.time * cfg.speed * 0.77 + phase * 1.3)
+        local feetX = (ax - 1 + fw / 2 + sway * cfg.wander) * tile
+        local feetY = (ay - 1 + fh - cfg.yardDepth + depth * cfg.yardDepth * 0.8) * tile
+        local facing = math.cos(self.time * cfg.speed + phase) >= 0 and 1 or -1
+        local grazing = math.sin(self.time * cfg.grazeSpeed + phase * 3) > cfg.grazeAbove
+        items[#items + 1] = {
+          (ay - 1 + fh) * tile + 0.5 + depth, -- sorted just in front of the pen, so the herd shows inside the fence
+          function()
+            local sprite = Assets.sprite("goat")
+            love.graphics.setColor(1, 1, 1, 1)
+            local dy = grazing and 1 or 0
             local x = math.floor(feetX + 0.5)
             local y = math.floor(feetY - sprite.h + 0.5) + dy
             if facing > 0 then

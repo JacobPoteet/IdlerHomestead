@@ -51,6 +51,8 @@ return {
     drip_line = { placeholder = "drip_line", w = 16, h = 16 },
     roadside_stand = { placeholder = "roadside_stand", w = 32, h = 24 },
     chicken_coop = { placeholder = "chicken_coop", w = 32, h = 24 },
+    goat_pen = { placeholder = "goat_pen", w = 32, h = 32 },
+    cheese_press = { placeholder = "cheese_press", w = 16, h = 16 },
     auto_harvester = { placeholder = "auto_harvester", w = 16, h = 24 },
 
     -- Crops: one sprite per growth stage (1 = sprout ... 3 = ready)
@@ -62,6 +64,7 @@ return {
     cat = { placeholder = "cat", w = 14, h = 10 },
     cat_nap = { placeholder = "cat_nap", w = 14, h = 10 },
     hen = { placeholder = "hen", w = 10, h = 9 },
+    goat = { placeholder = "goat", w = 14, h = 11 },
 
     -- UI icons (12x12)
     icon_money = { placeholder = "icon_money", w = 12, h = 12 },
@@ -125,6 +128,13 @@ return {
     icon_chicken_coop = { placeholder = "icon_chicken_coop", w = 12, h = 12 },
     icon_chicken_feed = { placeholder = "icon_chicken_feed", w = 12, h = 12 },
     icon_chicken_fence = { placeholder = "icon_chicken_fence", w = 12, h = 12 },
+    icon_goat = { placeholder = "icon_goat", w = 12, h = 12 },
+    icon_milk = { placeholder = "icon_milk", w = 12, h = 12 },
+    icon_hay = { placeholder = "icon_hay", w = 12, h = 12 },
+    icon_cheese = { placeholder = "icon_cheese", w = 12, h = 12 },
+    icon_goat_pen = { placeholder = "icon_goat_pen", w = 12, h = 12 },
+    icon_goat_trailer = { placeholder = "icon_goat_trailer", w = 12, h = 12 },
+    icon_cheese_press = { placeholder = "icon_cheese_press", w = 12, h = 12 },
     icon_auto_harvester = { placeholder = "icon_auto_harvester", w = 12, h = 12 },
     icon_fuel = { placeholder = "icon_fuel", w = 12, h = 12 },
     icon_fuel_can = { placeholder = "icon_fuel", w = 12, h = 12 },

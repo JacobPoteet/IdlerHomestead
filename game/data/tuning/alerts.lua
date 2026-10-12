@@ -8,5 +8,7 @@ return {
   fuelRedNights = 1, -- nights of fuel under which the firewood chip turns red (tonight is short)
   conditionAmber = 70, -- condition (health) under which the heart chip turns amber
   conditionRed = 40, -- condition under which the heart chip turns red and a warning toast shows
+  animalsAmberDays = 3, -- days of feed (hay or chicken feed, manger plus stock) under which the animal chip turns amber and a warning toast shows
+  animalsRedDays = 1.5, -- days of feed under which the animal chip turns red (the animals will go hungry soon)
   readinessLeadDays = 7, -- days before the first frozen season from which the winter-readiness pill shows (7 = from autumn on; raise it to show it in late summer)
 }

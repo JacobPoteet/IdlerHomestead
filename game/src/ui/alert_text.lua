@@ -44,6 +44,11 @@ function AlertText.toast(e)
       return string.format("Not enough firewood for tonight (%.1f nights). Chop wood or buy firewood", e.value)
     end
     return string.format("Firewood is low: %.1f nights left. Chop wood or buy firewood", e.value)
+  elseif e.kind == "animals" then
+    if e.value < 0.05 then
+      return "The animals are out of feed. Buy chicken feed or hay"
+    end
+    return string.format("Animal feed is low: %.1f days left. Buy chicken feed or hay", e.value)
   end
   local hp = math.floor(e.value + 0.5)
   if e.level >= 2 then

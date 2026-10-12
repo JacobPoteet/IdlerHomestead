@@ -122,6 +122,15 @@ return {
     eggMarker = { 0.96, 0.92, 0.82 }, -- colour of the egg dot drawn on the coop while eggs wait in the nest box
     maxDrawn = 6, -- most hens drawn (more are real but share the run)
   },
+  goats = { -- the herd in each pen's yard (D71): drawn only by day, a pure function of the render clock
+    wander = 0.5, -- tiles each way from the pen's middle that a goat drifts (the yard is two tiles wide)
+    yardDepth = 0.9, -- tiles of the pen's front yard the herd roams
+    speed = 0.25, -- radians per second of the slow drift
+    grazeSpeed = 3, -- radians per second of the grazing bob
+    grazeAbove = 0.8, -- sine level above which a goat grazes (dips one pixel)
+    milkMarker = { 0.96, 0.96, 0.94 }, -- colour of the milk dots drawn on the pen while milk waits in the pail
+    maxDrawn = 3, -- most goats drawn
+  },
   vignette = 0.28, -- 0..1 darkening toward the screen edges
   grain = 0.035, -- 0..1 film grain strength
 }

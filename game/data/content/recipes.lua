@@ -13,6 +13,16 @@ return {
     hours = 6,
   },
   {
+    id = "make_cheese",
+    name = "Press cheese",
+    station = "cheese_press",
+    inputCategory = "dairy",
+    batch = 8,
+    yield = 0.5, -- two milk make one cheese
+    output = "cheese",
+    hours = 12,
+  },
+  {
     id = "season_wood",
     name = "Season firewood",
     station = "woodshed",
