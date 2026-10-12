@@ -10,5 +10,21 @@
         "isDefault": true
       }
     },
+    {
+      "label": "Test",
+      "type": "process",
+      "command": "love",
+      "windows": {
+        "command": "lovec"
+      },
+      "args": [
+        "tests"
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
   ]
 }
