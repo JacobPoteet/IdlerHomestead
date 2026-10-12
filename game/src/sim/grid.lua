@@ -108,6 +108,46 @@ function Grid.walkable(world, i)
   return not (def and def.blocks)
 end
 
+-- Bank tile lists, keyed weakly by the terrain array so a fresh or loaded grid recomputes them.
+-- Runtime cache only, never saved. Terrain is fixed after land generation, so it never goes stale.
+local bankCache = setmetatable({}, { __mode = "k" })
+
+--- Ascending tile indices of `terrainId` tiles that can be worked from land: the tile itself or
+--- one of its eight neighbours is walkable terrain (ignoring objects, which come and go). Water
+--- with no such neighbour can never be reached, so idle routines don't need to consider it.
+function Grid.bankTiles(world, terrainId)
+  local grid = world.state.grid
+  local byTerrain = bankCache[grid.terrain]
+  if not byTerrain then
+    byTerrain = {}
+    bankCache[grid.terrain] = byTerrain
+  end
+  local list = byTerrain[terrainId]
+  if list then
+    return list
+  end
+  list = {}
+  for i = 1, #grid.terrain do
+    if grid.terrain[i] == terrainId then
+      local x, y = Grid.coords(grid, i)
+      local reachable = false
+      for dy = -1, 1 do
+        for dx = -1, 1 do
+          if not reachable and Grid.inBounds(grid, x + dx, y + dy) then
+            local n = Grid.index(grid, x + dx, y + dy)
+            reachable = Grid.terrain(world, n).walkable == true
+          end
+        end
+      end
+      if reachable then
+        list[#list + 1] = i
+      end
+    end
+  end
+  byTerrain[terrainId] = list
+  return list
+end
+
 --- Movement cost multiplier for entering tile i (assumes walkable).
 function Grid.walkCost(world, i)
   local cost = Grid.terrain(world, i).walkCost or 1

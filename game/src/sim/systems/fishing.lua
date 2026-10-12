@@ -110,9 +110,12 @@ function Fishing.init(world)
     verb = "Fish",
     clickOrder = 55, -- before filling the bucket, so the rod wins when it's in hand
     candidates = function(w, _, add)
-      local terrain = w.state.grid.terrain
-      for i = 1, #terrain do
-        if terrain[i] == "water" and Weather.waterTarget(w, i) then
+      -- Rod ownership doesn't depend on the tile, so check it once rather than per candidate.
+      if not Fishing.hasRod(w) then
+        return
+      end
+      for _, i in ipairs(Grid.bankTiles(w, "water")) do
+        if Weather.waterTarget(w, i) then
           add(i)
         end
       end

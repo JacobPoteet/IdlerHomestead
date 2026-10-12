@@ -25,10 +25,11 @@ function Water.init(world)
       if actor.bucket > 0 or not Crops.anyNeedsWater(w) then
         return
       end
-      local terrain = w.state.grid.terrain
-      for i = 1, #terrain do
-        if (terrain[i] == "water" or terrain[i] == "ford") and Weather.waterTarget(w, i) then
-          add(i)
+      for _, terrainId in ipairs({ "water", "ford" }) do
+        for _, i in ipairs(Grid.bankTiles(w, terrainId)) do
+          if Weather.waterTarget(w, i) then
+            add(i)
+          end
         end
       end
     end,
