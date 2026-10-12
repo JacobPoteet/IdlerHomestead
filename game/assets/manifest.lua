@@ -26,6 +26,8 @@ return {
     junk = { placeholder = "junk", w = 16, h = 16 },
     tree = { placeholder = "tree", w = 16, h = 32 },
     truck = { placeholder = "truck", w = 32, h = 24 },
+    folding_panel = { placeholder = "folding_panel", w = 16, h = 16 },
+    smoker = { placeholder = "smoker", w = 16, h = 24 },
 
     -- Crops: one sprite per growth stage (1 = sprout ... 3 = ready)
     radish = { placeholder = "radish", w = 16, h = 16, variants = 3 },
@@ -44,5 +46,27 @@ return {
     icon_seed_radish = { placeholder = "icon_seed_radish", w = 12, h = 12 },
     icon_seed_potato = { placeholder = "icon_seed_potato", w = 12, h = 12 },
     icon_heart = { placeholder = "icon_heart", w = 12, h = 12 },
+    icon_battery = { placeholder = "icon_battery", w = 12, h = 12 },
+    icon_crate = { placeholder = "icon_crate", w = 12, h = 12 },
+    icon_rod = { placeholder = "icon_rod", w = 12, h = 12 },
+    icon_smoked_fish = { placeholder = "icon_smoked_fish", w = 12, h = 12 },
+    icon_bait = { placeholder = "icon_bait", w = 12, h = 12 },
+    icon_radish = { placeholder = "icon_seed_radish", w = 12, h = 12 },
+    icon_potato = { placeholder = "icon_seed_potato", w = 12, h = 12 },
+    icon_canned_food = { placeholder = "icon_food", w = 12, h = 12 },
+    -- One icon per fish species (same painter, tinted per species)
+    icon_creek_chub = { placeholder = "fish_icon", w = 12, h = 12 },
+    icon_sunfish = { placeholder = "fish_icon", w = 12, h = 12 },
+    icon_brook_trout = { placeholder = "fish_icon", w = 12, h = 12 },
+    icon_smallmouth_bass = { placeholder = "fish_icon", w = 12, h = 12 },
+    icon_channel_catfish = { placeholder = "fish_icon", w = 12, h = 12 },
+    icon_rainbow_trout = { placeholder = "fish_icon", w = 12, h = 12 },
+    icon_golden_trout = { placeholder = "fish_icon", w = 12, h = 12 },
+    icon_unknown = { placeholder = "icon_unknown", w = 12, h = 12 },
+    icon_smoker = { placeholder = "icon_smoker", w = 12, h = 12 },
+    icon_folding_panel = { placeholder = "icon_folding_panel", w = 12, h = 12 },
+
+    -- Fishing mini-game
+    bobber = { placeholder = "bobber", w = 8, h = 10 },
   },
 }

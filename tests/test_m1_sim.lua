@@ -111,6 +111,19 @@ T.test("landgen: the far bank is reachable through a ford", function()
   end
 end)
 
+T.test("landgen: the creek is always reachable from the spawn (regression: walled-in plots)", function()
+  for _, seed in ipairs({ 53, 127, 141, 144, 161, 4242, 1, 2, 3 }) do
+    local world = newWorld(seed)
+    local targets = {}
+    for i = 1, #world.state.grid.terrain do
+      if world.state.grid.terrain[i] == "water" then
+        targets[i] = false
+      end
+    end
+    T.truthy(Pathfind.nearest(world, world.state.land.spawn, targets), "seed " .. seed)
+  end
+end)
+
 T.test("landgen: no clutter right around the truck", function()
   local world = newWorld(5)
   local grid = world.state.grid

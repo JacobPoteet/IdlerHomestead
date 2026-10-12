@@ -7,6 +7,7 @@
 local Grid = require("src.sim.grid")
 local Calendar = require("src.sim.systems.calendar")
 local Water = require("src.sim.systems.water")
+local Processing = require("src.sim.systems.processing")
 local Assets = require("src.render.assets")
 local Shaders = require("src.render.shaders")
 local Lighting = require("src.render.lighting")
@@ -155,6 +156,18 @@ function Renderer:drawWater(daylight)
   love.graphics.setShader()
 end
 
+--- Puffs of smoke rising from (x, y), pixel-snapped.
+function Renderer:drawSmoke(x, y)
+  for n = 0, 3 do
+    local t = (self.time * 0.6 + n / 4) % 1
+    local px = x + math.sin((t + n) * 5) * 2 * t
+    local py = y - t * 14
+    love.graphics.setColor(0.85, 0.85, 0.82, 0.55 * (1 - t))
+    local size = 1 + math.floor(t * 3)
+    love.graphics.rectangle("fill", math.floor(px), math.floor(py), size, size)
+  end
+end
+
 local function cropStage(crop)
   if crop.growth >= 1 then
     return 3
@@ -227,11 +240,15 @@ function Renderer:draw(alpha, visible, daylight)
     if x + (def.footprintW or 1) >= x1 and x <= x2 and y + fh >= y1 and y <= y2 then
       local sprite = Assets.sprite(obj.id)
       local bottom = (y - 1 + fh) * tile
+      local smoking = def.station and Processing.batch(world, anchor)
       items[#items + 1] = {
         bottom,
         function()
           love.graphics.setColor(1, 1, 1, 1)
           love.graphics.draw(sprite.image, sprite.quad, (x - 1) * tile, bottom - sprite.h)
+          if smoking then
+            self:drawSmoke((x - 1) * tile + 8, bottom - sprite.h + 2)
+          end
         end,
       }
     end

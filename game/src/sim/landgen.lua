@@ -6,6 +6,7 @@
 
 local Grid = require("src.sim.grid")
 local Noise = require("src.sim.noise")
+local Pathfind = require("src.sim.pathfind")
 
 local Landgen = {}
 
@@ -133,6 +134,43 @@ local function scatter(world, cfg, rng, truckAnchor)
   end
 end
 
+-- Water is essential from minute one, so make sure the spawn can walk to the creek: find the
+-- shortest route ignoring objects, then remove anything blocking along it (except the truck).
+local function ensureWaterAccess(world, spawn)
+  local grid = world.state.grid
+  local targets = {}
+  for i = 1, #grid.terrain do
+    if grid.terrain[i] == "water" then
+      targets[i] = false
+    end
+  end
+  if Pathfind.nearest(world, spawn, targets) then
+    return
+  end
+  local saved = world.occupancy
+  world.occupancy = {}
+  local path = Pathfind.nearest(world, spawn, targets)
+  world.occupancy = saved
+  local function clear(i)
+    local def, anchor = Grid.object(world, i)
+    if def and def.blocks and def.clearable ~= false then
+      Grid.removeObject(world, anchor)
+    end
+  end
+  local prev = spawn
+  for _, i in ipairs(path or {}) do
+    clear(i)
+    -- Diagonal steps also need both corner tiles open (no cutting corners).
+    local px, py = Grid.coords(grid, prev)
+    local x, y = Grid.coords(grid, i)
+    if px ~= x and py ~= y then
+      clear(Grid.index(grid, x, py))
+      clear(Grid.index(grid, px, y))
+    end
+    prev = i
+  end
+end
+
 --- Fill world.state.grid and world.state.land for a fresh run.
 function Landgen.generate(world)
   local tuning = world.tuning
@@ -152,6 +190,7 @@ function Landgen.generate(world)
   scatter(world, cfg, rng, truckAnchor)
 
   local tx, ty = Grid.coords(grid, truckAnchor)
+  ensureWaterAccess(world, Grid.index(grid, tx, ty + 1))
   world.state.land = {
     truck = truckAnchor,
     dropoff = roadEnd, -- where deliveries arrive (GDD §6.3)
