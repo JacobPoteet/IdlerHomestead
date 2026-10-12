@@ -12,7 +12,13 @@ local function readFile(path)
 end
 
 local function simFiles()
-  local files = { "game/src/sim/world.lua" }
+  local files = {
+    "game/src/sim/world.lua",
+    "game/src/sim/grid.lua",
+    "game/src/sim/pathfind.lua",
+    "game/src/sim/landgen.lua",
+    "game/src/sim/noise.lua",
+  }
   for _, name in ipairs(require("src.sim.systems.init")) do
     files[#files + 1] = "game/src/sim/systems/" .. name .. ".lua"
   end

@@ -343,6 +343,7 @@ Slight 3/4 perspective (Stardew-style). Camera pans and zooms. Not isometric for
 - Pixel art, **16×16 tiles (tentative)**, a single config value. Virtual resolution ~640×360, integer-scaled.
 - Asset packs and/or custom art. **Placeholders first.** All sprites go through an **asset manifest**, so swapping art never touches game code.
 - Strong palette shifts by season and time of day. Winter looks cold, quiet, and blue.
+- **Shaders carry the ambience.** A big share of the game's mood and texture comes from LÖVE shaders: animated water, time-of-day color grading, film grain, and later wind, cloud shadows, night lights, rain, snow and frost, mist, and fireflies. They stay pixel-art friendly (snapped to the art-pixel grid, banded rather than smooth). Parameters live in tuning data and reload live (F6). The full list is in [docs/ASSETS.md](ASSETS.md).
 - Audio: nature ambience, crackling stove, inverter hum, purring cat, sparse music, a great fish-on sound.
 
 ### 9.3 Desktop companion mode (first playable, Windows only)
@@ -510,3 +511,6 @@ Headless sim tests, plus a **balance harness** that simulates years with scripte
 | D25 | **Selling:** truck trip sells everything at once (big payday); **roadside stand** unlock sells a capped number per day, always capped. |
 | D26 | **Start each run with $0.** Clearing junk gives a little money. |
 | D27 | **Food rules:** pantry reserve slider + winter stock slider + optional per-item pin. |
+| D28 | **Shaders are a core part of the look** (water, color grading, grain now; weather, lights, seasons later). Pixel-art friendly, parameters in tuning, live reload. |
+| D29 | **Starter crops: radish** (fast, light) **and potato** (slow, calorie-dense). |
+| D30 | **Seed in hand:** tapping open ground with a seed selected tills and plans it for that crop; with an empty hand you just walk. A **Plan field** tool marks rectangles for the idle routine to farm. |

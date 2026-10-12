@@ -55,15 +55,19 @@ local function pop(heap)
 end
 
 --- Find a path from tile `start` to any tile where isGoal(i) is true.
---- `target` (a tile index) guides the heuristic. Returns an array of tile indices
---- (excluding start; empty if start is already a goal), or nil if unreachable.
-function Pathfind.find(world, start, isGoal, target)
+--- `target` (a tile index) guides the heuristic; pass noHeuristic = true for a plain Dijkstra
+--- search (nearest of many goals). Returns an array of tile indices (excluding start; empty if
+--- start is already a goal), or nil if unreachable.
+function Pathfind.find(world, start, isGoal, target, noHeuristic)
   local grid = world.state.grid
   if isGoal(start) then
     return {}
   end
   local tx, ty = Grid.coords(grid, target)
   local function h(i)
+    if noHeuristic then
+      return 0
+    end
     local x, y = Grid.coords(grid, i)
     local dx, dy = math.abs(x - tx), math.abs(y - ty)
     return math.max(dx, dy) + (SQRT2 - 1) * math.min(dx, dy)
@@ -105,6 +109,42 @@ function Pathfind.find(world, start, isGoal, target)
     end
   end
   return nil
+end
+
+--- Dijkstra search for the nearest workable target by walking distance.
+--- targets: { [tileIndex] = standOn } — standOn = true means the actor must stand on the tile,
+--- otherwise any walkable tile within one step of it will do.
+--- Returns path, target (or nil if none is reachable).
+function Pathfind.nearest(world, start, targets)
+  local grid = world.state.grid
+  local function targetFrom(i)
+    if not Grid.walkable(world, i) then
+      return nil
+    end
+    if targets[i] ~= nil then
+      return i
+    end
+    local x, y = Grid.coords(grid, i)
+    local best
+    for dy = -1, 1 do
+      for dx = -1, 1 do
+        local nx, ny = x + dx, y + dy
+        if Grid.inBounds(grid, nx, ny) then
+          local n = Grid.index(grid, nx, ny)
+          if targets[n] == false and (not best or n < best) then
+            best = n
+          end
+        end
+      end
+    end
+    return best
+  end
+  local found
+  local path = Pathfind.find(world, start, function(i)
+    found = targetFrom(i)
+    return found ~= nil
+  end, start, true)
+  return path, found
 end
 
 --- Path to a tile from which `target` can be worked: any walkable tile within one step of it

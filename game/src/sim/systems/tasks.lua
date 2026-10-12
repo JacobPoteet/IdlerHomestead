@@ -20,8 +20,6 @@ local Pathfind = require("src.sim.pathfind")
 
 local Tasks = {}
 
--- How many of the nearest candidates to try pathing to before giving up on a category.
-local PATH_ATTEMPTS = 6
 
 function Tasks.init(world)
   world.taskTypes = { list = {}, byId = {} }
@@ -144,34 +142,29 @@ function Tasks.jobForOrder(world, actor, i, order)
   return newJob(taskType, i, path, order)
 end
 
---- The idle routine: highest-priority category with a reachable task, nearest first.
+--- The idle routine: the highest-priority category with a reachable task; within it, the
+--- target nearest by walking distance (one Dijkstra search over all candidates).
 function Tasks.chooseIdleJob(world, actor)
   local grid = world.state.grid
-  local ax, ay = actor.x, actor.y
+  local here = Grid.index(grid, math.floor(actor.x + 0.5), math.floor(actor.y + 0.5))
   for _, entry in ipairs(world.state.priorities) do
     if entry.enabled then
-      local candidates = {}
+      local targets, taskAt, any = {}, {}, false
       for _, t in ipairs(world.taskTypes.list) do
         if t.category == entry.category and t.candidates then
           t.candidates(world, actor, function(i)
-            if not reservedByOther(world, actor, t.id, i) and t.canDo(world, actor, i, nil) then
-              local x, y = Grid.coords(grid, i)
-              candidates[#candidates + 1] = { task = t, target = i, d = (x - ax) ^ 2 + (y - ay) ^ 2 }
+            if not taskAt[i] and not reservedByOther(world, actor, t.id, i) and t.canDo(world, actor, i, nil) then
+              targets[i] = t.standOn == true
+              taskAt[i] = t
+              any = true
             end
           end)
         end
       end
-      table.sort(candidates, function(a, b)
-        if a.d ~= b.d then
-          return a.d < b.d
-        end
-        return a.target < b.target -- deterministic tie-break
-      end)
-      for n = 1, math.min(PATH_ATTEMPTS, #candidates) do
-        local c = candidates[n]
-        local path = pathFor(world, actor, c.task, c.target)
+      if any then
+        local path, target = Pathfind.nearest(world, here, targets)
         if path then
-          return newJob(c.task, c.target, path, nil)
+          return newJob(taskAt[target], target, path, nil)
         end
       end
     end
