@@ -17,5 +17,6 @@ return {
   "fishing",
   "power",
   "economy",
+  "study",
   "visuals",
 }

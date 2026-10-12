@@ -386,7 +386,17 @@ function P.icon_unknown(p)
   p:rect(9, 4, 2, 5, { 0.30, 0.32, 0.31 })
 end
 
+-- A blank journal stamp: a note not written yet.
+function P.icon_note_blank(p)
+  p:rect(2, 2, 8, 8, { 0.30, 0.32, 0.30 })
+  p:rect(3, 3, 6, 6, { 0.22, 0.24, 0.22 })
+  p:rect(5, 4, 2, 1, { 0.40, 0.42, 0.40 })
+  p:rect(6, 5, 1, 2, { 0.40, 0.42, 0.40 })
+  p:px(5, 8, { 0.40, 0.42, 0.40 })
+end
+
 local FISH_COLORS = {
+  icon_spoiled = { { 0.45, 0.50, 0.25 }, { 0.62, 0.60, 0.32 } }, -- a fish gone off (journal note)
   icon_creek_chub = { { 0.62, 0.64, 0.58 }, { 0.80, 0.80, 0.74 } },
   icon_sunfish = { { 0.35, 0.55, 0.40 }, { 0.92, 0.62, 0.25 } },
   icon_brook_trout = { { 0.30, 0.38, 0.30 }, { 0.85, 0.45, 0.35 } },

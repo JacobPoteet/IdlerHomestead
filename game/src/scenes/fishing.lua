@@ -95,6 +95,8 @@ function FishingScene:update(dt)
         if self.onCatch then
           self.onCatch(self.fish, self.size, self.first)
         end
+      elseif result == "slipped" or result == "escaped" then
+        Fishing.lose(self.world, self.fish.id, result)
       end
       self:layout()
     end

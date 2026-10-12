@@ -7,4 +7,10 @@ return {
   daysPerSeason = 7, -- in-game days per season (7 x 128s = ~15 min, GDD §4.1)
   seasons = { "spring", "summer", "autumn", "winter" }, -- season ids in order
   startHour = 6, -- in-game hour a new run begins
+  daylight = { -- season id -> { sunrise hour, sunset hour }; solar follows it, study happens outside it
+    spring = { 6, 20 },
+    summer = { 5, 21 },
+    autumn = { 7, 19 },
+    winter = { 8, 17 },
+  },
 }
