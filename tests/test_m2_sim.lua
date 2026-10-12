@@ -153,6 +153,102 @@ T.test("fishing: active order with the rod emits fishing.ready; hand fills the b
   T.truthy(ready, "reached the bank and cast")
 end)
 
+local function taskType(world, id)
+  for _, t in ipairs(world.taskTypes.list) do
+    if t.id == id then
+      return t
+    end
+  end
+end
+
+local function candidateTiles(world, id)
+  local tiles = {}
+  taskType(world, id).candidates(world, world.state.actors[1], function(i)
+    tiles[#tiles + 1] = i
+  end)
+  return tiles
+end
+
+T.test("idle water candidates: only bank-adjacent tiles, same job as scanning every tile", function()
+  local Pathfind = require("src.sim.pathfind")
+  local Weather = require("src.sim.systems.weather")
+  local sawInterior = false -- a wide creek has interior tiles that are not offered
+  for seed = 1, 6 do
+    local world = newWorld(seed)
+    world.state.actors[1].bucket = 0
+    local grid = world.state.grid
+    local allWater, allWet = {}, {}
+    for i = 1, #grid.terrain do
+      if grid.terrain[i] == "water" then
+        allWater[i] = false
+      end
+      if grid.terrain[i] == "water" or grid.terrain[i] == "ford" then
+        allWet[i] = false
+      end
+    end
+    local function count(set)
+      local n = 0
+      for _ in pairs(set) do
+        n = n + 1
+      end
+      return n
+    end
+    local fishTiles = candidateTiles(world, "fish")
+    T.truthy(#fishTiles > 0, "creek has bank tiles")
+    T.truthy(#fishTiles <= count(allWater))
+    sawInterior = sawInterior or #fishTiles < count(allWater)
+    -- Every offered tile touches walkable land; every skipped one doesn't.
+    local offered = {}
+    for _, i in ipairs(fishTiles) do
+      offered[i] = false
+      T.truthy(Weather.waterTarget(world, i))
+    end
+    for i in pairs(allWater) do
+      local x, y = Grid.coords(grid, i)
+      local touchesLand = false
+      for dy = -1, 1 do
+        for dx = -1, 1 do
+          if Grid.inBounds(grid, x + dx, y + dy) and Grid.terrain(world, Grid.index(grid, x + dx, y + dy)).walkable then
+            touchesLand = true
+          end
+        end
+      end
+      T.eq(offered[i] ~= nil, touchesLand)
+    end
+    -- The nearest-target search lands on the same stand-and-work result either way.
+    local here = world.state.land.spawn
+    local pathAll, targetAll = Pathfind.nearest(world, here, allWater)
+    local pathBank, targetBank = Pathfind.nearest(world, here, offered)
+    T.eq(targetBank, targetAll)
+    T.eq(#pathBank, #pathAll)
+    -- fetch_water offers the same bank-adjacent water plus fords.
+    local wet = {}
+    local Crops = require("src.sim.systems.crops")
+    local realNeeds = Crops.anyNeedsWater
+    Crops.anyNeedsWater = function()
+      return true
+    end
+    for _, i in ipairs(candidateTiles(world, "fetch_water")) do
+      wet[i] = false
+    end
+    Crops.anyNeedsWater = realNeeds
+    T.truthy(count(wet) <= count(allWet))
+    local _, wetAll = Pathfind.nearest(world, here, allWet)
+    local _, wetBank = Pathfind.nearest(world, here, wet)
+    T.eq(wetBank, wetAll)
+  end
+  T.truthy(sawInterior, "some seed has an interior creek tile that is skipped")
+end)
+
+T.test("idle fishing offers nothing without a rod", function()
+  local world = newWorld(5)
+  T.truthy(Fishing.hasRod(world))
+  T.truthy(#candidateTiles(world, "fish") > 0)
+  world.state.inventory.equipment = {}
+  T.falsy(Fishing.hasRod(world))
+  T.eq(#candidateTiles(world, "fish"), 0)
+end)
+
 -- Mini-game ------------------------------------------------------------------
 
 local function play(fishId, policy, seed, gear)
