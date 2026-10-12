@@ -47,6 +47,7 @@ end)
 -- so add every new top-level state key to this table.
 local STATE_OWNERS = {
   actors = "actors",
+  animals = "animals",
   calendar = "calendar",
   cat = "cat",
   condition = "needs",

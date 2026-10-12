@@ -2,6 +2,7 @@
 return {
   { id = "harvest", name = "Harvest" },
   { id = "water", name = "Water" },
+  { id = "animals", name = "Tend animals" },
   { id = "plant", name = "Till & plant" },
   { id = "process", name = "Preserve" },
   { id = "fuel", name = "Firewood" },

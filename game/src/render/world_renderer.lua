@@ -5,6 +5,7 @@
 -- transform and the post-process grade.
 
 local Grid = require("src.sim.grid")
+local Animals = require("src.sim.systems.animals")
 local Calendar = require("src.sim.systems.calendar")
 local Cat = require("src.sim.systems.cat")
 local Water = require("src.sim.systems.water")
@@ -367,10 +368,18 @@ function Renderer:draw(alpha, visible, daylight)
           if def.waterSource and def.waterSource.stored then
             self:drawCisternGauge((x - 1) * tile + 2, bottom - sprite.h + 1)
           end
+          if def.coop and Animals.nest(world) > 0 then
+            -- Eggs waiting in the nest box show as cream dots on its side.
+            love.graphics.setColor(world.tuning.visuals.hens.eggMarker)
+            for n = 0, math.min(1, Animals.nest(world) - 1) do
+              love.graphics.rectangle("fill", (x - 1) * tile + sprite.w - 5 + n * 2, bottom - sprite.h + 13, 2, 2)
+            end
+          end
         end,
       }
     end
   end
+  self:addHens(items, x1, x2, y1, y2)
   for _, actor in ipairs(world.state.actors) do
     local ax = actor.prevX + (actor.x - actor.prevX) * alpha
     local ay = actor.prevY + (actor.y - actor.prevY) * alpha
@@ -422,6 +431,51 @@ function Renderer:draw(alpha, visible, daylight)
     item[2]()
   end
   love.graphics.setColor(1, 1, 1, 1)
+end
+
+--- Queue the flock for the y-sorted pass. Hens roam the run in front of each coop by day (they roost
+--- inside at night and in a storm); their drift is a pure function of the render clock and their
+--- number, so drawing never touches the sim.
+function Renderer:addHens(items, x1, x2, y1, y2)
+  local world, tile = self.world, self.tile
+  local cfg = world.tuning.visuals.hens
+  local hens = math.min(Animals.hens(world), cfg.maxDrawn)
+  if hens == 0 or Calendar.isNight(world) or Weather.kind(world) == "storm" then
+    return
+  end
+  local grid = world.state.grid
+  local anchors = Grid.anchorsWith(world, "coop")
+  for _, anchor in ipairs(anchors) do
+    local ax, ay = Grid.coords(grid, anchor)
+    local def = world.registry:get("objects", grid.objects[anchor].id)
+    local fw, fh = def.footprintW or 1, def.footprintH or 1
+    if ax + fw >= x1 and ax <= x2 and ay + fh + 2 >= y1 and ay <= y2 then
+      for n = 1, hens do
+        local phase = n * 2.399 -- golden-angle spacing, so hens never move in step
+        local sway = math.sin(self.time * cfg.speed + phase)
+        local depth = 0.5 + 0.5 * math.sin(self.time * cfg.speed * 0.77 + phase * 1.3)
+        local feetX = (ax - 1 + fw / 2 + sway * cfg.wander) * tile
+        local feetY = (ay - 1 + fh + 0.4 + depth * cfg.runDepth) * tile
+        local facing = math.cos(self.time * cfg.speed + phase) >= 0 and 1 or -1
+        local pecking = math.sin(self.time * cfg.peckSpeed + phase * 3) > cfg.peckAbove
+        items[#items + 1] = {
+          feetY,
+          function()
+            local sprite = Assets.sprite("hen")
+            love.graphics.setColor(1, 1, 1, 1)
+            local dy = pecking and 1 or 0
+            local x = math.floor(feetX + 0.5)
+            local y = math.floor(feetY - sprite.h + 0.5) + dy
+            if facing > 0 then
+              love.graphics.draw(sprite.image, sprite.quad, x - math.floor(sprite.w / 2), y)
+            else
+              love.graphics.draw(sprite.image, sprite.quad, x + math.floor(sprite.w / 2), y, 0, -1, 1)
+            end
+          end,
+        }
+      end
+    end
+  end
 end
 
 -- A tiny pixel "z" (4x4).

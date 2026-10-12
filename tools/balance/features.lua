@@ -5,6 +5,7 @@
 -- Everything here is *player behaviour* (what to buy, where to put it, which find to take); game
 -- numbers still come from tuning and content. Only public sim accessors are used.
 
+local Animals = require("src.sim.systems.animals")
 local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
@@ -20,11 +21,12 @@ local Weather = require("src.sim.systems.weather")
 local Features = {}
 
 --- Feature ids, in the order they are listed in reports.
-Features.LIST = { "cat", "stand", "water", "power", "finds", "weather" }
+Features.LIST = { "cat", "stand", "chickens", "water", "power", "finds", "weather" }
 
 Features.describe = {
   cat = "buy the shelter cat once the Mice note unlocks it (#115)",
   stand = "build the roadside stand, buy its upgrades, report stand vs truck income (#105)",
+  chickens = "buy the coop, hens (on a truck trip), feed and fence; the active player tends the coop (#40)",
   water = "buy the water rungs (well, cistern, pump, drip lines), place them by the field (#90)",
   power = "buy and place the power items, keep the truck charged before the bank until winter (#80)",
   finds = "choose finds by need instead of the first option (#111)",
@@ -109,6 +111,16 @@ end
 local SHOPPING = {
   { id = "shelter_cat", feature = "cat", early = true },
   { id = "roadside_stand", feature = "stand" },
+  { id = "chicken_coop", feature = "chickens" },
+  { id = "hens", feature = "chickens" }, -- pickup only: bought on truck trips (Features.tripItems); listed so it is studied
+  {
+    id = "chicken_feed",
+    feature = "chickens",
+    when = function(world)
+      return Animals.hens(world) > 0 and Animals.info(world).feedDays < 4
+    end,
+  },
+  { id = "chicken_fence", feature = "chickens" },
   { id = "well", feature = "water" },
   { id = "cistern", feature = "water" },
   { id = "stand_sign", feature = "stand" },
@@ -273,6 +285,16 @@ function Features.place(world, id, ringFrom)
     end
   end
   return best ~= nil and Inventory.place(world, id, best)
+end
+
+--- Catalog ids to buy while in town this trip, for a feature set (pickup-only items): three more
+--- hens when the coop has room for them.
+function Features.tripItems(world, set)
+  local ids = {}
+  if set.chickens and Market.isKnown(world, "hens") and Animals.housing(world) - Animals.hens(world) >= world.registry:get("catalog", "hens").gives.hen then
+    ids[#ids + 1] = "hens"
+  end
+  return ids
 end
 
 --- Does this object get Features.place instead of the plain ring search around the truck?

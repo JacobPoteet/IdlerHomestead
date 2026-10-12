@@ -22,6 +22,7 @@ return {
   "stand",
   "finds",
   "cat",
+  "animals",
   "study",
   "weather",
   "visuals",

@@ -146,6 +146,9 @@ local function playRun(ctx, session, policyName, seed, years, features)
       miceRaids = 0, -- raids that cost food, raids the cat caught, units of food lost
       miceCaught = 0,
       miceLost = 0,
+      eggs = 0, -- chickens: eggs collected, hens lost to predators / hunger / thirst, raids the coop turned back
+      hensLost = 0,
+      foxStopped = 0,
       rainDays = 0,
       cloudyDays = 0,
       brownouts = 0,
@@ -197,6 +200,16 @@ local function playRun(ctx, session, policyName, seed, years, features)
   end)
   events:on("mice.caught", function()
     result.counters.miceCaught = result.counters.miceCaught + 1
+  end)
+  events:on("animals.collected", function(e)
+    result.counters.eggs = result.counters.eggs + e.count
+  end)
+  events:on("animals.predator", function(e)
+    result.counters.hensLost = result.counters.hensLost + e.killed
+    result.counters.foxStopped = result.counters.foxStopped + (e.stopped and 1 or 0)
+  end)
+  events:on("animals.lost", function()
+    result.counters.hensLost = result.counters.hensLost + 1
   end)
   events:on("power.brownout", function()
     result.counters.brownouts = result.counters.brownouts + 1
@@ -289,7 +302,7 @@ local function playRun(ctx, session, policyName, seed, years, features)
   result.counters.waterPumped, result.counters.waterRained = water.pumped, water.rained
   result.counters.standUnits = Stand.total(world).units
   result.owned = {}
-  for _, id in ipairs({ "shelter_cat", "roadside_stand", "stand_sign", "stand_cooler", "stand_display", "well", "cistern", "dc_pump", "drip_line", "hand_pump", "solar_array", "battery_bank", "wind_turbine", "micro_hydro", "generator", "electric_heater", "lamp", "chest_freezer" }) do
+  for _, id in ipairs({ "shelter_cat", "chicken_coop", "chicken_fence", "roadside_stand", "stand_sign", "stand_cooler", "stand_display", "well", "cistern", "dc_pump", "drip_line", "hand_pump", "solar_array", "battery_bank", "wind_turbine", "micro_hydro", "generator", "electric_heater", "lamp", "chest_freezer" }) do
     if Inventory.owns(world, id) then
       result.owned[id] = true
     end
@@ -717,6 +730,14 @@ function Balance.printFeatures(summary, years)
       q("miceRaids").mean,
       q("miceLost").mean,
       q("miceCaught").mean
+    )
+  )
+  line(
+    string.format(
+      "Chickens per run (mean): eggs collected %.0f, hens lost %.1f, raids the coop turned back %.1f",
+      q("eggs").mean,
+      q("hensLost").mean,
+      q("foxStopped").mean
     )
   )
   local owned, finds = {}, {}

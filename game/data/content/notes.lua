@@ -113,6 +113,21 @@ return {
     count = 7,
   },
   {
+    id = "first_egg",
+    name = "First eggs",
+    line = "Still-warm eggs from the nest box.",
+    icon = "icon_egg",
+    event = "animals.collected",
+  },
+  {
+    id = "fox_raid",
+    name = "Fox in the night",
+    line = "Something got into the coop overnight.",
+    icon = "icon_hen",
+    event = "animals.predator",
+    match = { killed = { min = 1 } },
+  },
+  {
     id = "full_battery",
     name = "Full battery",
     line = "A full battery and sun to spare.",

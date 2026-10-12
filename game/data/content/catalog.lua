@@ -249,6 +249,52 @@ return {
     studyNights = 1,
     equipment = true,
   },
+  -- Chickens (GDD §7.7, D63). The coop comes with a first sack of feed; hens are pickup only (animals
+  -- ride home in the truck) and need a placed coop with room. Feed refills and the fence are learned
+  -- from what chickens teach: eggs, then a fox.
+  {
+    id = "chicken_coop",
+    name = "Chicken coop",
+    line = "Houses six hens; comes with feed.",
+    page = "animals",
+    price = 45,
+    needs = { "first_harvest", "first_trip" },
+    studyNights = 2,
+    object = "chicken_coop",
+    gives = { chicken_feed = 10 },
+  },
+  {
+    id = "hens",
+    name = "Hens x3",
+    line = "Lay eggs. Need feed, water, a coop.",
+    page = "animals",
+    price = 18,
+    needs = { "first_harvest", "first_trip" },
+    studyNights = 1,
+    pickupOnly = true,
+    gives = { hen = 3 },
+  },
+  {
+    id = "chicken_feed",
+    name = "Chicken feed x10",
+    line = "A sack to see the hens through winter.",
+    page = "animals",
+    price = 8,
+    needs = { "first_egg" },
+    studyNights = 1,
+    gives = { chicken_feed = 10 },
+  },
+  {
+    id = "chicken_fence",
+    name = "Predator fence",
+    line = "Wire and a light: foxes turn back.",
+    page = "animals",
+    price = 30,
+    needs = { "fox_raid" },
+    studyNights = 1,
+    equipment = true,
+    modifiers = { predatorGuard = 0.25 },
+  },
   -- Roadside stand (GDD §6.4): idle income beside the truck trip. The upgrades are equipment whose
   -- `standCap` modifiers raise the stand's daily item cap (tuning.stand caps the total).
   {

@@ -50,6 +50,7 @@ return {
     dc_pump = { placeholder = "dc_pump", w = 16, h = 16 },
     drip_line = { placeholder = "drip_line", w = 16, h = 16 },
     roadside_stand = { placeholder = "roadside_stand", w = 32, h = 24 },
+    chicken_coop = { placeholder = "chicken_coop", w = 32, h = 24 },
 
     -- Crops: one sprite per growth stage (1 = sprout ... 3 = ready)
     radish = { placeholder = "radish", w = 16, h = 16, variants = 3 },
@@ -59,6 +60,7 @@ return {
     homesteader = { placeholder = "homesteader", w = 16, h = 20 },
     cat = { placeholder = "cat", w = 14, h = 10 },
     cat_nap = { placeholder = "cat_nap", w = 14, h = 10 },
+    hen = { placeholder = "hen", w = 10, h = 9 },
 
     -- UI icons (12x12)
     icon_money = { placeholder = "icon_money", w = 12, h = 12 },
@@ -117,6 +119,11 @@ return {
     icon_stand_sign = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
     icon_stand_cooler = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
     icon_stand_display = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
+    icon_hen = { placeholder = "icon_hen", w = 12, h = 12 },
+    icon_egg = { placeholder = "icon_egg", w = 12, h = 12 },
+    icon_chicken_coop = { placeholder = "icon_chicken_coop", w = 12, h = 12 },
+    icon_chicken_feed = { placeholder = "icon_chicken_feed", w = 12, h = 12 },
+    icon_chicken_fence = { placeholder = "icon_chicken_fence", w = 12, h = 12 },
     icon_fuel = { placeholder = "icon_fuel", w = 12, h = 12 },
     icon_fuel_can = { placeholder = "icon_fuel", w = 12, h = 12 },
 

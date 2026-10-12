@@ -174,6 +174,20 @@ return {
     placeNear = "road",
     stand = true,
   },
+  -- Hen house (GDD §7.7, D63). `storage`: houses six hens (the ledger's "hen" count). `coop`: the nest
+  -- box holds laid eggs until collected, the feeder and waterer hold what the hens use between chores,
+  -- and `guard` is the chance the latched door turns back a night predator; see tuning.animals.
+  {
+    id = "chicken_coop",
+    name = "Chicken coop",
+    blocks = true,
+    clearable = false,
+    placeable = true,
+    footprintW = 2,
+    offRoad = true,
+    storage = { hen = 6 },
+    coop = { nest = 12, feeder = 12, waterer = 4, guard = 0.6 },
+  },
   {
     id = "drip_line",
     name = "Drip line",
