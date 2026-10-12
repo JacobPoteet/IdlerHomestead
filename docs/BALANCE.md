@@ -218,8 +218,13 @@ The scripted player earns about 70 dollars in year 1 and 155 in two years, so th
 
 A seventh feature, `chickens`, is on by default: the policies buy the coop and the feed refill when known, the trip buys hens (three at a time) while the coop has room, the fence is bought after a raid takes hens, the scripted policy tends the coop through the routine's `animals` category, and the active one orders `tend_coop` itself. The report gains a "Chickens per run" line (eggs collected, hens lost, raids the coop turned back). Check, `policy=scripted,active seeds=3 years=1`: no failures either way, eggs collected 0 (scripted) and 2 (active) in year 1, because the coop sits behind the cat and stand in the shopping list and money is the limit (#143). Active, `seeds=6 years=2`: 52 eggs per run, 1.8 hens lost per run (foxes), 3.2 raids turned back, 0 of 6 failed, coop owned by 100 percent and the fence by 67. Unit-level sanity (tests): a six-hen flock earns in summer, about breaks even in winter at the catalog feed price.
 
+### Machines (#42, D65)
+
+An eighth feature, `machines`, is on by default: the auto-harvester ($150) is the last entry of the shopping list (so saving for it never holds back survival kit) and is placed where its 7x7 reach covers the most field. The report's "Per run" line adds "crops picked by machines", and `auto_harvester` joins the owned list. Check, `policy=scripted,active seeds=3 years=1` (and `years=2`): it is never bought, so the output is identical to `features` without `machines` (byte for byte apart from the feature label and timing). Unit-level sanity (tests/test_machines.lua): a full reach of 48 ripe crops is cleared inside ten daylight hours for under 0.15 kWh a crop and well under a third of a truck trip's charge. Whole-run payoff is open (#144).
+
 ### Follow-up issues
 
+- #144 harness policies never reach the auto-harvester
 - #124 power items make truck income unbounded
 - #125 the stand adds 44 percent of active year-2 income
 - #126 progression gates reward neglect ("Full battery", "Cold night")

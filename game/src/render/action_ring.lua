@@ -4,6 +4,7 @@
 
 local Grid = require("src.sim.grid")
 local Actors = require("src.sim.systems.actors")
+local Machines = require("src.sim.systems.machines")
 
 local ActionRing = {}
 
@@ -54,6 +55,17 @@ function ActionRing.draw(world, camera, view, area)
       if vy - cfg.radius > area.top and vy + cfg.radius < area.bottom and vx > 0 and vx < view.w then
         local ordered = actor.job and actor.job.ordered
         ActionRing.drawAt(vx, vy, progress.fraction, ordered and cfg.orderedColor or cfg.routineColor, cfg)
+      end
+    end
+  end
+  -- Machines (D65) get the same ring in their own colour.
+  for _, unit in ipairs(Machines.list(world)) do
+    local progress = Machines.progress(world, unit)
+    if ActionRing.visible(progress, cfg) then
+      local tx, ty = Grid.coords(grid, progress.target)
+      local vx, vy = camera:worldToView((tx - 0.5) * tile, (ty - 0.5) * tile, view)
+      if vy - cfg.radius > area.top and vy + cfg.radius < area.bottom and vx > 0 and vx < view.w then
+        ActionRing.drawAt(vx, vy, progress.fraction, cfg.machineColor, cfg)
       end
     end
   end

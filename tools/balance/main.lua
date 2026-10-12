@@ -14,7 +14,7 @@ Idler Homestead balance harness. Usage:  lovec tools/balance [key=value ...]
   runs=N                                runs per career: a failed run is followed by recovery (free
                                         study) and a new run with the knowledge kept     (default 1)
   features=all|none|a,b                 optional policy behaviours (default all): cat, stand, chickens,
-                                        water, power, finds, weather; `none` plays the harness as it was
+                                        water, power, machines, finds, weather; `none` plays the harness as it was
                                         before them. Policies: see docs/BALANCE.md
   jobs=N                                worker threads that play seeds in parallel (default: the
                                         CPU count, at most 16); jobs=1 plays them one after another

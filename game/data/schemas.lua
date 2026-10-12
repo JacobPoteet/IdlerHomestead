@@ -31,7 +31,8 @@ return {
     footprintH = "number?", -- tiles tall (default 1)
     placeable = "boolean?", -- can be placed by the player from inventory
     source = "table?", -- power source: { curve = "solar"|"wind"|"hydro"|"fuel", peak = kW, fuel?, fuelPerKwh? } (GDD §7.5)
-    sink = "table?", -- power sink: { tier, draw = kW, schedule = "always"|"dark"|"heat"|"fill" (fill needs `fills` = resource id), inertia? = hours, effects? = { name -> amount } }
+    sink = "table?", -- power sink: { tier, draw = kW, schedule = "always"|"dark"|"heat"|"fill"|"demand" (fill needs `fills` = resource id; demand draws only while its owner asks, machines), inertia? = hours, effects? = { name -> amount } }
+    machine = "table?", -- stationary actor (D65): { categories = { task category ids }, tasks? = { task ids }, radius = tiles (Chebyshev), workSpeed = work seconds per second at full power }; also needs a `sink`
     maxRate = "number?", -- battery: most kW it can charge or discharge at (absent = unlimited)
     efficiency = "number?", -- battery: fraction of charging energy that is stored (absent = 1)
     vehicle = "boolean?", -- battery: the truck; charged in the "truck" priority tier, lends power only above a trip reserve

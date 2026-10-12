@@ -4,8 +4,9 @@
 -- Content (data/content/objects.lua):
 --   source  { curve = "solar"|"wind"|"hydro"|"fuel", peak kW }   (fuel adds fuel, fuelPerKwh)
 --   battery kWh, with optional maxRate (kW), efficiency (kept fraction when charging), vehicle
---   sink    { tier, draw kW, schedule = "always"|"dark"|"heat"|"fill", inertia hours, effects }
---           ("fill" wants power only while resource `fills` has storage room: pumps, #35)
+--   sink    { tier, draw kW, schedule = "always"|"dark"|"heat"|"fill"|"demand", inertia hours, effects }
+--           ("fill" wants power only while resource `fills` has storage room: pumps, #35;
+--           "demand" wants power only while its owner asks for it with Power.request: machines, #42)
 -- Knobs live in data/tuning/power.lua; weather inputs come from Weather.powerInputs (#39).
 --
 -- Each tick, in priority order (state.order: sink tiers and the charge tiers "bank"/"truck"):
@@ -24,6 +25,7 @@
 --   order = { tier ids }, truckLends = bool, held = { [anchor] = 0..1 } (smoothed satisfaction),
 --   wind = { value, target, hour }, tank = fuel units in the generator, warmth = warmth made by
 --   electric heating since the last night, full = { [anchor] = true }, warned = { [tier] = day },
+--   requests = { [anchor] = true } ("demand" sinks asking for power on the next tick),
 --   flow = last tick's numbers for the UI (see emptyFlow) }
 -- Emits "power.full" { battery } when a battery fills, "power.brownout" { tier, ratio } at most
 -- once a day per tier when a tier is served less than it wants.
@@ -83,6 +85,7 @@ function Power.init(world)
   s.held = s.held or {}
   s.full = s.full or {}
   s.warned = s.warned or {}
+  s.requests = s.requests or {}
   if s.truckLends == nil then
     s.truckLends = true
   end
@@ -259,8 +262,19 @@ function Power.tierName(world, id)
   return world.tuning.power.tierNames[id]
 end
 
+--- Ask for power for a "demand" sink (a machine with work, #42) from the next tick on, or stop
+--- asking. The request is saved with the power state, so a loaded game draws exactly as before.
+function Power.request(world, anchor, wants)
+  state(world).requests[anchor] = wants and true or nil
+end
+
+--- Is this "demand" sink asking for power?
+function Power.requested(world, anchor)
+  return state(world).requests[anchor] == true
+end
+
 --- Does this sink want power right now? (Not counting the player's switch.)
-local function wantsPower(world, sink, now, thermostat)
+local function wantsPower(world, sink, now, thermostat, anchor)
   local daylight = world.tuning.time.daylight[now.season]
   local dark = now.hour < daylight[1] or now.hour >= daylight[2]
   if sink.schedule == "always" then
@@ -273,6 +287,9 @@ local function wantsPower(world, sink, now, thermostat)
   elseif sink.schedule == "fill" then
     -- Runs while there is room in the store it fills (a pump with an empty cistern; sink.fills is a resource id).
     return Ledger.room(world, sink.fills) > 0
+  elseif sink.schedule == "demand" then
+    -- Runs only while its owner has work and asks (a machine; see Power.request).
+    return state(world).requests[anchor] == true
   end
   error("unknown sink schedule '" .. tostring(sink.schedule) .. "'")
 end
@@ -510,7 +527,7 @@ function Power.tick(world, dt)
   local demanded = {}
   for _, anchor in ipairs(sinks) do
     local sink = defAt(world, anchor).sink
-    local want = Power.isEnabled(world, anchor) and wantsPower(world, sink, now, thermostat) and sink.draw or 0
+    local want = Power.isEnabled(world, anchor) and wantsPower(world, sink, now, thermostat, anchor) and sink.draw or 0
     demanded[anchor] = want
     tiers[sink.tier].demand = tiers[sink.tier].demand + want
   end

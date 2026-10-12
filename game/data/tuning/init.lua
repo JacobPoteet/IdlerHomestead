@@ -18,6 +18,7 @@ return {
   "food",
   "fishing",
   "power",
+  "machines",
   "economy",
   "stand",
   "finds",

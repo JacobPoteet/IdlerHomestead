@@ -33,6 +33,7 @@ local Stand = require("src.sim.systems.stand")
 local Cat = require("src.sim.systems.cat")
 local Animals = require("src.sim.systems.animals")
 local Finds = require("src.sim.systems.finds")
+local Machines = require("src.sim.systems.machines")
 local Renderer = require("src.render.world_renderer")
 local ActionRing = require("src.render.action_ring")
 local Assets = require("src.render.assets")
@@ -205,6 +206,9 @@ function Homestead:subscribe()
     end),
     events:on("water.restored", function()
       self:queueToast("Drip lines are watering again.")
+    end),
+    events:on("machine.unpowered", function(e)
+      self:queueToast(name("objects", e.kind) .. " has ripe crops but no power")
     end),
     events:on("power.brownout", function(e)
       self:queueToast(string.format("Power short: %s at %d%%", Power.tierName(world, e.tier), math.floor(e.ratio * 100)))
@@ -781,6 +785,9 @@ function Homestead:tap(i)
     self.app:push(require("src.scenes.truck").new(world, self:toaster()))
     return
   end
+  if obj and obj.machine then
+    return -- a tap on a machine shows its card (and reach); its power switch is in the power panel
+  end
   if obj and (obj.source or obj.sink or obj.battery) then
     self:openPower() -- panels, batteries and powered devices open the power panel
     return
@@ -917,6 +924,42 @@ function Homestead:drawOverlays()
         end
       end
     end
+  end
+  -- Machine reach (D65): the selected machine's area, or the one being placed under the pointer.
+  local reach, reachColor
+  if self.selected then
+    local obj, anchor = Grid.object(world, self.selected)
+    if obj and obj.machine then
+      reach = Machines.areaTiles(world, anchor)
+      local unit = Machines.at(world, anchor)
+      reachColor = unit and unit.status == "unpowered" and visuals.machine.zoneUnpowered or visuals.machine.zone
+    end
+  elseif self.mode == "place" and self.hover and world.registry:get("objects", self.placing).machine then
+    local r = world.registry:get("objects", self.placing).machine.radius
+    local hx, hy = Grid.coords(grid, self.hover)
+    reach, reachColor = {}, visuals.machine.zone
+    for y = hy - r, hy + r do
+      for x = hx - r, hx + r do
+        if Grid.inBounds(grid, x, y) then
+          reach[#reach + 1] = Grid.index(grid, x, y)
+        end
+      end
+    end
+  end
+  if reach and #reach > 0 then
+    love.graphics.setColor(reachColor)
+    local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
+    for _, i in ipairs(reach) do
+      local x, y = Grid.coords(grid, i)
+      local wx, wy = camera:tileToWorld(x, y)
+      love.graphics.rectangle("fill", wx, wy, tile, tile)
+      minX, minY, maxX, maxY = math.min(minX, wx), math.min(minY, wy), math.max(maxX, wx + tile), math.max(maxY, wy + tile)
+    end
+    -- A solid edge so the reach reads over crops and soil as well as grass.
+    local edge = { reachColor[1], reachColor[2], reachColor[3], 0.9 }
+    love.graphics.setColor(edge)
+    love.graphics.setLineWidth(1 / camera:zoom())
+    love.graphics.rectangle("line", minX, minY, maxX - minX, maxY - minY)
   end
   if self.mode == "place" and self.hover then
     -- Ghost of the object being placed: tinted green where it fits, red where it doesn't.
@@ -1105,7 +1148,21 @@ function Homestead:tileInfo(i)
     if obj.source then
       lines[#lines + 1] = string.format("Making %.2f / %g kW", Power.outputOf(world, anchor), obj.source.peak)
     end
-    if obj.sink then
+    if obj.machine then
+      local info = Machines.info(world, anchor)
+      local status = {
+        working = "Working",
+        starting = "Working",
+        slow = string.format("Slow: power %d%%", math.floor(info.ratio * 100 + 0.5)),
+        unpowered = "NO POWER: crops wait",
+        full = info.full and (world.registry:get("resources", info.full).name .. " store full") or "Store full",
+        idle = "Idle: nothing ripe",
+        off = "Switched off",
+      }
+      lines[#lines + 1] = status[info.status]
+      lines[#lines + 1] = string.format("Reach %d · %g kW working", info.radius, info.draw)
+      lines[#lines + 1] = string.format("Picked %d this run", info.done)
+    elseif obj.sink then
       local state = Power.sinkState(world, anchor)
       local ratio = math.floor(Power.sinkRatio(world, anchor) * 100 + 0.5)
       lines[#lines + 1] = state == "ok" and "Powered" or state == "short" and string.format("Short of power (%d%%)", ratio) or state == "off" and "Switched off" or "Idle"

@@ -21,7 +21,7 @@ local Weather = require("src.sim.systems.weather")
 local Features = {}
 
 --- Feature ids, in the order they are listed in reports.
-Features.LIST = { "cat", "stand", "chickens", "water", "power", "finds", "weather" }
+Features.LIST = { "cat", "stand", "chickens", "water", "power", "machines", "finds", "weather" }
 
 Features.describe = {
   cat = "buy the shelter cat once the Mice note unlocks it (#115)",
@@ -29,6 +29,7 @@ Features.describe = {
   chickens = "buy the coop, hens (on a truck trip), feed and fence; the active player tends the coop (#40)",
   water = "buy the water rungs (well, cistern, pump, drip lines), place them by the field (#90)",
   power = "buy and place the power items, keep the truck charged before the bank until winter (#80)",
+  machines = "buy the auto-harvester last on the list and place it where it reaches the most field (#42)",
   finds = "choose finds by need instead of the first option (#111)",
   weather = "active: no hauling water in the rain (#101)",
 }
@@ -162,6 +163,8 @@ local SHOPPING = {
     end,
   },
   { id = "micro_hydro", feature = "power" },
+  -- Last: a mid-game goal, so saving for it never holds back the survival kit above.
+  { id = "auto_harvester", feature = "machines" },
 }
 
 --- The shopping list for a feature set: { early = {...}, rest = {...} } of entries.
@@ -245,7 +248,7 @@ local function centroid(world, tiles)
 end
 
 -- Which objects go by the field instead of by the truck.
-local BY_FIELD = { well = true, hand_pump = true, cistern = true, dc_pump = true, drip_line = true }
+local BY_FIELD = { well = true, hand_pump = true, cistern = true, dc_pump = true, drip_line = true, auto_harvester = true }
 
 --- Place one `id` from the inventory where it helps: wells, pumps and cisterns beside the field
 --- (a drip line where it waters the most planned tiles), everything else the nearest legal tile to
@@ -267,8 +270,9 @@ function Features.place(world, id, ringFrom)
       local d = math.max(math.abs(x - cx), math.abs(y - cy))
       if BY_FIELD[id] or d >= ringFrom then
         local score = d
-        if def.drip then
-          local covered, r = 0, def.drip.radius
+        local reach = (def.drip and def.drip.radius) or (def.machine and def.machine.radius)
+        if reach then
+          local covered, r = 0, reach
           for dy = -r, r do
             for dx = -r, r do
               if Grid.inBounds(grid, x + dx, y + dy) and fieldSet[Grid.index(grid, x + dx, y + dy)] then
@@ -299,6 +303,9 @@ end
 
 --- Does this object get Features.place instead of the plain ring search around the truck?
 function Features.handles(set, id)
+  if id == "auto_harvester" then
+    return set.machines == true
+  end
   if BY_FIELD[id] then
     return set.water == true
   end

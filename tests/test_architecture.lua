@@ -57,6 +57,7 @@ local STATE_OWNERS = {
   food = "food",
   inventory = "inventory",
   land = "land",
+  machines = "machines",
   ledger = "ledger",
   market = "market",
   needs = "needs",

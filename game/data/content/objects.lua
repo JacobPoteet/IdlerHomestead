@@ -196,4 +196,20 @@ return {
     placeable = true,
     drip = { radius = 2 }, -- tiles each way, so a 5x5 patch
   },
+  -- Machines (GDD §7.4, D65): stationary actors on the task board. `machine`: which task categories
+  -- (and optionally which task ids) it may claim, how far it reaches and how fast it works; its
+  -- `sink` (schedule "demand") draws power only while it has work. See src/sim/systems/machines.lua.
+  {
+    id = "auto_harvester",
+    name = "Auto-harvester",
+    blocks = true,
+    clearable = false,
+    placeable = true,
+    sink = { tier = "machines", draw = 0.5, schedule = "demand" }, -- kW while it has ripe crops to pick (about 0.08 kWh a crop)
+    machine = {
+      categories = { "harvest" }, -- task categories it may claim
+      radius = 3, -- tiles each way (Chebyshev), so a 7x7 patch around it
+      workSpeed = 0.6, -- work seconds per second at full power (the idle homesteader does 0.8, but walks)
+    },
+  },
 }
