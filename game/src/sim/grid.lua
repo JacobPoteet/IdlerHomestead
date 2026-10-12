@@ -56,8 +56,40 @@ function Grid.footprintTiles(grid, def, x, y)
   return tiles
 end
 
+-- Runtime index of placed objects by definition field (world.objectIndex, never saved): built on
+-- demand, dropped whenever an object is placed or removed or the grid is replaced. All object
+-- writes go through placeObject / removeObject / rebuildOccupancy, so it cannot go stale.
+local function invalidateIndex(world)
+  world.objectIndex = nil
+end
+
+--- Ascending anchors of placed objects whose definition has `field` set (e.g. "source", "sink",
+--- "battery", "pump", "drip"). Cached until the objects change: callers must not modify the list.
+--- Same result as scanning grid.objects and sorting, without the per-tick scan (#123).
+function Grid.anchorsWith(world, field)
+  local objects = world.state.grid.objects
+  local index = world.objectIndex
+  if not index or index.objects ~= objects then
+    index = { objects = objects, lists = {} }
+    world.objectIndex = index
+  end
+  local list = index.lists[field]
+  if not list then
+    list = {}
+    for anchor, obj in pairs(objects) do
+      if world.registry:get("objects", obj.id)[field] then
+        list[#list + 1] = anchor
+      end
+    end
+    table.sort(list)
+    index.lists[field] = list
+  end
+  return list
+end
+
 function Grid.rebuildOccupancy(world)
   local grid = world.state.grid
+  invalidateIndex(world)
   world.occupancy = {}
   for anchor, obj in pairs(grid.objects) do
     local x, y = Grid.coords(grid, anchor)
@@ -82,6 +114,7 @@ function Grid.placeObject(world, id, x, y)
   end
   local anchor = Grid.index(grid, x, y)
   grid.objects[anchor] = { id = id }
+  invalidateIndex(world)
   for _, i in ipairs(tiles) do
     world.occupancy[i] = anchor
   end
@@ -99,6 +132,7 @@ function Grid.removeObject(world, anchor)
     world.occupancy[i] = nil
   end
   grid.objects[anchor] = nil
+  invalidateIndex(world)
 end
 
 function Grid.walkable(world, i)
@@ -110,8 +144,18 @@ function Grid.walkable(world, i)
 end
 
 -- Bank tile lists, keyed weakly by the terrain array so a fresh or loaded grid recomputes them.
--- Runtime cache only, never saved. Terrain is fixed after land generation, so it never goes stale.
+-- Runtime cache only, never saved. Every terrain change goes through Grid.setTerrain, which drops
+-- the lists for that grid, so they never go stale (#78).
 local bankCache = setmetatable({}, { __mode = "k" })
+
+--- Change the terrain of tile i. All terrain writes after a grid exists go through here, so
+--- caches derived from terrain (bankTiles) stay correct.
+function Grid.setTerrain(world, i, terrainId)
+  local grid = world.state.grid
+  world.registry:get("terrain", terrainId)
+  grid.terrain[i] = terrainId
+  bankCache[grid.terrain] = nil
+end
 
 --- Ascending tile indices of `terrainId` tiles that can be worked from land: the tile itself or
 --- one of its eight neighbours is walkable terrain (ignoring objects, which come and go). Water

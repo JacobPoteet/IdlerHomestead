@@ -25,7 +25,7 @@ local function carveCreek(world, cfg, rng)
     x = math.max(3, math.min(grid.w - width - 2, x))
     rows[y] = { x, x + width - 1 }
     for cx = x, x + width - 1 do
-      grid.terrain[Grid.index(grid, cx, y)] = "water"
+      Grid.setTerrain(world, Grid.index(grid, cx, y), "water")
     end
   end
   -- Fords: shallow crossings spread along the creek.
@@ -33,7 +33,7 @@ local function carveCreek(world, cfg, rng)
     local band = grid.h / cfg.fordCount
     local y = rng:int(math.floor((f - 1) * band) + 3, math.max(math.floor((f - 1) * band) + 3, math.floor(f * band) - 3))
     for cx = rows[y][1], rows[y][2] do
-      grid.terrain[Grid.index(grid, cx, y)] = "ford"
+      Grid.setTerrain(world, Grid.index(grid, cx, y), "ford")
     end
   end
   return rows
@@ -54,11 +54,11 @@ local function placeRoadAndTruck(world, cfg, rng, creekRows)
   end
   local x, step = fromLeft and 1 or grid.w, fromLeft and 1 or -1
   for _ = 1, length do
-    grid.terrain[Grid.index(grid, x, y)] = "road"
+    Grid.setTerrain(world, Grid.index(grid, x, y), "road")
     if rng:chance(cfg.roadWobbleChance) then
       local ny = y + (rng:chance(0.5) and 1 or -1)
       if ny > 2 and ny < grid.h - 1 then
-        grid.terrain[Grid.index(grid, x, ny)] = "road"
+        Grid.setTerrain(world, Grid.index(grid, x, ny), "road")
         y = ny
       end
     end
@@ -219,10 +219,11 @@ function Landgen.generate(world)
   local w, h = tuning.world.mapWidth, tuning.world.mapHeight
   local grid = { w = w, h = h, terrain = {}, soil = {}, objects = {} }
   for i = 1, w * h do
-    grid.terrain[i] = "grass"
+    grid.terrain[i] = "grass" -- a fresh array no cache has seen; later writes use Grid.setTerrain
   end
   world.state.grid = grid
   world.occupancy = {}
+  world.objectIndex = nil
 
   local creekRows = carveCreek(world, cfg, rng)
   local roadEnd, truckAnchor = placeRoadAndTruck(world, cfg, rng, creekRows)

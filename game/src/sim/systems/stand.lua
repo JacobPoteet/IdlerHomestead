@@ -11,6 +11,7 @@
 
 local Calendar = require("src.sim.systems.calendar")
 local Food = require("src.sim.systems.food")
+local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Stats = require("src.sim.stats")
@@ -26,12 +27,7 @@ end
 
 --- Is a stand placed on the homestead?
 function Stand.isOpen(world)
-  for _, obj in pairs(world.state.grid.objects) do
-    if world.registry:get("objects", obj.id).stand then
-      return true
-    end
-  end
-  return false
+  return #Grid.anchorsWith(world, "stand") > 0
 end
 
 --- Items per day the stand can sell at best (upgrades included, weather and season not).

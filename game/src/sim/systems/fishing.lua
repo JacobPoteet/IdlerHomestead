@@ -132,6 +132,10 @@ function Fishing.init(world)
       end
       return Grid.terrain(w, i).water == true and Fishing.hasRod(w)
     end,
+    -- The idle search: `candidates` already checked the rod once for all tiles.
+    canDoCandidate = function(w, _, i)
+      return Grid.terrain(w, i).water == true
+    end,
     workTime = function(w, actor, i)
       local cfg = w.tuning.fishing
       -- In winter, cut through the ice first (once per hole): ice fishing.

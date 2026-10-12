@@ -50,14 +50,7 @@ function Sleep.homesteaderResting(world)
 end
 
 local function shelters(world)
-  local list = {}
-  for anchor, obj in pairs(world.state.grid.objects) do
-    if world.registry:get("objects", obj.id).shelter then
-      list[#list + 1] = anchor
-    end
-  end
-  table.sort(list)
-  return list
+  return Grid.anchorsWith(world, "shelter")
 end
 
 --- A job that walks the actor to bed, or nil if no shelter can be reached.

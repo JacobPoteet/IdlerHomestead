@@ -18,14 +18,44 @@ lovec tools/balance help=1                    # option list
 | `features=all\|none\|a,b` | optional policy behaviours, see "Policy features" below; `none` plays the harness as it was before they existed | all |
 | `out=file.csv` / `out=file.json` | CSV: one row per seed per morning (money, food, warmth, notes, known...). JSON: summaries plus one record per run | none |
 | `set=domain.key=value` | override a tuning number for what-if runs, repeatable, e.g. `set=needs.dailyWarmth.winter=6` | none |
+| `jobs=N` | worker threads that play (policy, seed) pairs in parallel; `jobs=1` plays them one after another in the main thread. The report and `out=` files are byte-identical either way | CPU count, at most 16 |
+| `profile=1` / `profile=N` | sample the run with LuaJIT's profiler (forces `jobs=1`) and print the top 25 (or N) lines and functions | off |
 | `trace=1` | print the first seed of each policy day by day | off |
 | `quiet=1` | no progress lines | off |
 
-Speed: about 1 s per seed-year for `idle`, 3 s for `scripted`, 5 s for `active` (30 seeds x 2 years x 3 policies is about 5 minutes). Runs are deterministic per seed and tuning. The harness is not part of `lovec tests`, but `tests/test_balance_smoke.lua` runs one seed for a season so it cannot rot.
+Speed (since #123, one thread): about 0.4 s per seed-year for `idle` (it dies in the first week), 2 s for `scripted` and `active`; with the default `jobs` on a 12-CPU machine, the default run (all policies, 20 seeds, 1 year) takes about 15 s. Runs are deterministic per seed and tuning. The harness is not part of `lovec tests`, but `tests/test_balance_smoke.lua` runs one seed for a season so it cannot rot, and checks that worker threads return exactly what an in-thread run does.
 
-Files: `tools/balance/main.lua` (CLI), `balance.lua` (run loop, aggregation, reports), `policies.lua` (the three policies, with every player-behaviour knob in one `POLICY` table), `features.lua` (the optional behaviours below, shopping list, placement, find scoring).
+Files: `tools/balance/main.lua` (CLI), `balance.lua` (run loop, aggregation, reports), `policies.lua` (the three policies, with every player-behaviour knob in one `POLICY` table), `features.lua` (the optional behaviours below, shopping list, placement, find scoring), `parallel.lua` and `worker.lua` (the `jobs=` thread pool), `profile.lua` (`profile=`).
 
-Speed note: since D56 (320 s days) a seed-year costs about 11 s for `scripted` and `active` alike, so 10 seeds x 2 years x 2 policies is about 8 minutes; run feature variants in parallel processes.
+## Harness speed (#123, D58)
+
+**Parallel seeds.** Each (policy, seed) pair is independent (a fresh Session per seed), so `jobs=N` starts N `love.thread` workers, each its own Lua state with its own registry, tuning and `set=` overrides, and hands them the pairs through a channel. Results come back as Lua data with every number written to 17 significant digits (exact round trip) and the report is built from them in the same order as the plain loop, so the text report and `out=` CSV/JSON are byte-identical to `jobs=1` (only the progress and `Total:` lines differ). Threads rather than child `lovec` processes: no command-line quoting on Windows, no temp files, and a real work queue (idle seeds are short, so fixed chunks would leave CPUs idle). A worker error stops the run with the worker's traceback.
+
+**Profile first.** `profile=1` on `policy=scripted seeds=1 years=1` (before): `Power.tick` 51 percent of samples, almost all in its per-tick scan of every placed object (trees, rocks and clutter included) for sources, sinks and batteries; `Water.tick` 36 percent for the same scan for pumps and drip lines; content lookups behind those scans (`Registry:get` and the strict-field guard) 15 percent; the idle job search (#77) only 4 percent. So #77 was not the hot spot; the per-tick object scans were.
+
+Fixes (sim, no result change):
+
+1. `Grid.anchorsWith(world, field)`: a runtime index (`world.objectIndex`, never saved) of placed objects whose definition has a field (`source`, `sink`, `battery`, `pump`, `drip`, `shelter`, `stand`, `waterSource`), sorted by anchor as the old scans were. It is dropped by `placeObject`, `removeObject` and `rebuildOccupancy` and rebuilt when the `grid.objects` table is replaced. Power, water, sleep (shelters) and the stand use it instead of scanning every tick.
+2. `Pathfind.find`: the heap is two parallel arrays (no table per push) with the same sift order and comparisons, and walkability is memoized per search. Paths and tie-breaks are unchanged.
+3. #77, first half: task types may declare `canDoCandidate`, the idle search's per-tile check minus what `candidates` already checked once. Fishing skips the per-tile rod check (`Stats.modifier`), bucket filling the per-tile bucket-capacity check. The second half of #77 (a full Dijkstra per category on every recheck when nothing is reachable) is not changed: with the faster search it is about a fifth of a scripted run, and caching a failed search exactly is fiddly.
+4. Small: `Power.tick` reuses its per-tier scratch tables and computes the sun from the tick's own date and weather.
+5. #78: terrain writes go through `Grid.setTerrain`, which drops the bank-tile cache for that grid (tested), so the cache cannot go stale if terrain becomes mutable.
+
+Timings (wall seconds, Windows, 12 CPUs, default features):
+
+| run | before | after (`jobs=1`) | after (default `jobs`) |
+|---|---|---|---|
+| `policy=scripted seeds=1 years=1` | 12.5 | 2.0 | 2.0 |
+| `policy=idle seeds=3 years=1` | 7.8 | 1.2 | |
+| `policy=scripted seeds=3 years=1` | 35.4 | 5.8 | |
+| `policy=active seeds=3 years=1` | 33.0 | 5.5 | |
+| `policy=all seeds=3 years=1 out=...` | 78 | about 13 | 4.2 (9 threads) |
+
+The issue's "about 17 s" single seed-year was measured before D57; at the merge base (4506fc9) it was 12.5 s. Speed-up from the sim fixes alone is about 6x; with threads, a 3-seed all-policy year goes from 78 s to 4 s (about 18x). After the fixes the profile is spread out: `Power.tick` about a third (mostly the garbage of its per-tick flow tables), the idle search and pathfinding about a fifth, the active policy's own order planning about a seventh. Follow-ups: allocation churn and `Stats.modifier` caching (#132), the rest of #77, and a repo tool for the determinism check below (#133).
+
+**Determinism checks** (all byte-identical, report text minus timing lines and `out=` files): the merge base and this change on `policy=all seeds=3 years=1` with `out=` CSV and JSON (both `jobs=1` and default `jobs`); and four variants played by the merge base single-threaded and this change with threads: `features=none seeds=4 seed0=4`, `runs=3 years=0.5 set=needs.coldDamage=30` (careers with failures), `policy=scripted,active years=2 seeds=2 seed0=20`, and `features=water,power seeds=3 seed0=30`. Repeat after any sim speed work: run the same commands on the old and new code and `cmp` the files.
+
+**Fast mode: not added.** A coarser tick is already one override away, `set=time.tickRate=5` (default 20), so no `fast=1` option was added. On 20 seeds x 1 year (scripted, active) it is about 1.8x faster in one thread; survival is identical (1 of 20 fails in each policy, same season and cause) and most medians move within noise, but some move visibly: scripted winter-1 fuel cover 0.79 to 0.83 with 26 to 37 percent fully covered, active 0.60 to 0.54, money medians by up to $4. Use it for smoke runs only, never for numbers in this file.
 
 ### Policies
 
