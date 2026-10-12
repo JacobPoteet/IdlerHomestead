@@ -16,12 +16,14 @@ local TitleScene = require("src.scenes.title")
 local Game = {}
 Game.__index = Game
 
-function Game.new()
+--- opts.backend: save backend to use instead of the player's save directory (tools/driver passes an
+--- in-memory one so scripted runs never touch real saves).
+function Game.new(opts)
   local tuning = tuningLoader.load()
   local ctx = {
     tuning = tuning,
     registry = Registry.new():loadAll(),
-    store = Save.new(Save.loveBackend(), { slotCount = tuning.save.slotCount }),
+    store = Save.new((opts and opts.backend) or Save.loveBackend(), { slotCount = tuning.save.slotCount }),
     platform = platform,
     session = nil, -- set by the homestead scene while a slot is being played
   }
