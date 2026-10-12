@@ -58,11 +58,12 @@ function Stand.total(world)
   return world.state.stand.total
 end
 
--- Crate goods in selling order: cheapest town price first, then registry order.
+-- Crate goods in selling order: cheapest town price first, then registry order. Goods pinned
+-- "not at the stand" (Food.truckOnly) are skipped and wait for the truck.
 local function sellingOrder(world)
   local list = {}
   for index, res in ipairs(world.registry:all("resources")) do
-    if Food.crateOf(world, res.id) > 0 then
+    if Food.crateOf(world, res.id) > 0 and not Food.truckOnly(world, res.id) then
       list[#list + 1] = { id = res.id, price = Market.sellPrice(world, res.id), index = index }
     end
   end

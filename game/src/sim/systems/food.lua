@@ -10,8 +10,10 @@
 --      stock is short.
 --   5. Everything else that has a sale value goes in the crate (plus autoSell goods like scrap).
 -- Per-item pins override: "keep" (never sell), "sell" (always sell), "preserve" (hold to preserve).
+-- A separate "truck only" flag per item keeps it out of the roadside stand's daily sale (D62).
 --
--- State: world.state.food = { pantryDays, winterDays, pins = { [id] = pin }, crate = { [id] = n }, nextSort }
+-- State: world.state.food = { pantryDays, winterDays, pins = { [id] = pin }, truckOnly = { [id] = true },
+--                             crate = { [id] = n }, nextSort }
 
 local Ledger = require("src.sim.systems.ledger")
 
@@ -23,6 +25,7 @@ function Food.init(world)
   local cfg = world.tuning.food
   world.state.food = world.state.food
     or { pantryDays = cfg.defaultPantryDays, winterDays = cfg.defaultWinterDays, pins = {}, crate = {}, nextSort = 0 }
+  world.state.food.truckOnly = world.state.food.truckOnly or {} -- older saves predate the stand pin
   world.events:on("ledger.changed", function(e)
     -- Eating, spoiling or selling can drop stock below what's reserved.
     local crate = world.state.food.crate
@@ -131,6 +134,18 @@ function Food.setPin(world, id, pin)
   assert(pin == nil or pin == "keep" or pin == "sell" or pin == "preserve", "bad pin " .. tostring(pin))
   world.state.food.pins[id] = pin
   Food.sort(world)
+end
+
+--- Is this resource kept away from the roadside stand (truck trips only)? (D62, #106)
+function Food.truckOnly(world, id)
+  return world.state.food.truckOnly[id] == true
+end
+
+--- "Not at the stand" pin: a truck-only good stays in the crate for the next trip instead of being
+--- sold by the stand. Independent of the keep/sell/preserve pins.
+function Food.setTruckOnly(world, id, truckOnly)
+  world.registry:get("resources", id)
+  world.state.food.truckOnly[id] = truckOnly and true or nil
 end
 
 function Food.setDays(world, pantryDays, winterDays)

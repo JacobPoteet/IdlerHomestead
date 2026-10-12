@@ -22,8 +22,11 @@ T.test("balance harness: every policy plays one seed for a season, deterministic
 end)
 
 T.test("balance harness: summaries, careers after failure, and tuning overrides", function()
+  local starter = ctx.tuning.farming.starterField
+  ctx.tuning.farming.starterField = {} -- the routine plans no field (#66 fixed that), so the idle player starves
   local results = Balance.playSeed(ctx, "idle", 1, WEEK, 2)
-  T.eq(results[1].alive, false, "an idle player with no plan starves in the first spring")
+  ctx.tuning.farming.starterField = starter
+  T.eq(results[1].alive, false, "an idle player with no field starves in the first spring")
   T.eq(results[1].cause, "hunger")
   T.eq(results[2] and results[2].run, 2, "a failed run is followed by a second run")
   local summary = Balance.summarize(ctx, { results[1] }, 1)
@@ -187,4 +190,9 @@ T.test("balance harness: policies play a season with every feature on, determini
   local summary = Balance.summarize(ctx, Balance.playSeed(ctx, "scripted", 2, WEEK, 1, Features.parse("none")), 1)
   T.eq(type(summary.income), "table", "income by source is summarized")
   T.truthy(summary.totals.earned, "per-run totals are summarized")
+end)
+
+T.test("balance harness: an idle player with the starter field survives the first spring (#66)", function()
+  local results = Balance.playSeed(ctx, "idle", 1, WEEK, 1)
+  T.eq(results[1].alive, true, "the routine plans and works a starter field, so day 6 is survived")
 end)
