@@ -24,6 +24,7 @@
 local Actors = require("src.sim.systems.actors")
 local Calendar = require("src.sim.systems.calendar")
 local Crops = require("src.sim.systems.crops")
+local Features = require("features")
 local Fishing = require("src.sim.systems.fishing")
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
@@ -55,6 +56,8 @@ local POLICY = {
   junkMoneyGoal = 60, -- active: stop clearing junk for cash once money passes this
   urgentFuelNights = 3, -- active: nights of the coming season's warmth in stock below which firewood jumps the queue
   frostMargin = 1, -- active: days of slack when judging whether a crop can mature before the freeze
+  holdTripsUntilDay = 14, -- power feature: last day of the run on which trips wait for the truck battery to fill once (the "Full battery" note unlocks the power items)
+  featureReserve = 8, -- $ kept back when buying feature items (power, water, stand, cat) so seeds and bait stay affordable
 }
 Policies.POLICY = POLICY
 
@@ -185,11 +188,14 @@ end
 local Base = {}
 Base.__index = Base
 
-local function newBase(world, seed, extra)
+local function newBase(world, seed, extra, features)
+  features = features or {}
   local self = setmetatable({
     rng = Rng.new(Rng.deriveSeed(seed, "policy")),
     bad = {}, -- tile -> tick until which it is skipped
     control = "idle",
+    features = features, -- set of optional behaviours (see features.lua)
+    shopping = Features.shopping(features),
   }, Base)
   for k, v in pairs(extra or {}) do
     self[k] = v
@@ -276,6 +282,10 @@ function Base:trip(world)
   if not Market.canTrip(world) then
     return
   end
+  -- The power items unlock on the "Full battery" note, which a truck that keeps driving never fills.
+  if self.features.power and Features.holdTrip(world, POLICY.holdTripsUntilDay) then
+    return
+  end
   local _, total = Market.crateQuote(world)
   local wantsPickup = false
   for _, id in ipairs(POLICY.buyList) do
@@ -299,21 +309,37 @@ function Base:trip(world)
 end
 
 function Base:buy(world)
+  Features.buy(world, self.shopping.early, POLICY.featureReserve)
   for _, id in ipairs(POLICY.buyList) do
     if not ownsOrPending(world, id) and Market.cannotBuy(world, id, false) == nil then
       Market.order(world, id)
     end
   end
+  Features.buy(world, self.shopping.rest, POLICY.featureReserve)
 end
 
 function Base:place(world)
   for _, id in ipairs(sortedKeys(world.state.inventory.objects)) do
     for _ = 1, Inventory.objectCount(world, id) do
-      if not placeNearTruck(world, id) then
+      local placed
+      if Features.handles(self.features, id) then
+        placed = Features.place(world, id, POLICY.placeFromRing)
+      else
+        placed = placeNearTruck(world, id)
+      end
+      if not placed then
         break
       end
     end
   end
+end
+
+--- Which find to take from a pending offer: by need with the `finds` feature, else the first.
+function Base:chooseFind(world, offer)
+  if self.features.finds then
+    return Features.chooseFind(world, offer, { warmthDeficit = warmthDeficit })
+  end
+  return offer.choices[1]
 end
 
 function Base:study(world)
@@ -325,7 +351,11 @@ function Base:study(world)
     byId[def.id] = def
   end
   local order = {}
-  for _, id in ipairs(POLICY.studyList) do
+  local wanted = { unpack(POLICY.studyList) }
+  for _, id in ipairs(Features.studyIds(self.features)) do
+    wanted[#wanted + 1] = id
+  end
+  for _, id in ipairs(wanted) do
     if byId[id] then
       order[#order + 1] = id
       byId[id] = nil
@@ -349,6 +379,7 @@ function Base:daily(world)
   self:trip(world)
   self:buy(world)
   self:place(world)
+  Features.daily(world, self.features)
   self:study(world)
 end
 
@@ -366,6 +397,9 @@ end
 function Idle:attach() end
 function Idle:start() end
 function Idle:daily() end
+function Idle:chooseFind(_, offer)
+  return offer.choices[1]
+end
 function Idle:step(world)
   world.control = "idle"
 end
@@ -375,8 +409,8 @@ end
 local Scripted = setmetatable({}, { __index = Base })
 Scripted.__index = Scripted
 
-local function scriptedNew(world, seed)
-  local self = newBase(world, seed, {})
+local function scriptedNew(world, seed, features)
+  local self = newBase(world, seed, {}, features)
   return setmetatable(self, Scripted)
 end
 
@@ -389,8 +423,8 @@ end
 local Active = setmetatable({}, { __index = Base })
 Active.__index = Active
 
-local function activeNew(world, seed)
-  local self = newBase(world, seed, { lastInput = -math.huge, fishUntil = nil, fishTile = nil })
+local function activeNew(world, seed, features)
+  local self = newBase(world, seed, { lastInput = -math.huge, fishUntil = nil, fishTile = nil }, features)
   return setmetatable(self, Active)
 end
 
@@ -573,7 +607,9 @@ function Active:choose(world, actor)
   end
   -- Water: fill the bucket when empty, else water the nearest dry crop.
   local dry = cropTiles(world, Crops.needsWater)
-  if #dry > 0 then
+  -- With the weather feature the player lets the rain do the watering.
+  local rainDay = self.features.weather and Weather.isRaining(world)
+  if #dry > 0 and not rainDay then
     if actor.bucket > 0 then
       if tryOrder(self, world, actor, dry) then
         return true
@@ -585,6 +621,12 @@ function Active:choose(world, actor)
         if Weather.waterTarget(world, i) then
           candidates[#candidates + 1] = i
         end
+      end
+      -- Wells, pumps and cisterns are closer places to fill the bucket (nearest first).
+      for _, anchor in ipairs(objectAnchors(world, function(def)
+        return def.waterSource ~= nil
+      end)) do
+        candidates[#candidates + 1] = anchor
       end
       if tryOrder(self, world, actor, candidates) then
         return true
@@ -685,14 +727,14 @@ Policies.describe = {
 }
 
 --- Build a policy instance. It is `attach`ed to the world's events, then `start`ed once.
-function Policies.new(name, world, seed)
+function Policies.new(name, world, seed, features)
   local inst
   if name == "idle" then
     inst = Idle.new()
   elseif name == "scripted" then
-    inst = scriptedNew(world, seed)
+    inst = scriptedNew(world, seed, features)
   elseif name == "active" then
-    inst = activeNew(world, seed)
+    inst = activeNew(world, seed, features)
   else
     error("unknown policy '" .. tostring(name) .. "' (idle|scripted|active)")
   end

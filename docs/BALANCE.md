@@ -15,6 +15,7 @@ lovec tools/balance help=1                    # option list
 | `seeds=N`, `seed0=N` | number of seeds and the first one | 20, 1 |
 | `years=N` | span per run (fractions work: `years=0.25` is one season) | 1 |
 | `runs=N` | career length: a failed run is followed by recovery (the policy picks the free study) and a new run on new land with knowledge kept | 1 |
+| `features=all\|none\|a,b` | optional policy behaviours, see "Policy features" below; `none` plays the harness as it was before they existed | all |
 | `out=file.csv` / `out=file.json` | CSV: one row per seed per morning (money, food, warmth, notes, known...). JSON: summaries plus one record per run | none |
 | `set=domain.key=value` | override a tuning number for what-if runs, repeatable, e.g. `set=needs.dailyWarmth.winter=6` | none |
 | `trace=1` | print the first seed of each policy day by day | off |
@@ -22,7 +23,9 @@ lovec tools/balance help=1                    # option list
 
 Speed: about 1 s per seed-year for `idle`, 3 s for `scripted`, 5 s for `active` (30 seeds x 2 years x 3 policies is about 5 minutes). Runs are deterministic per seed and tuning. The harness is not part of `lovec tests`, but `tests/test_balance_smoke.lua` runs one seed for a season so it cannot rot.
 
-Files: `tools/balance/main.lua` (CLI), `balance.lua` (run loop, aggregation, reports), `policies.lua` (the three policies, with every player-behaviour knob in one `POLICY` table).
+Files: `tools/balance/main.lua` (CLI), `balance.lua` (run loop, aggregation, reports), `policies.lua` (the three policies, with every player-behaviour knob in one `POLICY` table), `features.lua` (the optional behaviours below, shopping list, placement, find scoring).
+
+Speed note: since D56 (320 s days) a seed-year costs about 11 s for `scripted` and `active` alike, so 10 seeds x 2 years x 2 policies is about 8 minutes; run feature variants in parallel processes.
 
 ### Policies
 
@@ -109,7 +112,7 @@ The squeeze (design goal): in winter an array plus a bank, heater, freezer and l
 
 Prices are meant to put each power item a few trips out: array $110, bank $80, turbine $140, hydro $160, generator $90, heater $50, lamp $15, freezer $90, fuel x5 $15. They are unvalidated against real play.
 
-Harness effect: `lovec tools/balance policy=scripted,active seeds=5 years=1` gives the same survival before and after (0 of 5 fail for both policies), with money and fuel medians within noise and about 3 percent more run time. The policies never buy power items, so the harness does not measure them; see the follow-up issue to teach them a power buy list.
+Harness effect: `lovec tools/balance policy=scripted,active seeds=5 years=1` gives the same survival before and after (0 of 5 fail for both policies), with money and fuel medians within noise and about 3 percent more run time. The policies never buy power items, so the harness does not measure them; they learned one in D57 (see "Policy features" below).
 
 ## Water ladder (#35, D50)
 
@@ -121,7 +124,7 @@ Per in-game day a field of N crops wants N waterings (`farming.moistureDays` = 1
 | cistern (60 units) | a full day for about 60 crops by bucket, 120 by drip | stock is shared and capacity adds up per cistern |
 | bucket fill | creek 1.5 s, dug well 1.2 s, hand pump 0.6 s, cistern 0.4 s | a bucket holds 6 waterings (10 with the big bucket) |
 
-Prices: dug well $20, hand pump $40, cistern $55, solar pump $70, drip line $25 (unvalidated against play). Harness effect: `lovec tools/balance policy=scripted,active seeds=5 years=1` gives identical survival, money, food and fuel numbers before and after, because no policy buys the rungs yet (#90); only the "journal nodes learned" and "ideas waiting" medians move by about one, because the well becomes a new idea once the bucket-hauling note is written and the policies study whatever is waiting.
+Prices: dug well $20, hand pump $40, cistern $55, solar pump $70, drip line $25 (unvalidated against play). Harness effect: `lovec tools/balance policy=scripted,active seeds=5 years=1` gives identical survival, money, food and fuel numbers before and after, because no policy bought the rungs then (they do since D57, see "Policy features"); only the "journal nodes learned" and "ideas waiting" medians move by about one, because the well becomes a new idea once the bucket-hauling note is written and the policies study whatever is waiting.
 
 ## Longer days and fast sleep (#112, D56)
 
@@ -148,3 +151,46 @@ Reading it:
 - Still true from the findings above: the engaged player is not gated by winter. The goal of 40 to 60 percent first-winter failure for `active` is not met; this change aimed at preserving the old balance, not at fixing it. Scripted at 0.97 cover is nearer the "winter bites" target than before.
 
 Real-time pacing: a day is about 213 s awake plus about 13 s asleep (8x) at 1x, so a season is about 27 minutes, against about 15 before (the awake share of a day was about 85 s of 128). The harness runs on game time, so this is arithmetic, not a measurement. This is a first pass; revisit from play (follow-up issues cover trimming season length and re-tuning from human play).
+
+## Policy features (#80, #90, #101, #105, #111, #115, D57)
+
+The scripted and active policies can now use the M5 content, switched by `features=` (default `all`; `features=none` is the harness as it was). Features: `cat`, `stand`, `water`, `power`, `finds`, `weather`; the rules are in D57 and `tools/balance/features.lua`. Every run now also prints a "Features" block: income by source per year (truck vs stand), kWh made / wanted / served / shed / wasted, nights heated electrically, waterings by hand and drip, cistern units pumped and rained, mice raids and losses, finds picked, kit owned at the end. The same numbers are in the `out=file.json` summaries (`totals`, `income`, `owned`, `finds`).
+
+Note: **D56 doubled the nightly warmth need and lengthened days**, so none of the figures below compare with the older tables above (winter 1 need is now a median 69.5 warmth, was 37). Re-baselined here: `features=none`.
+
+Command: `lovec tools/balance policy=scripted,active seeds=10 years=2 features=<set>` (seeds 1-10, D56 tuning, one process per set, about 10 minutes each).
+
+### Active policy, 10 seeds, 2 years
+
+| features | alive at end | trips / run | truck $ y1 / y2 (median) | stand $ y1 / y2 | winter-1 fuel cover | notes |
+|---|---|---|---|---|---|---|
+| none | 100% | 12.2 | 205 / 260 | 0 / 0 | 0.75 | baseline; cat owned 70% (from the stray-cat find or an order) |
+| stand | 100% | 12.0 | 205 / 283 | 8 / 219 | 0.75 | stand does not cut trips; total y2 income 260 to 502 |
+| power | 100% | 20.5 | 210 / 884 | 0 / 0 | 0.67 | kWh made 252 to 649 per run; y2 truck income p25 265, p75 1238 |
+| water | 100% | 12.1 | 202 / 260 | 0 / 0 | 0.75 | hand waterings 1118 to 1125 (no change), rained 37 units |
+| cat | 100% | 12.2 | 208 / 263 | 0 / 0 | 0.75 | mice food lost 64.6 to 45.5 units, raids caught 4.2 to 8.0 |
+| finds, weather | 100% | 11.9 | 207 / 244 | 0 / 0 | 0.75 | within noise; picks shift to split stacks, junk, jump packs, away from bait and cans |
+| all | 100% | 17.5 | 213 / 675 | 16 / 134 | 0.67 | survival unchanged; money at the end of year 2 is lower (87 against 249) because of the kit |
+
+Reading it:
+
+- **Power (#80)** is the large effect. The truck trip is gated by 20 kWh of charge, so an array, turbine or micro-hydro lifts the trip cap and the crate sells out more often: 20.5 trips against 12.2, year-2 truck income 3.4x. Owned at the end: solar array 50%, bank 50%, turbine 70%, micro-hydro 40%, freezer 100%, lamp 50%. Brownout days 9.5, 17 kWh shed, 122 kWh wasted. Nothing reached the heater (0% owned): the "Cold night" note needs a night with a warmth shortfall, which a prepared player never has. Nothing power-related was unlocked at all until the policy held its trips once so the truck battery could fill (the "Full battery" note, `POLICY.holdTripsUntilDay`). Both are gate problems, see below.
+- **Stand (#105)**: the truck still earns more than the stand (56 against 44 percent in year 2) and trips do not drop, but the stand and its three upgrades nearly double year-2 income.
+- **Water (#90)**: the rungs are bought (well 100%, cistern 90%, hand pump 90%) but whole runs hardly change: about 1100 hand waterings either way, rain adds about 37 cistern units in two years. With the solar pump and drip lines (features=all: pump 50%, drip 40%) drip does 4 waterings and the pump moves 21 units. The unlock chain is long (well, then well water, then cistern, then a pump needs the Full battery note, then drip needs the pump to have run).
+- **Cat (#115)**: mice are about 3 percent of a 1970-unit harvest, the cat recovers about 1 percent, and eats a fish a day.
+- **Finds (#111)**, **weather (#101)**: no visible effect on survival or income within the noise of 10 seeds; picking by need moves the pick mix. Rain days: 9.7 of 56 are rain (and 19.4 cloudy). First truck trip across seeds 1-9: 3,3,4,4,5,5,5,5,6 days (median 5, was 2-5 before clouds), the test now sweeps seeds and judges the median.
+
+### Scripted policy, 10 seeds, 2 years
+
+The scripted player earns about 70 dollars in year 1 and 155 in two years, so the features hardly start: alive at the end of winter 2 is 20 percent (none) against 30 percent (all); winter 2 fuel cover 0.28 against 0.37; the stand makes 4 dollars in year 2; the cat is owned by 100 percent and cuts food lost from 43.5 to 26.9 units. Treat scripted as the "not engaged" floor: it dies in winter 2 whichever way it plays. Part of that "failure" is the span edge (see the harness issue).
+
+### Follow-up issues
+
+- #124 power items make truck income unbounded
+- #125 the stand adds 44 percent of active year-2 income
+- #126 progression gates reward neglect ("Full battery", "Cold night")
+- #127 water ladder saves almost no hauling
+- #128 the cat saves about 1 percent of the harvest
+- #129 first truck trip median 5 days
+- #130 harness counts a death on the span's last rollover as a failure of the span
+- #131 feature policies are shallow (switching, rain use, find scoring)

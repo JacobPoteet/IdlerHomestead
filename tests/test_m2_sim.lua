@@ -337,14 +337,22 @@ T.test("power: the folding panel charges the truck by day, not at night", functi
   T.truthy(Power.charge(world, truck) > 0)
 end)
 
+-- The first trip depends on the rolled sky (clouds cut the panel's output), so the test sweeps
+-- several seeds and judges the median, with a looser bound for the worst sky (#101).
 T.test("power: first truck trip is possible within a few days", function()
-  local world = newWorld(2)
-  local days = 0
-  while not Market.canTrip(world) and days < 10 do
-    run(world, tun.time.dayLength)
-    days = days + 1
+  local waits = {}
+  for seed = 1, 9 do
+    local world = newWorld(seed)
+    local days = 0
+    while not Market.canTrip(world) and days < 12 do
+      run(world, tun.time.dayLength)
+      days = days + 1
+    end
+    waits[#waits + 1] = days
   end
-  T.truthy(days >= 2 and days <= 5, "first trip after " .. days .. " days")
+  table.sort(waits)
+  local median, worst = waits[5], waits[#waits]  T.truthy(median >= 2 and median <= 5, "median first trip after " .. median .. " days (" .. table.concat(waits, ",") .. ")")
+  T.truthy(worst <= 8, "worst first trip after " .. worst .. " days (" .. table.concat(waits, ",") .. ")")
 end)
 
 -- Market ---------------------------------------------------------------------
