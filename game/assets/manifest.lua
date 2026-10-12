@@ -49,6 +49,7 @@ return {
     cistern = { placeholder = "cistern", w = 32, h = 16 },
     dc_pump = { placeholder = "dc_pump", w = 16, h = 16 },
     drip_line = { placeholder = "drip_line", w = 16, h = 16 },
+    roadside_stand = { placeholder = "roadside_stand", w = 32, h = 24 },
 
     -- Crops: one sprite per growth stage (1 = sprout ... 3 = ready)
     radish = { placeholder = "radish", w = 16, h = 16, variants = 3 },
@@ -108,6 +109,10 @@ return {
     icon_cistern = { placeholder = "icon_cistern", w = 12, h = 12 },
     icon_dc_pump = { placeholder = "icon_dc_pump", w = 12, h = 12 },
     icon_drip_line = { placeholder = "icon_drip_line", w = 12, h = 12 },
+    icon_roadside_stand = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
+    icon_stand_sign = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
+    icon_stand_cooler = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
+    icon_stand_display = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
     icon_fuel = { placeholder = "icon_fuel", w = 12, h = 12 },
     icon_fuel_can = { placeholder = "icon_fuel", w = 12, h = 12 },
 

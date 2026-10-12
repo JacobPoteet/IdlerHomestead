@@ -54,7 +54,7 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 | Shack / cabin | 32×32+ | M3 | |
 | `well` 16×24, `hand_pump`, `dc_pump`, `drip_line` 16×16, `cistern` 32×16 (2×1) | various | M5 (placeholders) | Water ladder (#35). Icons `icon_<object>` are 12×12. Needs: handle and bucket animation, cistern water levels (a code-drawn gauge today), pump on/off art, hose lines for the drip line (a status lamp and zone tint today). See #94. |
 | `solar_array` 32x16 (2x1), `battery_bank`, `micro_hydro`, `generator`, `electric_heater`, `lamp`, `chest_freezer` 16x16, `wind_turbine` 16x32 | various | M5 (placeholders) | Power network (#34). The turbine needs blade animation; the generator, heater and freezer need on/off art states (today a status light is drawn over them, see `visuals.powerLamp`). Icons `icon_<object>` and `icon_fuel` are 12x12. |
-| Roadside stand | 32×24 | M5 | |
+| Roadside stand `roadside_stand` 32×24 (2×1 footprint, tall awning), icon `icon_roadside_stand` 12×12 (reused for the three upgrade icons) | M5 (placeholder) | Roadside stand (#37). Needs: real awning and table art, goods that show what is on sale, upgrade looks (sign, cooler, display rack). |
 | Chicken coop, goat shed, barn | various | M6–M7 | |
 
 ### Crops (16×16, 3 growth stages: sprout, growing, ready)

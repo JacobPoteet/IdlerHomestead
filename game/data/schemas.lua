@@ -35,7 +35,8 @@ return {
     maxRate = "number?", -- battery: most kW it can charge or discharge at (absent = unlimited)
     efficiency = "number?", -- battery: fraction of charging energy that is stored (absent = 1)
     vehicle = "boolean?", -- battery: the truck; charged in the "truck" priority tier, lends power only above a trip reserve
-    placeNear = "string?", -- placement rule: must touch this terrain flag ("water": next to the creek)
+    placeNear = "string?", -- placement rule: must touch this terrain ("water": next to the creek; "road": beside the road, not on it)
+    stand = "boolean?", -- roadside stand: sells capped crate goods each day (tuning.stand, GDD §6.4)
     placeOn = "string?", -- placement rule: "waterTable" needs a tile with a high water table (wells, pumps; GDD §5.3)
     waterSource = "table?", -- a place to fill the bucket: { fillTime = seconds, stored? = draws on the cistern stock }
     pump = "table?", -- pumps water into cisterns: { rate = units per in-game hour at full power }; also needs a `sink`

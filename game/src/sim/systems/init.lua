@@ -19,6 +19,7 @@ return {
   "processing",
   "firewood",
   "market",
+  "stand",
   "needs",
   "sleep",
   "actors",

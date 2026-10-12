@@ -162,6 +162,18 @@ return {
     sink = { tier = "pumps", draw = 0.4, schedule = "fill", fills = "water" },
     pump = { rate = 5 },
   },
+  -- Roadside stand (GDD §6.4). `placeNear = "road"`: beside the road, never on it. `stand`: sells
+  -- from the sell crate each day; see tuning.stand and src/sim/systems/stand.lua.
+  {
+    id = "roadside_stand",
+    name = "Roadside stand",
+    blocks = true,
+    clearable = false,
+    placeable = true,
+    footprintW = 2,
+    placeNear = "road",
+    stand = true,
+  },
   {
     id = "drip_line",
     name = "Drip line",

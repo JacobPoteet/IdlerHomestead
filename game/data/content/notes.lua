@@ -91,6 +91,21 @@ return {
     event = "market.trip",
   },
   {
+    id = "stand_sale",
+    name = "Stand sale",
+    line = "Strangers pay cash at the roadside.",
+    icon = "icon_roadside_stand",
+    event = "stand.sold",
+  },
+  {
+    id = "regulars",
+    name = "Regulars",
+    line = "The same faces stop by every week.",
+    icon = "icon_roadside_stand",
+    event = "stand.sold",
+    count = 7,
+  },
+  {
     id = "full_battery",
     name = "Full battery",
     line = "A full battery and sun to spare.",
