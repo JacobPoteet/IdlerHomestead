@@ -63,6 +63,8 @@ return {
     icon_rainbow_trout = { placeholder = "fish_icon", w = 12, h = 12 },
     icon_golden_trout = { placeholder = "fish_icon", w = 12, h = 12 },
     icon_unknown = { placeholder = "icon_unknown", w = 12, h = 12 },
+    icon_note_blank = { placeholder = "icon_note_blank", w = 12, h = 12 },
+    icon_spoiled = { placeholder = "fish_icon", w = 12, h = 12 },
     icon_smoker = { placeholder = "icon_smoker", w = 12, h = 12 },
     icon_folding_panel = { placeholder = "icon_folding_panel", w = 12, h = 12 },
 

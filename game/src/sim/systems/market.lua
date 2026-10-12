@@ -10,13 +10,14 @@ local Calendar = require("src.sim.systems.calendar")
 local Ledger = require("src.sim.systems.ledger")
 local Food = require("src.sim.systems.food")
 local Inventory = require("src.sim.systems.inventory")
+local Journal = require("src.sim.systems.journal")
 local Power = require("src.sim.systems.power")
 
 local Market = {}
 
---- Is the item in the catalog for this run? (M3: also items learned in the Field Journal.)
+--- Is the item in the catalog? Starter items, plus everything learned in the Field Journal.
 function Market.isKnown(world, id)
-  return world.registry:get("catalog", id).starter == true
+  return Journal.isKnown(world, id)
 end
 
 function Market.rollWeek(world)

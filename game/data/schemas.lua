@@ -62,11 +62,21 @@ return {
     output = "string", -- resource produced (1 per input unit)
     hours = "number", -- in-game hours per load
   },
+  notes = {
+    name = "string", -- journal map label (<= ~3 words)
+    line = "string", -- what the note says (<= ~8 words)
+    icon = "string", -- sprite id for the stamp
+    event = "string", -- world event that writes the note
+    match = "table?", -- event field -> value, or { min = n } / { max = n }
+    count = "number?", -- matching events needed (default 1)
+  },
   catalog = {
     name = "string",
     page = "string", -- catalog page / journal chapter grouping
     price = "number", -- $
-    starter = "boolean?", -- known from the start (M3: others are learned)
+    starter = "boolean?", -- known from the start; others are learned in the Field Journal
+    needs = "table?", -- note ids that make this an idea (non-starter items)
+    studyNights = "number?", -- nights of study to learn it (non-starter items)
     gives = "table?", -- resource -> amount delivered
     object = "string?", -- placeable object added to inventory
     equipment = "boolean?", -- kept for the run; applies `modifiers`

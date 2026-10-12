@@ -6,7 +6,8 @@
 -- (src/sim/minigames/fishing_model.lua), then reports the result with Fishing.land().
 --
 -- The fish guide (catch counts, best size) lives in world.meta.fishGuide so it outlasts runs.
--- Emits "fishing.ready" { tile, actor }, "fish.caught" { fish, size, mode, first }.
+-- Emits "fishing.ready" { tile, actor }, "fish.caught" { fish, size, mode, first },
+--       "fish.lost" { fish, reason }.
 
 local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
@@ -92,6 +93,12 @@ function Fishing.land(world, fishId, size, mode)
   entry.count = entry.count + 1
   entry.best = math.max(entry.best, size)
   world.events:emit("fish.caught", { fish = fish.id, size = size, mode = mode, first = first })
+end
+
+--- A hooked fish got away in the mini-game. reason: "slipped" | "escaped".
+function Fishing.lose(world, fishId, reason)
+  world.registry:get("fish", fishId)
+  world.events:emit("fish.lost", { fish = fishId, reason = reason })
 end
 
 function Fishing.init(world)

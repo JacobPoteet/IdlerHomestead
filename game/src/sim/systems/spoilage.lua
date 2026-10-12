@@ -1,5 +1,5 @@
 -- Spoilage (GDD §7.2): each day, fresh food loses about 1/spoilDays of its stock.
--- Preserved food (no spoilDays) keeps. Emits "food.spoiled" { resource, amount }.
+-- Preserved food (no spoilDays) keeps. Emits "food.spoiled" { resource, category, amount }.
 
 local Ledger = require("src.sim.systems.ledger")
 
@@ -14,7 +14,7 @@ function Spoilage.daily(world)
         local spoiled = math.min(amount, math.floor(amount / res.spoilDays + rng:float()))
         if spoiled > 0 then
           Ledger.remove(world, res.id, spoiled, "spoiled")
-          world.events:emit("food.spoiled", { resource = res.id, amount = spoiled })
+          world.events:emit("food.spoiled", { resource = res.id, category = res.category, amount = spoiled })
         end
       end
     end

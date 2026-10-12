@@ -1,0 +1,262 @@
+-- Field Journal (GDD §8.1–8.2): Notes → Ideas → Study at night → Known.
+--
+-- Notes are written from world events by data rules (data/content/notes.lua); the systems that
+-- emit those events never know the journal exists (GDD §12.1 #8). A catalog entry becomes an
+-- idea once every note in its `needs` is written. The player queues ideas to study; the head of
+-- the queue makes progress during the night (longer nights study faster, equipment with a
+-- `studySpeed` modifier speeds it up) and becomes known for good.
+--
+-- Everything here lives in the save slot's meta, so it survives failed runs:
+--   world.meta.journal = {
+--     notes = { [noteId] = { day, season, year } },  -- when each note was written (day of season)
+--     counts = { [noteId] = n },                     -- matching events so far (count notes)
+--     known = { [itemId] = true },
+--     queue = { itemId, ... },                       -- study order; [1] is being studied
+--     progress = { [itemId] = nights },              -- kept if unqueued: nothing is spent
+--   }
+-- Emits "journal.note" { note }, "journal.idea" { item }, "journal.learned" { item }.
+
+local Calendar = require("src.sim.systems.calendar")
+local Stats = require("src.sim.stats")
+
+local Journal = {}
+
+local function journal(world)
+  return world.meta.journal
+end
+
+local function item(world, id)
+  return world.registry:get("catalog", id)
+end
+
+function Journal.hasNote(world, id)
+  world.registry:get("notes", id)
+  return journal(world).notes[id] ~= nil
+end
+
+--- When a note was written ({ day = day of season, season, year }), or nil.
+function Journal.noteInfo(world, id)
+  return journal(world).notes[id]
+end
+
+function Journal.isKnown(world, id)
+  return item(world, id).starter == true or journal(world).known[id] == true
+end
+
+--- Has every note this item needs been written? (Known items count too.)
+local function needsMet(world, def)
+  if not def.needs then
+    return false
+  end
+  for _, note in ipairs(def.needs) do
+    if not journal(world).notes[note] then
+      return false
+    end
+  end
+  return true
+end
+
+--- An item you could study: all its notes are written but it isn't known yet.
+function Journal.isIdea(world, id)
+  local def = item(world, id)
+  return not Journal.isKnown(world, id) and needsMet(world, def)
+end
+
+local function queueIndex(world, id)
+  for n, queued in ipairs(journal(world).queue) do
+    if queued == id then
+      return n
+    end
+  end
+  return nil
+end
+
+--- "known" | "studying" (head of the queue) | "queued" | "idea" | "unknown".
+function Journal.status(world, id)
+  if Journal.isKnown(world, id) then
+    return "known"
+  end
+  local n = queueIndex(world, id)
+  if n == 1 then
+    return "studying"
+  elseif n then
+    return "queued"
+  elseif Journal.isIdea(world, id) then
+    return "idea"
+  end
+  return "unknown"
+end
+
+--- Study progress as a fraction 0..1.
+function Journal.progress(world, id)
+  local def = item(world, id)
+  if Journal.isKnown(world, id) then
+    return 1
+  end
+  return math.min(1, (journal(world).progress[id] or 0) / (def.studyNights or 1))
+end
+
+--- Ideas not yet known, in catalog order (queued ones included).
+function Journal.ideas(world)
+  local list = {}
+  for _, def in ipairs(world.registry:all("catalog")) do
+    if Journal.isIdea(world, def.id) then
+      list[#list + 1] = def
+    end
+  end
+  return list
+end
+
+function Journal.queue(world)
+  return journal(world).queue
+end
+
+--- A gentle prompt: there are ideas to study but nothing is queued (GDD §8.1).
+function Journal.needsChoice(world)
+  if #journal(world).queue > 0 then
+    return false
+  end
+  return #Journal.ideas(world) > 0
+end
+
+--- Add an idea to the end of the study queue. Returns true, or false + reason.
+function Journal.study(world, id)
+  if Journal.isKnown(world, id) then
+    return false, "known"
+  end
+  if queueIndex(world, id) then
+    return false, "queued"
+  end
+  if not Journal.isIdea(world, id) then
+    return false, "not an idea"
+  end
+  local queue = journal(world).queue
+  if #queue >= world.tuning.study.queueSize then
+    return false, "queue full"
+  end
+  queue[#queue + 1] = id
+  return true
+end
+
+--- Take an idea off the queue. Its progress is kept.
+function Journal.unqueue(world, id)
+  local n = queueIndex(world, id)
+  if n then
+    table.remove(journal(world).queue, n)
+  end
+  return n ~= nil
+end
+
+local function learn(world, id)
+  local j = journal(world)
+  j.known[id] = true
+  j.progress[id] = nil
+  local n = queueIndex(world, id)
+  if n then
+    table.remove(j.queue, n)
+  end
+  world.events:emit("journal.learned", { item = id })
+end
+
+--- Finish the study in progress right away (recovery after a rescue, GDD §4.3).
+--- Returns the item learned, or nil if nothing was queued.
+function Journal.finishStudy(world)
+  local head = journal(world).queue[1]
+  if head then
+    learn(world, head)
+  end
+  return head
+end
+
+-- Notes ------------------------------------------------------------------------------------
+
+local function matches(rule, e)
+  for field, want in pairs(rule or {}) do
+    local value = e[field]
+    if type(want) == "table" then
+      if type(value) ~= "number" then
+        return false
+      end
+      if (want.min and value < want.min) or (want.max and value > want.max) then
+        return false
+      end
+    elseif value ~= want then
+      return false
+    end
+  end
+  return true
+end
+
+local function writeNote(world, def)
+  local j = journal(world)
+  -- Ideas this note completes, so the player hears about each new one.
+  local before = {}
+  for _, entry in ipairs(world.registry:all("catalog")) do
+    before[entry.id] = Journal.isIdea(world, entry.id)
+  end
+  local now = Calendar.now(world)
+  j.notes[def.id] = { day = now.dayOfSeason, season = now.season, year = now.year }
+  j.counts[def.id] = nil
+  world.events:emit("journal.note", { note = def.id })
+  for _, entry in ipairs(world.registry:all("catalog")) do
+    if not before[entry.id] and Journal.isIdea(world, entry.id) then
+      world.events:emit("journal.idea", { item = entry.id })
+    end
+  end
+end
+
+local function listen(world)
+  local byEvent, order = {}, {}
+  for _, def in ipairs(world.registry:all("notes")) do
+    if not byEvent[def.event] then
+      byEvent[def.event] = {}
+      order[#order + 1] = def.event
+    end
+    local list = byEvent[def.event]
+    list[#list + 1] = def
+  end
+  for _, name in ipairs(order) do
+    local defs = byEvent[name]
+    world.events:on(name, function(e)
+      local j = journal(world)
+      for _, def in ipairs(defs) do
+        if not j.notes[def.id] and matches(def.match, e or {}) then
+          local count = (j.counts[def.id] or 0) + 1
+          if count >= (def.count or 1) then
+            writeNote(world, def)
+          else
+            j.counts[def.id] = count
+          end
+        end
+      end
+    end)
+  end
+end
+
+function Journal.init(world)
+  local j = world.meta.journal or {}
+  j.notes = j.notes or {}
+  j.counts = j.counts or {}
+  j.known = j.known or {}
+  j.queue = j.queue or {}
+  j.progress = j.progress or {}
+  world.meta.journal = j
+  listen(world)
+end
+
+function Journal.tick(world, dt)
+  local j = journal(world)
+  local head = j.queue[1]
+  if not head or not Calendar.isNight(world) then
+    return
+  end
+  local cfg = world.tuning.study
+  local hours = dt / Calendar.hourLength(world)
+  local rate = (1 + Stats.modifier(world, "studySpeed")) / cfg.nightHours
+  j.progress[head] = (j.progress[head] or 0) + hours * rate
+  if j.progress[head] >= item(world, head).studyNights - cfg.finishSlack then
+    learn(world, head)
+  end
+end
+
+return Journal

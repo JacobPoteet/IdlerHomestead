@@ -13,14 +13,14 @@ function Power.init(world)
   world.state.power = world.state.power or { charge = {} }
 end
 
---- Solar intensity 0..1 for the current hour (sine arc between sunrise and sunset).
+--- Solar intensity 0..1 for the current hour (sine arc between the season's sunrise and sunset).
 function Power.sun(world)
-  local cfg = world.tuning.power
+  local sunrise, sunset = Calendar.daylight(world)
   local hour = Calendar.now(world).hour
-  if hour <= cfg.sunrise or hour >= cfg.sunset then
+  if hour <= sunrise or hour >= sunset then
     return 0
   end
-  return math.sin(math.pi * (hour - cfg.sunrise) / (cfg.sunset - cfg.sunrise))
+  return math.sin(math.pi * (hour - sunrise) / (sunset - sunrise))
 end
 
 local function sortedAnchors(world, field)
@@ -68,7 +68,7 @@ function Power.drain(world, anchor, amount)
 end
 
 function Power.tick(world, dt)
-  local energy = Power.output(world) * dt / (world.tuning.time.dayLength / 24)
+  local energy = Power.output(world) * dt / Calendar.hourLength(world)
   if energy <= 0 then
     return
   end

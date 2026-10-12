@@ -6,6 +6,7 @@ return {
   "crops",
   "fish",
   "recipes",
+  "notes",
   "catalog",
   "task_categories",
 }

@@ -1,6 +1,7 @@
 -- The supply catalog (GDD §6.3). Bought with money; delivered next morning (fee) or picked up
--- on a truck trip. In M3 most entries become learnable through the Field Journal; `starter`
--- entries are always known.
+-- on a truck trip. `starter` entries are always known; the rest are learned in the Field Journal
+-- (GDD §8.1): they become ideas once every note in `needs` is written, then take `studyNights`
+-- nights of study.
 --   gives: resources added on arrival. object: a placeable object added to your inventory.
 --   equipment: an item kept for the run whose `modifiers` adjust stats (see src/sim/stats.lua).
 --   pickupOnly: can only be bought on a truck trip.
@@ -18,13 +19,22 @@ return {
     equipment = true,
     modifiers = { rod = 1 },
   },
-  { id = "smoker", name = "Smoker", page = "preserving", price = 30, starter = true, object = "smoker" },
+  {
+    id = "smoker",
+    name = "Smoker",
+    page = "preserving",
+    price = 30,
+    needs = { "first_catch", "fish_spoil" },
+    studyNights = 2,
+    object = "smoker",
+  },
   {
     id = "sturdy_rod",
     name = "Sturdy rod",
     page = "fishing",
     price = 25,
-    starter = true,
+    needs = { "first_catch", "one_got_away" },
+    studyNights = 1,
     equipment = true,
     modifiers = { rod = 1, maxTension = 0.25, reelSpeed = 0.15 },
   },
@@ -33,7 +43,8 @@ return {
     name = "Big bucket",
     page = "tools",
     price = 12,
-    starter = true,
+    needs = { "bucket_hauling" },
+    studyNights = 1,
     equipment = true,
     modifiers = { bucketCapacity = 4 },
   },
@@ -42,7 +53,8 @@ return {
     name = "Used solar panel",
     page = "power",
     price = 40,
-    starter = true,
+    needs = { "first_trip" },
+    studyNights = 2,
     pickupOnly = true,
     object = "folding_panel",
   },

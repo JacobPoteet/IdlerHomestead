@@ -271,6 +271,9 @@ T.test("market: equipment can't be bought twice; pickup-only needs a trip", func
   local world = newWorld(3)
   Ledger.add(world, "money", 200)
   T.eq(Market.cannotBuy(world, "basic_rod", false), "owned")
+  T.eq(Market.cannotBuy(world, "big_bucket", false), "unknown", "learned in the Field Journal")
+  world.meta.journal.known.big_bucket = true
+  world.meta.journal.known.used_panel = true
   T.truthy(Market.order(world, "big_bucket"))
   T.eq(Market.cannotBuy(world, "big_bucket", false), "ordered")
   T.eq(Market.cannotBuy(world, "used_panel", false), "pickup only")

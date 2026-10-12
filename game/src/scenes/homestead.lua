@@ -16,6 +16,7 @@ local Crops = require("src.sim.systems.crops")
 local Needs = require("src.sim.systems.needs")
 local Food = require("src.sim.systems.food")
 local Inventory = require("src.sim.systems.inventory")
+local Journal = require("src.sim.systems.journal")
 local Power = require("src.sim.systems.power")
 local Processing = require("src.sim.systems.processing")
 local Renderer = require("src.render.world_renderer")
@@ -61,6 +62,7 @@ function Homestead:enter(slot, data)
   self.tool = nil -- "rod" in hand
   self.placing = nil -- object id being placed
   self.toast = nil
+  self.toastQueue = {}
   self:subscribe()
 end
 
@@ -90,6 +92,16 @@ function Homestead:subscribe()
     end),
     events:on("food.spoiled", function(e)
       self:showToast(string.format("%d %s spoiled", e.amount, name("resources", e.resource)))
+    end),
+    -- Journal news waits its turn so a note and the idea it sparks are both seen.
+    events:on("journal.note", function(e)
+      self:queueToast("New note: " .. world.registry:get("notes", e.note).line)
+    end),
+    events:on("journal.idea", function(e)
+      self:queueToast("New idea: " .. name("catalog", e.item) .. " · see the Journal")
+    end),
+    events:on("journal.learned", function(e)
+      self:queueToast("Learned: " .. name("catalog", e.item) .. " · now in the catalog")
     end),
   }
 end
@@ -131,6 +143,15 @@ end
 
 function Homestead:showToast(text)
   self.toast = { text = text, time = TOAST_TIME }
+end
+
+--- Show after the current toast (and any already waiting) instead of replacing it.
+function Homestead:queueToast(text)
+  if not self.toast then
+    self:showToast(text)
+    return
+  end
+  self.toastQueue[#self.toastQueue + 1] = text
 end
 
 function Homestead:toaster()
@@ -264,6 +285,15 @@ function Homestead:layout()
     rx = rx - 4
     self.buttons:add(b)
   end
+  self.journalPrompt = Journal.needsChoice(world)
+  addRight({
+    w = 56,
+    label = "Journal",
+    style = self.journalPrompt and "accent" or nil,
+    onPress = function()
+      self.app:push(require("src.scenes.journal").new(world))
+    end,
+  })
   addRight({
     w = 42,
     label = "Fish",
@@ -305,7 +335,14 @@ function Homestead:update(dt)
     self.toast.time = self.toast.time - dt
     if self.toast.time <= 0 then
       self.toast = nil
+      if #self.toastQueue > 0 then
+        self:showToast(table.remove(self.toastQueue, 1))
+      end
     end
+  end
+  -- The Journal button lights up while there's an idea to pick and nothing queued (GDD §8.1).
+  if Journal.needsChoice(self.world) ~= self.journalPrompt then
+    self:layout()
   end
   -- Seed counts change as you plant and harvest; keep the toolbar labels current.
   for cropId, button in pairs(self.seedButtons) do

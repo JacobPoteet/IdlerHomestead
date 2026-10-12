@@ -34,6 +34,24 @@ function Calendar.now(world)
   }
 end
 
+--- Sunrise and sunset hours for the current season (tuning.time.daylight).
+function Calendar.daylight(world)
+  local hours = world.tuning.time.daylight[Calendar.now(world).season]
+  return hours[1], hours[2]
+end
+
+--- Is it dark out? Nights are when the Field Journal studies (GDD §7.1, §8.1).
+function Calendar.isNight(world)
+  local sunrise, sunset = Calendar.daylight(world)
+  local hour = Calendar.now(world).hour
+  return hour < sunrise or hour >= sunset
+end
+
+--- Game seconds per in-game hour.
+function Calendar.hourLength(world)
+  return world.tuning.time.dayLength / 24
+end
+
 function Calendar.tick(world, dt)
   local cal = world.state.calendar
   cal.elapsed = cal.elapsed + dt
