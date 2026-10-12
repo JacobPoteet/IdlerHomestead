@@ -19,6 +19,11 @@ Idle / roguelite homestead game in LÖVE 11.5 (LuaJIT). The design source of tru
 - `game/src/render/` is presentation: it reads sim state and never changes it. Sprites are looked up by id through `game/assets/manifest.lua` (placeholders in `src/render/placeholders.lua`); shaders live in `game/shaders/` with parameters in `data/tuning/visuals.lua`. See docs/ASSETS.md.
 - When adding a sim helper module outside `src/sim/systems/`, add it to the list in `tests/test_architecture.lua`.
 
+## Tracking work
+- Remaining work is tracked as GitHub issues grouped into milestones **M3–M7** (matching GDD §13).
+- When you notice follow-up work that the GDD doesn't track (shortcuts, polish, tech debt), open an issue labelled `found-during-dev` plus a topic label (`tech-debt`, `ux`, `art`, `shader`, `audio`, `balance`, `tooling`).
+- Verify UI changes by actually running the game (a scripted screenshot driver is planned as a repo tool, see the "screenshot driver" issue).
+
 ## Style
 - Follow `.editorconfig` and `.stylua.toml` (2-space indent).
 - Modules return a table; prefer `local M = {}` ... `return M`.
