@@ -9,14 +9,16 @@
 --
 -- State: world.state.alerts = { level = { [kind] = 0..2 }, shown = { ["kind:level"] = day },
 --                               next = game seconds until the next look }
--- Emits "alert.raised" { kind = "food" | "fuel" | "condition", level, value, noFire? }.
+-- "animals" (D71) is the days of hay or chicken feed the animals have left.
+-- Emits "alert.raised" { kind = "food" | "fuel" | "condition" | "animals", level, value, noFire? }.
 
 local Calendar = require("src.sim.systems.calendar")
+local Animals = require("src.sim.systems.animals")
 local Needs = require("src.sim.systems.needs")
 
 local Alerts = {}
 
-Alerts.KINDS = { "food", "fuel", "condition" }
+Alerts.KINDS = { "food", "fuel", "condition", "animals" }
 
 --- The value a kind is judged on: days of food, nights of fuel, or condition.
 function Alerts.value(world, kind)
@@ -24,6 +26,8 @@ function Alerts.value(world, kind)
     return Needs.foodDays(world)
   elseif kind == "fuel" then
     return Needs.fuelNights(world)
+  elseif kind == "animals" then
+    return Animals.feedDaysLeft(world) -- D71: math.huge when no animals are kept
   end
   return Needs.condition(world)
 end
@@ -37,6 +41,8 @@ function Alerts.level(world, kind)
     amber, red = cfg.foodAmberDays, cfg.foodRedDays
   elseif kind == "fuel" then
     amber, red = cfg.fuelAmberNights, cfg.fuelRedNights
+  elseif kind == "animals" then
+    amber, red = cfg.animalsAmberDays, cfg.animalsRedDays
   else
     amber, red = cfg.conditionAmber, cfg.conditionRed
   end

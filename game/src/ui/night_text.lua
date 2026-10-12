@@ -91,8 +91,12 @@ function NightText.morning(world, report)
   end
   if report.killed > 0 then
     add(string.format("A fox took %s.", plural(report.killed, "hen")), theme.colors.danger)
-  elseif report.stopped > 0 then
-    add("A fox tried the coop. The door held.")
+  end
+  if (report.killedGoats or 0) > 0 then
+    add(string.format("A coyote took %s.", plural(report.killedGoats, "goat")), theme.colors.danger)
+  end
+  if report.killed == 0 and (report.killedGoats or 0) == 0 and report.stopped > 0 then
+    add("A fox tried the animals in the night. The fence held.")
   end
 
   local from, to = math.floor(report.conditionFrom + 0.5), math.floor(report.conditionTo + 0.5)

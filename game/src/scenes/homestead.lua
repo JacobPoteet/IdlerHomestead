@@ -140,28 +140,39 @@ function Homestead:subscribe()
     events:on("animals.collected", function(e)
       self:showToast(string.format("Collected %d egg%s", e.count, e.count == 1 and "" or "s"))
     end),
+    events:on("animals.milked", function(e)
+      self:showToast(string.format("Collected %d milk", e.count))
+    end),
     events:on("animals.short", function(e)
+      local goats = e.kind == "goats"
       if e.feed then
-        self:queueToast("The hens ran short of feed. Buy a sack or tend the coop.")
+        self:queueToast(goats and "The goats ran short of hay. Buy bales or tend the pen." or "The hens ran short of feed. Buy a sack or tend the coop.")
       elseif e.water then
-        self:queueToast("The hens' waterer ran dry. Tend the coop.")
+        self:queueToast(goats and "The goats' trough ran dry. Tend the pen." or "The hens' waterer ran dry. Tend the coop.")
       end
     end),
     events:on("animals.lost", function(e)
-      self:queueToast(e.reason == "thirst" and "A hen was lost: no water" or "A hen was lost: no feed")
+      local name = e.kind == "goats" and "goat" or "hen"
+      self:queueToast(e.reason == "thirst" and ("A " .. name .. " was lost: no water") or ("A " .. name .. " was lost: no " .. (e.kind == "goats" and "hay" or "feed")))
     end),
     events:on("animals.predator", function(e)
       if self.session:sleeping() then
         return -- asleep: it is in the morning report
       end
+      local goats = e.kind == "goats"
       if e.stopped then
-        self:queueToast("A fox tried the coop in the night. The door held.")
+        self:queueToast(goats and "A coyote tried the pen in the night. The fence held." or "A fox tried the coop in the night. The door held.")
+      elseif goats then
+        self:queueToast(string.format("A coyote got into the pen: lost %d goat%s", e.killed, e.killed == 1 and "" or "s"))
       else
         self:queueToast(string.format("A fox got into the coop: lost %d hen%s", e.killed, e.killed == 1 and "" or "s"))
       end
     end),
     events:on("animals.nestFull", function()
       self:queueToast("The nest box is full: the hens have stopped laying until you collect")
+    end),
+    events:on("animals.pailFull", function()
+      self:queueToast("The milk pail is full: the goats have dried up until you collect")
     end),
     events:on("routine.idleHint", function()
       -- Only while the player is looking at the world; panels would hide it (D55).
@@ -458,6 +469,17 @@ function Homestead:stats()
     local short = flock.hens > 0 and (flock.hungryDays > 0 or flock.thirstyDays > 0 or flock.feedDays < 1)
     stats[#stats + 1] = { "icon_hen", string.format("%d/%d", flock.hens, flock.housing), short and theme.colors.danger or nil }
     stats[#stats + 1] = { "icon_egg", tostring(flock.nest) }
+  end
+  if Animals.hasPen(world) then
+    -- Goats (red when short of hay or water, or the animal-feed warning is red) and the milk in the pail.
+    local herd = Animals.goatInfo(world)
+    local short = herd.goats > 0 and (herd.hungryDays > 0 or herd.thirstyDays > 0 or herd.feedDays < 1)
+    stats[#stats + 1] = {
+      "icon_goat",
+      string.format("%d/%d", herd.goats, herd.housing),
+      short and theme.colors.danger or AlertText.chipColor(world, "animals"),
+    }
+    stats[#stats + 1] = { "icon_milk", tostring(herd.pail) }
   end
   return stats
 end
@@ -1638,6 +1660,20 @@ function Homestead:tileInfo(i)
         end
       end
       lines[#lines + 1] = string.format("Fox guard %d%%", math.floor(flock.guard * 100 + 0.5))
+    end
+    if obj.pen then
+      local herd = Animals.goatInfo(world)
+      lines[#lines + 1] = string.format("Goats %d / %d", herd.goats, herd.housing)
+      lines[#lines + 1] = string.format("Pail %d / %d milk", herd.pail, herd.pailCap)
+      if herd.goats > 0 then
+        local days = herd.feedDays == math.huge and "" or string.format(" · %.0fd", herd.feedDays)
+        lines[#lines + 1] = string.format("Hay %.0f / %d%s", herd.feed, herd.feedCap, days)
+        lines[#lines + 1] = string.format("Water %.1f / %d", herd.water, herd.waterCap)
+        if herd.hungryDays > 0 or herd.thirstyDays > 0 then
+          lines[#lines + 1] = herd.thirstyDays > 0 and "Dry: tend the pen" or "Hungry: add hay"
+        end
+      end
+      lines[#lines + 1] = string.format("Coyote guard %d%%", math.floor(herd.guard * 100 + 0.5))
     end
     if obj.heatSource then
       lines[#lines + 1] = string.format("Heat x%.1f · needs %d a night", obj.heatSource, Needs.warmthNeeded(world))

@@ -11,6 +11,7 @@ return {
     value = "number?", -- base sale price in $; absent = can't be sold
     autoSell = "boolean?", -- non-food goods sent to the sell crate by default
     heat = "number?", -- warmth per unit burned in a heat source; present means it's fuel
+    housing = "string?", -- livestock: what houses it ("coop", "pen"), for "needs a ..." messages
   },
   terrain = {
     name = "string",
@@ -50,6 +51,7 @@ return {
     splitter = "boolean?", -- wood is split into firewood here
     chop = "boolean?", -- an axe (chopSpeed) speeds up clearing it
     storage = "table?", -- resource -> extra storage capacity while placed
+    pen = "table?", -- goat pen (D71): { pail = milk held, manger = hay units held, trough = water units held, guard = 0..1 chance a night raid is turned back }; see src/sim/systems/animals.lua
     coop = "table?", -- hen house: { nest = eggs held, feeder = feed units held, waterer = water units held, guard = 0..1 chance a night raid is turned back }; see src/sim/systems/animals.lua
   },
   crops = {
@@ -79,7 +81,8 @@ return {
     inputCategory = "string", -- resource category accepted as input
     batch = "number", -- max input units per load
     fuel = "table?", -- resource -> amount per load
-    output = "string", -- resource produced (1 per input unit)
+    yield = "number?", -- output units per input unit (default 1; cheese makes one from two milk)
+    output = "string", -- resource produced (`yield` per input unit)
     hours = "number", -- in-game hours per load
   },
   notes = {
@@ -107,6 +110,7 @@ return {
     equipment = "boolean?", -- kept for the run; applies `modifiers`
     modifiers = "table?", -- stat -> additive bonus (see src/sim/stats.lua)
     pickupOnly = "boolean?", -- only available on a truck trip
+    requires = "string?", -- catalog id of equipment that must be owned first (goats need the trailer, D71)
   },
   perks = {
     name = "string", -- journal map label (<= ~3 words)

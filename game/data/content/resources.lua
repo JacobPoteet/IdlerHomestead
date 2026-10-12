@@ -36,6 +36,11 @@ return {
   { id = "rainbow_trout", name = "Rainbow trout", category = "fish", calories = 600, spoilDays = 2, value = 15 },
   { id = "golden_trout", name = "Golden trout", category = "fish", calories = 600, spoilDays = 2, value = 45 },
 
+  -- Milk (GDD §7.7, D71): goats' milk, collected from the pen's pail. The most perishable food there
+  -- is (two days); a cheese press turns it into cheese. Capacity is a base cap (a full store holds the
+  -- milk in the pail instead of losing it, D59).
+  { id = "milk", name = "Milk", category = "dairy", calories = 250, spoilDays = 2, value = 3, capacity = 24 },
+
   -- Fresh produce
   { id = "radish", name = "Radish", category = "food", calories = 300, spoilDays = 4, value = 1 },
   { id = "potato", name = "Potato", category = "food", calories = 900, spoilDays = 20, value = 2, keepsForWinter = true },
@@ -45,11 +50,17 @@ return {
 
   -- Livestock (GDD §7.7, D63). Hens are a flock count in the ledger: their capacity is 0 until a coop
   -- is placed (`storage` in objects.lua), so a hen needs a coop, and a full coop leaves new hens waiting.
-  { id = "hen", name = "Hen", category = "animal", capacity = 0 },
+  { id = "hen", name = "Hen", category = "animal", capacity = 0, housing = "coop" },
   -- Layer feed: bought in sacks, kept in the ledger, and moved to the coop's feeder by the tend chore.
   { id = "chicken_feed", name = "Chicken feed", category = "supply", capacity = 40 },
 
+  -- Goats (GDD §7.7, D71): a flock count like hens, housed in a goat pen. Hay is the winter feed: bought
+  -- in bales, kept in the ledger, and moved to the pen's manger by the tend chore.
+  { id = "goat", name = "Goat", category = "animal", capacity = 0, housing = "pen" },
+  { id = "hay", name = "Hay", category = "supply", capacity = 40 },
+
   -- Preserved food (keeps all winter; sells for more than fresh, GDD §6.2)
   { id = "smoked_fish", name = "Smoked fish", category = "preserved", calories = 700, value = 10 },
+  { id = "cheese", name = "Cheese", category = "preserved", calories = 700, value = 12 },
   { id = "canned_food", name = "Canned food", category = "preserved", calories = 1000, value = 3 },
 }

@@ -295,6 +295,63 @@ return {
     equipment = true,
     modifiers = { predatorGuard = 0.25 },
   },
+  -- Goats (GDD §7.7, D71). Chickens come first (their notes gate all of this) and the first frost sets
+  -- the player thinking of winter feed. The pen comes with a first stack of hay and the predator fence
+  -- covers it as well as the coop; goats are pickup only and ride home on the trailer; hay refills and
+  -- the cheese press are learned from what goats teach: milk.
+  {
+    id = "goat_pen",
+    name = "Goat pen",
+    line = "Houses three goats; comes with hay.",
+    page = "animals",
+    price = 70,
+    needs = { "first_egg", "first_frost" },
+    studyNights = 2,
+    object = "goat_pen",
+    gives = { hay = 12 },
+  },
+  {
+    id = "goat_trailer",
+    name = "Goat trailer",
+    line = "Lets the truck haul goats home.",
+    page = "animals",
+    price = 60,
+    needs = { "first_egg", "first_trip" },
+    studyNights = 2,
+    equipment = true,
+  },
+  {
+    id = "goats",
+    name = "Goats x2",
+    line = "Milk daily. Need hay, water, a pen.",
+    page = "animals",
+    price = 45,
+    needs = { "first_egg", "first_frost" },
+    studyNights = 1,
+    pickupOnly = true,
+    requires = "goat_trailer",
+    gives = { goat = 2 },
+  },
+  {
+    id = "hay_bales",
+    name = "Hay bales x10",
+    line = "Winter feed for the goats.",
+    page = "animals",
+    price = 6,
+    needs = { "first_milk" },
+    studyNights = 1,
+    gives = { hay = 10 },
+  },
+  {
+    id = "cheese_press",
+    name = "Cheese press",
+    line = "Two milk make a cheese that keeps.",
+    page = "animals",
+    price = 55,
+    needs = { "first_milk", "produce_spoils" },
+    studyNights = 2,
+    object = "cheese_press",
+  },
   -- Machines (GDD §5.3 rung 3, §7.4, D65): a mid-game goal once the field is big and the power is up.
   {
     id = "auto_harvester",

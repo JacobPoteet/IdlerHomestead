@@ -82,7 +82,7 @@ local function newWorld(seed)
 end
 
 T.test("balance features: parse and label", function()
-  T.eq(Features.label(Features.parse(nil)), "cat,stand,chickens,water,power,machines,finds,weather")
+  T.eq(Features.label(Features.parse(nil)), "cat,stand,chickens,goats,water,power,machines,finds,weather")
   T.eq(Features.label(Features.parse("all")), Features.label(Features.parse(nil)))
   T.eq(Features.label(Features.parse("none")), "none")
   T.eq(Features.label(Features.parse("power,cat")), "cat,power", "reports use the canonical order")
@@ -185,7 +185,7 @@ T.test("balance harness: policies play a season with every feature on, determini
     local b = Balance.playSeed(ctx, name, 2, WEEK, 1, all)
     T.eq(a[1].final.money, b[1].final.money, name .. " money repeats with features")
     T.truthy(a[1].counters.kwhMade > 0, name .. " counted the energy the panel made")
-    T.eq(a[1].features, "cat,stand,chickens,water,power,machines,finds,weather")
+    T.eq(a[1].features, "cat,stand,chickens,goats,water,power,machines,finds,weather")
   end
   local summary = Balance.summarize(ctx, Balance.playSeed(ctx, "scripted", 2, WEEK, 1, Features.parse("none")), 1)
   T.eq(type(summary.income), "table", "income by source is summarized")

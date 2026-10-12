@@ -21,12 +21,13 @@ local Weather = require("src.sim.systems.weather")
 local Features = {}
 
 --- Feature ids, in the order they are listed in reports.
-Features.LIST = { "cat", "stand", "chickens", "water", "power", "machines", "finds", "weather" }
+Features.LIST = { "cat", "stand", "chickens", "goats", "water", "power", "machines", "finds", "weather" }
 
 Features.describe = {
   cat = "buy the shelter cat once the Mice note unlocks it (#115)",
   stand = "build the roadside stand, buy its upgrades, report stand vs truck income (#105)",
   chickens = "buy the coop, hens (on a truck trip), feed and fence; the active player tends the coop (#40)",
+  goats = "buy the goat pen, trailer, goats (on a truck trip), hay and the cheese press; the active player tends the pen (#139)",
   water = "buy the water rungs (well, cistern, pump, drip lines), place them by the field (#90)",
   power = "buy and place the power items, keep the truck charged before the bank until winter (#80)",
   machines = "buy the auto-harvester last on the list and place it where it reaches the most field (#42)",
@@ -163,6 +164,24 @@ local SHOPPING = {
     end,
   },
   { id = "micro_hydro", feature = "power" },
+  -- Goats come late: they cost a pen, a trailer and hay, and the survival kit comes first.
+  {
+    id = "goat_pen",
+    feature = "goats",
+    when = function(world)
+      return Animals.hens(world) > 0
+    end,
+  },
+  { id = "goat_trailer", feature = "goats" },
+  { id = "goats", feature = "goats" }, -- pickup only: bought on truck trips (Features.tripItems); listed so it is studied
+  {
+    id = "hay_bales",
+    feature = "goats",
+    when = function(world)
+      return Animals.goats(world) > 0 and Animals.goatInfo(world).feedDays < 6
+    end,
+  },
+  { id = "cheese_press", feature = "goats" },
   -- Last: a mid-game goal, so saving for it never holds back the survival kit above.
   { id = "auto_harvester", feature = "machines" },
 }
@@ -297,6 +316,9 @@ function Features.tripItems(world, set)
   local ids = {}
   if set.chickens and Market.isKnown(world, "hens") and Animals.housing(world) - Animals.hens(world) >= world.registry:get("catalog", "hens").gives.hen then
     ids[#ids + 1] = "hens"
+  end
+  if set.goats and Market.isKnown(world, "goats") and Animals.goatHousing(world) - Animals.goats(world) >= world.registry:get("catalog", "goats").gives.goat then
+    ids[#ids + 1] = "goats"
   end
   return ids
 end

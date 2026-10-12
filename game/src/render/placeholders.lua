@@ -849,6 +849,142 @@ function P.icon_chicken_fence(p)
   p:px(5, 1, C.gold) -- the light
 end
 
+-- Goats (GDD §7.7, D71) -------------------------------------------------------------------
+
+local GOAT_COAT = { 0.88, 0.85, 0.78 }
+local GOAT_DARK = { 0.62, 0.58, 0.50 }
+local GOAT_HORN = { 0.50, 0.44, 0.34 }
+local PEN_WALL = { 0.46, 0.34, 0.22 }
+local PEN_WALL_DARK = { 0.34, 0.25, 0.16 }
+local PEN_ROOF = { 0.36, 0.40, 0.42 }
+local HAY_GOLD = { 0.88, 0.76, 0.36 }
+local HAY_DARK = { 0.72, 0.60, 0.26 }
+local MILK_WHITE = { 0.96, 0.96, 0.94 }
+local CHEESE_YELLOW = { 0.95, 0.80, 0.30 }
+local CHEESE_DARK = { 0.80, 0.62, 0.20 }
+
+-- A goat, 14x11, facing right: stocky body, horns, a beard.
+function P.goat(p)
+  p:ellipse(7, 10, 6, 1, C.shadow)
+  p:rect(2, 4, 8, 4, GOAT_COAT) -- body
+  p:rect(2, 7, 8, 1, GOAT_DARK) -- belly
+  p:rect(1, 4, 1, 2, GOAT_DARK) -- tail
+  p:rect(9, 2, 3, 4, GOAT_COAT) -- neck and head
+  p:rect(11, 3, 2, 2, GOAT_COAT) -- muzzle
+  p:px(12, 5, GOAT_DARK) -- beard
+  p:px(10, 0, GOAT_HORN) -- horns
+  p:px(11, 1, GOAT_HORN)
+  p:px(9, 1, GOAT_HORN)
+  p:px(11, 3, C.tire) -- eye
+  p:rect(3, 8, 1, 2, GOAT_DARK) -- legs
+  p:rect(5, 8, 1, 2, GOAT_DARK)
+  p:rect(8, 8, 1, 2, GOAT_DARK)
+  p:rect(10, 8, 1, 2, GOAT_DARK)
+end
+
+-- The goat pen (32x32): a rail fence round a yard with a small shed roof on the back.
+function P.goat_pen(p)
+  p:ellipse(16, 30, 15, 2, C.shadow)
+  p:rect(2, 12, 28, 14, { 0.50, 0.40, 0.28 }) -- trodden yard
+  p:rect(5, 3, 22, 8, PEN_WALL) -- shed
+  for x = 7, 25, 4 do
+    p:rect(x, 3, 1, 8, PEN_WALL_DARK)
+  end
+  p:rect(3, 1, 26, 2, PEN_ROOF) -- roof
+  p:rect(5, 0, 22, 1, PEN_ROOF)
+  p:rect(13, 6, 6, 5, C.barkDark) -- shed door
+  for x = 1, 29, 7 do
+    p:rect(x, 14, 2, 14, C.bark) -- fence posts
+  end
+  p:rect(1, 17, 30, 1, C.barkLight) -- rails
+  p:rect(1, 23, 30, 1, C.barkLight)
+  p:rect(12, 14, 1, 14, C.barkDark) -- gate posts
+  p:rect(19, 14, 1, 14, C.barkDark)
+  p:rect(24, 24, 5, 3, HAY_GOLD) -- hay in the corner
+  p:rect(25, 23, 3, 1, HAY_DARK)
+end
+
+-- The cheese press (16x16): a wooden frame with a screw over a wheel of cheese.
+function P.cheese_press(p)
+  p:ellipse(8, 14, 7, 1, C.shadow)
+  p:rect(2, 3, 2, 11, C.bark) -- uprights
+  p:rect(12, 3, 2, 11, C.bark)
+  p:rect(2, 2, 12, 2, C.barkLight) -- crossbar
+  p:rect(7, 4, 2, 5, C.metal) -- screw
+  p:rect(5, 9, 6, 1, C.barkDark) -- plate
+  p:rect(4, 10, 8, 4, CHEESE_YELLOW) -- the wheel
+  p:rect(4, 13, 8, 1, CHEESE_DARK)
+  p:px(6, 11, CHEESE_DARK)
+  p:px(9, 12, CHEESE_DARK)
+end
+
+function P.icon_goat(p)
+  p:rect(2, 4, 7, 4, GOAT_COAT)
+  p:rect(2, 7, 7, 1, GOAT_DARK)
+  p:rect(8, 2, 3, 4, GOAT_COAT)
+  p:px(9, 1, GOAT_HORN)
+  p:px(10, 0, GOAT_HORN)
+  p:px(10, 3, C.tire)
+  p:px(10, 6, GOAT_DARK)
+  p:rect(3, 8, 1, 3, GOAT_DARK)
+  p:rect(7, 8, 1, 3, GOAT_DARK)
+end
+
+function P.icon_milk(p)
+  p:rect(3, 3, 6, 8, MILK_WHITE) -- bottle
+  p:rect(4, 1, 4, 2, MILK_WHITE)
+  p:rect(4, 0, 4, 1, C.water)
+  p:rect(3, 6, 6, 2, C.water) -- label
+end
+
+function P.icon_hay(p)
+  p:rect(1, 4, 10, 7, HAY_GOLD) -- bale
+  p:rect(1, 7, 10, 1, HAY_DARK)
+  p:rect(4, 4, 1, 7, C.bark) -- twine
+  p:rect(8, 4, 1, 7, C.bark)
+  p:px(2, 3, HAY_GOLD)
+  p:px(6, 3, HAY_GOLD)
+  p:px(9, 2, HAY_GOLD)
+end
+
+function P.icon_cheese(p)
+  p:rect(1, 5, 10, 6, CHEESE_YELLOW) -- wedge-shaped block
+  p:rect(1, 9, 10, 2, CHEESE_DARK)
+  p:rect(2, 3, 8, 2, CHEESE_YELLOW)
+  p:rect(4, 3, 5, 1, CHEESE_DARK)
+  p:px(4, 6, CHEESE_DARK) -- holes
+  p:px(8, 7, CHEESE_DARK)
+end
+
+function P.icon_goat_pen(p)
+  p:rect(1, 2, 10, 4, PEN_WALL)
+  p:rect(0, 1, 12, 1, PEN_ROOF)
+  p:rect(0, 7, 12, 1, C.barkLight)
+  p:rect(0, 10, 12, 1, C.barkLight)
+  for x = 1, 10, 4 do
+    p:rect(x, 6, 1, 5, C.bark)
+  end
+end
+
+function P.icon_goat_trailer(p)
+  p:rect(0, 5, 10, 4, C.truckDark) -- bed
+  p:rect(0, 3, 10, 1, C.metal) -- rail
+  p:rect(1, 3, 1, 3, C.metal)
+  p:rect(8, 3, 1, 3, C.metal)
+  p:rect(10, 7, 2, 1, C.metal) -- hitch
+  p:rect(3, 9, 3, 3, C.tire) -- wheel
+  p:px(4, 10, C.metal)
+end
+
+function P.icon_cheese_press(p)
+  p:rect(1, 1, 2, 10, C.bark)
+  p:rect(9, 1, 2, 10, C.bark)
+  p:rect(1, 1, 10, 2, C.barkLight)
+  p:rect(5, 3, 2, 3, C.metal)
+  p:rect(3, 7, 6, 4, CHEESE_YELLOW)
+  p:rect(3, 10, 6, 1, CHEESE_DARK)
+end
+
 -- Threats (D67): a hailstone cloud, a cracked sun, a locust, a frosted sprout; and their
 -- countermeasures (12x12 icons).
 local HAIL_CLOUD = { 0.52, 0.56, 0.62 }

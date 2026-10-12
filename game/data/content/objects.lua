@@ -188,6 +188,22 @@ return {
     storage = { hen = 6 },
     coop = { nest = 12, feeder = 12, waterer = 4, guard = 0.6 },
   },
+  -- Goat pen (GDD §7.7, D71): a fenced yard with a shed. `storage`: houses three goats and stacks twenty
+  -- more hay. `pen`: the pail holds milk until collected, the manger holds hay and the trough water
+  -- between chores, and `guard` is the chance the fence and gate turn back a night predator.
+  {
+    id = "goat_pen",
+    name = "Goat pen",
+    blocks = true,
+    clearable = false,
+    placeable = true,
+    footprintW = 2,
+    footprintH = 2,
+    offRoad = true,
+    storage = { goat = 3, hay = 20 },
+    pen = { pail = 8, manger = 18, trough = 6, guard = 0.5 },
+  },
+  { id = "cheese_press", name = "Cheese press", blocks = true, clearable = false, placeable = true, station = "cheese_press" },
   {
     id = "drip_line",
     name = "Drip line",

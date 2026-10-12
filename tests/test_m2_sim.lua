@@ -359,6 +359,7 @@ end)
 
 T.test("market: order needs money, arrives next morning", function()
   local world = newWorld(3)
+  world.state.market.specials = {} -- a daily special would drop the price under the starting money
   local ok, reason = Market.order(world, "radish_seeds")
   T.falsy(ok)
   T.eq(reason, "not enough money")

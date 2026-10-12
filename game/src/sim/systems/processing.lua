@@ -46,13 +46,19 @@ local function inputs(world, recipe)
   return list, total
 end
 
+-- Output units a load of up to `recipe.batch` of `available` input units makes (`yield` per input
+-- unit, default 1; whole units only, so a recipe that halves needs an even number of inputs).
+local function makes(recipe, available)
+  return math.floor(math.min(available, recipe.batch) * (recipe.yield or 1) + 1e-9)
+end
+
 local function canLoad(world, anchor)
   local recipe = recipeFor(world, anchor)
   if not recipe or world.state.processing[anchor] then
     return false
   end
   local _, total = inputs(world, recipe)
-  return total > 0 and Ledger.canAfford(world, recipe.fuel or {})
+  return makes(recipe, total) > 0 and Ledger.canAfford(world, recipe.fuel or {})
 end
 
 --- Is a batch running at this station? Returns the batch or nil.
@@ -103,12 +109,15 @@ function Processing.init(world)
       if not recipe or not Ledger.spend(w, recipe.fuel or {}, "fuel") then
         return
       end
-      local count = 0
-      for _, input in ipairs((inputs(w, recipe))) do
-        local take = math.min(input.n, recipe.batch - count)
+      local list, total = inputs(w, recipe)
+      local count = makes(recipe, total) -- output units; `batch.count` is what will be delivered
+      local want = math.ceil(count / (recipe.yield or 1) - 1e-9) -- input units that make them
+      local taken = 0
+      for _, input in ipairs(list) do
+        local take = math.min(input.n, want - taken)
         if take > 0 then
           Ledger.remove(w, input.id, take, "process")
-          count = count + take
+          taken = taken + take
         end
       end
       w.state.processing[anchor] = {
