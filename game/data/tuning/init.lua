@@ -13,6 +13,7 @@ return {
   "actors",
   "farming",
   "needs",
+  "firewood",
   "food",
   "fishing",
   "power",

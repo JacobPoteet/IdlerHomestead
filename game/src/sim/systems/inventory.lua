@@ -1,10 +1,12 @@
 -- Inventory: equipment owned this run and placeable objects waiting to be placed.
--- Also sets up the starting gear (tuning.run) once per run.
+-- Also sets up the starting gear (tuning.run) once per run, and keeps storage capacities in step
+-- with placed objects that have `storage` (e.g. the woodshed raises the firewood limits).
 --
 -- State: world.state.inventory = { equipment = { [catalogId] = true }, objects = { [objectId] = count } }
 -- Emits "object.placed" { object, tile }.
 
 local Grid = require("src.sim.grid")
+local Ledger = require("src.sim.systems.ledger")
 
 local Inventory = {}
 
@@ -25,6 +27,21 @@ end
 
 function Inventory.objectCount(world, id)
   return world.state.inventory.objects[id] or 0
+end
+
+--- Recompute storage limits: each resource's base capacity plus placed objects' `storage`.
+function Inventory.refreshStorage(world)
+  local extra = {}
+  for _, obj in pairs(world.state.grid.objects) do
+    for res, amount in pairs(world.registry:get("objects", obj.id).storage or {}) do
+      extra[res] = (extra[res] or 0) + amount
+    end
+  end
+  for _, res in ipairs(world.registry:all("resources")) do
+    if res.capacity then
+      Ledger.setCapacity(world, res.id, extra[res.id] and res.capacity + extra[res.id] or nil)
+    end
+  end
 end
 
 --- Can an object of this type be placed with its top-left at tile i?
@@ -68,6 +85,7 @@ function Inventory.place(world, id, i)
   if objects[id] <= 0 then
     objects[id] = nil
   end
+  Inventory.refreshStorage(world)
   world.events:emit("object.placed", { object = id, tile = anchor })
   return true
 end
@@ -96,6 +114,7 @@ end
 function Inventory.init(world)
   local state = world.state
   if state.inventory then
+    Inventory.refreshStorage(world)
     return
   end
   state.inventory = { equipment = {}, objects = {} }

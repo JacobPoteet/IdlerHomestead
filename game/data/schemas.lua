@@ -9,6 +9,7 @@ return {
     spoilDays = "number?", -- average days until a unit spoils; absent = keeps
     value = "number?", -- base sale price in $; absent = can't be sold
     autoSell = "boolean?", -- non-food goods sent to the sell crate by default
+    heat = "number?", -- warmth per unit burned in a heat source; present means it's fuel
   },
   terrain = {
     name = "string",
@@ -32,6 +33,10 @@ return {
     battery = "number?", -- kWh of storage
     station = "string?", -- processor station id used by recipes (e.g. "smoker")
     shelter = "boolean?", -- the homesteader sleeps here (GDD §5.3 shelter ladder)
+    heatSource = "number?", -- burns fuel for warmth; warmth per unit of fuel heat (efficiency)
+    splitter = "boolean?", -- wood is split into firewood here
+    chop = "boolean?", -- an axe (chopSpeed) speeds up clearing it
+    storage = "table?", -- resource -> extra storage capacity while placed
   },
   crops = {
     name = "string",

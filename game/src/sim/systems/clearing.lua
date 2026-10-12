@@ -4,6 +4,7 @@
 
 local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
+local Stats = require("src.sim.stats")
 local Tasks = require("src.sim.systems.tasks")
 
 local Clearing = {}
@@ -32,7 +33,9 @@ function Clearing.init(world)
       return def ~= nil and clearable(def)
     end,
     workTime = function(w, _, i)
-      return (Grid.object(w, i)).clearTime
+      local def = Grid.object(w, i)
+      -- An axe (chopSpeed) speeds up felling trees and cutting up logs.
+      return def.clearTime * (def.chop and Stats.timeFactor(w, "chopSpeed") or 1)
     end,
     complete = function(w, _, i)
       local def, anchor = Grid.object(w, i)

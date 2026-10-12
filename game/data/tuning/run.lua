@@ -7,5 +7,5 @@ return {
     bait = 4,
   },
   startingEquipment = { "basic_rod" }, -- catalog equipment ids owned at the start
-  startingObjects = { "folding_panel" }, -- placed next to the truck at the start of a run
+  startingObjects = { "folding_panel", "campfire", "chopping_block" }, -- placed next to the truck at the start of a run
 }

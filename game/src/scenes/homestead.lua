@@ -239,9 +239,10 @@ function Homestead:layout()
   local placeable = self:nextPlaceable()
   if placeable then
     local def = world.registry:get("objects", placeable)
+    local label = "Place " .. def.name:lower()
     add({
-      w = 80,
-      label = "Place " .. def.name:lower(),
+      w = math.max(80, math.ceil(Text.measure(label, "body")) + 12),
+      label = label,
       style = "accent",
       selected = self.mode == "place",
       onPress = function()
@@ -542,7 +543,10 @@ function Homestead:drawTopBar(view)
   x = stat("icon_heart", tostring(math.floor(world.state.needs.condition + 0.5)), x, 6)
   x = stat("icon_battery", string.format("%d%%", math.floor(Power.charge(world, truck) / Power.capacity(world, truck) * 100)), x, 6)
   x = stat("icon_crate", tostring(Food.crateCount(world)), x, 6)
-  stat("icon_wood", tostring(Ledger.get(world, "wood")), x, 6)
+  x = stat("icon_wood", tostring(Ledger.get(world, "wood")), x, 6)
+  -- Warmth in stock, in nights of this season's need (or the raw amount when no fire is needed).
+  local warmth, need = Needs.warmthInStock(world), Needs.warmthNeeded(world)
+  stat("icon_firewood", need > 0 and string.format("%.1fn", warmth / need) or string.format("%.0f", warmth), x, 6)
 end
 
 function Homestead:drawBottomBar(view)
@@ -590,10 +594,14 @@ function Homestead:tileInfo(i)
       local batch = Processing.batch(world, anchor)
       if batch then
         local hours = batch.remaining / (world.tuning.time.dayLength / 24)
-        lines[#lines + 1] = string.format("Smoking %d · %.1fh left", batch.count, hours)
+        local recipe = world.registry:get("recipes", batch.recipe)
+        lines[#lines + 1] = string.format("%s %d · %.1fh left", recipe.name, batch.count, hours)
       else
         lines[#lines + 1] = "Idle"
       end
+    end
+    if obj.heatSource then
+      lines[#lines + 1] = string.format("Heat x%.1f · needs %d a night", obj.heatSource, Needs.warmthNeeded(world))
     end
   end
   local crop = world.state.crops[i]

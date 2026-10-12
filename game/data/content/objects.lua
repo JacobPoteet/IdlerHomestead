@@ -4,7 +4,7 @@
 return {
   { id = "brush", name = "Brush", blocks = false, walkCost = 2, clearTime = 2, yields = { wood = 1 }, autoClear = true },
   { id = "rock", name = "Rock", blocks = true, clearTime = 4, yields = { stone = { 1, 3 } }, autoClear = true },
-  { id = "log", name = "Fallen log", blocks = true, clearTime = 5, yields = { wood = { 3, 5 } }, autoClear = true },
+  { id = "log", name = "Fallen log", blocks = true, clearTime = 5, yields = { wood = { 3, 5 } }, autoClear = true, chop = true },
   {
     id = "junk",
     name = "Junk pile",
@@ -13,7 +13,7 @@ return {
     yields = { scrap = { 1, 3 }, money = { 2, 6 } },
     autoClear = true,
   },
-  { id = "tree", name = "Tree", blocks = true, clearTime = 14, yields = { wood = { 6, 9 } } },
+  { id = "tree", name = "Tree", blocks = true, clearTime = 14, yields = { wood = { 6, 9 } }, chop = true },
   {
     id = "truck",
     name = "Electric truck",
@@ -27,4 +27,18 @@ return {
   -- Placeable equipment (bought from the catalog or part of the starting kit)
   { id = "folding_panel", name = "Folding solar panel", blocks = false, clearable = false, placeable = true, powerOutput = 0.8 },
   { id = "smoker", name = "Smoker", blocks = true, clearable = false, placeable = true, station = "smoker" },
+  -- Heat & firewood (GDD §4.2, §5.3)
+  { id = "campfire", name = "Campfire", blocks = true, clearable = false, placeable = true, heatSource = 1 },
+  { id = "chopping_block", name = "Chopping block", blocks = true, clearable = false, placeable = true, splitter = true },
+  {
+    id = "woodshed",
+    name = "Woodshed",
+    blocks = true,
+    clearable = false,
+    placeable = true,
+    footprintW = 2,
+    station = "woodshed",
+    storage = { firewood = 30, seasoned_firewood = 60 },
+  },
+  { id = "wood_stove", name = "Wood stove", blocks = true, clearable = false, placeable = true, heatSource = 1.6 },
 }

@@ -240,7 +240,8 @@ function Renderer:draw(alpha, visible, daylight)
     if x + (def.footprintW or 1) >= x1 and x <= x2 and y + fh >= y1 and y <= y2 then
       local sprite = Assets.sprite(obj.id)
       local bottom = (y - 1 + fh) * tile
-      local smoking = def.station and Processing.batch(world, anchor)
+      local batch = def.station and Processing.batch(world, anchor)
+      local smoking = batch and world.registry:get("recipes", batch.recipe).fuel ~= nil
       items[#items + 1] = {
         bottom,
         function()

@@ -3,6 +3,8 @@
 --   more perishable food comes first.
 -- spoilDays: average days before a unit spoils (absent = keeps). value: base sale price in $.
 -- autoSell: non-food goods that go to the sell crate by default.
+-- heat: warmth per unit when burned (GDD §4.2); seasoned wood burns hotter than green.
+-- capacity: storage limit until storage buildings (woodshed) raise it.
 return {
   { id = "money", name = "Money", category = "currency" },
   { id = "wood", name = "Wood", category = "material", value = 1 },
@@ -12,6 +14,10 @@ return {
   { id = "seed_radish", name = "Radish seeds", category = "seed" },
   { id = "seed_potato", name = "Seed potatoes", category = "seed" },
   { id = "bait", name = "Bait", category = "supply" },
+
+  -- Fuel (GDD §4.2, §5.3): split wood is green; a woodshed seasons it.
+  { id = "firewood", name = "Green firewood", category = "firewood", heat = 0.5, capacity = 30 },
+  { id = "seasoned_firewood", name = "Seasoned firewood", category = "fuel", heat = 1, capacity = 20 },
 
   -- Fresh fish (GDD §7.10). Ids match data/content/fish.lua.
   { id = "creek_chub", name = "Creek chub", category = "fish", calories = 250, spoilDays = 2, value = 2 },

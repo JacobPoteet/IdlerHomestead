@@ -16,4 +16,9 @@ function Stats.modifier(world, name)
   return total
 end
 
+--- Work-time multiplier for a speed stat: 1 / (1 + modifier). A +1 bonus halves the time.
+function Stats.timeFactor(world, name)
+  return 1 / (1 + Stats.modifier(world, name))
+end
+
 return Stats

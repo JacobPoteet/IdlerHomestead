@@ -15,6 +15,7 @@ return {
   "clearing",
   "fishing",
   "processing",
+  "firewood",
   "market",
   "needs",
   "sleep",

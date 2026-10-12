@@ -43,8 +43,11 @@ function Panel.resourceIcon(id)
   return "icon_" .. id
 end
 
---- Icon id for a catalog item: its first resource, its object, or a tool.
+--- Icon id for a catalog item: its own icon, its first resource, its object, or a tool.
 function Panel.catalogIcon(item)
+  if Assets.has("icon_" .. item.id) then
+    return "icon_" .. item.id
+  end
   if item.gives then
     local first
     for res in pairs(item.gives) do
