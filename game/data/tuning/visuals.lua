@@ -50,6 +50,13 @@ return {
     routineColor = { 0.62, 0.80, 0.84, 1 }, -- fill for actions the idle routine chose
     segments = 28, -- polygon segments in a full circle
   },
+  powerLamp = { -- status light on powered devices and generators (GDD §7.5)
+    size = 3, -- pixels along one edge, in world art pixels
+    ok = { 0.45, 0.90, 0.42 }, -- running at full power
+    short = { 0.95, 0.35, 0.30 }, -- served less than it wants
+    idle = { 0.85, 0.75, 0.35 }, -- on but nothing to do right now
+    off = { 0.35, 0.37, 0.36 }, -- switched off
+  },
   vignette = 0.28, -- 0..1 darkening toward the screen edges
   grain = 0.035, -- 0..1 film grain strength
 }

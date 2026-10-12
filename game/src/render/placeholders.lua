@@ -434,6 +434,145 @@ function P.icon_wood_stove(p)
   p:rect(4, 6, 4, 3, FLAME)
 end
 
+-- Power network (GDD §7.5) ---------------------------------------------------------------------
+
+local CELL = { 0.16, 0.24, 0.42 }
+local CELL_LINE = { 0.30, 0.40, 0.60 }
+local CASE = { 0.28, 0.30, 0.32 }
+local CASE_LIGHT = { 0.42, 0.45, 0.48 }
+
+function P.solar_array(p)
+  p:ellipse(16, 14, 15, 1, C.shadow)
+  p:rect(6, 12, 2, 3, C.metal) -- legs
+  p:rect(24, 12, 2, 3, C.metal)
+  p:rect(1, 1, 30, 12, C.metal) -- frame
+  p:rect(2, 2, 28, 10, CELL)
+  for x = 7, 25, 5 do
+    p:rect(x, 2, 1, 10, CELL_LINE)
+  end
+  p:rect(2, 6, 28, 1, CELL_LINE)
+  p:rect(3, 3, 4, 1, C.white)
+end
+
+function P.battery_bank(p)
+  p:ellipse(8, 15, 7, 1, C.shadow)
+  p:rect(1, 4, 14, 11, CASE)
+  p:rect(1, 4, 14, 1, CASE_LIGHT)
+  p:rect(3, 2, 3, 2, C.metal) -- terminals
+  p:rect(10, 2, 3, 2, C.metal)
+  for n = 0, 3 do -- charge lamps
+    p:rect(3 + n * 3, 8, 2, 4, n < 3 and { 0.45, 0.82, 0.42 } or { 0.20, 0.30, 0.20 })
+  end
+end
+
+function P.wind_turbine(p)
+  p:ellipse(8, 30, 5, 1, C.shadow)
+  p:rect(7, 11, 2, 19, C.white) -- tower
+  p:rect(6, 28, 4, 3, C.metal)
+  p:rect(6, 9, 4, 3, C.metal) -- nacelle
+  p:rect(7, 1, 2, 8, C.white) -- blades
+  p:rect(2, 12, 5, 2, C.white)
+  p:rect(9, 12, 6, 2, C.white)
+  p:circle(8, 10, 1, C.stoneDark)
+end
+
+function P.micro_hydro(p)
+  p:ellipse(8, 14, 7, 1, C.shadow)
+  p:rect(2, 5, 12, 9, C.rust) -- housing
+  p:rect(2, 5, 12, 1, C.barkLight)
+  p:circle(8, 10, 3, C.metal) -- wheel
+  p:circle(8, 10, 1, C.stoneDark)
+  p:rect(0, 12, 4, 3, C.water) -- water in
+  p:rect(12, 1, 2, 4, C.metal) -- cable post
+end
+
+function P.generator(p)
+  p:ellipse(8, 15, 7, 1, C.shadow)
+  p:rect(1, 5, 14, 9, { 0.78, 0.30, 0.20 }) -- red frame
+  p:rect(1, 5, 14, 1, { 0.92, 0.50, 0.38 })
+  p:rect(3, 7, 6, 4, CASE) -- engine
+  p:rect(10, 7, 4, 3, { 0.12, 0.12, 0.13 }) -- tank
+  p:rect(11, 6, 2, 1, C.gold)
+  p:rect(2, 14, 2, 2, C.tire)
+  p:rect(12, 14, 2, 2, C.tire)
+  p:rect(5, 2, 2, 3, C.metal) -- exhaust
+end
+
+function P.electric_heater(p)
+  p:ellipse(8, 15, 6, 1, C.shadow)
+  p:rect(2, 4, 12, 11, CASE)
+  p:rect(2, 4, 12, 1, CASE_LIGHT)
+  for n = 0, 3 do -- glowing bars
+    p:rect(4, 6 + n * 2, 8, 1, FLAME)
+  end
+  p:px(12, 13, C.heart)
+end
+
+function P.lamp(p)
+  p:ellipse(8, 15, 4, 1, C.shadow)
+  p:rect(7, 5, 2, 10, C.metal) -- stand
+  p:rect(5, 14, 6, 2, CASE)
+  p:rect(4, 1, 8, 4, C.stoneLight) -- shade
+  p:rect(5, 5, 6, 1, FLAME_HOT)
+end
+
+function P.chest_freezer(p)
+  p:ellipse(8, 15, 7, 1, C.shadow)
+  p:rect(1, 6, 14, 9, C.white)
+  p:rect(1, 4, 14, 3, { 0.80, 0.84, 0.86 }) -- lid
+  p:rect(1, 7, 14, 1, C.metal)
+  p:rect(6, 5, 4, 1, C.stoneDark) -- handle
+  p:px(13, 10, { 0.45, 0.82, 0.42 })
+end
+
+function P.icon_wind_turbine(p)
+  p:rect(5, 4, 1, 8, C.white)
+  p:rect(5, 0, 1, 4, C.white)
+  p:rect(1, 4, 4, 1, C.white)
+  p:rect(6, 4, 4, 1, C.white)
+end
+
+function P.icon_micro_hydro(p)
+  p:circle(6, 6, 4, C.metal)
+  p:circle(6, 6, 1, C.stoneDark)
+  p:rect(0, 9, 5, 2, C.water)
+end
+
+function P.icon_generator(p)
+  p:rect(1, 3, 10, 7, { 0.78, 0.30, 0.20 })
+  p:rect(2, 4, 4, 4, CASE)
+  p:rect(7, 4, 3, 3, { 0.12, 0.12, 0.13 })
+  p:rect(3, 10, 2, 1, C.tire)
+  p:rect(8, 10, 2, 1, C.tire)
+end
+
+function P.icon_electric_heater(p)
+  p:rect(1, 2, 10, 9, CASE)
+  for n = 0, 2 do
+    p:rect(3, 4 + n * 2, 6, 1, FLAME)
+  end
+end
+
+function P.icon_lamp(p)
+  p:rect(5, 4, 2, 7, C.metal)
+  p:rect(3, 1, 6, 3, C.stoneLight)
+  p:rect(4, 4, 4, 1, FLAME_HOT)
+  p:rect(3, 10, 6, 1, CASE)
+end
+
+function P.icon_chest_freezer(p)
+  p:rect(1, 5, 10, 6, C.white)
+  p:rect(1, 3, 10, 3, { 0.80, 0.84, 0.86 })
+  p:rect(5, 4, 2, 1, C.stoneDark)
+end
+
+function P.icon_fuel(p)
+  p:rect(2, 3, 7, 8, { 0.78, 0.30, 0.20 })
+  p:rect(2, 3, 7, 1, { 0.92, 0.50, 0.38 })
+  p:rect(7, 1, 3, 2, C.metal)
+  p:rect(4, 6, 3, 2, C.gold)
+end
+
 function P.bobber(p)
   p:rect(3, 0, 1, 3, C.white)
   p:circle(3, 5, 3, C.heart)

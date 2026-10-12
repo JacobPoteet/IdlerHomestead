@@ -39,6 +39,18 @@ end
 
 local REASONS = { owned = "Owned", ordered = "Ordered", ["pickup only"] = "In town" }
 
+-- How many rows fit between the header and the footer line.
+function Catalog:visibleRows()
+  return math.max(1, math.floor((self.box.h - 42 - 40) / ROW_H))
+end
+
+-- Scroll by whole rows (drag, wheel or arrow keys) when the catalog outgrows the panel.
+function Catalog:scrollBy(rows)
+  local most = math.max(0, #self:items() - self:visibleRows())
+  self.top = math.max(0, math.min(most, (self.top or 0) + rows))
+  self:layout()
+end
+
 function Catalog:layout()
   local b, world = self.box, self.world
   self.buttons:clear()
@@ -46,9 +58,12 @@ function Catalog:layout()
     self.app:pop()
   end)
   self.rows = {}
-  for n, item in ipairs(self:items()) do
-    local y = b.y + 42 + (n - 1) * ROW_H
-    self.rows[n] = { item = item, y = y }
+  local items, visible = self:items(), self:visibleRows()
+  self.top = math.max(0, math.min(self.top or 0, #items - visible))
+  for n = self.top + 1, math.min(#items, self.top + visible) do
+    local item = items[n]
+    local y = b.y + 42 + (n - self.top - 1) * ROW_H
+    self.rows[#self.rows + 1] = { item = item, y = y }
     local reason = Market.cannotBuy(world, item.id, false)
     local fee = world.tuning.economy.deliveryFee
     self.buttons:add({
@@ -79,8 +94,22 @@ function Catalog:update()
 end
 
 function Catalog:action(name, data)
-  if not self.buttons:action(name, data) and name == "cancel" then
+  if self.buttons:action(name, data) then
+    return true
+  end
+  if name == "cancel" then
     self.app:pop()
+  elseif name == "pan" then
+    self.dragged = (self.dragged or 0) + data.dy
+    local rows = math.floor(math.abs(self.dragged) / ROW_H)
+    if rows > 0 then
+      self.dragged = self.dragged - (self.dragged > 0 and 1 or -1) * rows * ROW_H
+      self:scrollBy(data.dy > 0 and -rows or rows) -- dragging up shows later rows
+    end
+  elseif name == "zoom" then
+    self:scrollBy(-data.steps)
+  elseif name == "release" then
+    self.dragged = 0
   end
   return true
 end
@@ -107,6 +136,15 @@ function Catalog:draw()
       size = "small",
       color = world.state.market.specials[item.id] and theme.colors.accent or theme.colors.textDim,
     })
+  end
+  local hidden = #self:items() - self:visibleRows()
+  if hidden > 0 then
+    Text.draw(
+      string.format("Drag or scroll for more (%d more)", hidden - self.top > 0 and hidden - self.top or 0),
+      b.x + 12,
+      b.y + b.h - 34,
+      { size = "small", color = theme.colors.textDim }
+    )
   end
   local orders = world.state.market.orders
   if #orders > 0 then

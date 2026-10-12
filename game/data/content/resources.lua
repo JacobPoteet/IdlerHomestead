@@ -20,6 +20,9 @@ return {
   { id = "firewood", name = "Green firewood", category = "firewood", heat = 0.5, capacity = 30 },
   { id = "seasoned_firewood", name = "Seasoned firewood", category = "fuel", heat = 1, capacity = 20 },
 
+  -- Generator fuel (GDD §7.5): burned only when the homestead is short of power.
+  { id = "fuel", name = "Fuel", category = "supply", capacity = 20 },
+
   -- Fresh fish (GDD §7.10). Ids match data/content/fish.lua.
   { id = "creek_chub", name = "Creek chub", category = "fish", calories = 250, spoilDays = 2, value = 2 },
   { id = "sunfish", name = "Sunfish", category = "fish", calories = 300, spoilDays = 2, value = 3 },

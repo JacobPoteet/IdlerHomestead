@@ -87,3 +87,26 @@ So: the winter warmth numbers and `coldDamage` move the scripted/routine player 
 5. **Autumn warmth** (2 per night) already killed 3 of 30 scripted runs in autumn Y1; do not raise it past 3 without a stove and woodshed being reachable by then (study plus purchase takes until about summer).
 
 Caveats: the `active` policy executes perfectly and instantly, so a human will do worse. A first-run human with no journal knowledge is the real target; use `active` as an upper bound and `scripted` as a lower-middle bound, and judge against both. The harness starts every career with an empty journal; use `runs=3` to look at runs 2-3 with carried knowledge (GDD says runs 3-5 should be the first to clear year 1).
+
+## Power network (issue #34)
+
+The network (GDD §7.5, D46-D49) adds sources, a battery bank, sinks and a priority list. Numbers live in `data/content/objects.lua` (kW, kWh), `catalog.lua` (prices) and `data/tuning/power.lua`.
+
+Energy budget per in-game day (1 kW for one hour = 1 kWh; seasons are 7 days, `time.daylight` gives the sun hours):
+
+| thing | summer | winter | note |
+|---|---|---|---|
+| folding panel (0.8 kW) | ~8 kWh | ~2.3 kWh | the early game: all of it goes to the truck (a trip costs 20 kWh) |
+| solar array (3 kW) | ~31 kWh | ~8.6 kWh | winter sun: 9 h of daylight x `seasonalOutput` 0.5 |
+| wind turbine (1.2 kW) | ~8 kWh | ~17 kWh | mean wind factor 0.6 x the seasonal curve; best when the sun is worst |
+| micro-hydro (0.6 kW) | ~7 kWh | ~8.6 kWh | steady, but needs a creek-side tile |
+| generator (2 kW) | fuel-limited | fuel-limited | 0.5 fuel per kWh; a fuel x5 pack is 10 kWh for $15 |
+| electric heater (1.5 kW) | 0 (idle) | up to ~21 kWh | dark hours of cold seasons, until the night's warmth is made |
+| chest freezer (0.15 kW) | 3.6 kWh | 3.6 kWh | always on |
+| work lamp (0.1 kW) | ~0.8 kWh | ~1.5 kWh | dark hours only |
+
+The squeeze (design goal): in winter an array plus a bank, heater, freezer and lamp wants about 26 kWh and the array alone makes under 9, so something is shed every night. The player's levers are the priority order (heating first, then the freezer), a turbine or micro-hydro, a generator and fuel, firewood (the heater only makes most of a mild night's warmth; `needs.dailyWarmth.winter` is 4 x severity), or leaving the truck uncharged. A winter truck trip (20 kWh) is a real choice against heating. `tests/test_power.lua` asserts the summer-versus-winter shape ("winter squeeze").
+
+Prices are meant to put each power item a few trips out: array $110, bank $80, turbine $140, hydro $160, generator $90, heater $50, lamp $15, freezer $90, fuel x5 $15. They are unvalidated against real play.
+
+Harness effect: `lovec tools/balance policy=scripted,active seeds=5 years=1` gives the same survival before and after (0 of 5 fail for both policies), with money and fuel medians within noise and about 3 percent more run time. The policies never buy power items, so the harness does not measure them; see the follow-up issue to teach them a power buy list.

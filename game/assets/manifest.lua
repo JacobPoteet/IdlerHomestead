@@ -33,6 +33,16 @@ return {
     woodshed = { placeholder = "woodshed", w = 32, h = 24 },
     wood_stove = { placeholder = "wood_stove", w = 16, h = 24 },
 
+    -- Power network (GDD §7.5)
+    solar_array = { placeholder = "solar_array", w = 32, h = 16 },
+    battery_bank = { placeholder = "battery_bank", w = 16, h = 16 },
+    wind_turbine = { placeholder = "wind_turbine", w = 16, h = 32 },
+    micro_hydro = { placeholder = "micro_hydro", w = 16, h = 16 },
+    generator = { placeholder = "generator", w = 16, h = 16 },
+    electric_heater = { placeholder = "electric_heater", w = 16, h = 16 },
+    lamp = { placeholder = "lamp", w = 16, h = 16 },
+    chest_freezer = { placeholder = "chest_freezer", w = 16, h = 16 },
+
     -- Crops: one sprite per growth stage (1 = sprout ... 3 = ready)
     radish = { placeholder = "radish", w = 16, h = 16, variants = 3 },
     potato = { placeholder = "potato", w = 16, h = 16, variants = 3 },
@@ -78,6 +88,16 @@ return {
     icon_wood_stove = { placeholder = "icon_wood_stove", w = 12, h = 12 },
     icon_smoker = { placeholder = "icon_smoker", w = 12, h = 12 },
     icon_folding_panel = { placeholder = "icon_folding_panel", w = 12, h = 12 },
+    icon_solar_array = { placeholder = "icon_folding_panel", w = 12, h = 12 },
+    icon_battery_bank = { placeholder = "icon_battery", w = 12, h = 12 },
+    icon_wind_turbine = { placeholder = "icon_wind_turbine", w = 12, h = 12 },
+    icon_micro_hydro = { placeholder = "icon_micro_hydro", w = 12, h = 12 },
+    icon_generator = { placeholder = "icon_generator", w = 12, h = 12 },
+    icon_electric_heater = { placeholder = "icon_electric_heater", w = 12, h = 12 },
+    icon_lamp = { placeholder = "icon_lamp", w = 12, h = 12 },
+    icon_chest_freezer = { placeholder = "icon_chest_freezer", w = 12, h = 12 },
+    icon_fuel = { placeholder = "icon_fuel", w = 12, h = 12 },
+    icon_fuel_can = { placeholder = "icon_fuel", w = 12, h = 12 },
 
     -- Fishing mini-game
     bobber = { placeholder = "bobber", w = 8, h = 10 },

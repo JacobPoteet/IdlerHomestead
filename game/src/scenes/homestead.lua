@@ -127,6 +127,9 @@ function Homestead:subscribe()
     events:on("weather.froze", function()
       self:queueToast("The creek froze. Cut a hole to fish or fetch water.")
     end),
+    events:on("power.brownout", function(e)
+      self:queueToast(string.format("Power short: %s at %d%%", Power.tierName(world, e.tier), math.floor(e.ratio * 100)))
+    end),
     events:on("weather.coldSnap", function(e)
       self:queueToast(e.active and "Cold snap! Fires need far more wood." or "The cold snap broke.")
     end),
@@ -372,7 +375,11 @@ function Homestead:routineLabel()
 end
 
 function Homestead:controlsKey()
-  return self:speedLabel() .. "|" .. self:routineLabel()
+  return self:speedLabel() .. "|" .. self:routineLabel() .. "|" .. tostring(Power.satisfaction(self.world) < 1)
+end
+
+function Homestead:openPower()
+  self.app:push(require("src.scenes.power").new(self.world, self:toaster()))
 end
 
 function Homestead:cycleSpeed()
@@ -413,6 +420,12 @@ function Homestead:layoutControls(view)
     enabled = routineLabel == "Start routine",
     onPress = function()
       self:startRoutine()
+    end,
+  })
+  addCol("Power", {
+    style = Power.satisfaction(self.world) < 1 and "danger" or nil, -- lit while the homestead is short of power
+    onPress = function()
+      self:openPower()
     end,
   })
   self.controlsKeyShown = self:controlsKey()
@@ -529,6 +542,10 @@ function Homestead:tap(i)
   local obj = Grid.object(world, i)
   if obj and obj.id == "truck" then
     self.app:push(require("src.scenes.truck").new(world, self:toaster()))
+    return
+  end
+  if obj and (obj.source or obj.sink or obj.battery) then
+    self:openPower() -- panels, batteries and powered devices open the power panel
     return
   end
   local hs = Actors.homesteader(world)
@@ -731,8 +748,13 @@ function Homestead:tileInfo(i)
     if obj.battery then
       lines[#lines + 1] = string.format("Battery %.1f / %d kWh", Power.charge(world, anchor), obj.battery)
     end
-    if obj.powerOutput then
-      lines[#lines + 1] = string.format("Solar %.2f kW now", obj.powerOutput * Power.sun(world))
+    if obj.source then
+      lines[#lines + 1] = string.format("Making %.2f / %g kW", Power.outputOf(world, anchor), obj.source.peak)
+    end
+    if obj.sink then
+      local state = Power.sinkState(world, anchor)
+      local ratio = math.floor(Power.sinkRatio(world, anchor) * 100 + 0.5)
+      lines[#lines + 1] = state == "ok" and "Powered" or state == "short" and string.format("Short of power (%d%%)", ratio) or state == "off" and "Switched off" or "Idle"
     end
     if obj.station then
       local batch = Processing.batch(world, anchor)

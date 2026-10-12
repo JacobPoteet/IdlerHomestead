@@ -89,32 +89,47 @@ function Truck:layout()
   })
   self.shopRows = {}
   local x = b.x + b.w / 2 + 6
-  local n = 0
+  local known = {}
   for _, item in ipairs(world.registry:all("catalog")) do
     if Market.isKnown(world, item.id) then
-      n = n + 1
-      local y = b.y + 50 + (n - 1) * ROW_H
-      if y + ROW_H < b.y + b.h - 8 then
-        self.shopRows[#self.shopRows + 1] = { item = item, y = y, x = x }
-        local reason = Market.cannotBuy(world, item.id, true)
-        self.buttons:add({
-          x = b.x + b.w - 70,
-          y = y,
-          w = 60,
-          h = ROW_H - 2,
-          label = reason == "owned" and "Owned" or reason == "no room" and "No room" or ("$" .. Market.itemPrice(world, item.id)),
-          enabled = reason == nil,
-          style = world.state.market.specials[item.id] and "accent" or nil,
-          onPress = function()
-            if Market.buyInTown(world, item.id) then
-              self.onToast("Bought " .. item.name)
-            end
-            self:layout()
-          end,
-        })
-      end
+      known[#known + 1] = item
     end
   end
+  -- The shop list scrolls by whole rows (drag or wheel) when it outgrows the panel.
+  local visible = self:shopVisibleRows()
+  self.top = math.max(0, math.min(self.top or 0, #known - visible))
+  for n = self.top + 1, math.min(#known, self.top + visible) do
+    local item = known[n]
+    local y = b.y + 50 + (n - self.top - 1) * ROW_H
+    self.shopRows[#self.shopRows + 1] = { item = item, y = y, x = x }
+    local reason = Market.cannotBuy(world, item.id, true)
+    self.buttons:add({
+      x = b.x + b.w - 70,
+      y = y,
+      w = 60,
+      h = ROW_H - 2,
+      label = reason == "owned" and "Owned" or reason == "no room" and "No room" or ("$" .. Market.itemPrice(world, item.id)),
+      enabled = reason == nil,
+      style = world.state.market.specials[item.id] and "accent" or nil,
+      onPress = function()
+        if Market.buyInTown(world, item.id) then
+          self.onToast("Bought " .. item.name)
+        end
+        self:layout()
+      end,
+    })
+  end
+  self.shopMore = #known - self.top - visible
+end
+
+-- Shop rows that fit between the header and the bottom edge.
+function Truck:shopVisibleRows()
+  return math.max(1, math.floor((self.box.h - 50 - 16) / ROW_H))
+end
+
+function Truck:scrollShop(rows)
+  self.top = (self.top or 0) + rows
+  self:layout()
 end
 
 function Truck:update(dt)
@@ -126,8 +141,22 @@ function Truck:update(dt)
 end
 
 function Truck:action(name, data)
-  if not self.buttons:action(name, data) and name == "cancel" and not self:inTown() then
+  if self.buttons:action(name, data) then
+    return true
+  end
+  if name == "cancel" and not self:inTown() then
     self.app:pop()
+  elseif self:inTown() and name == "pan" then
+    self.dragged = (self.dragged or 0) + data.dy
+    local rows = math.floor(math.abs(self.dragged) / ROW_H)
+    if rows > 0 then
+      self.dragged = self.dragged - (self.dragged > 0 and 1 or -1) * rows * ROW_H
+      self:scrollShop(data.dy > 0 and -rows or rows) -- dragging up shows later rows
+    end
+  elseif self:inTown() and name == "zoom" then
+    self:scrollShop(-data.steps)
+  elseif name == "release" then
+    self.dragged = 0
   end
   return true
 end
@@ -145,14 +174,14 @@ function Truck:draw()
   if not self:inTown() then
     local charge, cap = Power.charge(world, truck), Power.capacity(world, truck)
     local cost = world.tuning.economy.tripCost
-    Panel.frame(self.app.view, b, "Electric truck", "Charged by the folding solar panel.")
+    Panel.frame(self.app.view, b, "Electric truck", "Charged from spare power, after the homestead.")
     bar(b.x + 12, b.y + 46, b.w - 24, 12, charge / cap, { 0.45, 0.82, 0.42 })
     -- Mark how much a trip needs.
     local mx = b.x + 12 + (b.w - 24) * cost / cap
     love.graphics.setColor(theme.colors.accent)
     love.graphics.rectangle("fill", mx, b.y + 43, 1, 18)
     Text.draw(string.format("%.1f / %d kWh · a trip uses %d", charge, cap, cost), b.x + 12, b.y + 64, { size = "small" })
-    Text.draw(string.format("Solar now: %.2f kW", Power.output(world)), b.x + 12, b.y + 78, {
+    Text.draw(string.format("Making %.2f kW, homestead using %.2f kW", Power.output(world), Power.flow(world).served), b.x + 12, b.y + 78, {
       size = "small",
       color = theme.colors.textDim,
     })
@@ -173,6 +202,12 @@ function Truck:draw()
     end
     Text.draw(string.format("Total $%d", total), b.x + 12, b.y + b.h - 50, { size = "small", color = theme.colors.accent })
     Text.draw("Shop", b.x + b.w / 2 + 6, b.y + 38, { size = "small", color = theme.colors.textDim })
+    if (self.shopMore or 0) > 0 then
+      Text.draw(string.format("Drag or scroll: %d more", self.shopMore), b.x + b.w / 2 + 6, b.y + b.h - 14, {
+        size = "small",
+        color = theme.colors.textDim,
+      })
+    end
     for _, row in ipairs(self.shopRows or {}) do
       Panel.icon(Panel.catalogIcon(row.item), row.x, row.y + 4)
       Text.draw(row.item.name, row.x + 16, row.y + 5, { size = "small" })
