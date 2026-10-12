@@ -36,8 +36,6 @@ local theme = require("src.ui.theme")
 local Homestead = { name = "homestead", opaque = true }
 Homestead.__index = Homestead
 
-local TOP_H = 24
-local BOTTOM_H = 34
 local TOAST_TIME = 2.6
 
 function Homestead.new()
@@ -221,32 +219,80 @@ function Homestead:nextPlaceable()
   return ids[1]
 end
 
+-- Top-bar stats, in order: { icon, text }. Big numbers are abbreviated so the strip stays short.
+local function count(n)
+  if n >= 10000 then
+    return string.format("%dk", math.floor(n / 1000))
+  end
+  return tostring(n)
+end
+
+function Homestead:stats()
+  local world = self.world
+  local truck = world.state.land.truck
+  -- Warmth in stock, in nights of this season's need (or the raw amount when no fire is needed).
+  local warmth, need = Needs.warmthInStock(world), Needs.warmthNeeded(world)
+  return {
+    { "icon_money", "$" .. count(Ledger.get(world, "money")) },
+    { "icon_food", string.format("%.1fd", Needs.foodDays(world)) },
+    { "icon_heart", tostring(math.floor(world.state.needs.condition + 0.5)) },
+    { "icon_battery", string.format("%d%%", math.floor(Power.charge(world, truck) / Power.capacity(world, truck) * 100)) },
+    { "icon_crate", count(Food.crateCount(world)) },
+    { "icon_wood", count(Ledger.get(world, "wood")) },
+    { "icon_firewood", need > 0 and string.format("%.1fn", warmth / need) or string.format("%.0f", warmth) },
+  }
+end
+
+-- Width of the stat strip with `gap` between stats.
+function Homestead:statsWidth(gap)
+  local ui = self.app.ctx.tuning.ui
+  local total = 0
+  for _, s in ipairs(self:stats()) do
+    total = total + Assets.sprite(s[1]).w + ui.statIconGap + Text.measure(s[2], "small")
+  end
+  return total + gap * (#self:stats() - 1)
+end
+
+-- True when the stats don't fit beside the date and need their own row under it.
+function Homestead:wantsStatRow()
+  local ui = self.app.ctx.tuning.ui
+  local room = self.app.view.w - ui.menuWidth - ui.statsAfterDate - ui.barPadding
+  return self:statsWidth(ui.statMinGap) > room
+end
+
 function Homestead:layout()
   local view = self.app.view
   local world = self.world
+  local ui = self.app.ctx.tuning.ui
+  local compact = view.w < ui.compactWidth
+  local btnH = compact and ui.compactButtonHeight or ui.buttonHeight
+  self.btnH = btnH
+  self.statRow = self:wantsStatRow()
+  self.topRowH = compact and ui.compactTopBarHeight or ui.topBarHeight
+  self.topH = self.topRowH + (self.statRow and ui.statRowHeight or 0)
   self.buttons:clear()
   self.seedButtons = {}
   self.buttons:add({
-    x = view.w - 52,
+    x = view.w - ui.menuWidth - 2,
     y = 0,
-    w = 50,
-    h = TOP_H,
+    w = ui.menuWidth,
+    h = self.topRowH,
     label = "Menu",
     onPress = function()
       self:openMenu()
     end,
   })
-  local y = view.h - BOTTOM_H + 5
-  local x = 6
+  -- Toolbar buttons are collected first and placed afterwards: they wrap onto extra rows
+  -- when the view is too narrow for one.
+  local bw = ui.buttonWidths
+  local left, right = {}, {}
   local function add(b)
-    b.x, b.y, b.h = x, y, 24
-    self.buttons:add(b)
-    x = x + b.w + 4
+    left[#left + 1] = b
     return b
   end
   local inHand = self.mode == "act"
   add({
-    w = 40,
+    w = bw.hand,
     label = "Hand",
     selected = inHand and not self.seed and not self.tool,
     onPress = function()
@@ -255,7 +301,7 @@ function Homestead:layout()
   })
   for _, crop in ipairs(world.registry:all("crops")) do
     self.seedButtons[crop.id] = add({
-      w = 40,
+      w = bw.seed,
       icon = "icon_" .. crop.seed,
       label = tostring(Ledger.get(world, crop.seed)),
       selected = self.seed == crop.id and self.mode ~= "place",
@@ -269,7 +315,7 @@ function Homestead:layout()
     })
   end
   add({
-    w = 30,
+    w = bw.rod,
     icon = "icon_rod",
     label = "",
     selected = inHand and self.tool == "rod",
@@ -277,13 +323,13 @@ function Homestead:layout()
       self:setHand(nil, self.tool ~= "rod" and "rod" or nil)
     end,
   })
-  x = x + 4
   local placeable = self:nextPlaceable()
   if placeable then
     local def = world.registry:get("objects", placeable)
     local label = "Place " .. def.name:lower()
     add({
-      w = math.max(80, math.ceil(Text.measure(label, "body")) + 12),
+      gapBefore = ui.groupGap,
+      w = math.max(bw.placeMin, math.ceil(Text.measure(label, "body")) + 12),
       label = label,
       style = "accent",
       selected = self.mode == "place",
@@ -299,7 +345,8 @@ function Homestead:layout()
     })
   end
   add({
-    w = 46,
+    gapBefore = not placeable and ui.groupGap or nil,
+    w = bw.plan,
     label = "Plan",
     selected = self.mode == "plan",
     onPress = function()
@@ -314,51 +361,105 @@ function Homestead:layout()
     end,
   })
   add({
-    w = 54,
+    w = bw.routine,
     label = "Routine",
     onPress = function()
       self.app:push(require("src.scenes.routine").new(world))
     end,
   })
-  self:layoutControls(view)
-  -- Right side: books and lists
-  local rx = view.w - 6
+  -- Books and lists, left to right
   local function addRight(b)
-    rx = rx - b.w
-    b.x, b.y, b.h = rx, y, 24
-    rx = rx - 4
-    self.buttons:add(b)
+    right[#right + 1] = b
   end
   self.journalPrompt = Journal.needsChoice(world)
   addRight({
-    w = 56,
-    label = "Journal",
-    style = self.journalPrompt and "accent" or nil,
+    w = bw.pantry,
+    label = "Pantry",
     onPress = function()
-      self.app:push(require("src.scenes.journal").new(world, self:toaster()))
+      self.app:push(require("src.scenes.pantry").new(world))
     end,
   })
   addRight({
-    w = 42,
-    label = "Fish",
-    onPress = function()
-      self.app:push(require("src.scenes.guide").new(world))
-    end,
-  })
-  addRight({
-    w = 56,
+    w = bw.catalog,
     label = "Catalog",
     onPress = function()
       self.app:push(require("src.scenes.catalog").new(world, self:toaster()))
     end,
   })
   addRight({
-    w = 52,
-    label = "Pantry",
+    w = bw.fish,
+    label = "Fish",
     onPress = function()
-      self.app:push(require("src.scenes.pantry").new(world))
+      self.app:push(require("src.scenes.guide").new(world))
     end,
   })
+  addRight({
+    w = bw.journal,
+    label = "Journal",
+    style = self.journalPrompt and "accent" or nil,
+    onPress = function()
+      self.app:push(require("src.scenes.journal").new(world, self:toaster()))
+    end,
+  })
+  self:placeToolbar(view, left, right)
+  self:layoutControls(view)
+end
+
+-- Place the toolbar buttons. On a wide view the tools sit left and the books right on one row;
+-- when that doesn't fit, each group flows left to right and wraps, with the books starting a
+-- fresh row, and the bar grows upward to hold the extra rows.
+function Homestead:placeToolbar(view, left, right)
+  local ui = self.app.ctx.tuning.ui
+  local pad, gap, h = ui.barPadding, ui.buttonGap, self.btnH
+  local avail = view.w - 2 * pad
+  local function span(items)
+    local w = 0
+    for i, b in ipairs(items) do
+      w = w + b.w + (i > 1 and gap + (b.gapBefore or 0) or 0)
+    end
+    return w
+  end
+  local rows, rightOnRow1 = {}, span(left) + gap + span(right) <= avail
+  local function flow(items)
+    local row, rowW = {}, 0
+    for _, b in ipairs(items) do
+      local need = b.w + (#row > 0 and gap + (b.gapBefore or 0) or 0)
+      if #row > 0 and rowW + need > avail then
+        rows[#rows + 1] = row
+        row, rowW, need = {}, 0, b.w
+      end
+      row[#row + 1] = b
+      rowW = rowW + need
+    end
+    if #row > 0 then
+      rows[#rows + 1] = row
+    end
+  end
+  flow(left)
+  if not rightOnRow1 then
+    flow(right)
+  end
+  self.bottomH = 2 * ui.barMargin + #rows * h + (#rows - 1) * gap
+  local top = view.h - self.bottomH + ui.barMargin
+  for r, row in ipairs(rows) do
+    local x, y = pad, top + (r - 1) * (h + gap)
+    for i, b in ipairs(row) do
+      x = x + (i > 1 and gap + (b.gapBefore or 0) or 0)
+      b.x, b.y, b.h = x, y, h
+      self.buttons:add(b)
+      x = x + b.w
+    end
+  end
+  if rightOnRow1 then
+    local x = view.w - pad
+    for i = #right, 1, -1 do
+      local b = right[i]
+      x = x - b.w
+      b.x, b.y, b.h = x, top, h
+      self.buttons:add(b)
+      x = x - gap
+    end
+  end
 end
 
 -- Speed and routine buttons: a column under the top bar, away from the (crowded) toolbar.
@@ -401,14 +502,15 @@ function Homestead:startRoutine()
 end
 
 function Homestead:layoutControls(view)
-  local x2, y = view.w - 4, TOP_H + 4
+  local ui = self.app.ctx.tuning.ui
+  local x2, y = view.w - ui.buttonGap, self.topH + ui.buttonGap
   local speedLabel, routineLabel = self:speedLabel(), self:routineLabel()
   local function addCol(label, b)
     b.label = label
-    b.w = math.max(54, math.ceil(Text.measure(label, "body")) + 14)
-    b.x, b.y, b.h = x2 - b.w, y, 24
+    b.w = math.max(ui.controlMinWidth, math.ceil(Text.measure(label, "body")) + ui.controlTextPadding)
+    b.x, b.y, b.h = x2 - b.w, y, self.btnH
     self.buttons:add(b)
-    y = y + b.h + 4
+    y = y + b.h + ui.buttonGap
   end
   addCol(speedLabel, {
     style = self.session:speed() == 0 and "accent" or nil,
@@ -467,7 +569,7 @@ function Homestead:update(dt)
       end
     end
   end
-  if self:controlsKey() ~= self.controlsKeyShown then
+  if self:controlsKey() ~= self.controlsKeyShown or self:wantsStatRow() ~= self.statRow then
     self:layout()
   end
   -- The Journal button lights up while there's an idea to pick and nothing queued (GDD §8.1).
@@ -496,7 +598,7 @@ function Homestead:tileAt(vx, vy)
 end
 
 function Homestead:inWorldArea(y)
-  return y > TOP_H and y < self.app.view.h - BOTTOM_H
+  return y > self.topH and y < self.app.view.h - self.bottomH
 end
 
 function Homestead:applyPlan(a, b)
@@ -656,35 +758,35 @@ function Homestead:drawOverlays()
   end
 end
 
-local function stat(icon, value, x, y)
-  local sprite = Assets.sprite(icon)
-  love.graphics.setColor(1, 1, 1, 1)
-  love.graphics.draw(sprite.image, sprite.quad, x, y)
-  Text.draw(value, x + sprite.w + 3, y + 1, { size = "small" })
-  local w = Text.measure(value, "small")
-  return x + sprite.w + 3 + w + 9
-end
-
 function Homestead:drawTopBar(view)
   local world = self.world
+  local ui = self.app.ctx.tuning.ui
   love.graphics.setColor(theme.colors.panel)
-  love.graphics.rectangle("fill", 0, 0, view.w, TOP_H)
+  love.graphics.rectangle("fill", 0, 0, view.w, self.topH)
   local now = Calendar.now(world)
   local hour = math.floor(now.hour)
   local minute = math.floor((now.hour - hour) * 60)
   local season = now.season:gsub("^%l", string.upper)
-  Text.draw(string.format("Day %d · %s · %02d:%02d", now.dayOfSeason, season, hour, minute), 8, 7, { size = "body" })
-  local truck = world.state.land.truck
-  local x = 162
-  x = stat("icon_money", "$" .. Ledger.get(world, "money"), x, 6)
-  x = stat("icon_food", string.format("%.1fd", Needs.foodDays(world)), x, 6)
-  x = stat("icon_heart", tostring(math.floor(world.state.needs.condition + 0.5)), x, 6)
-  x = stat("icon_battery", string.format("%d%%", math.floor(Power.charge(world, truck) / Power.capacity(world, truck) * 100)), x, 6)
-  x = stat("icon_crate", tostring(Food.crateCount(world)), x, 6)
-  x = stat("icon_wood", tostring(Ledger.get(world, "wood")), x, 6)
-  -- Warmth in stock, in nights of this season's need (or the raw amount when no fire is needed).
-  local warmth, need = Needs.warmthInStock(world), Needs.warmthNeeded(world)
-  stat("icon_firewood", need > 0 and string.format("%.1fn", warmth / need) or string.format("%.0f", warmth), x, 6)
+  local date = string.format("Day %d · %s · %02d:%02d", now.dayOfSeason, season, hour, minute)
+  local _, th = Text.measure(date, "body")
+  Text.draw(date, 8, math.floor((self.topRowH - th) / 2), { size = "body" })
+  -- Stats sit beside the date, or on their own row under it when the view is too narrow.
+  local x, rowTop, room
+  if self.statRow then
+    x, rowTop, room = ui.barPadding, self.topRowH, view.w - 2 * ui.barPadding
+  else
+    x, rowTop, room = ui.statsAfterDate, 0, view.w - ui.menuWidth - ui.statsAfterDate - ui.barPadding
+  end
+  local rowH = self.statRow and ui.statRowHeight or self.topRowH
+  local gap = self:statsWidth(ui.statGap) <= room and ui.statGap or ui.statMinGap
+  for _, s in ipairs(self:stats()) do
+    local sprite = Assets.sprite(s[1])
+    local y = rowTop + math.floor((rowH - sprite.h) / 2)
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(sprite.image, sprite.quad, x, y)
+    Text.draw(s[2], x + sprite.w + ui.statIconGap, y + 1, { size = "small" })
+    x = x + sprite.w + ui.statIconGap + Text.measure(s[2], "small") + gap
+  end
 end
 
 -- Winter forecast under the top bar, from autumn on (GDD §4.1); loud during the cold snap.
@@ -704,13 +806,13 @@ function Homestead:drawForecast()
   end
   local w = Text.measure(text, "small") + 12
   love.graphics.setColor(0, 0, 0, 0.45)
-  love.graphics.rectangle("fill", 4, TOP_H + 4, w, 14, 3, 3)
-  Text.draw(text, 4, TOP_H + 6, { size = "small", width = w, align = "center", color = color })
+  love.graphics.rectangle("fill", 4, self.topH + 4, w, 14, 3, 3)
+  Text.draw(text, 4, self.topH + 6, { size = "small", width = w, align = "center", color = color })
 end
 
 function Homestead:drawBottomBar(view)
   love.graphics.setColor(theme.colors.panel)
-  love.graphics.rectangle("fill", 0, view.h - BOTTOM_H, view.w, BOTTOM_H)
+  love.graphics.rectangle("fill", 0, view.h - self.bottomH, view.w, self.bottomH)
 end
 
 function Homestead:drawControlBadge(view)
@@ -722,12 +824,15 @@ function Homestead:drawControlBadge(view)
     text, color = "Paused", theme.colors.accent
   elseif self.world.control == "idle" then
     text, color = "Routine running", theme.colors.accent
+  elseif not self.session:canStartRoutine() then
+    -- Bedtime (D35): the routine rests too, so a countdown would never finish.
+    text, color = "Resting hours", theme.colors.textDim
   else
     local remaining = self:takeoverDelay() - ctx.input:idleSeconds()
     text, color = string.format("Routine in %ds", math.max(0, math.ceil(remaining))), theme.colors.textDim
   end
   local w = Text.measure(text, "small") + 12
-  local x, y = view.w - w - 4, view.h - BOTTOM_H - 18
+  local x, y = view.w - w - 4, view.h - self.bottomH - 18 -- 14 px badge + 4 px gap
   love.graphics.setColor(0, 0, 0, 0.45)
   love.graphics.rectangle("fill", x, y, w, 14, 3, 3)
   Text.draw(text, x, y + 2, { size = "small", width = w, align = "center", color = color })
@@ -791,7 +896,7 @@ function Homestead:drawInfo(view)
   if self.selected then
     local lines = self:tileInfo(self.selected)
     local h = #lines * 11 + 8
-    local y = view.h - BOTTOM_H - h - 4
+    local y = view.h - self.bottomH - h - 4
     Draw.panel(4, y, 132, h)
     for n, line in ipairs(lines) do
       Text.draw(line, 10, y + 4 + (n - 1) * 11, { size = "small", color = n == 1 and theme.colors.text or theme.colors.textDim })
@@ -799,7 +904,7 @@ function Homestead:drawInfo(view)
   end
   if self.toast then
     local w = Text.measure(self.toast.text, "body") + 16
-    local x, y = (view.w - w) / 2, view.h - BOTTOM_H - 26
+    local x, y = (view.w - w) / 2, view.h - self.bottomH - 26
     love.graphics.setColor(0, 0, 0, 0.55 * math.min(1, self.toast.time * 3))
     love.graphics.rectangle("fill", x, y, w, 18, 3, 3)
     Text.draw(self.toast.text, x, y + 4, { size = "body", width = w, align = "center" })
@@ -825,7 +930,7 @@ function Homestead:draw()
   love.graphics.pop()
 
   -- HUD (not graded)
-  ActionRing.draw(self.world, self.camera, view, { top = TOP_H, bottom = view.h - BOTTOM_H })
+  ActionRing.draw(self.world, self.camera, view, { top = self.topH, bottom = view.h - self.bottomH })
   self:drawTopBar(view)
   self:drawForecast()
   self:drawBottomBar(view)

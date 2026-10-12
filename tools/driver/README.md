@@ -5,12 +5,12 @@ for docs. It needs a window and a GPU context (it renders for real), so it is no
 `lovec tests`.
 
 ```
-lovec tools/driver <scenario|all> [size=desktop|phone|both] [out=dir]
+lovec tools/driver <scenario|all> [size=desktop|phone|landscape|both] [out=dir]
 lovec tools/driver help=1            # lists scenarios
 ```
 
-- `size`: `desktop` is 1280x720, `phone` is 390x844. Default runs both, so every scenario is also
-  a phone-size run.
+- `size`: `desktop` is 1280x720, `phone` is 390x844, `landscape` is 844x390 (phone on its side).
+  Default (`both`) runs all three, so every scenario is also a phone-size run.
 - `out`: output directory, which must already exist. Default `docs/screens`. Files are named
   `<scenario>_<size>_<NN>_<name>.png`.
 - Exit code is non-zero if a scenario throws (a missing button, an assert, a game error).

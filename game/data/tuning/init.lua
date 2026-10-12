@@ -21,4 +21,5 @@ return {
   "study",
   "weather",
   "visuals",
+  "ui",
 }

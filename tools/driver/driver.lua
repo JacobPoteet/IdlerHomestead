@@ -15,6 +15,7 @@ Driver.__index = Driver
 Driver.SIZES = {
   desktop = { w = 1280, h = 720 },
   phone = { w = 390, h = 844 },
+  landscape = { w = 844, h = 390 },
 }
 
 local FRAME = 1 / 20 -- real seconds per scripted frame (one sim tick at 1x)
