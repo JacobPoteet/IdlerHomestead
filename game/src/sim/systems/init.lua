@@ -26,5 +26,6 @@ return {
   "needs",
   "sleep",
   "actors",
+  "machines",
   "routine",
 }

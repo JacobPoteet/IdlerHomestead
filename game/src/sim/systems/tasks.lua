@@ -19,8 +19,16 @@
 --   complete(world, actor, i, order)     apply the result
 --   standOn                              true: actor must stand on the tile (default: within 1)
 --
+-- Actors (GDD §7.4, D65) are anything that claims tasks: the homesteader (actors.lua) walks to a
+-- target found by `chooseIdleJob` or a player order; a machine (machines.lua) stands still and
+-- claims through `chooseAreaJob`, limited by its capability set { categories, tasks? } and an area
+-- { center, radius }. Every claim goes through the same reservations, keyed by task and tile, so two
+-- actors never work the same target: a reservation names its holder (actor.id) and only that holder
+-- can release it.
+--
 -- State: world.state.priorities = ordered { { category, enabled } } for the idle routine.
--- Runtime: world.taskTypes (registered each load), world.reservations.
+-- Runtime: world.taskTypes (registered each load), world.reservations ("task:tile" -> actor id),
+-- rebuilt on load from the jobs actors and machines hold.
 
 local Grid = require("src.sim.grid")
 local Pathfind = require("src.sim.pathfind")
@@ -101,12 +109,51 @@ local function reservedByOther(world, actor, taskId, i)
   return holder ~= nil and holder ~= actor.id
 end
 
+--- Claim a job's target for an actor. The job remembers its holder, so a later release by an actor
+--- that lost the claim (a player order took the tile over) cannot free someone else's reservation.
 function Tasks.reserve(world, actor, job)
+  job.holder = actor.id
   world.reservations[reservationKey(job.task, job.target)] = actor.id
 end
 
+--- Give up a job's claim, if this job still holds it (jobs saved before holders existed always do).
 function Tasks.release(world, job)
-  world.reservations[reservationKey(job.task, job.target)] = nil
+  local key = reservationKey(job.task, job.target)
+  if job.holder == nil or world.reservations[key] == job.holder then
+    world.reservations[key] = nil
+  end
+end
+
+--- Id of the actor holding task `taskId` on tile i, or nil.
+function Tasks.holder(world, taskId, i)
+  return world.reservations[reservationKey(taskId, i)]
+end
+
+--- Does a capability set allow this task type? caps = { categories = { id... }, tasks = { id... }? }:
+--- the task's category must be listed, and when `tasks` is given its id must be listed too. A nil
+--- capability set (the homesteader) allows everything.
+function Tasks.allows(caps, taskType)
+  if caps == nil then
+    return true
+  end
+  if not taskType.category then
+    return false
+  end
+  local ok = false
+  for _, c in ipairs(caps.categories) do
+    if c == taskType.category then
+      ok = true
+    end
+  end
+  if ok and caps.tasks then
+    ok = false
+    for _, id in ipairs(caps.tasks) do
+      if id == taskType.id then
+        ok = true
+      end
+    end
+  end
+  return ok
 end
 
 local function pathFor(world, actor, taskType, target)
@@ -177,7 +224,7 @@ function Tasks.chooseIdleJob(world, actor)
     if entry.enabled then
       local targets, taskAt, any = {}, {}, false
       for _, t in ipairs(world.taskTypes.list) do
-        if t.category == entry.category and t.candidates then
+        if t.category == entry.category and t.candidates and Tasks.allows(actor.caps, t) then
           local canDoCandidate = t.canDoCandidate
           local canDo = t.canDo
           t.candidates(world, actor, function(i)
@@ -207,6 +254,46 @@ function Tasks.chooseIdleJob(world, actor)
     end
   end
   return nil
+end
+
+--- A stationary actor's search (machines, D65): within its capability set and area, the first
+--- category in `caps.categories` order with a doable, unclaimed target; within it the target nearest
+--- the area's centre (Chebyshev), ties by tile index, so the choice never depends on table order.
+--- No path: a machine reaches its area without walking.
+--- area = { center = tile index, radius = tiles }.
+--- Returns job, nil when one is found; otherwise nil, full where `full` is the id of a resource whose
+--- full store is holding back a target in the area (D59), or nil when there is simply nothing to do.
+function Tasks.chooseAreaJob(world, actor, caps, area)
+  local grid = world.state.grid
+  local full, fullKey -- the nearest held-back target decides which full store is reported
+  local function closer(dist, i, otherDist, other)
+    return otherDist == nil or dist < otherDist or (dist == otherDist and i < other)
+  end
+  for _, category in ipairs(caps.categories) do
+    local best, bestDist, bestType
+    for _, t in ipairs(world.taskTypes.list) do
+      if t.category == category and t.candidates and Tasks.allows(caps, t) then
+        t.candidates(world, actor, function(i)
+          local dist = Grid.distance(grid, area.center, i)
+          if dist > area.radius or reservedByOther(world, actor, t.id, i) or not closer(dist, i, bestDist, best) then
+            return
+          end
+          if t.canDo(world, actor, i, nil) then
+            best, bestDist, bestType = i, dist, t
+          elseif t.blocked and closer(dist, i, fullKey and fullKey[1], fullKey and fullKey[2]) then
+            local res = t.blocked(world, actor, i, nil)
+            if res then
+              full, fullKey = res, { dist, i }
+            end
+          end
+        end)
+      end
+    end
+    if best then
+      return newJob(bestType, best, {}, nil), nil
+    end
+  end
+  return nil, full
 end
 
 return Tasks

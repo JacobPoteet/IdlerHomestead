@@ -51,6 +51,7 @@ return {
     drip_line = { placeholder = "drip_line", w = 16, h = 16 },
     roadside_stand = { placeholder = "roadside_stand", w = 32, h = 24 },
     chicken_coop = { placeholder = "chicken_coop", w = 32, h = 24 },
+    auto_harvester = { placeholder = "auto_harvester", w = 16, h = 24 },
 
     -- Crops: one sprite per growth stage (1 = sprout ... 3 = ready)
     radish = { placeholder = "radish", w = 16, h = 16, variants = 3 },
@@ -124,6 +125,7 @@ return {
     icon_chicken_coop = { placeholder = "icon_chicken_coop", w = 12, h = 12 },
     icon_chicken_feed = { placeholder = "icon_chicken_feed", w = 12, h = 12 },
     icon_chicken_fence = { placeholder = "icon_chicken_fence", w = 12, h = 12 },
+    icon_auto_harvester = { placeholder = "icon_auto_harvester", w = 12, h = 12 },
     icon_fuel = { placeholder = "icon_fuel", w = 12, h = 12 },
     icon_fuel_can = { placeholder = "icon_fuel", w = 12, h = 12 },
 

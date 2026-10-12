@@ -102,7 +102,7 @@ T.test("power content: sinks and sources are well formed and have art", function
     tiers[id] = true
   end
   local curves = { solar = true, wind = true, hydro = true, fuel = true }
-  local schedules = { always = true, dark = true, heat = true, fill = true }
+  local schedules = { always = true, dark = true, heat = true, fill = true, demand = true }
   for _, def in ipairs(reg:all("objects")) do
     if def.sink then
       T.truthy(tiers[def.sink.tier], def.id .. ": sink tier is in tuning.power.defaultOrder")

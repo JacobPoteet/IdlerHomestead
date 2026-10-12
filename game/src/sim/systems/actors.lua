@@ -1,4 +1,5 @@
--- Actors (GDD §7.4): things that walk around and do tasks. For now, the homesteader.
+-- Actors (GDD §7.4): things that walk around and do tasks. For now, the homesteader. Machines are
+-- stationary actors on the same task board, run by machines.lua (D65).
 --
 -- State: world.state.actors = array of
 --   { id, kind, x, y, bucket, job, order, wait }
@@ -50,11 +51,21 @@ function Actors.init(world)
   end
 end
 
+--- The homesteader: the first actor of kind "homesteader" (it is created first, so this is actors[1]
+--- on every save; the lookup keeps that an implementation detail).
 function Actors.homesteader(world)
-  return world.state.actors[1]
+  local list = world.state.actors
+  for _, actor in ipairs(list) do
+    if actor.kind == "homesteader" then
+      return actor
+    end
+  end
+  return list[1]
 end
 
---- All actors (array; empty before the actors system has initialised).
+--- All walking actors (array; empty before the actors system has initialised). Machines are actors
+--- on the task board too, but stand still and live in machines.lua (Machines.list), so this list is
+--- what walks, sleeps and carries a bucket (D65).
 function Actors.list(world)
   return world.state.actors or {}
 end

@@ -8,6 +8,7 @@ local Calendar = require("src.sim.systems.calendar")
 local Features = require("features")
 local Finds = require("src.sim.systems.finds")
 local Inventory = require("src.sim.systems.inventory")
+local Machines = require("src.sim.systems.machines")
 local Power = require("src.sim.systems.power")
 local Stand = require("src.sim.systems.stand")
 local Journal = require("src.sim.systems.journal")
@@ -301,8 +302,9 @@ local function playRun(ctx, session, policyName, seed, years, features)
   result.counters.waterHand, result.counters.waterDrip = water.hand, water.drip
   result.counters.waterPumped, result.counters.waterRained = water.pumped, water.rained
   result.counters.standUnits = Stand.total(world).units
+  result.counters.machineHarvests = Machines.done(world)
   result.owned = {}
-  for _, id in ipairs({ "shelter_cat", "chicken_coop", "chicken_fence", "roadside_stand", "stand_sign", "stand_cooler", "stand_display", "well", "cistern", "dc_pump", "drip_line", "hand_pump", "solar_array", "battery_bank", "wind_turbine", "micro_hydro", "generator", "electric_heater", "lamp", "chest_freezer" }) do
+  for _, id in ipairs({ "shelter_cat", "chicken_coop", "chicken_fence", "roadside_stand", "stand_sign", "stand_cooler", "stand_display", "well", "cistern", "dc_pump", "drip_line", "hand_pump", "solar_array", "battery_bank", "wind_turbine", "micro_hydro", "generator", "electric_heater", "lamp", "chest_freezer", "auto_harvester" }) do
     if Inventory.owns(world, id) then
       result.owned[id] = true
     end
@@ -690,11 +692,12 @@ function Balance.printFeatures(summary, years)
   end
   line(
     string.format(
-      "Per run (mean): trips %.1f, truck $%.0f, stand units %.0f, harvested %.0f, fish %.0f",
+      "Per run (mean): trips %.1f, truck $%.0f, stand units %.0f, harvested %.0f (crops picked by machines %.0f), fish %.0f",
       q("trips").mean,
       q("earned").mean,
       q("standUnits").mean,
       q("harvested").mean,
+      q("machineHarvests").mean,
       q("fish").mean
     )
   )

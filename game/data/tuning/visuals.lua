@@ -48,6 +48,7 @@ return {
     trackColor = { 0.93, 0.91, 0.84, 0.35 }, -- the unfilled part of the ring
     orderedColor = { 0.89, 0.71, 0.36, 1 }, -- fill for actions the player ordered (matches the UI accent)
     routineColor = { 0.62, 0.80, 0.84, 1 }, -- fill for actions the idle routine chose
+    machineColor = { 0.86, 0.66, 0.20, 1 }, -- fill for a machine's work (D65), the machines' yellow
     segments = 28, -- polygon segments in a full circle
   },
   powerLamp = { -- status light on powered devices and generators (GDD §7.5)
@@ -74,6 +75,24 @@ return {
     dry = { 0.95, 0.40, 0.30, 0.30 },
   },
   waterSpots = { 0.35, 0.62, 0.80, 0.28 }, -- tint over tiles where a well or pump can be sunk, while placing one
+  machine = { -- machines (D65): status light, reach zone and the picking arm
+    lamp = { -- status light colours by Machines status (same size as powerLamp)
+      working = { 0.45, 0.90, 0.42 }, -- working at full power
+      starting = { 0.45, 0.90, 0.42 }, -- asked for power this tick (shown as working)
+      slow = { 0.95, 0.75, 0.30 }, -- partly powered: working slowly
+      unpowered = { 0.95, 0.35, 0.30 }, -- has work but not enough power
+      full = { 0.95, 0.55, 0.85 }, -- work held back by a full store
+      idle = { 0.85, 0.75, 0.35 }, -- nothing ripe in reach
+      off = { 0.35, 0.37, 0.36 }, -- switched off
+    },
+    zone = { 0.95, 0.80, 0.30, 0.22 }, -- tint over the tiles a machine reaches (selected or being placed)
+    zoneUnpowered = { 0.95, 0.40, 0.30, 0.25 }, -- the same while it is unpowered
+    arm = { 0.80, 0.82, 0.84, 0.9 }, -- line from the machine's arm to the tile it is working
+    armWidth = 1, -- world art pixels
+    grip = { 13, 9 }, -- pixel (x, y) on the 16x24 placeholder sprite where the arm leaves the machine
+    armWobble = 1.5, -- world art pixels the arm's tip bobs while working
+    armWobbleSpeed = 6, -- radians per second of the bob
+  },
   weather = { -- day-to-day weather look (D51); full ambience (cloud shadows, wind sway, wet ground) is #49
     blendSeconds = 3, -- real seconds for the look to ease into a new day's weather
     looks = { -- weather kind -> { tint multiplier on the grade, light multiplier, rain 0..1 streak density }

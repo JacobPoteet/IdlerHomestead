@@ -922,6 +922,42 @@ function P.icon_drip_line(p)
   end
 end
 
+-- Machines (GDD §7.4, D65) -----------------------------------------------------------------
+
+local MACHINE_PAINT = { 0.86, 0.66, 0.20 } -- farm-machine yellow
+local MACHINE_PAINT_DARK = { 0.64, 0.46, 0.14 }
+
+-- Auto-harvester (16x24): a squat yellow body on a turntable, a mast with a jointed picking arm and a
+-- crate for the crop. The arm reaching to its target is drawn in code (visuals.machine).
+function P.auto_harvester(p)
+  p:ellipse(8, 22, 7, 2, C.shadow)
+  p:rect(2, 19, 12, 3, C.stoneDark) -- turntable base
+  p:rect(2, 19, 12, 1, C.stone)
+  p:rect(3, 12, 10, 7, MACHINE_PAINT) -- body
+  p:rect(3, 12, 10, 1, { 0.96, 0.80, 0.36 })
+  p:rect(3, 17, 10, 2, MACHINE_PAINT_DARK)
+  p:rect(5, 14, 3, 2, CELL_LINE) -- control panel
+  p:rect(7, 3, 2, 9, C.metal) -- mast
+  p:rect(7, 3, 1, 9, C.stoneLight)
+  p:rect(8, 3, 6, 2, C.metal) -- arm
+  p:rect(13, 5, 1, 3, C.metal) -- forearm
+  p:rect(12, 8, 3, 2, CASE) -- gripper
+  p:rect(9, 15, 4, 2, C.barkLight) -- crate for the crop
+  p:px(10, 15, C.radish)
+  p:px(12, 15, { 0.70, 0.56, 0.36 })
+end
+
+function P.icon_auto_harvester(p)
+  p:rect(2, 6, 7, 4, MACHINE_PAINT)
+  p:rect(2, 9, 7, 1, MACHINE_PAINT_DARK)
+  p:rect(1, 10, 9, 1, C.stoneDark)
+  p:rect(5, 1, 1, 5, C.metal)
+  p:rect(5, 1, 5, 1, C.metal)
+  p:rect(9, 2, 1, 2, C.metal)
+  p:rect(8, 4, 3, 1, CASE)
+  p:px(9, 6, C.radish)
+end
+
 local FISH_COLORS = {
   icon_spoiled = { { 0.45, 0.50, 0.25 }, { 0.62, 0.60, 0.32 } }, -- a fish gone off (journal note)
   icon_creek_chub = { { 0.62, 0.64, 0.58 }, { 0.80, 0.80, 0.74 } },

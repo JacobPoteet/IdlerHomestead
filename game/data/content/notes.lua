@@ -52,6 +52,14 @@ return {
     event = "crop.harvested",
   },
   {
+    id = "sore_back",
+    name = "Sore back",
+    line = "Forty harvests, every one by hand.",
+    icon = "icon_seed_radish",
+    event = "crop.harvested",
+    count = 40,
+  },
+  {
     id = "bucket_hauling",
     name = "Heavy buckets",
     line = "So many trips to the creek.",

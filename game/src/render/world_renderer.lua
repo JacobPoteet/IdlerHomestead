@@ -8,6 +8,7 @@ local Grid = require("src.sim.grid")
 local Animals = require("src.sim.systems.animals")
 local Calendar = require("src.sim.systems.calendar")
 local Cat = require("src.sim.systems.cat")
+local Machines = require("src.sim.systems.machines")
 local Water = require("src.sim.systems.water")
 local Power = require("src.sim.systems.power")
 local Processing = require("src.sim.systems.processing")
@@ -67,6 +68,31 @@ function Renderer:drawDripLamp(anchor, x, y)
   love.graphics.rectangle("fill", x - 1, y - 1, size + 2, size + 2)
   love.graphics.setColor(v.waterLamp[Water.dripState(world, anchor)])
   love.graphics.rectangle("fill", x, y, size, size)
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
+--- A machine's status light (working, slow, unpowered, full, idle, off) and, while it works, its arm
+--- reaching to the target tile (D65). (tx, ty) is the machine's tile; (lx, ly) the light's spot.
+function Renderer:drawMachine(anchor, tx, ty, lx, ly)
+  local world, v = self.world, self.world.tuning.visuals
+  local unit = Machines.at(world, anchor)
+  local status = unit and unit.status or "idle"
+  if unit and unit.job then
+    local tile = self.tile
+    local gx, gy = Grid.coords(world.state.grid, unit.job.target)
+    local sprite = Assets.sprite(unit.kind)
+    local grip = v.machine.grip -- the gripper's pixel on the sprite, from its top-left
+    local sx, sy = (tx - 1) * tile + grip[1], ty * tile - sprite.h + grip[2]
+    local wobble = math.sin(self.time * v.machine.armWobbleSpeed) * v.machine.armWobble
+    love.graphics.setColor(v.machine.arm)
+    love.graphics.setLineWidth(v.machine.armWidth)
+    love.graphics.line(sx, sy, (gx - 0.5) * tile, (gy - 0.5) * tile + wobble)
+  end
+  local size = v.powerLamp.size
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.rectangle("fill", lx - 1, ly - 1, size + 2, size + 2)
+  love.graphics.setColor(v.machine.lamp[status])
+  love.graphics.rectangle("fill", lx, ly, size, size)
   love.graphics.setColor(1, 1, 1, 1)
 end
 
@@ -359,7 +385,9 @@ function Renderer:draw(alpha, visible, daylight)
           if smoking then
             self:drawSmoke((x - 1) * tile + 8, bottom - sprite.h + 2)
           end
-          if def.sink or (def.source and def.source.curve == "fuel") then
+          if def.machine then
+            self:drawMachine(anchor, x, y, (x - 1) * tile + sprite.w - 4, bottom - sprite.h + 1)
+          elseif def.sink or (def.source and def.source.curve == "fuel") then
             self:drawPowerLamp(anchor, def, (x - 1) * tile + sprite.w - 4, bottom - sprite.h + 1)
           end
           if def.drip then

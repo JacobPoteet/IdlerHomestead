@@ -295,6 +295,17 @@ return {
     equipment = true,
     modifiers = { predatorGuard = 0.25 },
   },
+  -- Machines (GDD §5.3 rung 3, §7.4, D65): a mid-game goal once the field is big and the power is up.
+  {
+    id = "auto_harvester",
+    name = "Auto-harvester",
+    line = "Picks ripe crops within 3 tiles.",
+    page = "machines",
+    price = 150,
+    needs = { "sore_back", "full_battery" },
+    studyNights = 3,
+    object = "auto_harvester",
+  },
   -- Roadside stand (GDD §6.4): idle income beside the truck trip. The upgrades are equipment whose
   -- `standCap` modifiers raise the stand's daily item cap (tuning.stand caps the total).
   {
