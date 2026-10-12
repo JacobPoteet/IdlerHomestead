@@ -34,7 +34,17 @@ function Input.new(app, tuning)
   }, Input)
 end
 
+--- Record real input for the idle takeover timer. Input while a browse panel (catalog, journal ...)
+--- is on top is not directing the homesteader, so it does not count (GDD D54).
 function Input:activity()
+  local top = self.app.top and self.app:top()
+  if top then
+    for _, name in ipairs(self.tuning.idle.browsePanels) do
+      if top.name == name then
+        return
+      end
+    end
+  end
   self.lastActivity = love.timer.getTime()
 end
 

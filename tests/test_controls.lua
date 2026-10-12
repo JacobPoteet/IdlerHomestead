@@ -7,6 +7,9 @@ local Session = require("src.session")
 local Grid = require("src.sim.grid")
 local Actors = require("src.sim.systems.actors")
 local Sleep = require("src.sim.systems.sleep")
+local Routine = require("src.sim.systems.routine")
+local World = require("src.sim.world")
+local serialize = require("src.core.serialize")
 
 local tun = tuningLoader.load()
 local reg = Registry.new():loadAll()
@@ -20,6 +23,19 @@ end
 local function setTime(world, hour)
   local t = world.tuning.time
   world.state.calendar.elapsed = ((hour / 24) - t.startHour / 24) * t.dayLength
+end
+
+--- Jump to just after sunrise and let the homesteader get out of bed.
+local function morning(session, wake)
+  setTime(session.world, wake + 1)
+  for _ = 1, 400 do
+    session:update(STEP)
+    if session:canStartRoutine() then
+      session:update(STEP) -- the next frame notices the wake-up
+      return
+    end
+  end
+  error("homesteader never woke")
 end
 
 local function ticksIn(session, seconds)
@@ -94,19 +110,171 @@ T.test("routine now: refused at bedtime and while asleep (D35)", function()
   T.falsy(session:startRoutineNow())
 end)
 
-T.test("routine now: bedtime ends it, and the morning does not restart it", function()
+T.test("routine now: bedtime pauses it, and the morning resumes it (D55)", function()
   local session = newSession()
   local world = session.world
   local bed = Sleep.bedtimeHours(world)
   setTime(world, bed - 0.1)
   T.truthy(session:startRoutineNow())
+  session:update(STEP)
   setTime(world, bed + 0.1)
   session:update(STEP)
   T.falsy(session:routineForced(), "stopped at bedtime")
+  T.truthy(Routine.wanted(world), "but still wanted")
   local _, wake = Sleep.bedtimeHours(world)
-  setTime(world, wake + 1)
+  morning(session, wake)
+  T.truthy(session:routineForced(), "resumes in the morning")
+end)
+
+T.test("routine resume: normal takeover by day also resumes after sleep", function()
+  local session = newSession()
+  local world = session.world
+  local bed = Sleep.bedtimeHours(world)
+  setTime(world, bed - 0.5)
+  session:setControl("idle") -- what the scene does once the takeover delay has passed
   session:update(STEP)
-  T.falsy(session:routineForced(), "stays off in the morning")
+  T.falsy(session:routineForced(), "not forced: any input still hands control back")
+  setTime(world, bed + 0.1)
+  session:update(STEP)
+  local _, wake = Sleep.bedtimeHours(world)
+  morning(session, wake)
+  T.truthy(session:routineForced())
+end)
+
+T.test("routine resume: not if the player took control or never had it on", function()
+  local session = newSession()
+  local world = session.world
+  local bed = Sleep.bedtimeHours(world)
+  local _, wake = Sleep.bedtimeHours(world)
+  -- Never on.
+  setTime(world, bed - 0.5)
+  session:update(STEP)
+  setTime(world, bed + 0.1)
+  session:update(STEP)
+  morning(session, wake)
+  T.falsy(session:routineForced(), "never on")
+  -- On, then a player order (cancelRoutine) before bedtime.
+  setTime(world, bed - 0.5)
+  session:update(STEP)
+  T.truthy(session:startRoutineNow())
+  session:cancelRoutine()
+  session:setControl("active")
+  session:update(STEP)
+  setTime(world, bed + 0.1)
+  session:update(STEP)
+  morning(session, wake)
+  T.falsy(session:routineForced(), "took control")
+  -- On at bedtime, then a "stay up" order during the night clears it.
+  setTime(world, bed - 0.5)
+  session:update(STEP)
+  T.truthy(session:startRoutineNow())
+  session:update(STEP)
+  setTime(world, bed + 0.1)
+  session:update(STEP)
+  session:cancelRoutine()
+  morning(session, wake)
+  T.falsy(session:routineForced(), "stay-up order")
+end)
+
+T.test("routine resume: wanted survives a save round-trip, and an older save loads", function()
+  local session = newSession()
+  local world = session.world
+  setTime(world, 10)
+  T.truthy(session:startRoutineNow())
+  session:update(STEP)
+  local state = serialize.decode(serialize.encode(world.state))
+  T.truthy(state.routine.wanted)
+  local loaded = World.new({ registry = reg, tuning = tun }, state)
+  T.truthy(Routine.wanted(loaded))
+  -- A save from before D55 has no routine table.
+  local old = serialize.decode(serialize.encode(world.state))
+  old.routine = nil
+  local older = World.new({ registry = reg, tuning = tun }, old)
+  T.falsy(Routine.wanted(older))
+  older:tick(STEP)
+end)
+
+T.test("routine resume: deterministic for a seed", function()
+  local function run()
+    local session = newSession(9)
+    local bed = Sleep.bedtimeHours(session.world)
+    setTime(session.world, bed - 0.2)
+    session:startRoutineNow()
+    local flags = {}
+    for i = 1, 400 do
+      session:update(STEP * 5)
+      flags[#flags + 1] = (session:routineForced() and "1" or "0") .. session.world.state.tick
+    end
+    return table.concat(flags, ","), serialize.encode(session.world.state)
+  end
+  local a, sa = run()
+  local b, sb = run()
+  T.eq(a, b)
+  T.eq(sa, sb)
+end)
+
+-- Idle hint --------------------------------------------------------------------------------
+
+T.test("idle hint: fires after hintAfter idle seconds, then is rate limited", function()
+  local session = newSession()
+  local world = session.world
+  setTime(world, 10)
+  session:setControl("active")
+  local hints = 0
+  world.events:on("routine.idleHint", function()
+    hints = hints + 1
+  end)
+  local function run(seconds)
+    for _ = 1, math.floor(seconds / STEP) do
+      session:setControl("active")
+      world:tick(STEP)
+      setTime(world, 10) -- keep it daytime
+    end
+  end
+  run(tun.idle.hintAfter - 2)
+  T.eq(hints, 0, "not yet")
+  run(4)
+  T.eq(hints, 1, "fired")
+  run(tun.idle.hintInterval - 6)
+  T.eq(hints, 1, "rate limited")
+  run(10)
+  T.eq(hints, 2, "fires again after the interval")
+end)
+
+T.test("idle hint: silent while the routine runs, working, or resting", function()
+  local session = newSession()
+  local world = session.world
+  local hints = 0
+  world.events:on("routine.idleHint", function()
+    hints = hints + 1
+  end)
+  setTime(world, 10)
+  for _ = 1, math.floor(tun.idle.hintAfter * 3 / STEP) do
+    world.control = "idle" -- routine on
+    world:tick(STEP)
+    setTime(world, 10)
+  end
+  T.eq(hints, 0, "routine on")
+  for _ = 1, math.floor(tun.idle.hintAfter * 3 / STEP) do
+    world.control = "active"
+    setTime(world, Sleep.bedtimeHours(world) + 0.5)
+    world:tick(STEP)
+  end
+  T.eq(hints, 0, "bedtime")
+end)
+
+T.test("takeover: browse panels do not reset the timer, the homestead does (D55)", function()
+  local Input = require("src.core.input")
+  local top = { name = "homestead" }
+  local app = { top = function() return top end }
+  local input = Input.new(app, tun)
+  input.lastActivity = 100
+  top.name = "catalog"
+  input:activity()
+  T.eq(input.lastActivity, 100, "catalog input ignored")
+  top.name = "homestead"
+  input:activity()
+  T.truthy(input.lastActivity ~= 100, "homestead input counts")
 end)
 
 -- Action progress --------------------------------------------------------------------------
