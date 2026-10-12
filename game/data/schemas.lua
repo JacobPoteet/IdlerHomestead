@@ -117,6 +117,17 @@ return {
     truckCharge = "number?", -- kWh in the truck battery at the start of every run
     modifiers = "table?", -- stat -> bonus while known (see src/sim/stats.lua)
   },
+  finds = {
+    name = "string", -- card title (<= ~3 words)
+    line = "string", -- what you get (<= ~8 words)
+    icon = "string", -- sprite id
+    weight = "number?", -- base selection weight (default 1)
+    seasons = "table?", -- season -> weight multiplier
+    minYear = "number?", -- first year it can be offered
+    maxYear = "number?", -- last year it can be offered
+    lacks = "table?", -- boosts the weight when true: { resource, below } | { object } | { equipment }
+    effects = "table", -- { resources = { id = n }, objects = { id = n }, equipment = { catalogId }, truckCharge = kWh }
+  },
   task_categories = {
     name = "string",
   },

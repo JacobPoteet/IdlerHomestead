@@ -5,6 +5,7 @@
 -- (seed, policy, tuning): all randomness is the sim's seeded streams plus a seeded policy stream.
 
 local Calendar = require("src.sim.systems.calendar")
+local Finds = require("src.sim.systems.finds")
 local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
@@ -189,6 +190,11 @@ local function playRun(ctx, session, policyName, seed, years)
 
   local ticksRun = 0
   while ticksRun < capTicks and not failed do
+    -- A find is a modal for a player; the policies take the first option so they never stall on it.
+    local offer = Finds.pending(world)
+    if offer then
+      Finds.choose(world, offer.choices[1])
+    end
     if ticksRun % decisionTicks == 0 then
       policy:step(world)
     end
