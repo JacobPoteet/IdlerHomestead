@@ -14,6 +14,21 @@ local function clearable(def)
   return def.clearable ~= false and def.clearTime ~= nil
 end
 
+--- The largest yield of each resource that clearing this object can give: { [resourceId] = amount }.
+function Clearing.mostYield(def)
+  local most = {}
+  for id, amount in pairs(def.yields or {}) do
+    most[id] = type(amount) == "table" and amount[2] or amount
+  end
+  return most
+end
+
+--- The resource whose store lacks room for the biggest possible yield, or nil. Clearing waits for
+--- room (D59) rather than discarding part of the yield.
+local function shortage(world, def)
+  return Ledger.shortfall(world, Clearing.mostYield(def))
+end
+
 function Clearing.init(world)
   Tasks.register(world, {
     id = "clear",
@@ -30,7 +45,11 @@ function Clearing.init(world)
     end,
     canDo = function(w, _, i)
       local def = Grid.object(w, i)
-      return def ~= nil and clearable(def)
+      return def ~= nil and clearable(def) and shortage(w, def) == nil
+    end,
+    blocked = function(w, _, i)
+      local def = Grid.object(w, i)
+      return def ~= nil and clearable(def) and shortage(w, def) or nil
     end,
     workTime = function(w, _, i)
       local def = Grid.object(w, i)
@@ -51,6 +70,8 @@ function Clearing.init(world)
         if type(amount) == "table" then
           amount = rng:int(amount[1], amount[2])
         end
+        -- canDo (re-checked every tick of the job) guarantees room for the largest roll, so
+        -- nothing is lost here; the overflow call is only a same-tick safety net.
         gained[id] = Ledger.addOrOverflow(w, id, amount, "clear")
       end
       Grid.removeObject(w, anchor)

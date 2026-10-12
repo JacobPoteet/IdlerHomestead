@@ -7,7 +7,8 @@
 --
 -- The fish guide (catch counts, best size) lives in world.meta.fishGuide so it outlasts runs.
 -- Emits "fishing.ready" { tile, actor }, "fish.caught" { fish, size, mode, first },
---       "fish.lost" { fish, reason }.
+--       "fish.lost" { fish, reason } (reason "slipped" | "escaped" | "full").
+-- Fishing waits for room (D59): no cast starts, and no fish is offered, when a catch could not be kept.
 
 local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
@@ -64,11 +65,37 @@ function Fishing.available(world, idleOnly)
   return list
 end
 
---- Pick which fish bites. mode: "idle" | "active". Returns a fish definition or nil.
+--- The biting fish whose store still has room for one more. A fish that could not be kept is never
+--- offered (D59), so a catch is never lost to a full store. Second return: the id of the first
+--- biting fish whose store is full (nil if none), to say what is in the way.
+local function withRoom(world, mode)
+  local roomy, fullId = {}, nil
+  for _, fish in ipairs(Fishing.available(world, mode == "idle")) do
+    if Ledger.room(world, fish.id) >= 1 then
+      roomy[#roomy + 1] = fish
+    else
+      fullId = fullId or fish.id
+    end
+  end
+  return roomy, fullId
+end
+
+--- Can a catch be kept right now? False (plus the full fish's id) when fish are biting but every
+--- one of them has no room; true when nothing is biting at all (that is "nothing", not "full").
+function Fishing.canStore(world, mode)
+  local roomy, fullId = withRoom(world, mode)
+  if #roomy > 0 or not fullId then
+    return true
+  end
+  return false, fullId
+end
+
+--- Pick which fish bites. mode: "idle" | "active". Returns a fish definition, or nil when nothing
+--- is biting (second return nil) or every biting fish has a full store (second return "full").
 function Fishing.rollFish(world, mode)
-  local list = Fishing.available(world, mode == "idle")
+  local list, fullId = withRoom(world, mode)
   if #list == 0 then
-    return nil
+    return nil, fullId and "full" or nil
   end
   local boost = world.tuning.fishing.rarityBoostActive
   return world:rng("fishing"):weighted(list, function(fish)
@@ -86,10 +113,16 @@ function Fishing.rollSize(world, fish)
   return math.floor(fish.sizeMin + (fish.sizeMax - fish.sizeMin) * t + 0.5)
 end
 
---- Record a caught fish: adds it to stock and the persistent fish guide.
+--- Record a caught fish: adds it to stock and the persistent fish guide. Returns true. If its store
+--- filled up while the fish was on the line, the fish gets away instead ("fish.lost" with reason
+--- "full", never counted as caught) and this returns false.
 function Fishing.land(world, fishId, size, mode)
   local fish = world.registry:get("fish", fishId)
-  Ledger.addOrOverflow(world, fish.id, 1, "fishing")
+  if Ledger.room(world, fish.id) < 1 then
+    world.events:emit("fish.lost", { fish = fish.id, reason = "full" })
+    return false
+  end
+  Ledger.add(world, fish.id, 1, "fishing")
   world.meta.fishGuide = world.meta.fishGuide or {}
   local entry = world.meta.fishGuide[fish.id]
   local first = entry == nil
@@ -100,6 +133,7 @@ function Fishing.land(world, fishId, size, mode)
   entry.count = entry.count + 1
   entry.best = math.max(entry.best, size)
   world.events:emit("fish.caught", { fish = fish.id, size = size, mode = mode, first = first })
+  return true
 end
 
 --- A hooked fish got away in the mini-game. reason: "slipped" | "escaped".
@@ -117,7 +151,7 @@ function Fishing.init(world)
     clickOrder = 55, -- before filling the bucket, so the rod wins when it's in hand
     candidates = function(w, _, add)
       -- Rod ownership doesn't depend on the tile, so check it once rather than per candidate.
-      if not Fishing.hasRod(w) then
+      if not Fishing.hasRod(w) or not Fishing.canStore(w, "idle") then
         return
       end
       for _, i in ipairs(Grid.bankTiles(w, "water")) do
@@ -130,7 +164,13 @@ function Fishing.init(world)
       if order and order.tool ~= "rod" then
         return false
       end
-      return Grid.terrain(w, i).water == true and Fishing.hasRod(w)
+      return Grid.terrain(w, i).water == true and Fishing.hasRod(w) and Fishing.canStore(w, order and "active" or "idle")
+    end,
+    blocked = function(w, _, i, order)
+      if not (order and order.tool == "rod") or Grid.terrain(w, i).water ~= true or not Fishing.hasRod(w) then
+        return nil
+      end
+      return select(2, Fishing.canStore(w, "active"))
     end,
     -- The idle search: `candidates` already checked the rod once for all tiles.
     canDoCandidate = function(w, _, i)

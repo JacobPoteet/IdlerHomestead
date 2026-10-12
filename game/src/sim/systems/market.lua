@@ -5,7 +5,10 @@
 --                               specials = { [catalogId] = true }, week, inTown }
 -- Emits "market.ordered" { item }, "market.delivered" { item }, "market.sold" { earnings, units },
 --       "market.trip" {}, "market.held" { item } (once per order, when a due delivery is waiting
---       for storage room; the order stays queued and is retried every tick).
+--       for storage room; the order stays queued and is retried every tick),
+--       "market.cancelled" { item, amount } (player cancelled a held order, refunded),
+--       "market.refunded" { item, amount } (an order that could never fit its store, refunded).
+-- Orders: { item, arriveDay, paid (money charged; absent in old saves), held (due but no room) }.
 
 local Calendar = require("src.sim.systems.calendar")
 local Ledger = require("src.sim.systems.ledger")
@@ -79,6 +82,17 @@ function Market.itemPrice(world, id)
   return math.max(1, math.floor(item.price * mult + 0.5))
 end
 
+--- True if some resource in the item's `gives` is more than its store could hold even when empty
+--- (counting any storage buildings now placed). Such an order could never be delivered.
+function Market.neverFits(world, id)
+  for res, amount in pairs(world.registry:get("catalog", id).gives or {}) do
+    if amount > Ledger.capacity(world, res) then
+      return true
+    end
+  end
+  return false
+end
+
 --- Why an item can't be bought right now (nil if it can). pickup = buying in town.
 function Market.cannotBuy(world, id, pickup)
   local item = world.registry:get("catalog", id)
@@ -97,6 +111,10 @@ function Market.cannotBuy(world, id, pickup)
         return "ordered"
       end
     end
+  end
+  -- Goods that could never fit in their store, even empty, must not be sold (D60).
+  if Market.neverFits(world, id) then
+    return "too big for storage"
   end
   local cost = Market.itemPrice(world, id) + (pickup and 0 or world.tuning.economy.deliveryFee)
   if Ledger.get(world, "money") < cost then
@@ -141,11 +159,48 @@ function Market.order(world, id)
   if reason then
     return false, reason
   end
-  Ledger.remove(world, "money", Market.itemPrice(world, id) + world.tuning.economy.deliveryFee, "order")
+  local paid = Market.itemPrice(world, id) + world.tuning.economy.deliveryFee
+  Ledger.remove(world, "money", paid, "order")
   local orders = world.state.market.orders
-  orders[#orders + 1] = { item = id, arriveDay = Calendar.now(world).day + 1 }
+  orders[#orders + 1] = { item = id, arriveDay = Calendar.now(world).day + 1, paid = paid }
   world.events:emit("market.ordered", { item = id })
   return true
+end
+
+-- Take order `index` off the list and give back what it cost (older saves did not record the
+-- price paid: use today's price then).
+local function refund(world, index, event)
+  local orders = world.state.market.orders
+  local order = table.remove(orders, index)
+  local amount = order.paid or (Market.itemPrice(world, order.item) + world.tuning.economy.deliveryFee)
+  Ledger.add(world, "money", amount, "refund")
+  world.events:emit(event, { item = order.item, amount = amount })
+  return amount
+end
+
+--- Paid orders that are due but waiting for storage room: list of { index, item, paid }.
+function Market.heldOrders(world)
+  local list = {}
+  for index, order in ipairs(world.state.market.orders) do
+    if order.held then
+      list[#list + 1] = {
+        index = index,
+        item = order.item,
+        paid = order.paid or (Market.itemPrice(world, order.item) + world.tuning.economy.deliveryFee),
+      }
+    end
+  end
+  return list
+end
+
+--- Cancel a held order (one that is due but waiting for room) for a full refund. Returns the
+--- refund, or nil if that order is not held. Emits "market.cancelled" { item, amount }.
+function Market.cancelHeld(world, index)
+  local order = world.state.market.orders[index]
+  if not order or not order.held then
+    return nil
+  end
+  return refund(world, index, "market.cancelled")
 end
 
 function Market.tick(world)
@@ -158,7 +213,10 @@ function Market.tick(world)
   while i <= #orders do
     local order = orders[i]
     if now.day > order.arriveDay or (now.day == order.arriveDay and now.hour >= world.tuning.economy.deliveryHour) then
-      if deliver(world, order.item) then
+      if Market.neverFits(world, order.item) then
+        -- Can never be delivered (the store is smaller than the order): give the money back.
+        refund(world, i, "market.refunded")
+      elseif deliver(world, order.item) then
         table.remove(orders, i)
       else
         -- No room yet: the order (already paid) stays on the truck's list and retries every tick.

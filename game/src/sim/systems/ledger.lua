@@ -73,8 +73,32 @@ function Ledger.canHold(world, items)
   return true
 end
 
+--- The first resource (alphabetical, so the answer is stable) in `items` that lacks room for its
+--- amount, or nil if everything fits. Used to say *which* store is full when work is refused.
+function Ledger.shortfall(world, items)
+  local ids = {}
+  for id in pairs(items) do
+    ids[#ids + 1] = id
+  end
+  table.sort(ids)
+  for _, id in ipairs(ids) do
+    if Ledger.room(world, id) < items[id] then
+      return id
+    end
+  end
+  return nil
+end
+
+--- True when a resource has a real store (capacity above zero) that is completely filled. Resources
+--- with no capacity at all (water without a cistern) are not "full", they just have nowhere to go.
+function Ledger.isFull(world, id)
+  local capacity = Ledger.capacity(world, id)
+  return capacity > 0 and capacity < math.huge and Ledger.get(world, id) >= capacity
+end
+
 --- Add as much as fits and report the rest as discarded: emits "ledger.overflow" { id, lost, reason }.
---- Returns the amount added and the amount lost.
+--- Returns the amount added and the amount lost. Only for goods that cannot be held back (a safety
+--- net: callers check room first wherever the goods could wait instead).
 function Ledger.addOrOverflow(world, id, amount, reason)
   local added = Ledger.add(world, id, amount, reason)
   local lost = amount - added

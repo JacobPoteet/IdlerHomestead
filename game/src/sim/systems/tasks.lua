@@ -8,6 +8,9 @@
 --   candidates(world, actor, add)        idle routine: call add(tileIndex) for each possible target
 --   canDo(world, actor, i, order)        is the task valid on tile i right now? `order` is set for
 --                                        player orders ({ crop = ... }), nil for the idle routine
+--   blocked(world, actor, i, order)      optional: the id of a full resource when the task would apply
+--                                        to tile i but for lack of storage room, else nil. Only the
+--                                        player's taps use it, to say why they were refused (#74).
 --   canDoCandidate(world, actor, i)      optional: canDo(world, actor, i, nil) for a tile that
 --                                        `candidates` just offered, minus the checks `candidates`
 --                                        already made once for every tile (e.g. owning a rod);
@@ -122,22 +125,31 @@ local function newJob(taskType, target, path, order)
 end
 
 --- The task the player means by tapping tile i, or nil.
+--- A task type that would apply to the tile but for a full store stops the search: the tap is
+--- refused (nil) and the second return is the id of the resource that is full (#74), rather than
+--- quietly falling through to some lesser task.
 function Tasks.taskForTile(world, actor, i, order)
   for _, t in ipairs(world.taskTypes.list) do
-    if t.clickOrder and t.canDo(world, actor, i, order) then
-      return t
+    if t.clickOrder then
+      local full = t.blocked and t.blocked(world, actor, i, order)
+      if full then
+        return nil, full
+      end
+      if t.canDo(world, actor, i, order) then
+        return t
+      end
     end
   end
   return nil
 end
 
 --- Build a job for a player order on tile i. Returns the job, or nil if nothing applies or
---- the tile can't be reached.
+--- the tile can't be reached; when a full store refused the order, also the full resource's id.
 function Tasks.jobForOrder(world, actor, i, order)
   order = order or {}
-  local taskType = Tasks.taskForTile(world, actor, i, order)
+  local taskType, full = Tasks.taskForTile(world, actor, i, order)
   if not taskType then
-    return nil
+    return nil, full
   end
   local path = pathFor(world, actor, taskType, i)
   if not path then

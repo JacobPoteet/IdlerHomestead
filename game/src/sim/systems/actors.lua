@@ -62,12 +62,12 @@ end
 --- Queue a player order on tile i. opts: { crop = cropId } for planting/tilling.
 --- Returns the task type the order will run, or nil if nothing can be done there.
 function Actors.order(world, actor, i, opts)
-  local job = Tasks.jobForOrder(world, actor, i, opts)
+  local job, full = Tasks.jobForOrder(world, actor, i, opts)
   if job then
     actor.order = job
-    return Tasks.get(world, job.task)
+    return (Tasks.get(world, job.task)) -- parentheses: Tasks.get returns assert's extra message too
   end
-  return nil
+  return nil, full -- full: the resource whose store has no room, when that is why it was refused
 end
 
 local function dropJob(world, actor)

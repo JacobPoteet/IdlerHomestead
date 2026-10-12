@@ -60,6 +60,22 @@ function Processing.batch(world, anchor)
   return world.state.processing[anchor]
 end
 
+--- Finished batches still sitting in their station for lack of storage room, sorted by anchor:
+--- list of { tile, recipe, output, count }.
+function Processing.blockedBatches(world)
+  local list = {}
+  for anchor, batch in pairs(world.state.processing) do
+    if batch.blocked then
+      local recipe = world.registry:get("recipes", batch.recipe)
+      list[#list + 1] = { tile = anchor, recipe = recipe.id, output = recipe.output, count = batch.count }
+    end
+  end
+  table.sort(list, function(a, b)
+    return a.tile < b.tile
+  end)
+  return list
+end
+
 function Processing.init(world)
   world.state.processing = world.state.processing or {}
   Tasks.register(world, {

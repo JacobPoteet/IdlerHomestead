@@ -47,7 +47,7 @@ local COLOR = {
 local SKETCH = { 0.80, 0.84, 0.95 } -- an idea's icon: pale, like pencil
 local SILHOUETTE = { 0.16, 0.18, 0.17 } -- an unknown node's icon
 
-local ORDER_REASONS = { owned = "Owned", ordered = "Ordered", ["pickup only"] = "In town" }
+local ORDER_REASONS = { owned = "Owned", ordered = "Ordered", ["pickup only"] = "In town", ["too big for storage"] = "Too big" }
 
 function JournalScene.new(world, onToast)
   return setmetatable({ world = world, onToast = onToast, selected = nil, selectedNote = nil, offX = 0, offY = 0 }, JournalScene)
