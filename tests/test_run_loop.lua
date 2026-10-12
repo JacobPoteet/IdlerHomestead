@@ -87,7 +87,7 @@ T.test("run loop: one free study, then new land with the same knowledge", functi
   T.truthy(Journal.hasNote(world2, "felled_tree"))
   T.falsy(world2.state.land.truck == world.state.land.truck and world2.state.seed == world.state.seed, "new land")
   -- No salvage: money and stock reset to the starting kit.
-  T.eq(Ledger.get(world2, "money"), 0)
+  T.eq(Ledger.get(world2, "money"), world2.tuning.run.startingResources.money)
   Fishing.land(world2, "sunfish", 12, "active")
   T.eq(reloaded.meta.journal.notes.first_catch.run, 2, "notes remember which run wrote them")
 end)

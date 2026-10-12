@@ -3,7 +3,8 @@ return {
   startingResources = { -- resource id -> amount
     seed_radish = 10,
     seed_potato = 6,
-    canned_food = 4,
+    canned_food = 6, -- D68 (#161): two more cans than before, so the first days are less of a countdown
+    money = 6, -- D68 (#161): starting $; buys bait ($3 + $3 delivery), or radish seeds once the first junk is sold
     bait = 4,
     seasoned_firewood = 3,
   },

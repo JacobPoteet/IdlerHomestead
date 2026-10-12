@@ -150,6 +150,7 @@ local function playRun(ctx, session, policyName, seed, years, features)
       miceRaids = 0, -- raids that cost food, raids the cat caught, units of food lost
       miceCaught = 0,
       miceLost = 0,
+      spoiled = 0, -- units of fresh food that spoiled overnight (#151)
       eggs = 0, -- chickens: eggs collected, hens lost to predators / hunger / thirst, raids the coop turned back
       hensLost = 0,
       foxStopped = 0,
@@ -205,6 +206,9 @@ local function playRun(ctx, session, policyName, seed, years, features)
   events:on("mice.raided", function(e)
     result.counters.miceRaids = result.counters.miceRaids + 1
     result.counters.miceLost = result.counters.miceLost + e.units
+  end)
+  events:on("food.spoiled", function(e)
+    result.counters.spoiled = result.counters.spoiled + e.amount
   end)
   events:on("mice.caught", function()
     result.counters.miceCaught = result.counters.miceCaught + 1
@@ -743,7 +747,8 @@ function Balance.printFeatures(summary, years)
   )
   line(
     string.format(
-      "Mice per run (mean): raids that took food %.1f (%.1f food units lost), raids the cat caught %.1f",
+      "Food per run (mean): %.1f units spoiled. Mice: raids that took food %.1f (%.1f food units lost), raids the cat caught %.1f",
+      q("spoiled").mean,
       q("miceRaids").mean,
       q("miceLost").mean,
       q("miceCaught").mean

@@ -215,13 +215,14 @@ end)
 T.test("world: state survives a save round-trip, rng streams continue", function()
   local world = newWorld(99)
   Ledger.add(world, "money", 12)
+  local money = Ledger.get(world, "money") -- (the starting kit has some)
   world:rng("land"):float()
   for _ = 1, 10 do
     world:tick(0.05)
   end
   local restored = World.new({ registry = reg, tuning = tun }, serialize.decode(serialize.encode(world.state)))
   T.eq(restored.state.tick, 10)
-  T.eq(Ledger.get(restored, "money"), 12)
+  T.eq(Ledger.get(restored, "money"), money)
   T.eq(restored:rng("land"):float(), world:rng("land"):float())
 end)
 
