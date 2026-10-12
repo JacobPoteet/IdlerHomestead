@@ -62,6 +62,27 @@ T.test("save: rejects saves from a newer format", function()
   T.truthy(err:find("newer"))
 end)
 
+T.test("save: a corrupt main file never replaces a good backup", function()
+  local backend = Save.memoryBackend()
+  local store = Save.new(backend, { slotCount = 1 })
+  store:write(1, Save.newSlotData("first"))
+  store:write(1, Save.newSlotData("second")) -- backup now holds "first"
+  backend.files["slot1.sav"] = "garbage("
+  store:write(1, Save.newSlotData("third"))
+  T.eq(store:read(1).name, "third")
+  T.eq(serialize.decode(backend.files["slot1.bak"]).name, "first")
+end)
+
+T.test("save: a non-numeric version is reported as corrupt, not a crash", function()
+  local backend = Save.memoryBackend()
+  local store = Save.new(backend, { slotCount = 1 })
+  backend.files["slot1.sav"] = serialize.encode({ version = "2", name = "x" })
+  local data, err = store:read(1)
+  T.eq(data, nil)
+  T.truthy(err:find("version"))
+  T.eq(store:list()[1].state, "corrupt")
+end)
+
 T.test("save: invalid slot index errors", function()
   local store = Save.new(Save.memoryBackend(), { slotCount = 3 })
   T.errors(function()

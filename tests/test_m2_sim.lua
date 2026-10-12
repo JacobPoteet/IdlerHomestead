@@ -94,6 +94,20 @@ T.test("fishing: availability follows season and hour", function()
   end
 end)
 
+T.test("fishing: sizes span the whole species range, skewed small", function()
+  local world = newWorld(5)
+  local fish = reg:get("fish", "creek_chub")
+  local lo, hi, sum = math.huge, -math.huge, 0
+  local n = 2000
+  for _ = 1, n do
+    local size = Fishing.rollSize(world, fish)
+    lo, hi, sum = math.min(lo, size), math.max(hi, size), sum + size
+  end
+  T.truthy(lo >= fish.sizeMin and hi <= fish.sizeMax)
+  T.truthy(lo < (fish.sizeMin + fish.sizeMax) / 2, "small fish are possible")
+  T.truthy(sum / n < (fish.sizeMin + fish.sizeMax) / 2, "average size is below the midpoint")
+end)
+
 T.test("fishing: idle routine catches common fish and fills the persistent guide", function()
   local meta = {}
   local world = newWorld(5, meta)

@@ -60,7 +60,7 @@ local function eachPlanned(world, add, filter)
 end
 
 local function registerTasks(world)
-  local fields, farming = world.state.fields, world.tuning.farming
+  local fields = world.state.fields
 
   Tasks.register(world, {
     id = "harvest",
@@ -78,14 +78,15 @@ local function registerTasks(world)
       local crop = w.state.crops[i]
       return crop ~= nil and Crops.isMature(crop)
     end,
-    workTime = function()
-      return farming.harvestTime
+    workTime = function(w)
+      return w.tuning.farming.harvestTime
     end,
     complete = function(w, _, i)
       local crop = w.state.crops[i]
       local def = w.registry:get("crops", crop.id)
       local rng = w:rng("farming")
       local soil = w.state.grid.soil[i]
+      local farming = w.tuning.farming
       local mult = farming.soilYieldMin + (farming.soilYieldMax - farming.soilYieldMin) * soil
       local amount = math.max(1, math.floor(def.yield * mult + rng:float()))
       local seeds = rng:int(def.seedReturn[1], def.seedReturn[2])
@@ -114,10 +115,10 @@ local function registerTasks(world)
         return false
       end
       -- The player may top up a crop that's still a little moist; the routine waits until dry.
-      return order and crop.moisture < 0.5 or Crops.needsWater(crop)
+      return order and crop.moisture < w.tuning.farming.topUpMoisture or Crops.needsWater(crop)
     end,
-    workTime = function()
-      return farming.waterTime
+    workTime = function(w)
+      return w.tuning.farming.waterTime
     end,
     complete = function(w, actor, i)
       local crop = w.state.crops[i]
@@ -139,8 +140,8 @@ local function registerTasks(world)
     canDo = function(w, _, i, order)
       return fields.tilled[i] == true and not w.state.crops[i] and hasSeed(w, cropFor(w, i, order))
     end,
-    workTime = function()
-      return farming.plantTime
+    workTime = function(w)
+      return w.tuning.farming.plantTime
     end,
     complete = function(w, _, i, order)
       local cropId = cropFor(w, i, order)
@@ -171,8 +172,8 @@ local function registerTasks(world)
       -- Player taps on open grass till it for the selected seed; the routine only tills planned tiles.
       return fields.plan[i] ~= nil or (order ~= nil and order.crop ~= nil)
     end,
-    workTime = function()
-      return farming.tillTime
+    workTime = function(w)
+      return w.tuning.farming.tillTime
     end,
     complete = function(w, _, i, order)
       fields.tilled[i] = true
