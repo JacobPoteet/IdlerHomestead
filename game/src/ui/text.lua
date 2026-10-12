@@ -34,6 +34,13 @@ function Text.measure(str, size)
   return font:getWidth(str) / scale, font:getHeight() / scale
 end
 
+--- Height in virtual pixels of a string wrapped to `width` virtual pixels.
+function Text.wrappedHeight(str, size, width)
+  local font = Text.font(size)
+  local _, lines = font:getWrap(str, width * scale)
+  return math.max(1, #lines) * font:getHeight() / scale
+end
+
 --- Draw text. opts: { size, color, align = "left"|"center"|"right", width }
 --- With align/width, text wraps and aligns within [x, x + width].
 function Text.draw(str, x, y, opts)

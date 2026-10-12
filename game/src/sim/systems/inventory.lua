@@ -29,6 +29,25 @@ function Inventory.objectCount(world, id)
   return world.state.inventory.objects[id] or 0
 end
 
+--- Does this run hold a catalog item: its equipment kept, or its object in the inventory or placed?
+function Inventory.owns(world, id)
+  local item = world.registry:get("catalog", id)
+  if item.equipment then
+    return Inventory.hasEquipment(world, id)
+  end
+  if item.object then
+    if Inventory.objectCount(world, item.object) > 0 then
+      return true
+    end
+    for _, obj in pairs(world.state.grid.objects) do
+      if obj.id == item.object then
+        return true
+      end
+    end
+  end
+  return false
+end
+
 --- Recompute storage limits: each resource's base capacity plus placed objects' `storage`.
 function Inventory.refreshStorage(world)
   local extra = {}
