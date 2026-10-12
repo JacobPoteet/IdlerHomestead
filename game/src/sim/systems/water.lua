@@ -4,8 +4,14 @@
 local Grid = require("src.sim.grid")
 local Tasks = require("src.sim.systems.tasks")
 local Crops = require("src.sim.systems.crops")
+local Stats = require("src.sim.stats")
 
 local Water = {}
+
+--- Waterings a full bucket holds (base + equipment such as the big bucket).
+function Water.bucketCapacity(world)
+  return world.tuning.actors.bucketCapacity + Stats.modifier(world, "bucketCapacity")
+end
 
 function Water.init(world)
   Tasks.register(world, {
@@ -26,13 +32,13 @@ function Water.init(world)
       end
     end,
     canDo = function(w, actor, i)
-      return Grid.terrain(w, i).water == true and actor.bucket < w.tuning.actors.bucketCapacity
+      return Grid.terrain(w, i).water == true and actor.bucket < Water.bucketCapacity(w)
     end,
     workTime = function(w)
       return w.tuning.farming.fetchWaterTime
     end,
     complete = function(w, actor)
-      actor.bucket = w.tuning.actors.bucketCapacity
+      actor.bucket = Water.bucketCapacity(w)
     end,
   })
 end

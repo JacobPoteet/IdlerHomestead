@@ -14,5 +14,16 @@ return {
     autoClear = true,
   },
   { id = "tree", name = "Tree", blocks = true, clearTime = 14, yields = { wood = { 6, 9 } } },
-  { id = "truck", name = "Electric truck", blocks = true, clearable = false, footprintW = 2, footprintH = 1 },
+  {
+    id = "truck",
+    name = "Electric truck",
+    blocks = true,
+    clearable = false,
+    footprintW = 2,
+    footprintH = 1,
+    battery = 60, -- kWh it can store (GDD §7.6)
+  },
+  -- Placeable equipment (bought from the catalog or part of the starting kit)
+  { id = "folding_panel", name = "Folding solar panel", blocks = false, clearable = false, placeable = true, powerOutput = 0.8 },
+  { id = "smoker", name = "Smoker", blocks = true, clearable = false, placeable = true, station = "smoker" },
 }

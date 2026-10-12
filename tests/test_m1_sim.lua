@@ -115,7 +115,8 @@ T.test("landgen: no clutter right around the truck", function()
   local world = newWorld(5)
   local grid = world.state.grid
   for anchor, obj in pairs(grid.objects) do
-    if obj.id ~= "truck" then
+    local def = reg:get("objects", obj.id)
+    if obj.id ~= "truck" and not def.placeable then -- the truck and starting gear aren't clutter
       T.truthy(Grid.distance(grid, anchor, world.state.land.truck) > tun.landgen.truckClearRadius)
     end
   end

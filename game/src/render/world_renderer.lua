@@ -6,6 +6,7 @@
 
 local Grid = require("src.sim.grid")
 local Calendar = require("src.sim.systems.calendar")
+local Water = require("src.sim.systems.water")
 local Assets = require("src.render.assets")
 local Shaders = require("src.render.shaders")
 local Lighting = require("src.render.lighting")
@@ -247,7 +248,7 @@ function Renderer:draw(alpha, visible, daylight)
         love.graphics.draw(sprite.image, sprite.quad, math.floor(feetX - sprite.w / 2 + 0.5), math.floor(feetY - sprite.h + 0.5))
         if actor.bucket and actor.bucket > 0 then
           -- Tiny water gauge beside the homesteader while carrying water.
-          local frac = actor.bucket / world.tuning.actors.bucketCapacity
+          local frac = math.min(1, actor.bucket / Water.bucketCapacity(world))
           local gx, gy = math.floor(feetX + 6), math.floor(feetY - 12)
           love.graphics.setColor(0.1, 0.1, 0.1, 0.7)
           love.graphics.rectangle("fill", gx, gy, 3, 8)
