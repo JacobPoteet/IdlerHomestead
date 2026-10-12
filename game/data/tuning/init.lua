@@ -28,6 +28,7 @@ return {
   "weather",
   "threats",
   "ftue",
+  "alerts",
   "visuals",
   "ui",
 }

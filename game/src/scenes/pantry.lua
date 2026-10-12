@@ -8,6 +8,7 @@ local Food = require("src.sim.systems.food")
 local Spoilage = require("src.sim.systems.spoilage")
 local Buttons = require("src.ui.buttons")
 local Panel = require("src.ui.panel")
+local Scroll = require("src.ui.scroll")
 local SpoilText = require("src.ui.spoil_text")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
@@ -15,6 +16,7 @@ local theme = require("src.ui.theme")
 local Pantry = { name = "pantry" }
 Pantry.__index = Pantry
 
+local LIST_TOP = 108 -- virtual pixels from the panel top to the first row of goods
 local ROW_H = 22
 local NOTE_H = 10 -- extra height under a perishable's row for its spoilage line
 local PIN_LABELS = { [false] = "Auto", keep = "Keep", preserve = "Preserve", sell = "Sell" }
@@ -119,23 +121,38 @@ function Pantry:layout()
       self:layout()
     end,
   })
+  -- The goods list scrolls (D70, #170): rows are laid out from the top of the list minus the scroll
+  -- offset, only the ones in view get buttons, and the footer and hint line keep their places.
   self.rows = {}
+  self.rowButtons = self.rowButtons or Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
+  self.rowButtons:clear()
   self.footerLines, self.footerH = self:footer()
-  local limit = b.y + b.h - 18 - self.footerH -- (keeps room for the "more goods" line)
-  local y = b.y + 108
-  self.hidden = 0
-  for _, res in ipairs(self:goods()) do
+  local ui = self.app.ctx.tuning.ui
+  local goods = self:goods()
+  local contentH = 0
+  for _, res in ipairs(goods) do
+    contentH = contentH + ROW_H + (Spoilage.info(world, res.id) and NOTE_H or 0)
+  end
+  local top = b.y + LIST_TOP
+  local viewH = math.max(ROW_H, b.y + b.h - 6 - self.footerH - top)
+  self.overflow = Scroll.overflows(contentH, viewH)
+  if self.overflow then
+    viewH = math.max(ROW_H, viewH - ui.scrollHintHeight)
+  end
+  self.contentH = contentH
+  self.view = { x = b.x, y = top, w = b.w, h = viewH }
+  self.scroll = Scroll.clamp(self.scroll or 0, contentH, viewH)
+  local y = top - self.scroll
+  for _, res in ipairs(goods) do
     local info = Spoilage.info(world, res.id)
     local h = ROW_H + (info and NOTE_H or 0)
-    if y + h > limit then
-      self.hidden = self.hidden + 1
-    else
+    if y + h > top and y < top + viewH then
       self.rows[#self.rows + 1] = { res = res, y = y, info = info }
       local pin = food.pins[res.id] or false
       if res.value then
         -- "Not at the stand" pin (D62): a sellable good marked Truck stays in the crate for the truck.
         local truckOnly = Food.truckOnly(world, res.id)
-        self.buttons:add({
+        self.rowButtons:add({
           x = b.x + b.w - 84 - 62,
           y = y,
           w = 58,
@@ -148,7 +165,7 @@ function Pantry:layout()
           end,
         })
       end
-      self.buttons:add({
+      self.rowButtons:add({
         x = b.x + b.w - 84,
         y = y,
         w = 72,
@@ -160,9 +177,19 @@ function Pantry:layout()
           self:layout()
         end,
       })
-      y = y + h
     end
+    y = y + h
   end
+end
+
+--- Scroll the goods list by dragging `dy` or turning the wheel `steps` notches, then rebuild.
+function Pantry:scrollBy(offset)
+  self.scroll = offset
+  self:layout()
+end
+
+local function inside(r, x, y)
+  return x >= r.x and x < r.x + r.w and y >= r.y and y < r.y + r.h
 end
 
 function Pantry:update(dt)
@@ -174,8 +201,24 @@ function Pantry:update(dt)
 end
 
 function Pantry:action(name, data)
-  if not self.buttons:action(name, data) and name == "cancel" then
+  if self.buttons:action(name, data) then
+    return true
+  end
+  local view = self.view
+  if name == "press" or name == "select" or name == "hover" then
+    -- Row buttons only answer inside the list's window: a half-scrolled row must not reach out of it.
+    if inside(view, data.x, data.y) and self.rowButtons:action(name, data) then
+      return true
+    end
+  elseif name == "release" then
+    self.rowButtons:action(name, data)
+  elseif name == "cancel" then
     self.app:pop()
+  elseif name == "pan" and self.overflow then
+    self:scrollBy(Scroll.byDrag(self.scroll, data.dy, self.contentH, view.h)) -- the list follows the finger
+  elseif name == "zoom" and self.overflow then
+    local step = self.app.ctx.tuning.ui.scrollWheelStep
+    self:scrollBy(Scroll.byWheel(self.scroll, data.steps, step, self.contentH, view.h))
   end
   return true
 end
@@ -191,6 +234,9 @@ function Pantry:draw()
   Text.draw("For sale", b.x + 150, b.y + 94, { size = "small", color = theme.colors.textDim })
   Text.draw("Sell at", b.x + b.w - 146, b.y + 94, { size = "small", color = theme.colors.textDim })
   Text.draw("Rule", b.x + b.w - 84, b.y + 94, { size = "small", color = theme.colors.textDim })
+  -- The goods list is clipped to its window (scissor works in screen pixels, not virtual ones).
+  local v, scale = self.view, self.app.view.scale
+  love.graphics.setScissor(math.floor(v.x * scale), math.floor(v.y * scale), math.ceil(v.w * scale), math.ceil(v.h * scale))
   for _, row in ipairs(self.rows) do
     local res, info = row.res, row.info
     local warn = info and info.warn
@@ -210,16 +256,13 @@ function Pantry:draw()
       )
     end
   end
+  self.rowButtons:draw()
+  love.graphics.setScissor()
   if #self.rows == 0 then
-    Text.draw("Nothing in stock yet.", b.x + 12, b.y + 112, { size = "small", color = theme.colors.textDim })
+    Text.draw("Nothing in stock yet.", b.x + 12, b.y + LIST_TOP + 4, { size = "small", color = theme.colors.textDim })
   end
-  if self.hidden > 0 then
-    Text.draw(
-      string.format("+ %d more goods", self.hidden),
-      b.x + 12,
-      b.y + b.h - 8 - self.footerH - 10,
-      { size = "small", color = theme.colors.textDim }
-    )
+  if self.overflow then
+    self:drawScrollCue()
   end
   local y = b.y + b.h - 6 - self.footerH
   for _, line in ipairs(self.footerLines) do
@@ -227,6 +270,32 @@ function Pantry:draw()
     y = y + line.h + 2
   end
   self.buttons:draw()
+end
+
+--- The scroll cues: a thumb down the right edge of the list and a hint line under it that says how
+--- much is out of sight, above and below.
+function Pantry:drawScrollCue()
+  local v, ui = self.view, self.app.ctx.tuning.ui
+  local at, h = Scroll.thumb(self.scroll, self.contentH, v.h, v.h, ui.scrollHintHeight)
+  local barW = ui.scrollBarWidth
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.rectangle("fill", v.x + v.w - barW - 2, v.y, barW, v.h, 1, 1)
+  love.graphics.setColor(theme.colors.accent)
+  love.graphics.rectangle("fill", v.x + v.w - barW - 2, v.y + at, barW, h, 1, 1)
+  local above, below = Scroll.hidden(self.scroll, self.contentH, v.h)
+  local parts = {}
+  if above > 0 then
+    parts[#parts + 1] = "^ more above"
+  end
+  if below > 0 then
+    parts[#parts + 1] = "v more below"
+  end
+  Text.draw(
+    "Drag or scroll: " .. table.concat(parts, ", "),
+    v.x + 12,
+    v.y + v.h + 2,
+    { size = "small", color = theme.colors.textDim }
+  )
 end
 
 return Pantry

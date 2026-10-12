@@ -23,7 +23,10 @@ local Spoilage = require("src.sim.systems.spoilage")
 local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
 local Weather = require("src.sim.systems.weather")
+local Nightly = require("src.sim.systems.nightly")
+local AlertText = require("src.ui.alert_text")
 local Forecast = require("src.ui.forecast")
+local NightText = require("src.ui.night_text")
 local SpoilText = require("src.ui.spoil_text")
 local Run = require("src.meta.run")
 local Stats = require("src.sim.stats")
@@ -80,6 +83,8 @@ function Homestead:enter(slot, data)
   self.placing = nil -- object id being placed
   self.toast = nil
   self.toastQueue = {}
+  self.held = {} -- toasts that came in while asleep, shown in the morning (D70)
+  self.frostTold = {} -- crop id -> calendar day its won't-ripen warning last showed (D70, #165)
   self:subscribe()
 end
 
@@ -116,9 +121,14 @@ function Homestead:subscribe()
       self:showToast(e.bond >= world.tuning.cat.cat.maxBond and "Purrrr. Best of friends" or "Purr")
     end),
     events:on("mice.caught", function()
-      self:queueToast("The cat caught a mouse in the night")
+      if not self.session:sleeping() then -- asleep: it is in the morning report
+        self:queueToast("The cat caught a mouse in the night")
+      end
     end),
     events:on("mice.raided", function(e)
+      if self.session:sleeping() then
+        return -- asleep: it is in the morning report
+      end
       local parts = {}
       for _, res in ipairs(world.registry:all("resources")) do
         if e.lost[res.id] then
@@ -141,6 +151,9 @@ function Homestead:subscribe()
       self:queueToast(e.reason == "thirst" and "A hen was lost: no water" or "A hen was lost: no feed")
     end),
     events:on("animals.predator", function(e)
+      if self.session:sleeping() then
+        return -- asleep: it is in the morning report
+      end
       if e.stopped then
         self:queueToast("A fox tried the coop in the night. The door held.")
       else
@@ -189,6 +202,26 @@ function Homestead:subscribe()
     end),
     events:on("needs.depleted", function()
       self.failed = true
+    end),
+    -- Warnings (D70): low food, fuel or health, said once per crossing. Held while asleep so the fast
+    -- night does not swallow them; the morning report comes first, then these.
+    events:on("alert.raised", function(e)
+      self:heldToast("alert:" .. e.kind, AlertText.toast(e))
+    end),
+    events:on("sleep.started", function()
+      local day = Calendar.now(world).day
+      if self.bedtimeDay ~= day then
+        self.bedtimeDay = day -- once a day: going back to bed after a "stay up" is not news
+        self:queueToast(NightText.bedtime(world))
+      end
+    end),
+    events:on("calendar.newSeason", function(e)
+      if e.season == "autumn" then
+        local text = AlertText.autumnToast(world)
+        if text then
+          self:heldToast("autumn", text)
+        end
+      end
     end),
     events:on("weather.forecast", function(e)
       self:queueToast(Forecast.news(world, e.piece))
@@ -289,7 +322,8 @@ end
 --- loss is not lost to the fast-forward.
 function Homestead:spoilageNews()
   local world = self.world
-  if not Food.hasReport(world) or self.session:sleeping() or self.app:top() ~= self then
+  -- A morning report carries the night's spoilage itself (D70): leave it in Food until that card is up.
+  if not Food.hasReport(world) or self.session:sleeping() or self.app:top() ~= self or Nightly.hasReport(world) then
     return
   end
   local report = Food.takeReport(world)
@@ -326,6 +360,22 @@ function Homestead:queueToast(text)
   self.toastQueue[#self.toastQueue + 1] = text
 end
 
+--- Queue a toast, or hold it until the homesteader is up when it comes in during the fast-forwarded
+--- night. A held toast is keyed: a newer one with the same key replaces the older.
+function Homestead:heldToast(key, text)
+  if not self.session:sleeping() then
+    self:queueToast(text)
+    return
+  end
+  for _, held in ipairs(self.held) do
+    if held.key == key then
+      held.text = text
+      return
+    end
+  end
+  self.held[#self.held + 1] = { key = key, text = text }
+end
+
 --- Show now, putting whatever was showing back at the head of the queue (nothing is lost).
 function Homestead:urgentToast(text)
   if self.toast then
@@ -345,6 +395,10 @@ end
 function Homestead:setHand(seed, tool)
   self.seed, self.tool, self.mode, self.planStart, self.placing = seed, tool, "act", nil, nil
   self:layout()
+  local late = seed and self:frostWarning(seed)
+  if late then
+    self:showToast(late) -- picking a seed that cannot ripen in time: say so before the first tile (#165)
+  end
 end
 
 -- First object waiting in the inventory (sorted for stability), or nil.
@@ -374,16 +428,19 @@ function Homestead:stats()
   local warmth, need = Needs.warmthInStock(world), Needs.warmthNeeded(world)
   local stats = {
     { "icon_money", "$" .. count(Ledger.get(world, "money")) },
-    { "icon_food", string.format("%.1fd", Needs.foodDays(world)) },
-    { "icon_heart", tostring(math.floor(world.state.needs.condition + 0.5)) },
+    -- Food, firewood and health turn amber, then red, as they run low (D70, #157; thresholds in tuning.alerts).
+    { "icon_food", string.format("%.1fd", Needs.foodDays(world)), AlertText.chipColor(world, "food") },
+    { "icon_heart", tostring(math.floor(Needs.condition(world) + 0.5)), AlertText.chipColor(world, "condition") },
     { "icon_battery", string.format("%d%%", math.floor(Power.charge(world, truck) / Power.capacity(world, truck) * 100)) },
     { "icon_crate", count(Food.crateCount(world)) },
     { "icon_wood", count(Ledger.get(world, "wood")) },
     {
       "icon_firewood",
       need > 0 and string.format("%.1fn", warmth / need) or string.format("%.0f", warmth),
-      -- The firewood chip turns red when either firewood store is full (D59).
-      (Ledger.isFull(world, "firewood") or Ledger.isFull(world, "seasoned_firewood")) and theme.colors.danger or nil,
+      -- The firewood chip turns red when either firewood store is full (D59), and amber then red as the
+      -- stock falls short of the coming nights (D70).
+      (Ledger.isFull(world, "firewood") or Ledger.isFull(world, "seasoned_firewood")) and theme.colors.danger
+        or AlertText.chipColor(world, "fuel"),
     },
   }
   local tonight = Spoilage.tonight(world)
@@ -579,28 +636,45 @@ function Homestead:dueCard()
   return Ftue.current(self.world)
 end
 
+--- The id the card slot would show now (cheap: the update loop compares it with the one on screen).
+function Homestead:cardIdNow()
+  local due = self:dueCard()
+  if due then
+    return due.id
+  end
+  if self.app:top() == self and not self.session:sleeping() and not Finds.pending(self.world) and Nightly.hasReport(self.world) then
+    return "night:" .. Nightly.report(self.world).day
+  end
+  return nil
+end
+
 --- Build the card's rectangle and buttons: a panel above the toast line with the text and two buttons.
 function Homestead:layoutCard()
   local ctx = self.app.ctx
   local cfg, view = ctx.tuning.ftue, self.app.view
   self.cardButtons = self.cardButtons or Buttons.new(ctx.tuning.input.minTouchTarget)
   self.cardButtons:clear()
-  self.card, self.cardId = nil, nil
-  local due = self:dueCard()
-  if not due then
+  self.card, self.cardId, self.cardKind = nil, nil, nil
+  local spec = self:cardSpec()
+  if not spec then
     return
   end
   local pad = cfg.cardPadding
   local w = math.min(cfg.cardMaxWidth, view.w - 2 * cfg.cardMargin)
   local inner = w - 2 * pad
-  local _, titleH = Text.measure(due.title, "body")
-  local textH = Text.wrappedHeight(due.text, "small", inner)
+  local _, titleH = Text.measure(spec.title, "body")
+  local textH = 0
+  for _, line in ipairs(spec.lines) do
+    line.h = Text.wrappedHeight(line.text, "small", inner)
+    textH = textH + line.h + (spec.lineGap or 0)
+  end
   local btnH = self.btnH
   local h = pad + titleH + 3 + textH + pad + btnH + pad
   local x = math.floor((view.w - w) / 2)
   local y = math.floor(view.h - self.bottomH - cfg.cardBottomGap - h)
-  self.card = { x = x, y = y, w = w, h = h, title = due.title, text = due.text, titleH = titleH, textH = textH, pad = pad }
-  self.cardId = due.id
+  self.card = { x = x, y = y, w = w, h = h, title = spec.title, lines = spec.lines, lineGap = spec.lineGap or 0, titleH = titleH, pad = pad }
+  self.cardId = spec.id
+  self.cardKind = spec.kind
   local bw = math.floor((inner - ctx.tuning.ui.buttonGap) / 2)
   local by = y + h - pad - btnH
   self.cardButtons:add({
@@ -608,10 +682,9 @@ function Homestead:layoutCard()
     y = by,
     w = bw,
     h = btnH,
-    label = "Skip tips",
+    label = spec.leftLabel,
     onPress = function()
-      Ftue.skip(self.world)
-      self:showToast("Tips off. Menu > Tips turns them back on")
+      spec.onLeft()
       self:layoutCard()
     end,
   })
@@ -623,10 +696,102 @@ function Homestead:layoutCard()
     label = "Got it",
     style = "accent",
     onPress = function()
-      Ftue.dismiss(self.world, due.id)
+      spec.onGotIt()
       self:layoutCard()
     end,
   })
+end
+
+--- What the card slot holds now, or nil. A first-time tip card (D69) has the slot whenever one is due;
+--- otherwise the morning report (D70, #159) takes it. The report waits in the sim until it is dismissed
+--- or has timed out, so a tip card in front of it only delays it. Returns { id, kind, title, lines =
+--- { { text, color } }, leftLabel, onLeft, onGotIt }.
+function Homestead:cardSpec()
+  local world = self.world
+  local due = self:dueCard()
+  if due then
+    return {
+      id = due.id,
+      kind = "tip",
+      title = due.title,
+      lines = { { text = due.text, color = theme.colors.text } },
+      leftLabel = "Skip tips",
+      onLeft = function()
+        Ftue.skip(world)
+        self:showToast("Tips off. Menu > Tips turns them back on")
+      end,
+      onGotIt = function()
+        Ftue.dismiss(world, due.id)
+      end,
+    }
+  end
+  if self.app:top() ~= self or self.session:sleeping() or Finds.pending(world) or not Nightly.hasReport(world) then
+    return nil
+  end
+  local report = Nightly.report(world)
+  local view = self:reportView(report)
+  local left = { leftLabel = "Pantry", onLeft = function()
+    self.app:push(require("src.scenes.pantry").new(world))
+  end }
+  if view.first then
+    -- The first spoilage ever: the card carries the explanation (D68) behind a button.
+    left = { leftLabel = "Why?", onLeft = function()
+      local app = self.app
+      app:push(require("src.scenes.notice").new({
+        title = "Food spoils",
+        headline = view.first,
+        message = SpoilText.explanation(world),
+        okLabel = "Got it",
+        more = { label = "Open Pantry", onPress = function()
+          app:push(require("src.scenes.pantry").new(world))
+        end },
+      }))
+    end }
+  elseif not view.spoil then
+    left = { leftLabel = "Journal", onLeft = function()
+      self.app:push(require("src.scenes.journal").new(world, self:toaster()))
+    end }
+  end
+  local lines = {}
+  for _, line in ipairs(view.lines) do
+    lines[#lines + 1] = { text = line.text, color = line.color or theme.colors.text }
+  end
+  return {
+    id = "night:" .. report.day,
+    kind = "report",
+    title = "Morning report",
+    lines = lines,
+    lineGap = 2,
+    leftLabel = left.leftLabel,
+    onLeft = left.onLeft,
+    onGotIt = function()
+      self:dismissReport()
+    end,
+  }
+end
+
+--- The report's text lines, built once per report (the spoilage report waiting in Food is taken with
+--- it, so the explanation card of the first spoilage is offered here and not twice).
+function Homestead:reportView(report)
+  if self.reportShown and self.reportShown.day == report.day then
+    return self.reportShown
+  end
+  local lines, spoil = NightText.morning(self.world, report)
+  local first
+  if Food.hasReport(self.world) then
+    local spoilReport = Food.takeReport(self.world)
+    if spoilReport.first then
+      first = SpoilText.summary(self.world, spoilReport)
+    end
+  end
+  self.reportShown = { day = report.day, lines = lines, spoil = spoil, first = first }
+  self.reportTimer = self.app.ctx.tuning.ui.reportSeconds
+  return self.reportShown
+end
+
+function Homestead:dismissReport()
+  Nightly.take(self.world)
+  self.reportShown, self.reportTimer = nil, nil
 end
 
 --- Taps on the card read it rather than direct the homesteader, so they do not reset the takeover timer.
@@ -642,7 +807,11 @@ function Homestead:drawCard()
   end
   Draw.panel(c.x, c.y, c.w, c.h)
   Text.draw(c.title, c.x + c.pad, c.y + c.pad, { size = "body", color = theme.colors.accent })
-  Text.draw(c.text, c.x + c.pad, c.y + c.pad + c.titleH + 3, { size = "small", width = c.w - 2 * c.pad, color = theme.colors.text })
+  local y = c.y + c.pad + c.titleH + 3
+  for _, line in ipairs(c.lines) do
+    Text.draw(line.text, c.x + c.pad, y, { size = "small", width = c.w - 2 * c.pad, color = line.color })
+    y = y + line.h + c.lineGap
+  end
   self.cardButtons:draw()
 end
 
@@ -794,6 +963,28 @@ function Homestead:layoutControls(view)
   self.controlsKeyShown = self:controlsKey()
 end
 
+--- The winter-readiness card (D70, #166): the pill, expanded.
+function Homestead:openReadiness()
+  local world = self.world
+  local headline, message = AlertText.readinessCard(world)
+  if not headline then
+    return
+  end
+  local app = self.app
+  app:push(require("src.scenes.notice").new({
+    title = "Winter readiness",
+    headline = headline,
+    message = message,
+    okLabel = "Got it",
+    more = {
+      label = "Open Pantry",
+      onPress = function()
+        app:push(require("src.scenes.pantry").new(world))
+      end,
+    },
+  }))
+end
+
 function Homestead:openMenu()
   self.app:push(require("src.scenes.menu").new(function()
     self.app:switch(require("src.scenes.slots").new())
@@ -827,9 +1018,22 @@ function Homestead:update(dt)
     return
   end
   self:spoilageNews()
-  local due = self:dueCard()
-  if (due and due.id) ~= self.cardId then
+  if self:cardIdNow() ~= self.cardId then
     self:layoutCard()
+  end
+  if self.cardKind == "report" and self.cardId then
+    -- The morning report folds itself away if nobody reads it (a tip card in front pauses the count).
+    self.reportTimer = (self.reportTimer or 0) - dt
+    if self.reportTimer <= 0 then
+      self:dismissReport()
+      self:layoutCard()
+    end
+  end
+  if not self.session:sleeping() and #self.held > 0 then
+    for _, held in ipairs(self.held) do
+      self:queueToast(held.text)
+    end
+    self.held = {}
   end
   if self.toast then
     self.toast.time = self.toast.time - dt
@@ -886,9 +1090,28 @@ function Homestead:applyPlan(a, b)
   end
   if self.seed then
     self:showToast(string.format("Planned %d tiles of %s", count, self.world.registry:get("crops", self.seed).name))
+    local late = count > 0 and AlertText.frost(self.world, self.seed)
+    if late then
+      self:queueToast(late) -- planned anyway; the tiles are tinted amber on the map (#165)
+    end
   else
     self:showToast("Plan cleared")
   end
+end
+
+--- The won't-ripen-before-winter text for a crop, or nil: none when it will ripen, or when this crop's
+--- warning already showed today (a row of taps must not repeat it).
+function Homestead:frostWarning(cropId)
+  if not cropId then
+    return nil
+  end
+  local text = AlertText.frost(self.world, cropId)
+  local day = Calendar.now(self.world).day
+  if not text or self.frostTold[cropId] == day then
+    return nil
+  end
+  self.frostTold[cropId] = day
+  return text
 end
 
 function Homestead:tap(i)
@@ -937,7 +1160,10 @@ function Homestead:tap(i)
   if taskType then
     self.session:cancelRoutine() -- any order hands control back (D43)
     if taskType.id ~= "move" then
-      self:showToast(taskType.verb)
+      -- Tilling or planting a crop that cannot ripen in time says so (D70, #165), once a day per crop;
+      -- the order still goes ahead.
+      local late = (taskType.id == "till" or taskType.id == "plant") and self:frostWarning(self.seed)
+      self:showToast(late or taskType.verb)
     end
   elseif full then
     -- Refused for lack of room: say which store is full (D59).
@@ -961,6 +1187,11 @@ function Homestead:action(name, data)
     return true
   end
   local view = self.app.view
+  local hit = self.readinessHit
+  if name == "select" and hit and data.x >= hit.x and data.x < hit.x + hit.w and data.y >= hit.y and data.y < hit.y + hit.h then
+    self:openReadiness()
+    return true
+  end
   if name == "pan" then
     self.camera:pan(data.dx, data.dy, view)
   elseif name == "zoom" then
@@ -1208,16 +1439,27 @@ function Homestead:drawForecast()
       lines[#lines + 1] = { (frozen and "This winter: " or "Forecast: ") .. summary, theme.colors.accent }
     end
   end
+  -- Winter readiness (D70, #166): fuel and food against the winter ahead; tap it for the details.
+  local readyText, readyColor = AlertText.readinessPill(world)
+  if readyText then
+    lines[#lines + 1] = { readyText .. " (tap)", readyColor, tag = "readiness" }
+  end
   for _, line in ipairs(self:storageNotes()) do
     lines[#lines + 1] = line
   end
   local y = self.topH + 4
+  self.readinessHit = nil
   for _, line in ipairs(lines) do
     local text, color = line[1], line[2]
     local w = Text.measure(text, "small") + 12
     love.graphics.setColor(0, 0, 0, 0.45)
     love.graphics.rectangle("fill", 4, y, w, 14, 3, 3)
     Text.draw(text, 4, y + 2, { size = "small", width = w, align = "center", color = color })
+    if line.tag == "readiness" then
+      -- A finger-sized target around the pill (it is 14 px tall, the minimum is tuning.input.minTouchTarget).
+      local grow = math.max(0, (self.app.ctx.tuning.input.minTouchTarget - 14) / 2)
+      self.readinessHit = { x = 0, y = y - grow, w = w + 8, h = 14 + 2 * grow }
+    end
     y = y + 16
   end
   self.forecastBottom = y -- the sleep banner sits below the pills, so they never overlap on a narrow view
@@ -1409,28 +1651,47 @@ function Homestead:tileInfo(i)
     else
       lines[#lines + 1] = string.format("%s: %d%%%s", def.name, math.floor(crop.growth * 100), crop.moisture > 0 and "" or ", thirsty")
     end
+    lines[#lines + 1] = AlertText.cropFrostLine(world, crop) -- days to the freeze (D70, #165)
   elseif world.state.fields.plan[i] then
-    lines[#lines + 1] = "Planned: " .. world.registry:get("crops", world.state.fields.plan[i]).name
+    local planned = world.state.fields.plan[i]
+    lines[#lines + 1] = "Planned: " .. world.registry:get("crops", planned).name
+    local risk = Crops.frostRisk(world, planned)
+    if risk then
+      lines[#lines + 1] = risk.level == "late" and "Too late: frost first" or "Close to frost"
+    end
   end
   return lines
 end
 
 function Homestead:drawInfo(view)
+  local info -- the tile card's rectangle, when it is up (a wide toast keeps clear of it)
   if self.selected then
     local lines = self:tileInfo(self.selected)
     local h = #lines * 11 + 8
     local y = (self.card and self.card.y or view.h - self.bottomH) - h - 4 -- above the tip card when one is up
-    Draw.panel(4, y, 132, h)
+    local w = 132
+    for _, line in ipairs(lines) do
+      w = math.max(w, Text.measure(line, "small") + 14) -- a long line widens the card rather than spilling out
+    end
+    Draw.panel(4, y, w, h)
     for n, line in ipairs(lines) do
       Text.draw(line, 10, y + 4 + (n - 1) * 11, { size = "small", color = n == 1 and theme.colors.text or theme.colors.textDim })
     end
+    info = { x = 4, y = y, w = w, h = h }
   end
   if self.toast then
-    local w = Text.measure(self.toast.text, "body") + 16
-    local x, y = (view.w - w) / 2, view.h - self.bottomH - 26
+    -- A toast wider than the view wraps onto more lines (D70), growing upward from the usual line.
+    local maxW = view.w - 16
+    local w = math.min(Text.measure(self.toast.text, "body") + 16, maxW)
+    local textH = Text.wrappedHeight(self.toast.text, "body", w - 16)
+    local h = math.max(18, textH + 8)
+    local x, y = (view.w - w) / 2, view.h - self.bottomH - 8 - h
+    if info and x < info.x + info.w and y + h > info.y then
+      y = info.y - 4 - h -- a wide toast on a narrow view rides above the tile card instead of covering it
+    end
     love.graphics.setColor(0, 0, 0, 0.55 * math.min(1, self.toast.time * 3))
-    love.graphics.rectangle("fill", x, y, w, 18, 3, 3)
-    Text.draw(self.toast.text, x, y + 4, { size = "body", width = w, align = "center" })
+    love.graphics.rectangle("fill", x, y, w, h, 3, 3)
+    Text.draw(self.toast.text, x + 8, y + 4, { size = "body", width = w - 16, align = "center" })
   end
 end
 

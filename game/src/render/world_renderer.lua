@@ -8,6 +8,7 @@ local Grid = require("src.sim.grid")
 local Animals = require("src.sim.systems.animals")
 local Calendar = require("src.sim.systems.calendar")
 local Cat = require("src.sim.systems.cat")
+local Crops = require("src.sim.systems.crops")
 local Machines = require("src.sim.systems.machines")
 local Water = require("src.sim.systems.water")
 local Power = require("src.sim.systems.power")
@@ -343,10 +344,19 @@ function Renderer:draw(alpha, visible, daylight)
       Assets.draw(wet and "tilled_wet" or "tilled_dry", (x - 1) * tile, (y - 1) * tile)
     end
   end
-  for i in pairs(fields.plan) do
+  local risky = {} -- crop id -> would a crop planted today be caught by the frost? (one answer per crop per frame)
+  for i, cropId in pairs(fields.plan) do
     if not crops[i] and onScreen(i) then
       local x, y = Grid.coords(grid, i)
       Assets.draw("plan_marker", (x - 1) * tile, (y - 1) * tile)
+      if risky[cropId] == nil then
+        risky[cropId] = Crops.frostRisk(world, cropId) ~= nil
+      end
+      if risky[cropId] then
+        love.graphics.setColor(world.tuning.visuals.frostPlan)
+        love.graphics.rectangle("fill", (x - 1) * tile, (y - 1) * tile, tile, tile)
+        love.graphics.setColor(1, 1, 1, 1)
+      end
     end
   end
 

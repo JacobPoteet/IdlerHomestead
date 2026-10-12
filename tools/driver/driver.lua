@@ -90,6 +90,32 @@ function Driver:click(vx, vy)
   self:clickPixel(vx * s, vy * s)
 end
 
+--- Drag from one virtual position to another through the mouse handler, in a few steps (a finger
+--- swipe). The release afterwards is a real release, so a drag never counts as a tap.
+function Driver:drag(vx1, vy1, vx2, vy2, steps)
+  local s = self.game.app.view.scale
+  local input = self.game.input
+  steps = steps or 6
+  input:mousemoved(vx1 * s, vy1 * s, 0, 0, false)
+  input:mousepressed(vx1 * s, vy1 * s, 1, false)
+  for n = 1, steps do
+    local t = n / steps
+    input:mousemoved((vx1 + (vx2 - vx1) * t) * s, (vy1 + (vy2 - vy1) * t) * s, 0, 0, false)
+  end
+  input:mousereleased(vx2 * s, vy2 * s, 1, false)
+  self:frames(2)
+end
+
+--- Turn the mouse wheel `notches` times (positive = up) with the pointer at a virtual position.
+function Driver:wheel(notches, vx, vy)
+  local s = self.game.app.view.scale
+  love.mouse.setPosition(vx * s, vy * s)
+  for _ = 1, math.abs(notches) do
+    self.game.input:wheelmoved(0, notches > 0 and 1 or -1)
+  end
+  self:frames(2)
+end
+
 --- Press a key like the keyboard would ("escape", "space", "r", ...).
 function Driver:key(name)
   self.game:keypressed(name)

@@ -79,6 +79,20 @@ function Needs.warmthNeeded(world)
   return Weather.warmthNeed(world)
 end
 
+--- Nights of fuel in stock at tonight's need (math.huge when no fire is needed, D70, #157).
+function Needs.fuelNights(world)
+  local need = Needs.warmthNeeded(world)
+  if need <= 0 then
+    return math.huge
+  end
+  return Needs.warmthInStock(world) / need
+end
+
+--- The homesteader's Condition (health).
+function Needs.condition(world)
+  return world.state.needs.condition
+end
+
 --- Eat today's food. Returns the shortfall (0..1).
 function Needs.eat(world)
   local cfg = world.tuning.needs
