@@ -1,0 +1,13 @@
+-- Title, slot list, and the homestead right after starting and after a few hours.
+return function(d)
+  d:shot("title")
+  d:press("Play")
+  d:shot("slots")
+  d:press("New")
+  d:shot("name_prompt")
+  d:press("Start")
+  d:frames(10)
+  d:shot("homestead_start")
+  d:advance(2)
+  d:shot("homestead_2h_later")
+end
