@@ -117,4 +117,57 @@ return {
     -- Always on; fresh food spoils slower while it is powered. It stays cold for hours (inertia).
     sink = { tier = "freezer", draw = 0.15, schedule = "always", inertia = 8, effects = { spoilSlow = 3 } },
   },
+
+  -- Water ladder (GDD §5.3, §7.4). `placeOn = "waterTable"`: needs a tile with groundwater close to
+  -- the surface. `waterSource { fillTime }`: a place to fill the bucket (seconds of work, against
+  -- tuning.farming.fetchWaterTime at the creek); `stored` draws from the cistern stock instead of
+  -- the ground. `pump { rate }`: cistern units per in-game hour at full power. `drip { radius }`:
+  -- waters thirsty crops within that many tiles from the cistern, with no actor.
+  {
+    id = "well",
+    name = "Dug well",
+    blocks = true,
+    clearable = false,
+    placeable = true,
+    placeOn = "waterTable",
+    waterSource = { fillTime = 1.2 }, -- lowering a bucket on a rope; no walk to the creek, but not quick
+  },
+  {
+    id = "hand_pump",
+    name = "Hand pump",
+    blocks = true,
+    clearable = false,
+    placeable = true,
+    placeOn = "waterTable",
+    waterSource = { fillTime = 0.6 }, -- a few strokes of the handle; works through the winter, no power
+  },
+  {
+    id = "cistern",
+    name = "Cistern",
+    blocks = true,
+    clearable = false,
+    placeable = true,
+    footprintW = 2,
+    storage = { water = 60 }, -- cistern units (one bucket slot, or two drip waterings, each)
+    waterSource = { fillTime = 0.4, stored = true }, -- turn the tap; the stock is shared by every cistern
+  },
+  {
+    id = "dc_pump",
+    name = "Solar pump",
+    blocks = true,
+    clearable = false,
+    placeable = true,
+    placeOn = "waterTable",
+    -- Fills the cistern while there is room, scaled by how well the pumps tier is powered.
+    sink = { tier = "pumps", draw = 0.4, schedule = "fill", fills = "water" },
+    pump = { rate = 5 },
+  },
+  {
+    id = "drip_line",
+    name = "Drip line",
+    blocks = false,
+    clearable = false,
+    placeable = true,
+    drip = { radius = 2 }, -- tiles each way, so a 5x5 patch
+  },
 }

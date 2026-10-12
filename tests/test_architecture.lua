@@ -63,6 +63,7 @@ local STATE_OWNERS = {
   priorities = "tasks",
   processing = "processing",
   startingKitGiven = "land",
+  water = "water",
   weather = "weather",
 }
 local SHARED_STATE = { grid = true, rng = true, seed = true, tick = true }

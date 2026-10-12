@@ -57,6 +57,23 @@ return {
     idle = { 0.85, 0.75, 0.35 }, -- on but nothing to do right now
     off = { 0.35, 0.37, 0.36 }, -- switched off
   },
+  waterLamp = { -- status light on drip lines (GDD §5.3); same size as powerLamp
+    ok = { 0.45, 0.75, 0.95 }, -- cistern has water to give
+    dry = { 0.95, 0.35, 0.30 }, -- cistern empty: the zone is dry and crops must be hand-watered
+    frozen = { 0.35, 0.37, 0.36 }, -- ground frozen: nothing to water
+  },
+  waterGauge = { -- fill gauge drawn over a cistern
+    width = 12, -- pixels, in world art pixels
+    height = 2, -- pixels
+    back = { 0, 0, 0, 0.6 }, -- behind the bar
+    fill = { 0.45, 0.75, 0.95 }, -- water level
+    low = { 0.95, 0.35, 0.30 }, -- level below tuning.water.lowFraction
+  },
+  waterZone = { -- tint over the tiles a drip line covers (shown when it is selected or being placed)
+    ok = { 0.35, 0.62, 0.80, 0.30 },
+    dry = { 0.95, 0.40, 0.30, 0.30 },
+  },
+  waterSpots = { 0.35, 0.62, 0.80, 0.28 }, -- tint over tiles where a well or pump can be sunk, while placing one
   vignette = 0.28, -- 0..1 darkening toward the screen edges
   grain = 0.035, -- 0..1 film grain strength
 }

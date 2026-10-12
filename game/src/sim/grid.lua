@@ -4,6 +4,7 @@
 --   w, h                 size in tiles
 --   terrain[i]           terrain id per tile (flat array, i = (y - 1) * w + x)
 --   soil[i]              soil quality 0..1
+--   waterTable[i]        groundwater nearness 0..1 (wells and pumps need a high one; see Land)
 --   objects[anchor]      { id = objectId } keyed by the object's top-left tile index
 -- Runtime only (rebuilt on load): world.occupancy[i] = anchor index of the object covering tile i.
 

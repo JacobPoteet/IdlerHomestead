@@ -43,6 +43,13 @@ return {
     lamp = { placeholder = "lamp", w = 16, h = 16 },
     chest_freezer = { placeholder = "chest_freezer", w = 16, h = 16 },
 
+    -- Water ladder (GDD §5.3)
+    well = { placeholder = "well", w = 16, h = 24 },
+    hand_pump = { placeholder = "hand_pump", w = 16, h = 16 },
+    cistern = { placeholder = "cistern", w = 32, h = 16 },
+    dc_pump = { placeholder = "dc_pump", w = 16, h = 16 },
+    drip_line = { placeholder = "drip_line", w = 16, h = 16 },
+
     -- Crops: one sprite per growth stage (1 = sprout ... 3 = ready)
     radish = { placeholder = "radish", w = 16, h = 16, variants = 3 },
     potato = { placeholder = "potato", w = 16, h = 16, variants = 3 },
@@ -96,6 +103,11 @@ return {
     icon_electric_heater = { placeholder = "icon_electric_heater", w = 12, h = 12 },
     icon_lamp = { placeholder = "icon_lamp", w = 12, h = 12 },
     icon_chest_freezer = { placeholder = "icon_chest_freezer", w = 12, h = 12 },
+    icon_well = { placeholder = "icon_well", w = 12, h = 12 },
+    icon_hand_pump = { placeholder = "icon_hand_pump", w = 12, h = 12 },
+    icon_cistern = { placeholder = "icon_cistern", w = 12, h = 12 },
+    icon_dc_pump = { placeholder = "icon_dc_pump", w = 12, h = 12 },
+    icon_drip_line = { placeholder = "icon_drip_line", w = 12, h = 12 },
     icon_fuel = { placeholder = "icon_fuel", w = 12, h = 12 },
     icon_fuel_can = { placeholder = "icon_fuel", w = 12, h = 12 },
 

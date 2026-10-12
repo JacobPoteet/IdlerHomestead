@@ -24,6 +24,8 @@ local Forecast = require("src.ui.forecast")
 local Run = require("src.meta.run")
 local Stats = require("src.sim.stats")
 local Power = require("src.sim.systems.power")
+local Land = require("src.sim.systems.land")
+local Water = require("src.sim.systems.water")
 local Processing = require("src.sim.systems.processing")
 local Renderer = require("src.render.world_renderer")
 local ActionRing = require("src.render.action_ring")
@@ -124,6 +126,12 @@ function Homestead:subscribe()
     end),
     events:on("weather.froze", function()
       self:queueToast("The creek froze. Cut a hole to fish or fetch water.")
+    end),
+    events:on("water.dry", function()
+      self:queueToast("A drip line is dry. Fill the cistern or the crops need hand watering.")
+    end),
+    events:on("water.restored", function()
+      self:queueToast("Drip lines are watering again.")
     end),
     events:on("power.brownout", function(e)
       self:queueToast(string.format("Power short: %s at %d%%", Power.tierName(world, e.tier), math.floor(e.ratio * 100)))
@@ -232,7 +240,7 @@ function Homestead:stats()
   local truck = world.state.land.truck
   -- Warmth in stock, in nights of this season's need (or the raw amount when no fire is needed).
   local warmth, need = Needs.warmthInStock(world), Needs.warmthNeeded(world)
-  return {
+  local stats = {
     { "icon_money", "$" .. count(Ledger.get(world, "money")) },
     { "icon_food", string.format("%.1fd", Needs.foodDays(world)) },
     { "icon_heart", tostring(math.floor(world.state.needs.condition + 0.5)) },
@@ -241,6 +249,11 @@ function Homestead:stats()
     { "icon_wood", count(Ledger.get(world, "wood")) },
     { "icon_firewood", need > 0 and string.format("%.1fn", warmth / need) or string.format("%.0f", warmth) },
   }
+  if Water.hasCistern(world) then
+    -- Cistern stock, once there is a cistern to hold it.
+    stats[#stats + 1] = { "icon_water", string.format("%d%%", math.floor(Water.fraction(world) * 100 + 0.5)) }
+  end
+  return stats
 end
 
 -- Width of the stat strip with `gap` between stats.
@@ -636,6 +649,8 @@ function Homestead:tap(i)
     if Inventory.place(world, self.placing, i) then
       self:showToast("Placed " .. world.registry:get("objects", self.placing).name:lower())
       self:setHand(nil, nil)
+    elseif world.registry:get("objects", self.placing).placeOn == "waterTable" and not Land.hasWaterTable(world, i) then
+      self:showToast("Needs a high water table (blue tiles)")
     else
       self:showToast("Can't place it there")
     end
@@ -739,6 +754,44 @@ function Homestead:drawOverlays()
       (math.abs(ax - bx) + 1) * tile,
       (math.abs(ay - by) + 1) * tile
     )
+  end
+  local visuals = world.tuning.visuals
+  if self.mode == "place" and world.registry:get("objects", self.placing).placeOn == "waterTable" then
+    -- Wells and pumps only go where the water table is high: tint those tiles while placing one.
+    love.graphics.setColor(visuals.waterSpots)
+    for i = 1, #grid.terrain do
+      if Grid.terrain(world, i).tillable and not world.occupancy[i] and Land.hasWaterTable(world, i) then
+        local x, y = Grid.coords(grid, i)
+        local wx, wy = camera:tileToWorld(x, y)
+        love.graphics.rectangle("fill", wx, wy, tile, tile)
+      end
+    end
+  end
+  -- Drip zones: the selected line's, or the one being placed under the pointer.
+  local zoneAnchor
+  if self.selected then
+    local obj, anchor = Grid.object(world, self.selected)
+    zoneAnchor = obj and obj.drip and anchor or nil
+  end
+  if zoneAnchor then
+    love.graphics.setColor(visuals.waterZone[Water.dripState(world, zoneAnchor) == "dry" and "dry" or "ok"])
+    for _, i in ipairs(Water.dripTiles(world, zoneAnchor)) do
+      local x, y = Grid.coords(grid, i)
+      local wx, wy = camera:tileToWorld(x, y)
+      love.graphics.rectangle("fill", wx, wy, tile, tile)
+    end
+  elseif self.mode == "place" and self.hover and world.registry:get("objects", self.placing).drip then
+    local radius = world.registry:get("objects", self.placing).drip.radius
+    local hx, hy = Grid.coords(grid, self.hover)
+    love.graphics.setColor(visuals.waterZone.ok)
+    for y = hy - radius, hy + radius do
+      for x = hx - radius, hx + radius do
+        if Grid.inBounds(grid, x, y) then
+          local wx, wy = camera:tileToWorld(x, y)
+          love.graphics.rectangle("fill", wx, wy, tile, tile)
+        end
+      end
+    end
   end
   if self.mode == "place" and self.hover then
     -- Ghost of the object being placed: tinted green where it fits, red where it doesn't.
@@ -846,6 +899,10 @@ function Homestead:tileInfo(i)
   lines[#lines + 1] = world.state.fields.tilled[i] and "Tilled soil" or terrain.name
   if terrain.tillable then
     lines[#lines + 1] = string.format("Soil %d%%", math.floor(grid.soil[i] * 100 + 0.5))
+    if Land.hasWaterTable(world, i) and not world.occupancy[i] then
+      local shallow = Land.waterTable(world, i) >= world.tuning.water.table.shallow
+      lines[#lines + 1] = shallow and "Water table high: dig here" or "Water table: wells work"
+    end
   end
   local obj, anchor = Grid.object(world, i)
   if obj then
@@ -860,6 +917,43 @@ function Homestead:tileInfo(i)
       local state = Power.sinkState(world, anchor)
       local ratio = math.floor(Power.sinkRatio(world, anchor) * 100 + 0.5)
       lines[#lines + 1] = state == "ok" and "Powered" or state == "short" and string.format("Short of power (%d%%)", ratio) or state == "off" and "Switched off" or "Idle"
+    end
+    if obj.waterSource then
+      if obj.waterSource.stored then
+        local units, capacity = Water.stored(world)
+        local low = Water.fraction(world) < world.tuning.water.lowFraction
+        lines[#lines + 1] = string.format("Water %d / %d%s", math.floor(units), capacity, low and " (low)" or "")
+      else
+        lines[#lines + 1] = "Fills the bucket here"
+      end
+    end
+    if obj.placeOn == "waterTable" then
+      lines[#lines + 1] = string.format("Water table %d%%", math.floor(Land.waterTable(world, anchor) * 100 + 0.5))
+    end
+    if obj.pump then
+      local mode = Water.pumpState(world, anchor)
+      local text = {
+        pumping = string.format("Pumping %g/h", obj.pump.rate),
+        slow = "Pumping slowly",
+        nopower = "No power: not pumping",
+        full = "Cistern full",
+        nocistern = "Needs a cistern",
+      }
+      lines[#lines + 1] = text[mode]
+    end
+    if obj.drip then
+      local mode = Water.dripState(world, anchor)
+      local thirsty = Water.dripThirsty(world, anchor)
+      if mode == "dry" then
+        lines[#lines + 1] = "DRY: cistern empty"
+      elseif mode == "frozen" then
+        lines[#lines + 1] = "Frozen ground: idle"
+      else
+        lines[#lines + 1] = "Watering its zone"
+      end
+      if thirsty > 0 then
+        lines[#lines + 1] = string.format("%d thirsty crops in zone", thirsty)
+      end
     end
     if obj.station then
       local batch = Processing.batch(world, anchor)

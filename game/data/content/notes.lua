@@ -61,6 +61,21 @@ return {
     count = 12,
   },
   {
+    id = "well_water",
+    name = "Well water",
+    line = "Cold water, straight from the ground.",
+    icon = "icon_water",
+    event = "water.drawn",
+    match = { source = "well" },
+  },
+  {
+    id = "tank_filled",
+    name = "Full tank",
+    line = "A pump fills the tank while I work.",
+    icon = "icon_water",
+    event = "water.pumped",
+  },
+  {
     id = "went_hungry",
     name = "Went hungry",
     line = "Went to bed hungry.",

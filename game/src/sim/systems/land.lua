@@ -14,6 +14,10 @@ function Land.init(world)
   else
     Grid.rebuildOccupancy(world)
   end
+  -- Runs saved before the water table existed get the table their seed would have made.
+  if not state.grid.waterTable then
+    Landgen.waterTable(world)
+  end
   if not state.startingKitGiven then
     state.startingKitGiven = true
     local ids = {}
@@ -25,6 +29,16 @@ function Land.init(world)
       Ledger.add(world, id, world.tuning.run.startingResources[id], "starting kit")
     end
   end
+end
+
+--- Water table at tile i, 0..1 (how close groundwater is to the surface; wells need a high one).
+function Land.waterTable(world, i)
+  return world.state.grid.waterTable[i] or 0
+end
+
+--- Can a well or pump be sunk at tile i?
+function Land.hasWaterTable(world, i)
+  return Land.waterTable(world, i) >= world.tuning.water.table.minForWell
 end
 
 --- Tile index of the truck (the home base: starting battery, sleeping shelter, trips to town).
