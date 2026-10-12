@@ -78,7 +78,8 @@ end
 
 --- Can an object of this type be placed with its top-left at tile i? (Objects with
 --- `placeNear = "water"`, like micro-hydro, must also touch a water tile; `placeOn = "waterTable"`,
---- like wells and pumps, needs a tile with a high enough water table.)
+--- like wells and pumps, needs a tile with a high enough water table; `placeNear = "road"`, the
+--- roadside stand, must touch the road without covering it.)
 function Inventory.canPlace(world, id, i)
   local grid = world.state.grid
   local def = world.registry:get("objects", id)
@@ -88,6 +89,7 @@ function Inventory.canPlace(world, id, i)
     return false
   end
   local touchesWater = false
+  local touchesRoad = false
   for _, t in ipairs(tiles) do
     local terrain = Grid.terrain(world, t)
     if not terrain.walkable or terrain.water or world.occupancy[t] then
@@ -106,6 +108,21 @@ function Inventory.canPlace(world, id, i)
         end
       end
     end
+    if def.placeNear == "road" then
+      if Grid.terrain(world, t).id == "road" then
+        return false -- the stand sits beside the road, not on it
+      end
+      if not touchesRoad then
+        local tx, ty = Grid.coords(grid, t)
+        for dy = -1, 1 do
+          for dx = -1, 1 do
+            if Grid.inBounds(grid, tx + dx, ty + dy) and Grid.terrain(world, Grid.index(grid, tx + dx, ty + dy)).id == "road" then
+              touchesRoad = true
+            end
+          end
+        end
+      end
+    end
     if Crops.tileInUse(world, t) then
       return false
     end
@@ -114,6 +131,9 @@ function Inventory.canPlace(world, id, i)
         return false
       end
     end
+  end
+  if def.placeNear == "road" and not touchesRoad then
+    return false
   end
   return def.placeNear ~= "water" or touchesWater
 end

@@ -27,6 +27,7 @@ local Power = require("src.sim.systems.power")
 local Land = require("src.sim.systems.land")
 local Water = require("src.sim.systems.water")
 local Processing = require("src.sim.systems.processing")
+local Stand = require("src.sim.systems.stand")
 local Renderer = require("src.render.world_renderer")
 local ActionRing = require("src.render.action_ring")
 local Assets = require("src.render.assets")
@@ -98,6 +99,9 @@ function Homestead:subscribe()
     end),
     events:on("processing.done", function(e)
       self:showToast(string.format("%d %s ready", e.count, name("resources", e.output)))
+    end),
+    events:on("stand.sold", function(e)
+      self:showToast(string.format("Roadside stand sold %d items for $%d", e.units, e.earned))
     end),
     events:on("market.held", function(e)
       self:showToast(name("catalog", e.item) .. " is waiting at the gate: no room in storage")
@@ -657,6 +661,8 @@ function Homestead:tap(i)
       self:setHand(nil, nil)
     elseif world.registry:get("objects", self.placing).placeOn == "waterTable" and not Land.hasWaterTable(world, i) then
       self:showToast("Needs a high water table (blue tiles)")
+    elseif world.registry:get("objects", self.placing).placeNear == "road" then
+      self:showToast("Needs a free spot beside the road")
     else
       self:showToast("Can't place it there")
     end
@@ -976,6 +982,19 @@ function Homestead:tileInfo(i)
         lines[#lines + 1] = string.format("%s %d · %.1fh left", recipe.name, batch.count, hours)
       else
         lines[#lines + 1] = "Idle"
+      end
+    end
+    if obj.stand then
+      local cap, today = Stand.cap(world), Stand.todayCap(world)
+      lines[#lines + 1] = today < cap and string.format("Up to %d today (cap %d)", today, cap) or string.format("Sells up to %d a day", cap)
+      lines[#lines + 1] = string.format("Pays %d%% of town price", math.floor(world.tuning.stand.priceFraction * 100 + 0.5))
+      local last = Stand.last(world)
+      if last then
+        lines[#lines + 1] = string.format("Day %d: %d sold, $%d", last.day, last.units, last.earned)
+      elseif Food.crateCount(world) == 0 then
+        lines[#lines + 1] = "Crate empty: nothing to sell"
+      else
+        lines[#lines + 1] = "No sales yet"
       end
     end
     if obj.heatSource then

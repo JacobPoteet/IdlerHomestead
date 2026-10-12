@@ -62,6 +62,7 @@ local STATE_OWNERS = {
   power = "power",
   priorities = "tasks",
   processing = "processing",
+  stand = "stand",
   startingKitGiven = "land",
   water = "water",
   weather = "weather",

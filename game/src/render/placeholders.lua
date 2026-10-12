@@ -713,6 +713,40 @@ function P.drip_line(p)
   end
 end
 
+-- Roadside stand: a plank table under a striped awning, with crates of goods (32x24).
+function P.roadside_stand(p)
+  local awningRed = { 0.74, 0.28, 0.24 }
+  local awningCream = { 0.92, 0.88, 0.76 }
+  p:ellipse(16, 23, 14, 1, C.shadow)
+  p:rect(3, 8, 2, 15, C.bark) -- posts
+  p:rect(27, 8, 2, 15, C.bark)
+  for x = 1, 29, 4 do -- striped awning
+    p:rect(x, 2, 2, 6, awningRed)
+    p:rect(x + 2, 2, 2, 6, awningCream)
+  end
+  p:rect(1, 8, 30, 1, C.barkDark)
+  p:rect(2, 15, 28, 3, C.barkLight) -- table top
+  p:rect(2, 18, 28, 1, C.bark)
+  p:rect(4, 19, 2, 4, C.bark)
+  p:rect(26, 19, 2, 4, C.bark)
+  p:rect(5, 12, 6, 3, C.radish) -- radishes
+  p:rect(13, 12, 6, 3, C.barkLight) -- potatoes in a crate
+  p:rect(13, 12, 6, 1, C.bark)
+  p:rect(21, 12, 6, 3, { 0.62, 0.64, 0.58 }) -- a fish or two
+  p:rect(11, 9, 10, 3, awningCream) -- price board
+  p:rect(12, 10, 8, 1, awningRed)
+end
+
+function P.icon_roadside_stand(p)
+  p:rect(1, 1, 10, 3, { 0.74, 0.28, 0.24 })
+  p:rect(3, 1, 2, 3, { 0.92, 0.88, 0.76 })
+  p:rect(7, 1, 2, 3, { 0.92, 0.88, 0.76 })
+  p:rect(2, 4, 1, 6, C.bark)
+  p:rect(9, 4, 1, 6, C.bark)
+  p:rect(1, 7, 10, 2, C.barkLight)
+  p:rect(3, 6, 2, 1, C.radish)
+end
+
 function P.icon_well(p)
   p:rect(1, 6, 10, 5, C.stone)
   p:rect(3, 7, 6, 2, WATER_DEEP)
