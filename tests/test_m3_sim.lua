@@ -308,6 +308,17 @@ local function objectAnchor(world, id)
   end
 end
 
+-- A world with no fuel in stock (the starting kit carries some firewood).
+local function noFuelWorld(seed)
+  local world = newWorld(seed)
+  for _, res in ipairs(reg:all("resources")) do
+    if res.heat then
+      Ledger.remove(world, res.id, Ledger.get(world, res.id))
+    end
+  end
+  return world
+end
+
 local function dayIn(season)
   for n, s in ipairs(tun.time.seasons) do
     if s == season then
@@ -336,7 +347,7 @@ T.test("firewood: the routine splits wood, keeping a little for the smoker", fun
 end)
 
 T.test("warmth: cold nights burn the best fuel; nothing to burn costs condition", function()
-  local world = newWorld(2)
+  local world = noFuelWorld(2)
   local warmed = collect(world, "needs.warmed")
   setTime(world, dayIn("autumn"), 12)
   local need = Needs.warmthNeeded(world)
@@ -371,7 +382,7 @@ T.test("warmth: summer needs no fire; without a heat source fuel doesn't help", 
 end)
 
 T.test("warmth: a fed but cold day doesn't restore condition", function()
-  local world = newWorld(2)
+  local world = noFuelWorld(2)
   setTime(world, dayIn("winter"), 12)
   world.state.needs.condition = 50
   Ledger.add(world, "canned_food", 10)
@@ -380,7 +391,7 @@ T.test("warmth: a fed but cold day doesn't restore condition", function()
 end)
 
 T.test("firewood: the woodshed stores more and seasons green wood", function()
-  local world = newWorld(2)
+  local world = noFuelWorld(2)
   local base = Ledger.capacity(world, "seasoned_firewood")
   Inventory.addObject(world, "woodshed")
   local spot
