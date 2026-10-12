@@ -17,6 +17,9 @@ local Needs = require("src.sim.systems.needs")
 local Inventory = require("src.sim.systems.inventory")
 local Processing = require("src.sim.systems.processing")
 local Tasks = require("src.sim.systems.tasks")
+local Weather = require("src.sim.systems.weather")
+local Crops = require("src.sim.systems.crops")
+local Food = require("src.sim.systems.food")
 
 local tun = tuningLoader.load()
 local reg = Registry.new():loadAll()
@@ -405,4 +408,140 @@ T.test("firewood: an axe halves felling and splitting time", function()
   local bare = clear.workTime(world, nil, tree)
   Inventory.addEquipment(world, "axe")
   T.near(clear.workTime(world, nil, tree), bare / 2, 1e-9)
+end)
+
+-- Winter ----------------------------------------------------------------------------------
+
+--- Tick across midnight into `day` (so newDay/newSeason events fire), landing at 01:00.
+local function arriveOn(world, day)
+  setTime(world, day - 1, 23.5)
+  run(world, HOUR * 1.5)
+end
+
+T.test("winter: each year rolls a winter, harsher as years go by", function()
+  local world = newWorld(9)
+  local w1 = Weather.winter(world, 1)
+  T.truthy(w1.severity >= tun.weather.severityMin and w1.severity <= tun.weather.severityMax)
+  T.truthy(w1.snapStart >= tun.weather.snapStartMin and w1.snapStart <= tun.weather.snapStartMax)
+  local avg1, avg5 = 0, 0
+  for seed = 1, 20 do
+    local w = newWorld(seed)
+    avg1 = avg1 + Weather.winter(w, 1).severity
+    avg5 = avg5 + Weather.winter(w, 5).severity
+  end
+  T.truthy(avg5 > avg1, "later winters are harsher")
+  T.eq(Weather.winter(world, 1), w1, "rolled once and remembered")
+end)
+
+T.test("winter: autumn reveals the forecast in pieces", function()
+  local world = newWorld(9)
+  local pieces = collect(world, "weather.forecast")
+  local autumn = dayIn("autumn") - 1 -- day 1 of autumn
+  arriveOn(world, autumn)
+  T.eq(Weather.forecast(world).severity, nil, "nothing known yet")
+  for d = 1, tun.time.daysPerSeason - 1 do
+    arriveOn(world, autumn + d)
+  end
+  local f = Weather.forecast(world)
+  local w = Weather.winter(world)
+  T.eq(#pieces, #tun.weather.forecastDays)
+  T.eq(f.severity, w.severity)
+  T.eq(f.snapStart, w.snapStart)
+  T.eq(f.snapDays, w.snapDays)
+end)
+
+T.test("winter: frost kills crops, nothing grows or gets planted", function()
+  local world = newWorld(9)
+  local frosted = collect(world, "crop.frosted")
+  local grid = world.state.grid
+  local tile
+  for i = 1, #grid.terrain do
+    if Grid.terrain(world, i).tillable and not world.occupancy[i] then
+      tile = i
+      break
+    end
+  end
+  world.state.fields.tilled[tile] = true
+  world.state.crops[tile] = { id = "potato", growth = 0.5, moisture = 1 }
+  arriveOn(world, dayIn("winter") - 1)
+  T.eq(world.state.crops[tile], nil, "the frost killed it")
+  T.eq(#frosted, 1)
+  T.truthy(Journal.hasNote(world, "first_frost"))
+  Ledger.add(world, "seed_radish", 5)
+  T.falsy(Tasks.get(world, "plant").canDo(world, Actors.homesteader(world), tile, { crop = "radish" }))
+  world.state.crops[tile] = { id = "radish", growth = 0.2, moisture = 1 }
+  run(world, HOUR * 6)
+  T.eq(world.state.crops[tile].growth, 0.2, "no growth while frozen")
+end)
+
+T.test("winter: the cold snap multiplies the warmth need", function()
+  local world = newWorld(9)
+  local w = Weather.winter(world)
+  local first = dayIn("winter") - 1
+  setTime(world, first + w.snapStart - 2, 12)
+  local normal = Needs.warmthNeeded(world)
+  T.near(normal, tun.needs.dailyWarmth.winter * w.severity, 1e-9)
+  T.falsy(Weather.isColdSnap(world))
+  setTime(world, first + w.snapStart - 1, 12)
+  T.truthy(Weather.isColdSnap(world))
+  T.near(Needs.warmthNeeded(world), normal * tun.weather.snapMultiplier, 1e-9)
+end)
+
+T.test("winter: fishing and fetching water cut an ice hole first", function()
+  local world = newWorld(9)
+  setTime(world, dayIn("winter"), 12)
+  local fish = Tasks.get(world, "fish")
+  local water
+  for i = 1, #world.state.grid.terrain do
+    if world.state.grid.terrain[i] == "water" then
+      water = i
+      break
+    end
+  end
+  local actor = Actors.homesteader(world)
+  local cold = fish.workTime(world, actor, water)
+  T.near(cold, tun.fishing.idleAttemptTime + tun.weather.iceCutTime, 1e-9)
+  Weather.openHole(world, water)
+  T.near(fish.workTime(world, actor, water), tun.fishing.idleAttemptTime, 1e-9)
+  T.falsy(Weather.waterTarget(world, water + 1) and world.state.grid.terrain[water + 1] == "water" and water + 1 ~= water,
+    "the routine sticks to open holes")
+  T.truthy(Weather.waterTarget(world, water))
+end)
+
+T.test("winter: solar output drops", function()
+  local world = newWorld(9)
+  setTime(world, 2, 12)
+  local spring = Power.sun(world)
+  setTime(world, dayIn("winter"), 12)
+  T.truthy(Power.sun(world) < spring * 0.75)
+end)
+
+T.test("food: potatoes count toward the winter stock instead of being sold", function()
+  local world = newWorld(9)
+  Food.setDays(world, 0, 5)
+  Ledger.remove(world, "canned_food", Ledger.get(world, "canned_food")) -- no preserved stock
+  Ledger.add(world, "potato", 20)
+  Ledger.add(world, "radish", 20)
+  Food.sort(world)
+  local keepPotatoes = math.ceil(5 * tun.needs.dailyCalories / reg:get("resources", "potato").calories)
+  T.eq(world.state.food.crate.potato, 20 - keepPotatoes)
+  T.eq(world.state.food.crate.radish, 20, "radishes don't keep")
+end)
+
+T.test("lighting: the authored day stretches to the season's sunrise and sunset", function()
+  local Lighting = require("src.render.lighting")
+  T.near(Lighting.remap(8, 8, 17, 6, 20), 6, 1e-9, "winter sunrise lands on the authored sunrise")
+  T.near(Lighting.remap(17, 8, 17, 6, 20), 20, 1e-9, "winter sunset lands on the authored sunset")
+  T.near(Lighting.remap(12.5, 8, 17, 6, 20), 13, 1e-9, "midday stays midday")
+  T.near(Lighting.remap(0.5, 8, 17, 6, 20), 1, 1e-9, "midnight-ish maps across the night")
+  T.near(Lighting.remap(10, 6, 20, 6, 20), 10, 1e-9, "spring is the authored day")
+end)
+
+T.test("forecast: words follow the revealed pieces", function()
+  local Forecast = require("src.ui.forecast")
+  local world = newWorld(9)
+  T.eq(Forecast.summary(world), nil)
+  world.state.weather.revealed[1] = 3
+  local text = Forecast.summary(world)
+  T.truthy(text:find("winter") and text:find("cold snap"), text)
 end)

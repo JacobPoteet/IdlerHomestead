@@ -4,6 +4,7 @@ return {
   "calendar",
   "ledger",
   "journal",
+  "weather",
   "land",
   "tasks",
   "crops",

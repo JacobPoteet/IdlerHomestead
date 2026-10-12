@@ -32,7 +32,7 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 | `ford_stones` | 1 | M1 | Transparent overlay of stepping stones drawn over water. |
 | `plan_marker` | 1 | M1 | Corner ticks on planned field tiles. |
 | Grass→dirt / grass→water transition tiles | autotile set | M7 | Today the creek edge is handled by the water shader's foam. |
-| Snow ground, frozen water | — | M3 | Winter. |
+| Snow ground, frozen water | — | M3 | Done as shaders (`snow.glsl`, `water.glsl` ice) over the normal tiles. |
 
 ### Objects
 
@@ -101,13 +101,14 @@ gradients), avoid `sin()`-based hashes (precision on mobile), and keep everythin
 
 | Shader | Status | What it does |
 |---|---|---|
-| `water.glsl` | **M1** | Creek: depth shading from a per-tile depth map, pixel-snapped ripples drifting downstream, banding, daylight sparkles, foam along the banks. |
-| `grade.glsl` | **M1** | Whole-world post-process: time-of-day tint & light (dawn warm, night blue), saturation, vignette, film grain on the art-pixel grid at 12 fps. |
+| `water.glsl` | **M1** | Creek: depth shading from a per-tile depth map, pixel-snapped ripples drifting downstream, banding, daylight sparkles, foam along the banks. **M3:** `ice` blends to a pale frozen surface with crack lines; ice holes are drawn on top by the renderer. |
+| `grade.glsl` | **M1** | Whole-world post-process: time-of-day tint & light (dawn warm, night blue), saturation, vignette, film grain on the art-pixel grid at 12 fps. **M3:** the lighting keys stretch to each season's sunrise/sunset, and a per-season tint/saturation (`visuals.seasonGrade`) sits on top. |
+| `snow.glsl` | **M3** | Snow over the ground canvas: clumpy pixel coverage that ramps in after the freeze and melts after the thaw (`visuals.snow*`). |
 | Wind sway | Planned | Vertex shader bending crops, brush and tree canopies with gusts; strength from weather. |
 | Cloud shadows | Planned | Soft noise shadows drifting across the land; ties into solar output on cloudy days. |
 | Night lights | Planned (M3) | Light-map canvas: lamp/window/stove/campfire glows that punch through the night grade. |
 | Rain & wet ground | Planned | Rain streaks + ripple rings on water + darkened, glossier ground. |
-| Snow & frost | Planned (M3) | Snow accumulating on tops of objects, frost creeping over edges, frozen creek with cracks. |
+| Snow on objects & frost | Planned | Snow on tops of objects and trees, frost creeping over edges (ground snow and the frozen creek are done). |
 | Morning mist | Planned | Low fog band over the creek and fields at dawn. |
 | Heat shimmer | Planned | Summer midday distortion near the horizon/fields. |
 | Fireflies / dust motes | Planned | Particle + glow on summer evenings. |

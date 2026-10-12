@@ -2,6 +2,7 @@
 -- calories: food energy per unit (present = edible). Food is eaten in file order, so fresher,
 --   more perishable food comes first.
 -- spoilDays: average days before a unit spoils (absent = keeps). value: base sale price in $.
+-- keepsForWinter: fresh food that keeps well enough to count toward the winter stock (potatoes).
 -- autoSell: non-food goods that go to the sell crate by default.
 -- heat: warmth per unit when burned (GDD §4.2); seasoned wood burns hotter than green.
 -- capacity: storage limit until storage buildings (woodshed) raise it.
@@ -30,7 +31,7 @@ return {
 
   -- Fresh produce
   { id = "radish", name = "Radish", category = "food", calories = 300, spoilDays = 4, value = 1 },
-  { id = "potato", name = "Potato", category = "food", calories = 900, spoilDays = 20, value = 2 },
+  { id = "potato", name = "Potato", category = "food", calories = 900, spoilDays = 20, value = 2, keepsForWinter = true },
 
   -- Preserved food (keeps all winter; sells for more than fresh, GDD §6.2)
   { id = "smoked_fish", name = "Smoked fish", category = "preserved", calories = 700, value = 10 },

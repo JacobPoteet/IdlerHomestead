@@ -13,14 +13,16 @@ function Power.init(world)
   world.state.power = world.state.power or { charge = {} }
 end
 
---- Solar intensity 0..1 for the current hour (sine arc between the season's sunrise and sunset).
+--- Solar intensity 0..1 for the current hour: a sine arc between the season's sunrise and sunset,
+--- scaled by the season's output (low sun and snow on the panels in winter).
 function Power.sun(world)
   local sunrise, sunset = Calendar.daylight(world)
-  local hour = Calendar.now(world).hour
-  if hour <= sunrise or hour >= sunset then
+  local now = Calendar.now(world)
+  if now.hour <= sunrise or now.hour >= sunset then
     return 0
   end
-  return math.sin(math.pi * (hour - sunrise) / (sunset - sunrise))
+  local arc = math.sin(math.pi * (now.hour - sunrise) / (sunset - sunrise))
+  return arc * world.tuning.power.seasonalOutput[now.season]
 end
 
 local function sortedAnchors(world, field)

@@ -19,5 +19,6 @@ return {
   "power",
   "economy",
   "study",
+  "weather",
   "visuals",
 }

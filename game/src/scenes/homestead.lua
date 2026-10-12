@@ -17,6 +17,8 @@ local Needs = require("src.sim.systems.needs")
 local Food = require("src.sim.systems.food")
 local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
+local Weather = require("src.sim.systems.weather")
+local Forecast = require("src.ui.forecast")
 local Power = require("src.sim.systems.power")
 local Processing = require("src.sim.systems.processing")
 local Renderer = require("src.render.world_renderer")
@@ -99,6 +101,15 @@ function Homestead:subscribe()
     end),
     events:on("journal.idea", function(e)
       self:queueToast("New idea: " .. name("catalog", e.item) .. " · see the Journal")
+    end),
+    events:on("weather.forecast", function(e)
+      self:queueToast(Forecast.news(world, e.piece))
+    end),
+    events:on("weather.froze", function()
+      self:queueToast("The creek froze. Cut a hole to fish or fetch water.")
+    end),
+    events:on("weather.coldSnap", function(e)
+      self:queueToast(e.active and "Cold snap! Fires need far more wood." or "The cold snap broke.")
     end),
     events:on("journal.learned", function(e)
       self:queueToast("Learned: " .. name("catalog", e.item) .. " · now in the catalog")
@@ -549,6 +560,27 @@ function Homestead:drawTopBar(view)
   stat("icon_firewood", need > 0 and string.format("%.1fn", warmth / need) or string.format("%.0f", warmth), x, 6)
 end
 
+-- Winter forecast under the top bar, from autumn on (GDD §4.1); loud during the cold snap.
+function Homestead:drawForecast()
+  local world = self.world
+  local text, color
+  if Weather.isColdSnap(world) then
+    text, color = "Cold snap", theme.colors.danger
+  else
+    local summary = Forecast.summary(world)
+    if not summary then
+      return
+    end
+    local frozen = Weather.isFrozen(world)
+    text = (frozen and "This winter: " or "Forecast: ") .. summary
+    color = theme.colors.accent
+  end
+  local w = Text.measure(text, "small") + 12
+  love.graphics.setColor(0, 0, 0, 0.45)
+  love.graphics.rectangle("fill", 4, TOP_H + 4, w, 14, 3, 3)
+  Text.draw(text, 4, TOP_H + 6, { size = "small", width = w, align = "center", color = color })
+end
+
 function Homestead:drawBottomBar(view)
   love.graphics.setColor(theme.colors.panel)
   love.graphics.rectangle("fill", 0, view.h - BOTTOM_H, view.w, BOTTOM_H)
@@ -657,6 +689,7 @@ function Homestead:draw()
 
   -- HUD (not graded)
   self:drawTopBar(view)
+  self:drawForecast()
   self:drawBottomBar(view)
   self:drawControlBadge(view)
   self:drawInfo(view)
