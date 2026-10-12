@@ -62,6 +62,7 @@ local STATE_OWNERS = {
   perksApplied = "perks",
   power = "power",
   priorities = "tasks",
+  routine = "routine",
   processing = "processing",
   stand = "stand",
   startingKitGiven = "land",
