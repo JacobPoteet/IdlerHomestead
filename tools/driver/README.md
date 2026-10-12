@@ -18,6 +18,8 @@ lovec tools/driver help=1            # lists scenarios
 Scenarios shipped: `overview` (title, slots, new game, homestead), `panels` (pantry, catalog,
 journal, power, guide, town/truck), `clear` (order a clear and capture the progress ring), `stand` (roadside stand by the road, a day of sales with its toast, the object card), `weather` (clear, cloudy, rain and storm skies with the forecast pill), `finds` (the pick-1-of-3 modal, a card selected, the toast after taking it), `cat` (a mouse raid and its note, the cat arriving, napping in the sun, being petted), `routine` (routine on, asleep, resumed in the morning, the idle hint), `sleep` (fast sleep banner, the Skip night button, the morning after), `starter` (the routine planning, tilling and planting its starter field after a takeover), `standpin` (the Pantry "Stand/Truck" toggle and a pinned good surviving the stand's sale), `chickens` (a coop with hens roaming its run and the object card, eggs waiting in the nest box, a tap sending the homesteader to collect them, the Animals chapter of the journal), `storage` (a full firewood chip and pill, a tap refused with "Stone storage is full", a paid order held at the gate and its refund button in the Catalog), `machine` (the auto-harvester reach while placing it, working beside a grown field with its arm, ring and card, unpowered with a red reach and the card saying so, its node in the Machines chapter of the journal), `thresholds` (the routine panel with per-category conditions, then one condition edited with the stepper buttons), `spoilage` (the red spoilage chip, the Pantry with each food's rate, tonight's expected loss and a warning, the first-spoil explanation card, the next night's loss toast, the Pantry with surplus for sale under the automatic pantry), `threats` (a hail season and a coming locust swarm on the forecast pills with their warning toasts, then the storm's hail and its summary toast and note), `ftue` (the first-time tip cards: welcome, plant with a tile selected, queued water and food cards, routine and autumn, Skip tips, Menu > Tips with a replayed tip, Show all again).
 
+Also `uxbatch` (D70: the Pantry scrolled by drag and wheel, the amber and red chips with their warning toasts, the winter-readiness pill and card, the won't-ripen warning on a plan and on the tile card, the bedtime toast and the morning report card).
+
 First-time tip cards (D69) are off in every scenario by default so they never cover a screenshot; `d:newGame({ tips = true })` starts the slot with them on.
 
 ## Safety and how it finds the game
@@ -56,6 +58,8 @@ Helper API (`tools/driver/driver.lua`):
 | `d:labels()` | Labels on the top scene, handy while writing a scenario. |
 | `d:click(vx, vy)`, `d:clickPixel(px, py)` | Click at a virtual or window position, through the real mouse handler. |
 | `d:clickTile(tx, ty)` | Click a homestead tile, centring the camera on it if off screen. |
+| `d:drag(x1, y1, x2, y2 [, steps])` | Swipe from one virtual position to another through the mouse handler (scrolls a list, never counts as a tap). |
+| `d:wheel(notches, vx, vy)` | Turn the mouse wheel (positive = up) with the pointer at a virtual position. |
 | `d:key(name)` | Press a key (`escape`, `space`, `r`, ...). |
 | `d:resize(w, h)` | Change window size mid-scenario. |
 | `d:shot(name)` | Capture the frame. |

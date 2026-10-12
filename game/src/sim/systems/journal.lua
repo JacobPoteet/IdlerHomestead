@@ -200,6 +200,17 @@ function Journal.queue(world)
   return journal(world).queue
 end
 
+--- The idea at the head of the queue, studied tonight: { id, name, nights (studied so far, a fraction
+--- of a night), total (nights it takes) }, or nil when nothing is queued (D70, #159).
+function Journal.studying(world)
+  local head = journal(world).queue[1]
+  if not head then
+    return nil
+  end
+  local def = item(world, head)
+  return { id = head, name = def.name, nights = journal(world).progress[head] or 0, total = def.studyNights or 1 }
+end
+
 --- A gentle prompt: there are ideas to study but nothing is queued (GDD §8.1).
 function Journal.needsChoice(world)
   if #journal(world).queue > 0 then

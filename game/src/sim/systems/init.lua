@@ -30,4 +30,7 @@ return {
   "machines",
   "routine",
   "ftue",
+  "alerts", -- D70: reads needs; listens after everything has set up its state
+  "nightly", -- D70: the morning report's ledger; closes after sleep has woken the homesteader
+  "readiness", -- D70: accessors only
 }

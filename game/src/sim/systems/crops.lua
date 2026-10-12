@@ -128,6 +128,33 @@ function Crops.planStarter(world)
   return planned
 end
 
+--- Could a crop planted today be caught by the first frost (D37, D70, #165)? Returns nil when it
+--- ripens in time (or the ground is already frozen, when nothing can be planted), else
+--- { level = "late" (cannot ripen: it needs more watered days than are left) | "tight" (within the
+--- starter-field margin of that), daysLeft (days to the freeze, counting today), growDays }.
+function Crops.frostRisk(world, cropId)
+  if Weather.isFrozen(world) then
+    return nil
+  end
+  local def = world.registry:get("crops", cropId)
+  local left = Weather.daysToFreeze(world)
+  if left == math.huge then
+    return nil
+  end
+  local level
+  if left < def.growDays then
+    level = "late"
+  elseif left < def.growDays + world.tuning.farming.starterFrostMargin then
+    level = "tight"
+  end
+  return level and { level = level, daysLeft = left, growDays = def.growDays } or nil
+end
+
+--- Watered days a growing crop still needs to ripen (0 when ripe).
+function Crops.daysToRipe(world, crop)
+  return (1 - math.min(1, crop.growth)) * world.registry:get("crops", crop.id).growDays
+end
+
 local function cropFor(world, i, order)
   return (order and order.crop) or world.state.fields.plan[i]
 end

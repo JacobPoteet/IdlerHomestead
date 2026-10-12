@@ -105,6 +105,26 @@ function Weather.warmthNeed(world)
   return world.tuning.needs.dailyWarmth[Calendar.now(world).season] * Weather.warmthMultiplier(world)
 end
 
+--- Warmth the night of `dayOfSeason` in `season` should need, going only on what the forecast has
+--- revealed so far (D70, #166). Returns the need and whether it is exact. In a frozen season an
+--- unrevealed severity counts as the lowest this year can roll and an unrevealed cold snap as none, so
+--- the figure is a floor until the forecast is complete.
+function Weather.expectedWarmthNeed(world, season, dayOfSeason)
+  local base = world.tuning.needs.dailyWarmth[season]
+  if not Weather.isFrozenSeason(world, season) then
+    return base, true
+  end
+  local cfg = world.tuning.weather
+  local f = Weather.forecast(world)
+  local year = Calendar.now(world).year
+  local mult = f.severity or (cfg.severityMin + cfg.severityPerYear * (year - 1))
+  local exact = f.severity ~= nil and f.snapDays ~= nil
+  if f.snapStart and f.snapDays and dayOfSeason >= f.snapStart and dayOfSeason < f.snapStart + f.snapDays then
+    mult = mult * cfg.snapMultiplier
+  end
+  return base * mult, exact
+end
+
 -- The sky (D51) -----------------------------------------------------------------------------
 
 -- Roll the kind and length of the next spell, for the day `day` (its season sets the weights).
