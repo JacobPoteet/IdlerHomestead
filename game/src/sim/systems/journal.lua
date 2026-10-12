@@ -17,6 +17,7 @@
 -- Emits "journal.note" { note }, "journal.idea" { item }, "journal.learned" { item }.
 
 local Calendar = require("src.sim.systems.calendar")
+local Power = require("src.sim.systems.power")
 local Sleep = require("src.sim.systems.sleep")
 local Stats = require("src.sim.stats")
 
@@ -355,7 +356,7 @@ function Journal.tick(world, dt)
   end
   local cfg = world.tuning.study
   local hours = dt / Calendar.hourLength(world)
-  local rate = (1 + Stats.modifier(world, "studySpeed")) / cfg.nightHours
+  local rate = (1 + Stats.modifier(world, "studySpeed") + Power.effect(world, "studySpeed")) / cfg.nightHours -- a powered lamp helps
   j.progress[head] = (j.progress[head] or 0) + hours * rate
   if j.progress[head] >= item(world, head).studyNights - cfg.finishSlack then
     learn(world, head)

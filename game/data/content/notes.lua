@@ -76,6 +76,13 @@ return {
     event = "market.trip",
   },
   {
+    id = "full_battery",
+    name = "Full battery",
+    line = "A full battery and sun to spare.",
+    icon = "icon_battery",
+    event = "power.full",
+  },
+  {
     id = "felled_tree",
     name = "Felled a tree",
     line = "Felling a tree by hand takes forever.",

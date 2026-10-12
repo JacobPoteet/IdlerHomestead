@@ -3,11 +3,12 @@
 -- through the night (hottest fuel first). Shortfalls cost Condition; a fed, warm day restores some.
 --
 -- State: world.state.needs = { condition }
--- Emits "needs.ate" { calories, shortfall }, "needs.warmed" { warmth, needed, burned, green,
+-- Emits "needs.ate" { calories, shortfall }, "needs.warmed" { warmth, electric, needed, burned, green,
 -- shortfall } (green = units of poor fuel, heat below 1) and "needs.depleted" when Condition hits 0.
 
 local Calendar = require("src.sim.systems.calendar")
 local Ledger = require("src.sim.systems.ledger")
+local Power = require("src.sim.systems.power")
 local Weather = require("src.sim.systems.weather")
 
 local Needs = {}
@@ -75,7 +76,7 @@ end
 
 --- Warmth needed tonight: the season's base, scaled by the winter's severity and any cold snap.
 function Needs.warmthNeeded(world)
-  return world.tuning.needs.dailyWarmth[Calendar.now(world).season] * Weather.warmthMultiplier(world)
+  return Weather.warmthNeed(world)
 end
 
 --- Eat today's food. Returns the shortfall (0..1).
@@ -101,10 +102,11 @@ function Needs.warm(world)
   local cfg = world.tuning.needs
   local need = Needs.warmthNeeded(world)
   local efficiency = Needs.heatEfficiency(world)
+  local electric = Power.takeWarmth(world) -- warmth the electric heaters made since the last night (GDD §7.5)
   local warmth, burned, green = 0, 0, 0
-  if need > 0 and efficiency > 0 then
+  if need > electric and efficiency > 0 then
     for _, res in ipairs(fuels(world)) do
-      while warmth < need and Ledger.remove(world, res.id, 1, "burn") do
+      while warmth + electric < need and Ledger.remove(world, res.id, 1, "burn") do
         warmth = warmth + res.heat * efficiency
         burned = burned + 1
         if res.heat < 1 then
@@ -113,11 +115,18 @@ function Needs.warm(world)
       end
     end
   end
-  local shortfall = need > 0 and math.max(0, need - warmth) / need or 0
+  local shortfall = need > 0 and math.max(0, need - warmth - electric) / need or 0
   if shortfall > 0 then
     hurt(world, cfg.coldDamage * shortfall)
   end
-  world.events:emit("needs.warmed", { warmth = warmth, needed = need, burned = burned, green = green, shortfall = shortfall })
+  world.events:emit("needs.warmed", {
+    warmth = warmth,
+    electric = math.min(electric, need),
+    needed = need,
+    burned = burned,
+    green = green,
+    shortfall = shortfall,
+  })
   return shortfall
 end
 

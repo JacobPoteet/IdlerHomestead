@@ -30,7 +30,12 @@ return {
     footprintW = "number?", -- tiles wide (default 1); anchored at the top-left tile
     footprintH = "number?", -- tiles tall (default 1)
     placeable = "boolean?", -- can be placed by the player from inventory
-    powerOutput = "number?", -- peak kW in full sun (solar)
+    source = "table?", -- power source: { curve = "solar"|"wind"|"hydro"|"fuel", peak = kW, fuel?, fuelPerKwh? } (GDD §7.5)
+    sink = "table?", -- power sink: { tier, draw = kW, schedule = "always"|"dark"|"heat", inertia? = hours, effects? = { name -> amount } }
+    maxRate = "number?", -- battery: most kW it can charge or discharge at (absent = unlimited)
+    efficiency = "number?", -- battery: fraction of charging energy that is stored (absent = 1)
+    vehicle = "boolean?", -- battery: the truck; charged in the "truck" priority tier, lends power only above a trip reserve
+    placeNear = "string?", -- placement rule: must touch this terrain flag ("water": next to the creek)
     battery = "number?", -- kWh of storage
     station = "string?", -- processor station id used by recipes (e.g. "smoker")
     shelter = "boolean?", -- the homesteader sleeps here (GDD §5.3 shelter ladder)

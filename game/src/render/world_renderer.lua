@@ -7,6 +7,7 @@
 local Grid = require("src.sim.grid")
 local Calendar = require("src.sim.systems.calendar")
 local Water = require("src.sim.systems.water")
+local Power = require("src.sim.systems.power")
 local Processing = require("src.sim.systems.processing")
 local Weather = require("src.sim.systems.weather")
 local Assets = require("src.render.assets")
@@ -34,6 +35,24 @@ function Renderer.new(world)
   self:buildGround()
   self:buildWater()
   return self
+end
+
+--- Status light on a powered device or generator: green running, red short, amber idle, grey off.
+function Renderer:drawPowerLamp(anchor, def, x, y)
+  local world, v = self.world, self.world.tuning.visuals.powerLamp
+  local state
+  if def.sink then
+    state = Power.sinkState(world, anchor)
+  elseif not Power.isEnabled(world, anchor) then
+    state = "off"
+  else
+    state = Power.outputOf(world, anchor) > 0 and "ok" or "idle" -- a generator runs only when needed
+  end
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.rectangle("fill", x - 1, y - 1, v.size + 2, v.size + 2)
+  love.graphics.setColor(v[state])
+  love.graphics.rectangle("fill", x, y, v.size, v.size)
+  love.graphics.setColor(1, 1, 1, 1)
 end
 
 local function variantFor(i, count)
@@ -300,6 +319,9 @@ function Renderer:draw(alpha, visible, daylight)
           love.graphics.draw(sprite.image, sprite.quad, (x - 1) * tile, bottom - sprite.h)
           if smoking then
             self:drawSmoke((x - 1) * tile + 8, bottom - sprite.h + 2)
+          end
+          if def.sink or (def.source and def.source.curve == "fuel") then
+            self:drawPowerLamp(anchor, def, (x - 1) * tile + sprite.w - 4, bottom - sprite.h + 1)
           end
         end,
       }

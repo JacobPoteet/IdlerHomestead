@@ -76,6 +76,19 @@ function Weather.warmthMultiplier(world)
   return mult
 end
 
+--- Warmth needed tonight: the season's base, scaled by the winter's severity and any cold snap.
+function Weather.warmthNeed(world)
+  return world.tuning.needs.dailyWarmth[Calendar.now(world).season] * Weather.warmthMultiplier(world)
+end
+
+--- What the weather does to power generation right now: { cloud (0..1 of sunlight blocked),
+--- wind (turbine multiplier), flow (micro-hydro multiplier) }. The power network reads this every
+--- tick (GDD §7.5). Today it returns tuning constants; day-to-day weather (#39) replaces the body
+--- with state-driven values and nothing in the power system needs to change. Read-only.
+function Weather.powerInputs(world)
+  return world.tuning.weather.powerInputs
+end
+
 --- 1 (mild), 2 (hard) or 3 (brutal) for a severity multiplier.
 function Weather.severityLevel(world, severity)
   local level = 1

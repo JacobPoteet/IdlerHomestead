@@ -53,7 +53,7 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 | Woodpile / woodshed | 16×16 / 32×32 | M3 | Firewood stock shown visually. |
 | Shack / cabin | 32×32+ | M3 | |
 | Well + hand pump | 16×24 | M5 | |
-| Solar array, battery bank, wind turbine | various | M5 | Turbine needs blade animation. |
+| `solar_array` 32x16 (2x1), `battery_bank`, `micro_hydro`, `generator`, `electric_heater`, `lamp`, `chest_freezer` 16x16, `wind_turbine` 16x32 | various | M5 (placeholders) | Power network (#34). The turbine needs blade animation; the generator, heater and freezer need on/off art states (today a status light is drawn over them, see `visuals.powerLamp`). Icons `icon_<object>` and `icon_fuel` are 12x12. |
 | Roadside stand | 32×24 | M5 | |
 | Chicken coop, goat shed, barn | various | M6–M7 | |
 
