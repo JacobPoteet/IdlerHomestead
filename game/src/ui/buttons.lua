@@ -4,6 +4,7 @@
 
 local theme = require("src.ui.theme")
 local Text = require("src.ui.text")
+local Assets = require("src.render.assets")
 
 local Buttons = {}
 Buttons.__index = Buttons
@@ -18,7 +19,8 @@ function Buttons:clear()
   self.hovered, self.pressed = nil, nil
 end
 
---- b: { x, y, w, h, label, onPress, enabled = true, style = "normal"|"danger"|"accent", size }
+--- b: { x, y, w, h, label, onPress, enabled = true, style = "normal"|"danger"|"accent", size,
+---      icon = spriteId, selected = bool }
 function Buttons:add(b)
   b.w = math.max(b.w, self.minSize)
   b.h = math.max(b.h, self.minSize)
@@ -69,7 +71,7 @@ function Buttons:draw()
     local fill = colors.button
     if not b.enabled then
       fill = colors.buttonDisabled
-    elseif self.pressed == b then
+    elseif self.pressed == b or b.selected then
       fill = colors.buttonPressed
     elseif self.hovered == b then
       fill = colors.buttonHover
@@ -79,17 +81,26 @@ function Buttons:draw()
     local border = colors.panelBorder
     if b.style == "danger" then
       border = colors.danger
-    elseif b.style == "accent" then
+    elseif b.style == "accent" or b.selected then
       border = colors.accent
     end
     love.graphics.setColor(border)
     love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1, 3, 3)
-    local _, th = Text.measure(b.label, b.size or "body")
-    Text.draw(b.label, b.x, b.y + (b.h - th) / 2, {
+    local tw, th = Text.measure(b.label, b.size or "body")
+    local textX, textW = b.x, b.w
+    if b.icon then
+      local icon = Assets.sprite(b.icon)
+      local total = icon.w + (b.label ~= "" and (3 + tw) or 0)
+      local ix = math.floor(b.x + (b.w - total) / 2)
+      love.graphics.setColor(1, 1, 1, b.enabled and 1 or 0.5)
+      love.graphics.draw(icon.image, icon.quad, ix, math.floor(b.y + (b.h - icon.h) / 2))
+      textX, textW = ix + icon.w + 3, tw + 1
+    end
+    Text.draw(b.label, textX, b.y + (b.h - th) / 2, {
       size = b.size or "body",
-      width = b.w,
-      align = "center",
+      width = textW,
+      align = b.icon and "left" or "center",
       color = b.enabled and colors.text or colors.textDim,
     })
   end

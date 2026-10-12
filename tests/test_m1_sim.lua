@@ -280,3 +280,33 @@ T.test("save mid-job: the homesteader resumes the same job", function()
   run(restored, 10)
   T.truthy(restored.state.fields.tilled[tile], "tilled after reload")
 end)
+
+T.test("idle routine waters planted crops on every plot (regression: unreachable nearest water)", function()
+  for seed = 1, 10 do
+    local world = newWorld(seed * 7919)
+    world.control = "idle"
+    for _, i in ipairs(fieldNearSpawn(world, 4)) do
+      Crops.setPlan(world, i, "radish")
+    end
+    local plantedAt, wateredAt
+    local elapsed = 0
+    world.events:on("crop.planted", function()
+      plantedAt = plantedAt or elapsed
+    end)
+    world.events:on("task.completed", function(e)
+      if e.task == "water_crop" then
+        wateredAt = wateredAt or elapsed
+      end
+    end)
+    for _ = 1, math.floor(tun.time.dayLength * 2 / STEP) do
+      world:tick(STEP)
+      elapsed = elapsed + STEP
+      if wateredAt then
+        break
+      end
+    end
+    T.truthy(plantedAt, "seed " .. seed .. ": planted")
+    T.truthy(wateredAt, "seed " .. seed .. ": watered")
+    T.truthy(wateredAt - plantedAt < tun.time.dayLength, "seed " .. seed .. ": watered within a day")
+  end
+end)

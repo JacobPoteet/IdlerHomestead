@@ -7,6 +7,8 @@ local Save = require("src.core.save")
 local platform = require("src.core.platform")
 local tuningLoader = require("src.core.tuning")
 local Debug = require("src.ui.debug_overlay")
+local Assets = require("src.render.assets")
+local Shaders = require("src.render.shaders")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 local TitleScene = require("src.scenes.title")
@@ -34,6 +36,7 @@ function Game.new()
     return emit(inp, name, data)
   end
 
+  Assets.load()
   local self = setmetatable({ app = app, input = input, debug = Debug.new(app, input) }, Game)
   self:resize(love.graphics.getDimensions())
   app:switch(TitleScene.new())
@@ -58,6 +61,13 @@ end
 
 function Game:keypressed(key)
   if self.debug:keypressed(key) then
+    return
+  end
+  if key == "f6" then
+    -- Live reload while iterating on look & balance (GDD §12.3).
+    tuningLoader.reload(self.app.ctx.tuning)
+    Shaders.reloadAll()
+    print("Reloaded tuning and shaders")
     return
   end
   self.input:keypressed(key)

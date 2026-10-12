@@ -40,7 +40,7 @@ function Debug:lines()
     names[#names + 1] = scene.name or "?"
   end
   local lines = {
-    "F1 debug  F2 sim speed  F3 perf",
+    "F1 debug  F2 sim speed  F3 perf  F6 reload tuning+shaders",
     "scenes: " .. table.concat(names, " > "),
     string.format("view: %dx%d @%dx", app.view.w, app.view.h, app.view.scale),
     string.format("input: last=%s idle=%.1fs", tostring(self.input.lastAction), self.input:idleSeconds()),
@@ -53,6 +53,9 @@ function Debug:lines()
       session.clock.timeScale,
       session.world.state.seed
     )
+  end
+  for name, err in pairs(require("src.render.shaders").errors()) do
+    lines[#lines + 1] = "SHADER " .. name .. ": " .. (err:gsub("\n.*", ""))
   end
   local top = app:top()
   if top and top.debugLines then

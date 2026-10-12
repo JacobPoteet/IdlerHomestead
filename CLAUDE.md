@@ -4,7 +4,7 @@ Idle / roguelite homestead game in LÖVE 11.5 (LuaJIT). The design source of tru
 
 ## Running
 - `love game` (or `lovec game` on Windows for console output). LÖVE is installed at `C:\Program Files\LOVE`.
-- F3 toggles the template's performance overlay.
+- Debug keys: F1 overlay, F2 sim speed, F3 performance overlay, F6 reload tuning + shaders live.
 
 ## Architecture rules (GDD §12)
 - `game/src/sim/` is pure game logic: **no `love.graphics` / `love.audio` calls**, so it can be tested headless and fast-forwarded.
@@ -16,6 +16,8 @@ Idle / roguelite homestead game in LÖVE 11.5 (LuaJIT). The design source of tru
 - Save slot state = `{ meta = ..., run = ... }`. Run state is discarded on failure, and meta persists.
 - Input goes through the action abstraction (mouse, touch, keyboard). No hover-only UI. Platform-specific features check capability flags, never OS names.
 - Sim state is plain serializable tables, kept separate from definitions.
+- `game/src/render/` is presentation: it reads sim state and never changes it. Sprites are looked up by id through `game/assets/manifest.lua` (placeholders in `src/render/placeholders.lua`); shaders live in `game/shaders/` with parameters in `data/tuning/visuals.lua`. See docs/ASSETS.md.
+- When adding a sim helper module outside `src/sim/systems/`, add it to the list in `tests/test_architecture.lua`.
 
 ## Style
 - Follow `.editorconfig` and `.stylua.toml` (2-space indent).
