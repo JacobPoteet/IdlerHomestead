@@ -134,4 +134,16 @@ return {
   task_categories = {
     name = "string",
   },
+  routine_conditions = {
+    name = "string", -- what the panel's kind button says
+    measure = "string", -- "foodDays" | "stock" | "seasonIndex" | "hour"
+    resources = "table?", -- stock measure: resource ids summed
+    cmp = "string", -- "below" | "atleast" | "is"
+    min = "number", -- lowest value the stepper reaches
+    max = "number", -- highest value the stepper reaches
+    step = "number", -- change per stepper press
+    default = "number", -- value when the kind is first picked
+    unit = "string", -- what the value counts, for tooltips and docs
+    short = "string", -- format with one %s for the value, shown in the routine list
+  },
 }

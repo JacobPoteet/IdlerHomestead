@@ -26,12 +26,15 @@
 -- actors never work the same target: a reservation names its holder (actor.id) and only that holder
 -- can release it.
 --
--- State: world.state.priorities = ordered { { category, enabled } } for the idle routine.
+-- State: world.state.priorities = ordered { { category, enabled, cond? } } for the idle routine.
+-- `cond` ({ kind, value }, see routine_rules.lua / D66) makes the idle routine skip the category
+-- while it is not met; it never affects player orders or machines.
 -- Runtime: world.taskTypes (registered each load), world.reservations ("task:tile" -> actor id),
 -- rebuilt on load from the jobs actors and machines hold.
 
 local Grid = require("src.sim.grid")
 local Pathfind = require("src.sim.pathfind")
+local Rules = require("src.sim.routine_rules")
 
 local Tasks = {}
 
@@ -52,13 +55,14 @@ function Tasks.syncPriorities(world)
   local list, seen = {}, {}
   for _, entry in ipairs(world.state.priorities or {}) do
     if known[entry.category] and not seen[entry.category] then
+      entry.cond = Rules.sanitize(world, entry.cond) -- older saves have none and keep none (D66)
       list[#list + 1] = entry
       seen[entry.category] = true
     end
   end
   for _, cat in ipairs(world.registry:all("task_categories")) do
     if not seen[cat.id] then
-      list[#list + 1] = { category = cat.id, enabled = true }
+      list[#list + 1] = { category = cat.id, enabled = true } -- no condition by default (D66)
     end
   end
   world.state.priorities = list
@@ -98,6 +102,41 @@ function Tasks.setPriorityEnabled(world, category, enabled)
       entry.enabled = enabled
     end
   end
+end
+
+local function entryFor(world, category)
+  for _, entry in ipairs(world.state.priorities) do
+    if entry.category == category then
+      return entry
+    end
+  end
+  error("Unknown routine category " .. tostring(category))
+end
+
+--- The category's routine condition, { kind, value }, or nil for "always" (D66).
+function Tasks.condition(world, category)
+  return entryFor(world, category).cond
+end
+
+--- Set a category's condition to a kind at its default value; nil clears it.
+function Tasks.setCondition(world, category, kind)
+  entryFor(world, category).cond = kind and Rules.make(world, kind) or nil
+end
+
+--- Cycle a category's condition kind (always -> each kind in content order -> always).
+function Tasks.cycleCondition(world, category)
+  local entry = entryFor(world, category)
+  entry.cond = Rules.nextKind(world, entry.cond)
+end
+
+--- Nudge a category's condition value one step (delta +1 / -1), clamped to the kind's range.
+function Tasks.stepCondition(world, category, delta)
+  Rules.step(world, entryFor(world, category).cond, delta)
+end
+
+--- Is the category's condition met right now? (Categories with none always are.)
+function Tasks.conditionMet(world, category)
+  return Rules.met(world, entryFor(world, category).cond)
 end
 
 local function reservationKey(taskId, i)
@@ -221,7 +260,7 @@ function Tasks.chooseIdleJob(world, actor)
   local grid = world.state.grid
   local here = Grid.index(grid, math.floor(actor.x + 0.5), math.floor(actor.y + 0.5))
   for _, entry in ipairs(world.state.priorities) do
-    if entry.enabled then
+    if entry.enabled and Rules.met(world, entry.cond) then
       local targets, taskAt, any = {}, {}, false
       for _, t in ipairs(world.taskTypes.list) do
         if t.category == entry.category and t.candidates and Tasks.allows(actor.caps, t) then
