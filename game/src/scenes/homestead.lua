@@ -18,10 +18,12 @@ local Actors = require("src.sim.systems.actors")
 local Crops = require("src.sim.systems.crops")
 local Needs = require("src.sim.systems.needs")
 local Food = require("src.sim.systems.food")
+local Spoilage = require("src.sim.systems.spoilage")
 local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
 local Weather = require("src.sim.systems.weather")
 local Forecast = require("src.ui.forecast")
+local SpoilText = require("src.ui.spoil_text")
 local Run = require("src.meta.run")
 local Stats = require("src.sim.stats")
 local Power = require("src.sim.systems.power")
@@ -176,9 +178,7 @@ function Homestead:subscribe()
     events:on("ledger.overflow", function(e)
       self:showToast(string.format("Storage full: lost %d %s", e.lost, name("resources", e.id)))
     end),
-    events:on("food.spoiled", function(e)
-      self:showToast(string.format("%d %s spoiled", e.amount, name("resources", e.resource)))
-    end),
+    -- Spoilage is reported once a night (D68, #151): see Homestead:spoilageNews, shown when awake.
     -- Journal news waits its turn so a note and the idea it sparks are both seen.
     events:on("journal.note", function(e)
       self:queueToast("New note: " .. world.registry:get("notes", e.note).line)
@@ -283,6 +283,35 @@ function Homestead:resize(view)
   self:layout()
 end
 
+--- Say what spoiled overnight (D68, #151): a card with the explanation the first time ever, a queued
+--- toast after that. It waits for the homesteader to be up and the world to be on top, so a night's
+--- loss is not lost to the fast-forward.
+function Homestead:spoilageNews()
+  local world = self.world
+  if not Food.hasReport(world) or self.session:sleeping() or self.app:top() ~= self then
+    return
+  end
+  local report = Food.takeReport(world)
+  if report.first then
+    local app = self.app
+    app:push(require("src.scenes.notice").new({
+      title = "Food spoils",
+      headline = SpoilText.summary(world, report),
+      message = SpoilText.explanation(world),
+      okLabel = "Got it",
+      more = {
+        label = "Open Pantry",
+        onPress = function()
+          app:push(require("src.scenes.pantry").new(world))
+        end,
+      },
+    }))
+  else
+    -- Ahead of the note the same night may have written, which waits behind it.
+    self:urgentToast(SpoilText.summary(world, report))
+  end
+end
+
 function Homestead:showToast(text)
   self.toast = { text = text, time = TOAST_TIME }
 end
@@ -356,6 +385,11 @@ function Homestead:stats()
       (Ledger.isFull(world, "firewood") or Ledger.isFull(world, "seasoned_firewood")) and theme.colors.danger or nil,
     },
   }
+  local tonight = Spoilage.tonight(world)
+  if tonight.warn then
+    -- Fresh food is about to rot (D68, #151): the number is how many units are expected to go tonight.
+    stats[#stats + 1] = { "icon_spoiled", "-" .. math.floor(tonight.expected + 0.5), theme.colors.danger }
+  end
   if Water.hasCistern(world) then
     -- Cistern stock, once there is a cistern to hold it.
     stats[#stats + 1] = { "icon_water", string.format("%d%%", math.floor(Water.fraction(world) * 100 + 0.5)) }
@@ -712,6 +746,7 @@ function Homestead:update(dt)
     self.app:push(require("src.scenes.finds").new(self.world))
     return
   end
+  self:spoilageNews()
   if self.toast then
     self.toast.time = self.toast.time - dt
     if self.toast.time <= 0 then

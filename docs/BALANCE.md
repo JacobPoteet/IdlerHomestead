@@ -235,6 +235,26 @@ Threats are part of the sim, not a feature switch: every run gets its yearly sch
 
 Scripted truck income Y1 $59 to $48, Y2 $67 to $67. Per run: scripted 2.8 threats came, 2.3 struck, 8 crops lost; active 5.0 came, 4.3 struck, 56 crops lost and 13 knocked back. With 20 seeds x 2 years and a first-pass year-1 strength of 0.5, threats on against off: scripted alive at the end of Sp2 85% vs 95%, end of Wi2 40% both; active 95% both; active year-2 truck income $346 vs $280 (noise: the runs diverge as soon as a crop is lost). Year-1 strength was then lowered to 0.4 to keep year 1 gentle; the 6-seed table above is at 0.4.
 
+### Automatic pantry and the gentler start (#151, #163, #161, D68)
+
+Changes: the automatic pantry holds a fresh food only for `autoPantryHorizon` (0.5) of its `spoilDays`, so surplus fish and radishes go to the sell crate for the stand or the truck instead of sitting in the pantry; the starting kit gains 2 cans (4 to 6) and $6. The report gained a "Food per run: N units spoiled" counter.
+
+`policy=scripted,active seeds=6 years=1`, before and after (same seeds):
+
+| | scripted before | scripted after | active before | active after |
+| --- | --- | --- | --- | --- |
+| failed in year 1 | 1/6 (spring Y2) | 0/6 | 0/6 | 0/6 |
+| alive end of Wi1 | 100% | 100% | 100% | 100% |
+| money at end of Sp1 / Su1 / Au1 / Wi1 (median $) | 21 / 21 / 9.5 / 9.5 | 36.5 / 26 / 9 / 15 | 6 / 6 / 23.5 / 9.5 | 13 / 7.5 / 16.5 / 8.5 |
+| truck income Y1 (median $) | 48 | 69 | 193 | 196 |
+| trips per run | 3.3 | 4.0 | 5.5 | 5.5 |
+| stand units per run | 2 | 7 | 13 | 14 |
+| fresh food spoiled per run (units) | 151.7 | 142.5 | 435.3 | 411.3 |
+| harvested per run | 380 | 380 | 820 | 790 |
+| food in stock at end of Wi1 (days, median) | 0.3 | 0.6 | 10.0 | 9.3 |
+
+Reading: the early money is the visible change (the $6 and the crate that sells), survival is not worse anywhere and the one scripted failure became a survivor (6 seeds, so within noise). Spoilage fell only 6 percent: moving food to the crate does not stop it spoiling (D31, the crate is a reservation), it only gets sold when the stand or a truck trip runs, and the policies make a trip every 5 to 8 days. The real fix for the 410 units a run in the active policy is more sales channels or earlier preserving (smoker, freezer), and the visibility in the pantry (D68) so a player acts on it. The harness policies do not read the new warnings.
+
 ### Follow-up issues
 
 - #153 harness policies do not prepare for threats
