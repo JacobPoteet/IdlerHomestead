@@ -13,5 +13,9 @@ return {
   "actors",
   "farming",
   "needs",
+  "food",
+  "fishing",
+  "power",
+  "economy",
   "visuals",
 }

@@ -4,5 +4,8 @@ return {
   "terrain",
   "objects",
   "crops",
+  "fish",
+  "recipes",
+  "catalog",
   "task_categories",
 }

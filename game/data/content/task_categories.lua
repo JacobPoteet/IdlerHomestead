@@ -3,5 +3,7 @@ return {
   { id = "harvest", name = "Harvest" },
   { id = "water", name = "Water" },
   { id = "plant", name = "Till & plant" },
+  { id = "process", name = "Preserve" },
   { id = "clear", name = "Clear land" },
+  { id = "fish", name = "Fish" },
 }

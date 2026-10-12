@@ -21,7 +21,7 @@ function Session.new(opts)
     slot = opts.slot,
     data = data,
     tuning = tuning,
-    world = World.new({ registry = opts.registry, tuning = tuning, events = opts.events }, data.run),
+    world = World.new({ registry = opts.registry, tuning = tuning, events = opts.events, meta = data.meta }, data.run),
     clock = Clock.new({ tickRate = tuning.time.tickRate, maxTicksPerFrame = tuning.time.maxTicksPerFrame }),
     sinceSave = 0,
   }, Session)

@@ -20,7 +20,9 @@ function World.newState(seed)
   return { seed = seed, tick = 0, rng = {} }
 end
 
---- ctx: { registry, tuning, events? }. state: from World.newState or a loaded save.
+--- ctx: { registry, tuning, events?, meta? }. state: from World.newState or a loaded save.
+--- `meta` is the save slot's persistent career data (survives failed runs); systems may record
+--- into it (e.g. the fish guide). Tests can omit it.
 function World.new(ctx, state)
   assert(ctx.registry and ctx.tuning, "World.new requires ctx.registry and ctx.tuning")
   assert(type(state) == "table" and state.seed, "World.new requires a state with a seed")
@@ -29,6 +31,7 @@ function World.new(ctx, state)
     registry = ctx.registry,
     tuning = ctx.tuning,
     events = ctx.events or Events.new(),
+    meta = ctx.meta or {},
     systems = {},
     rngStreams = {},
   }, World)

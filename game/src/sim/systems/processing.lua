@@ -1,0 +1,118 @@
+-- Processing (GDD §5.3, §6.2): stations such as the smoker turn fresh food into preserved food.
+-- Loading a station is a task (category "process"); the batch then runs on its own for the
+-- recipe's hours and the output goes straight into stock.
+--
+-- State: world.state.processing = { [anchor] = { recipe, count, remaining } } for running batches.
+-- Emits "processing.started" { recipe, tile, count } and "processing.done" { recipe, tile, output, count }.
+
+local Grid = require("src.sim.grid")
+local Ledger = require("src.sim.systems.ledger")
+local Food = require("src.sim.systems.food")
+local Tasks = require("src.sim.systems.tasks")
+
+local Processing = {}
+
+local function recipeFor(world, anchor)
+  local obj = world.state.grid.objects[anchor]
+  if not obj then
+    return nil
+  end
+  local station = world.registry:get("objects", obj.id).station
+  if not station then
+    return nil
+  end
+  for _, recipe in ipairs(world.registry:all("recipes")) do
+    if recipe.station == station then
+      return recipe
+    end
+  end
+  return nil
+end
+
+-- Units available to process: inputs of the right category not reserved for sale.
+local function inputs(world, recipe)
+  local list, total = {}, 0
+  for _, res in ipairs(world.registry:all("resources")) do
+    if res.category == recipe.inputCategory then
+      local n = Food.available(world, res.id)
+      if n > 0 then
+        list[#list + 1] = { id = res.id, n = n }
+        total = total + n
+      end
+    end
+  end
+  return list, total
+end
+
+local function canLoad(world, anchor)
+  local recipe = recipeFor(world, anchor)
+  if not recipe or world.state.processing[anchor] then
+    return false
+  end
+  local _, total = inputs(world, recipe)
+  return total > 0 and Ledger.canAfford(world, recipe.fuel or {})
+end
+
+--- Is a batch running at this station? Returns the batch or nil.
+function Processing.batch(world, anchor)
+  return world.state.processing[anchor]
+end
+
+function Processing.init(world)
+  world.state.processing = world.state.processing or {}
+  Tasks.register(world, {
+    id = "load_station",
+    category = "process",
+    verb = "Load",
+    clickOrder = 25,
+    candidates = function(w, _, add)
+      for anchor in pairs(w.state.grid.objects) do
+        if canLoad(w, anchor) then
+          add(anchor)
+        end
+      end
+    end,
+    canDo = function(w, _, i)
+      local _, anchor = Grid.object(w, i)
+      return anchor ~= nil and canLoad(w, anchor)
+    end,
+    workTime = function(w)
+      return w.tuning.food.loadStationTime
+    end,
+    complete = function(w, _, i)
+      local _, anchor = Grid.object(w, i)
+      local recipe = recipeFor(w, anchor)
+      if not recipe or not Ledger.spend(w, recipe.fuel or {}, "fuel") then
+        return
+      end
+      local count = 0
+      for _, input in ipairs((inputs(w, recipe))) do
+        local take = math.min(input.n, recipe.batch - count)
+        if take > 0 then
+          Ledger.remove(w, input.id, take, "process")
+          count = count + take
+        end
+      end
+      w.state.processing[anchor] = {
+        recipe = recipe.id,
+        count = count,
+        remaining = recipe.hours * w.tuning.time.dayLength / 24,
+      }
+      w.events:emit("processing.started", { recipe = recipe.id, tile = anchor, count = count })
+    end,
+  })
+end
+
+function Processing.tick(world, dt)
+  for anchor, batch in pairs(world.state.processing) do
+    batch.remaining = batch.remaining - dt
+    if batch.remaining <= 0 then
+      local recipe = world.registry:get("recipes", batch.recipe)
+      world.state.processing[anchor] = nil
+      Ledger.add(world, recipe.output, batch.count, "processed")
+      world.events:emit("processing.done", { recipe = recipe.id, tile = anchor, output = recipe.output, count = batch.count })
+    end
+  end
+end
+
+return Processing
