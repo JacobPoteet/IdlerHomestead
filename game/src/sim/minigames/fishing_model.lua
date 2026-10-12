@@ -9,7 +9,7 @@
 --          Tension maxed for slipTime -> "slipped" (gentle: no gear lost).
 --          Line at zero while released for escapeTime -> "escaped". Line full -> "caught".
 --
--- params: { fish = def, tuning = tuning.fishing, rng = Rng, maxTension = n, reelSpeed = n, bait = bool }
+-- params: { fish = def, tuning = tuning.fishing, rng = Rng, maxTension = n, reelSpeed = n, bait = bool, activity = n }
 -- maxTension / reelSpeed are gear multipliers (1 = basic rod).
 
 local Model = {}
@@ -17,7 +17,8 @@ Model.__index = Model
 
 function Model.new(params)
   local cfg = params.tuning
-  local delay = params.rng:range(cfg.biteDelayMin, cfg.biteDelayMax) * (params.bait and cfg.baitBiteSpeed or 1)
+  -- activity: how active the fish are (weather, 1 = normal); livelier fish bite sooner.
+  local delay = params.rng:range(cfg.biteDelayMin, cfg.biteDelayMax) * (params.bait and cfg.baitBiteSpeed or 1) / (params.activity or 1)
   return setmetatable({
     fish = params.fish,
     cfg = cfg,

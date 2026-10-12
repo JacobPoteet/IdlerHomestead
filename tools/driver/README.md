@@ -16,7 +16,7 @@ lovec tools/driver help=1            # lists scenarios
 - Exit code is non-zero if a scenario throws (a missing button, an assert, a game error).
 
 Scenarios shipped: `overview` (title, slots, new game, homestead), `panels` (pantry, catalog,
-journal, power, guide, town/truck), `clear` (order a clear and capture the progress ring).
+journal, power, guide, town/truck), `clear` (order a clear and capture the progress ring), `weather` (clear, cloudy, rain and storm skies with the forecast pill).
 
 ## Safety and how it finds the game
 

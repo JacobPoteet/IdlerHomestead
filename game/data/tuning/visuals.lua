@@ -74,6 +74,25 @@ return {
     dry = { 0.95, 0.40, 0.30, 0.30 },
   },
   waterSpots = { 0.35, 0.62, 0.80, 0.28 }, -- tint over tiles where a well or pump can be sunk, while placing one
+  weather = { -- day-to-day weather look (D51); full ambience (cloud shadows, wind sway, wet ground) is #49
+    blendSeconds = 3, -- real seconds for the look to ease into a new day's weather
+    looks = { -- weather kind -> { tint multiplier on the grade, light multiplier, rain 0..1 streak density }
+      clear = { tint = { 1.00, 1.00, 1.00 }, light = 1.00, rain = 0 },
+      cloudy = { tint = { 0.90, 0.94, 1.00 }, light = 0.86, rain = 0 },
+      rain = { tint = { 0.80, 0.88, 1.00 }, light = 0.76, rain = 0.7 },
+      windy = { tint = { 0.95, 0.97, 1.00 }, light = 0.94, rain = 0 },
+      storm = { tint = { 0.68, 0.76, 0.94 }, light = 0.62, rain = 1 },
+    },
+    rain = { -- the falling streaks, drawn over the graded world in virtual UI pixels
+      drops = 260, -- streaks on screen at full intensity per referenceArea
+      referenceArea = 230400, -- virtual pixels^2 the drops count is for (640x360)
+      length = 9, -- pixels, average streak length
+      width = 1, -- pixels
+      slant = 0.25, -- horizontal pixels each streak leans per vertical pixel (wind direction)
+      speed = 260, -- pixels per second, average fall speed
+      color = { 0.78, 0.88, 1.00, 0.7 }, -- r, g, b, alpha at full intensity
+    },
+  },
   vignette = 0.28, -- 0..1 darkening toward the screen edges
   grain = 0.035, -- 0..1 film grain strength
 }

@@ -430,18 +430,16 @@ T.test("power: micro-hydro needs the creek beside it and runs day and night", fu
   T.near(Power.output(world), reg:get("objects", "micro_hydro").source.peak * tun.power.curves.hydro.spring, 1e-9)
 end)
 
-T.test("power: weather inputs scale generation (the hook for #39)", function()
+T.test("power: today's weather scales generation (D51)", function()
   local world = newWorld()
   setTime(world, SPRING, 12)
+  world.state.weather.sky.days[1] = "clear"
   world:tick(STEP)
   local clear = Power.output(world)
-  local inputs = tun.weather.powerInputs
-  local saved = inputs.cloud
-  inputs.cloud = 0.5
+  world.state.weather.sky.days[1] = "cloudy"
   world:tick(STEP)
   local cloudy = Power.output(world)
-  inputs.cloud = saved
-  T.near(cloudy, clear * 0.5, clear * 0.01)
+  T.near(cloudy, clear * (1 - tun.weather.kinds.cloudy.cloud), clear * 0.01)
 end)
 
 -- The winter squeeze --------------------------------------------------------------------------

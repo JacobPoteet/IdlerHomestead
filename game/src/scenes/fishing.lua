@@ -48,6 +48,7 @@ function FishingScene:cast()
       maxTension = 1 + Stats.modifier(world, "maxTension"),
       reelSpeed = 1 + Stats.modifier(world, "reelSpeed"),
       bait = bait,
+      activity = Fishing.activity(world),
     })
     self.usedBait = bait
   end
