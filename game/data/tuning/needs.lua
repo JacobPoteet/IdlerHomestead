@@ -5,7 +5,7 @@ return {
   hungerDamage = 25, -- condition lost on a day with no food at all (scaled by the shortfall)
   dailyRecovery = 10, -- condition regained on a fully fed, warm day
   dailyWarmth = { -- season id -> warmth needed per night (1 = one seasoned firewood in a campfire)
-    spring = 1,
+    spring = 0.5,
     summer = 0,
     autumn = 2,
     winter = 4,

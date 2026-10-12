@@ -20,6 +20,7 @@ local function simFiles()
     "game/src/sim/noise.lua",
     "game/src/sim/stats.lua",
     "game/src/sim/minigames/fishing_model.lua",
+    "game/src/meta/run.lua",
   }
   for _, name in ipairs(require("src.sim.systems.init")) do
     files[#files + 1] = "game/src/sim/systems/" .. name .. ".lua"

@@ -8,7 +8,7 @@
 --
 -- Everything here lives in the save slot's meta, so it survives failed runs:
 --   world.meta.journal = {
---     notes = { [noteId] = { day, season, year } },  -- when each note was written (day of season)
+--     notes = { [noteId] = { day, season, year, run } }, -- when it was written (day of season, run #)
 --     counts = { [noteId] = n },                     -- matching events so far (count notes)
 --     known = { [itemId] = true },
 --     queue = { itemId, ... },                       -- study order; [1] is being studied
@@ -35,7 +35,7 @@ function Journal.hasNote(world, id)
   return journal(world).notes[id] ~= nil
 end
 
---- When a note was written ({ day = day of season, season, year }), or nil.
+--- When a note was written ({ day = day of season, season, year, run }), or nil.
 function Journal.noteInfo(world, id)
   return journal(world).notes[id]
 end
@@ -159,6 +159,19 @@ local function learn(world, id)
   world.events:emit("journal.learned", { item = id })
 end
 
+--- Learn an idea right away, skipping study (the free study during recovery, GDD §4.3).
+--- Returns true, or false + reason.
+function Journal.learnNow(world, id)
+  if Journal.isKnown(world, id) then
+    return false, "known"
+  end
+  if not Journal.isIdea(world, id) then
+    return false, "not an idea"
+  end
+  learn(world, id)
+  return true
+end
+
 --- Finish the study in progress right away (recovery after a rescue, GDD §4.3).
 --- Returns the item learned, or nil if nothing was queued.
 function Journal.finishStudy(world)
@@ -196,7 +209,8 @@ local function writeNote(world, def)
     before[entry.id] = Journal.isIdea(world, entry.id)
   end
   local now = Calendar.now(world)
-  j.notes[def.id] = { day = now.dayOfSeason, season = now.season, year = now.year }
+  local career = world.meta.career
+  j.notes[def.id] = { day = now.dayOfSeason, season = now.season, year = now.year, run = career and career.runs or 1 }
   j.counts[def.id] = nil
   world.events:emit("journal.note", { note = def.id })
   for _, entry in ipairs(world.registry:all("catalog")) do

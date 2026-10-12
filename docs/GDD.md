@@ -90,6 +90,8 @@ A run lasts as many years as you survive. There is no "win screen". Each year as
 
 **No salvage carries over from a failed run.** You get back faster because of what you've learned, and you only have that knowledge because the previous run got far.
 
+*Built (M3):* `src/meta/run.lua` records each run in `meta.career` (run number, history of summaries), finishes the study in progress, and sets `meta.recovery` until the player heads out, so quitting mid-recovery resumes there. Scenes: `rescue` (lights in the snow; the rescuer's line changes after the first rescue) → `recovery` (run summary, notes earned this run, one free study) → `homestead` on new land.
+
 ---
 
 ## 5. Core loop
@@ -524,3 +526,4 @@ Headless sim tests, plus a **balance harness** that simulates years with scripte
 | D36 | **Firewood & warmth.** Trees and logs give wood; the routine splits it into green firewood at the chopping block (keeping a little for the smoker). A woodshed seasons green wood (heat 0.5 → 1) and stores more. Each night needs a season-dependent amount of warmth (none in summer), burned in the best placed heat source (campfire ×1, wood stove ×1.6). Condition only recovers on a day that is both fed and warm. The campfire and chopping block are starting kit; the axe, woodshed and stove are learned. |
 | D37 | **Winter.** Each year rolls a winter: a severity multiplier on the warmth need (range grows each year) and a cold snap (a few nights at ×2). Autumn reveals the forecast in three pieces (severity word, snap timing, snap length); a `forecastLead` stat reveals them earlier. In frozen seasons nothing grows or is planted, the first frost kills crops still in the ground, solar output drops (`tuning.power.seasonalOutput`), and using the creek means cutting an ice hole first (holes stay open until the thaw; the routine reuses them). |
 | D38 | **Food model shortcuts kept for now** (issue #11): spoilage stays aggregate (fraction of stock per day), smoked fish stays one generic resource, food rules re-sort on an hourly timer. Fresh food flagged `keepsForWinter` (potatoes) tops up the winter stock after the pantry, standing in for a root cellar until one exists. Revisit with the balance harness. |
+| D39 | **Recovery is a saved state.** Failing discards `run` immediately and stores the run summary in `meta`; the slot shows "Recovering in town" until the player heads out. The free study during recovery learns one current idea instantly. Notes remember which run wrote them, for the run summary. |

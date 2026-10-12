@@ -19,6 +19,7 @@ local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
 local Weather = require("src.sim.systems.weather")
 local Forecast = require("src.ui.forecast")
+local Run = require("src.meta.run")
 local Power = require("src.sim.systems.power")
 local Processing = require("src.sim.systems.processing")
 local Renderer = require("src.render.world_renderer")
@@ -101,6 +102,9 @@ function Homestead:subscribe()
     end),
     events:on("journal.idea", function(e)
       self:queueToast("New idea: " .. name("catalog", e.item) .. " · see the Journal")
+    end),
+    events:on("needs.depleted", function()
+      self.failed = true
     end),
     events:on("weather.forecast", function(e)
       self:queueToast(Forecast.news(world, e.piece))
@@ -342,6 +346,13 @@ function Homestead:update(dt)
   local idle = ctx.input:idleSeconds() >= ctx.tuning.idle.takeoverDelay
   self.session:setControl(idle and "idle" or "active")
   self.session:update(dt)
+  if self.failed then
+    -- Condition hit zero: the run is over (GDD §4.3). Record it, then search & rescue.
+    local slot, data = self.session.slot, self.session.data
+    Run.fail(data, self.world)
+    self.app:switch(require("src.scenes.rescue").new(), slot, data)
+    return
+  end
   self.renderer:update(dt)
   if self.toast then
     self.toast.time = self.toast.time - dt
