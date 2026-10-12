@@ -6,6 +6,7 @@ local Rng = require("src.core.rng")
 local World = require("src.sim.world")
 local Actors = require("src.sim.systems.actors")
 local Sleep = require("src.sim.systems.sleep")
+local Routine = require("src.sim.systems.routine")
 
 local Session = {}
 Session.__index = Session
@@ -26,7 +27,7 @@ function Session.new(opts)
     world = World.new({ registry = opts.registry, tuning = tuning, events = opts.events, meta = data.meta }, data.run),
     clock = Clock.new({ tickRate = tuning.time.tickRate, maxTicksPerFrame = tuning.time.maxTicksPerFrame }),
     sinceSave = 0,
-    routineNow = false, -- the player started the routine by hand (runtime only, never saved)
+    routineNow = false, -- routine forced on (runtime); the saved "wanted" flag in sim state restores it
   }, Session)
   self.clock.timeScale = tuning.time.defaultSpeed
   self.tick = function(dt)
@@ -73,6 +74,8 @@ function Session:startRoutineNow()
     return false, reason
   end
   self.routineNow = true
+  Routine.setWanted(self.world, true)
+  self:setControl("idle") -- the sim must see it before the scene's next update
   return true
 end
 
@@ -88,6 +91,8 @@ end
 --- Give control back to the player (any order does this).
 function Session:cancelRoutine()
   self.routineNow = false
+  self.resumeOnWake = false
+  Routine.setWanted(self.world, false)
 end
 
 --- Is the routine running because the player asked for it?
@@ -97,9 +102,20 @@ end
 
 --- Advance real time: runs due sim ticks, accrues playtime, autosaves on the interval.
 function Session:update(dt)
-  if self.routineNow and not self:canStartRoutine() then
-    self.routineNow = false -- bedtime ends a started routine; in the morning normal takeover applies
+  local canStart = self:canStartRoutine()
+  if self.routineNow and not canStart then
+    self.routineNow = false -- bedtime pauses a started routine; waking resumes it (below)
   end
+  if not canStart then
+    -- Remember it while resting: the waking tick itself re-mirrors the control mode.
+    self.resumeOnWake = Routine.wanted(self.world)
+  elseif self.couldStart == false and self.resumeOnWake then
+    self.resumeOnWake = false
+    self.routineNow = true -- woke up and the routine was running at bedtime: resume (D55)
+    Routine.setWanted(self.world, true)
+    self:setControl("idle")
+  end
+  self.couldStart = canStart
   self.clock:advance(dt, self.tick)
   local header = self.data.header
   header.playtime = (header.playtime or 0) + dt

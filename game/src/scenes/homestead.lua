@@ -120,6 +120,12 @@ function Homestead:subscribe()
       end
       self:queueToast("Mice got into the stores: lost " .. table.concat(parts, ", "))
     end),
+    events:on("routine.idleHint", function()
+      -- Only while the player is looking at the world; panels would hide it (D55).
+      if self.app:top() == self then
+        self:showToast("Homesteader is idle: press R or tap Start routine")
+      end
+    end),
     events:on("stand.sold", function(e)
       self:showToast(string.format("Roadside stand sold %d items for $%d", e.units, e.earned))
     end),
