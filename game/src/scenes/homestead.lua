@@ -4,7 +4,8 @@
 -- thing (clear, till, plant, water, harvest, fill bucket, load the smoker, walk). What's "in hand"
 -- decides the rest: a seed tills/plants, the rod fishes. "Plan field" marks a rectangle (two taps)
 -- for the routine to farm; "Place" puts down equipment from the inventory. Tapping the truck opens
--- the truck panel. After tuning.idle.takeoverDelay seconds without input, the routine takes over.
+-- the truck panel. After tuning.idle.takeoverDelay seconds without input (less with habits perks),
+-- the routine takes over.
 
 local Camera = require("src.core.camera")
 local Session = require("src.session")
@@ -20,6 +21,7 @@ local Journal = require("src.sim.systems.journal")
 local Weather = require("src.sim.systems.weather")
 local Forecast = require("src.ui.forecast")
 local Run = require("src.meta.run")
+local Stats = require("src.sim.stats")
 local Power = require("src.sim.systems.power")
 local Processing = require("src.sim.systems.processing")
 local Renderer = require("src.render.world_renderer")
@@ -101,7 +103,7 @@ function Homestead:subscribe()
       self:queueToast("New note: " .. world.registry:get("notes", e.note).line)
     end),
     events:on("journal.idea", function(e)
-      self:queueToast("New idea: " .. name("catalog", e.item) .. " · see the Journal")
+      self:queueToast("New idea: " .. Journal.node(world, e.item).name .. " · see the Journal")
     end),
     events:on("needs.depleted", function()
       self.failed = true
@@ -116,7 +118,8 @@ function Homestead:subscribe()
       self:queueToast(e.active and "Cold snap! Fires need far more wood." or "The cold snap broke.")
     end),
     events:on("journal.learned", function(e)
-      self:queueToast("Learned: " .. name("catalog", e.item) .. " · now in the catalog")
+      local where = Journal.kindOf(world, e.item) == "perks" and "from your next run" or "now in the catalog"
+      self:queueToast("Learned: " .. Journal.node(world, e.item).name .. " · " .. where)
     end),
   }
 end
@@ -341,9 +344,15 @@ end
 
 -- Update ---------------------------------------------------------------------------------
 
+--- Seconds without input before the routine takes over (shortened by habits perks).
+function Homestead:takeoverDelay()
+  local idle = self.app.ctx.tuning.idle
+  return math.max(idle.minTakeoverDelay, idle.takeoverDelay - Stats.modifier(self.world, "idleTakeover"))
+end
+
 function Homestead:update(dt)
   local ctx = self.app.ctx
-  local idle = ctx.input:idleSeconds() >= ctx.tuning.idle.takeoverDelay
+  local idle = ctx.input:idleSeconds() >= self:takeoverDelay()
   self.session:setControl(idle and "idle" or "active")
   self.session:update(dt)
   if self.failed then
@@ -605,7 +614,7 @@ function Homestead:drawControlBadge(view)
   elseif self.world.control == "idle" then
     text, color = "Routine running", theme.colors.accent
   else
-    local remaining = ctx.tuning.idle.takeoverDelay - ctx.input:idleSeconds()
+    local remaining = self:takeoverDelay() - ctx.input:idleSeconds()
     text, color = string.format("Routine in %ds", math.max(0, math.ceil(remaining))), theme.colors.textDim
   end
   local w = Text.measure(text, "small") + 12

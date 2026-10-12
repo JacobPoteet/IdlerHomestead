@@ -1,8 +1,8 @@
 -- Field Journal (GDD §8.1–8.2): Notes → Ideas → Study at night → Known.
 --
 -- Notes are written from world events by data rules (data/content/notes.lua); the systems that
--- emit those events never know the journal exists (GDD §12.1 #8). A catalog entry becomes an
--- idea once every note in its `needs` is written. The player queues ideas to study; the head of
+-- emit those events never know the journal exists (GDD §12.1 #8). Journal nodes are catalog items
+-- and perks (one id space); a node becomes an idea once every note in its `needs` is written. The player queues ideas to study; the head of
 -- the queue makes progress while the homesteader sleeps (longer nights study faster, equipment
 -- with a `studySpeed` modifier speeds it up) and becomes known for good.
 --
@@ -26,8 +26,43 @@ local function journal(world)
   return world.meta.journal
 end
 
+-- Content kinds whose entries are journal nodes, in display order.
+local NODE_KINDS = { "catalog", "perks" }
+
+--- The definition of a journal node (catalog item or perk). Errors on unknown ids.
 local function item(world, id)
-  return world.registry:get("catalog", id)
+  for _, kind in ipairs(NODE_KINDS) do
+    if world.registry:has(kind, id) then
+      return world.registry:get(kind, id)
+    end
+  end
+  error("Unknown journal node '" .. tostring(id) .. "'", 2)
+end
+Journal.node = item
+
+--- "catalog" or "perks" for a node id.
+function Journal.kindOf(world, id)
+  for _, kind in ipairs(NODE_KINDS) do
+    if world.registry:has(kind, id) then
+      return kind
+    end
+  end
+  return nil
+end
+
+--- Every journal node, catalog first, then perks.
+function Journal.nodes(world)
+  local list = {}
+  for _, kind in ipairs(NODE_KINDS) do
+    for _, def in ipairs(world.registry:all(kind)) do
+      list[#list + 1] = def
+    end
+  end
+  return list
+end
+
+local function isStarter(world, id)
+  return world.registry:has("catalog", id) and world.registry:get("catalog", id).starter == true
 end
 
 function Journal.hasNote(world, id)
@@ -41,7 +76,8 @@ function Journal.noteInfo(world, id)
 end
 
 function Journal.isKnown(world, id)
-  return item(world, id).starter == true or journal(world).known[id] == true
+  item(world, id)
+  return isStarter(world, id) or journal(world).known[id] == true
 end
 
 --- Has every note this item needs been written? (Known items count too.)
@@ -97,10 +133,21 @@ function Journal.progress(world, id)
   return math.min(1, (journal(world).progress[id] or 0) / (def.studyNights or 1))
 end
 
---- Ideas not yet known, in catalog order (queued ones included).
+--- Known perks (their effects apply), in content order.
+function Journal.knownPerks(world)
+  local list = {}
+  for _, def in ipairs(world.registry:all("perks")) do
+    if journal(world).known[def.id] then
+      list[#list + 1] = def
+    end
+  end
+  return list
+end
+
+--- Ideas not yet known, catalog then perks (queued ones included).
 function Journal.ideas(world)
   local list = {}
-  for _, def in ipairs(world.registry:all("catalog")) do
+  for _, def in ipairs(Journal.nodes(world)) do
     if Journal.isIdea(world, def.id) then
       list[#list + 1] = def
     end
@@ -204,8 +251,9 @@ end
 local function writeNote(world, def)
   local j = journal(world)
   -- Ideas this note completes, so the player hears about each new one.
+  local nodes = Journal.nodes(world)
   local before = {}
-  for _, entry in ipairs(world.registry:all("catalog")) do
+  for _, entry in ipairs(nodes) do
     before[entry.id] = Journal.isIdea(world, entry.id)
   end
   local now = Calendar.now(world)
@@ -213,7 +261,7 @@ local function writeNote(world, def)
   j.notes[def.id] = { day = now.dayOfSeason, season = now.season, year = now.year, run = career and career.runs or 1 }
   j.counts[def.id] = nil
   world.events:emit("journal.note", { note = def.id })
-  for _, entry in ipairs(world.registry:all("catalog")) do
+  for _, entry in ipairs(nodes) do
     if not before[entry.id] and Journal.isIdea(world, entry.id) then
       world.events:emit("journal.idea", { item = entry.id })
     end

@@ -10,6 +10,7 @@ return {
   "crops",
   "inventory",
   "power",
+  "perks",
   "food",
   "spoilage",
   "water",

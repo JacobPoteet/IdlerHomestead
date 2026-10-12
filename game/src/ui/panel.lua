@@ -43,6 +43,14 @@ function Panel.resourceIcon(id)
   return "icon_" .. id
 end
 
+--- Icon id for a journal node: a perk's own icon, or the catalog item's.
+function Panel.nodeIcon(registry, def)
+  if registry:has("perks", def.id) then
+    return def.icon
+  end
+  return Panel.catalogIcon(def)
+end
+
 --- Icon id for a catalog item: its own icon, its first resource, its object, or a tool.
 function Panel.catalogIcon(item)
   if Assets.has("icon_" .. item.id) then

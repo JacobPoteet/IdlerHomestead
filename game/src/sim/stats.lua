@@ -1,5 +1,5 @@
--- Stat modifiers from equipment owned this run (GDD §8.2 starting gear, catalog tools).
--- A catalog item with `equipment = true` contributes its `modifiers` table while owned.
+-- Stat modifiers (GDD §8.2): equipment owned this run (catalog items with `equipment = true`)
+-- and perks known in the Field Journal both contribute their `modifiers` tables.
 -- Systems combine a tuning base with Stats.modifier(world, "statName").
 
 local Stats = {}
@@ -11,6 +11,14 @@ function Stats.modifier(world, name)
     local mods = world.registry:get("catalog", itemId).modifiers
     if mods and mods[name] then
       total = total + mods[name]
+    end
+  end
+  local journal = world.meta.journal
+  if journal then
+    for _, perk in ipairs(world.registry:all("perks")) do
+      if journal.known[perk.id] and perk.modifiers and perk.modifiers[name] then
+        total = total + perk.modifiers[name]
+      end
     end
   end
   return total

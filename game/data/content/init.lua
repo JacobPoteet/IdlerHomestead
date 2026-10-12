@@ -8,5 +8,6 @@ return {
   "recipes",
   "notes",
   "catalog",
+  "perks",
   "task_categories",
 }
