@@ -28,6 +28,7 @@ local Land = require("src.sim.systems.land")
 local Water = require("src.sim.systems.water")
 local Processing = require("src.sim.systems.processing")
 local Stand = require("src.sim.systems.stand")
+local Cat = require("src.sim.systems.cat")
 local Finds = require("src.sim.systems.finds")
 local Renderer = require("src.render.world_renderer")
 local ActionRing = require("src.render.action_ring")
@@ -100,6 +101,24 @@ function Homestead:subscribe()
     end),
     events:on("processing.done", function(e)
       self:showToast(string.format("%d %s ready", e.count, name("resources", e.output)))
+    end),
+    events:on("cat.arrived", function()
+      self:showToast("A cat has settled in")
+    end),
+    events:on("cat.petted", function(e)
+      self:showToast(e.bond >= world.tuning.cat.cat.maxBond and "Purrrr. Best of friends" or "Purr")
+    end),
+    events:on("mice.caught", function()
+      self:queueToast("The cat caught a mouse in the night")
+    end),
+    events:on("mice.raided", function(e)
+      local parts = {}
+      for _, res in ipairs(world.registry:all("resources")) do
+        if e.lost[res.id] then
+          parts[#parts + 1] = string.format("%d %s", e.lost[res.id], res.name:lower())
+        end
+      end
+      self:queueToast("Mice got into the stores: lost " .. table.concat(parts, ", "))
     end),
     events:on("stand.sold", function(e)
       self:showToast(string.format("Roadside stand sold %d items for $%d", e.units, e.earned))
@@ -676,6 +695,10 @@ function Homestead:tap(i)
     else
       self:showToast("Can't place it there")
     end
+    return
+  end
+  if Cat.at(world, i) then
+    Cat.pet(world) -- tap the cat to pet it, wherever the homesteader is
     return
   end
   local obj = Grid.object(world, i)

@@ -21,6 +21,7 @@ return {
   "market",
   "stand",
   "finds",
+  "cat",
   "needs",
   "sleep",
   "actors",

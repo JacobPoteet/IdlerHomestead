@@ -6,6 +6,7 @@
 
 local Grid = require("src.sim.grid")
 local Calendar = require("src.sim.systems.calendar")
+local Cat = require("src.sim.systems.cat")
 local Water = require("src.sim.systems.water")
 local Power = require("src.sim.systems.power")
 local Processing = require("src.sim.systems.processing")
@@ -393,6 +394,23 @@ function Renderer:draw(alpha, visible, daylight)
           love.graphics.setColor(0.45, 0.72, 0.92, 1)
           local fill = math.max(1, math.floor(6 * frac + 0.5))
           love.graphics.rectangle("fill", gx + 1, gy + 7 - fill, 1, fill)
+        end
+      end,
+    }
+  end
+  local cx, cy, cpx, cpy, cmode = Cat.position(world)
+  if cx then
+    local feetX = (cpx + (cx - cpx) * alpha - 0.5) * tile
+    local feetY = (cpy + (cy - cpy) * alpha - 0.5) * tile + 6
+    items[#items + 1] = {
+      feetY,
+      function()
+        local resting = cmode == "nap" or cmode == "sleep"
+        local sprite = Assets.sprite(resting and "cat_nap" or "cat")
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(sprite.image, sprite.quad, math.floor(feetX - sprite.w / 2 + 0.5), math.floor(feetY - sprite.h + 0.5))
+        if cmode == "sleep" then
+          self:drawSleep(feetX, feetY - 8)
         end
       end,
     }

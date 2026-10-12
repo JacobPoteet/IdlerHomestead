@@ -48,6 +48,7 @@ end)
 local STATE_OWNERS = {
   actors = "actors",
   calendar = "calendar",
+  cat = "cat",
   condition = "needs",
   crops = "crops",
   fields = "crops",

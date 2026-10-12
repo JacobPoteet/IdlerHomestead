@@ -8,8 +8,17 @@
 --   lacks: when true the weight is multiplied by tuning.finds.lackBoost. One of
 --   { resource = id, below = n }, { object = id } (none in the inventory or placed),
 --   { equipment = id } (not owned).
--- The stray cat is left out until the cat exists (issue #36).
+-- The stray cat (D54) is the catalog's shelter cat as equipment; it is not offered once a cat is owned.
 return {
+  {
+    id = "stray_cat",
+    name = "Stray cat",
+    line = "A thin tabby moves into the shed.",
+    icon = "icon_cat",
+    weight = 0.7,
+    lacks = { equipment = "shelter_cat" },
+    effects = { equipment = { "shelter_cat" } },
+  },
   {
     id = "heirloom_seeds",
     name = "Heirloom seeds",

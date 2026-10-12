@@ -57,6 +57,8 @@ return {
 
     -- Actors
     homesteader = { placeholder = "homesteader", w = 16, h = 20 },
+    cat = { placeholder = "cat", w = 14, h = 10 },
+    cat_nap = { placeholder = "cat_nap", w = 14, h = 10 },
 
     -- UI icons (12x12)
     icon_money = { placeholder = "icon_money", w = 12, h = 12 },
@@ -109,7 +111,9 @@ return {
     icon_cistern = { placeholder = "icon_cistern", w = 12, h = 12 },
     icon_dc_pump = { placeholder = "icon_dc_pump", w = 12, h = 12 },
     icon_drip_line = { placeholder = "icon_drip_line", w = 12, h = 12 },
-    icon_roadside_stand = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
+    icon_cat = { placeholder = "icon_cat", w = 12, h = 12 },
+    icon_shelter_cat = { placeholder = "icon_cat", w = 12, h = 12 },
+    icon_roadside_stand ={ placeholder = "icon_roadside_stand", w = 12, h = 12 },
     icon_stand_sign = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
     icon_stand_cooler = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
     icon_stand_display = { placeholder = "icon_roadside_stand", w = 12, h = 12 },

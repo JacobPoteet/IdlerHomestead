@@ -91,6 +91,13 @@ return {
     event = "market.trip",
   },
   {
+    id = "mice_raid",
+    name = "Mice",
+    line = "Mice got into the stores overnight.",
+    icon = "icon_cat",
+    event = "mice.raided",
+  },
+  {
     id = "stand_sale",
     name = "Stand sale",
     line = "Strangers pay cash at the roadside.",

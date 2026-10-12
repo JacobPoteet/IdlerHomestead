@@ -238,6 +238,17 @@ return {
     studyNights = 2,
     object = "drip_line",
   },
+  -- The cat (GDD §7.7): equipment with no stat modifiers; owning it brings the cat (src/sim/systems/cat.lua).
+  {
+    id = "shelter_cat",
+    name = "Shelter cat",
+    line = "Catches the mice; eats a fish a day.",
+    page = "supplies",
+    price = 12,
+    needs = { "mice_raid" },
+    studyNights = 1,
+    equipment = true,
+  },
   -- Roadside stand (GDD §6.4): idle income beside the truck trip. The upgrades are equipment whose
   -- `standCap` modifiers raise the stand's daily item cap (tuning.stand caps the total).
   {
