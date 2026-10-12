@@ -556,3 +556,72 @@ T.test("forecast: words follow the revealed pieces", function()
   local text = Forecast.summary(world)
   T.truthy(text:find("winter") and text:find("cold snap"), text)
 end)
+
+-- Perks -----------------------------------------------------------------------------------
+
+local Stats = require("src.sim.stats")
+local Inv = require("src.sim.systems.inventory")
+
+T.test("perks content: valid references, one id space with the catalog", function()
+  local sprites = require("assets.manifest").sprites
+  for _, perk in ipairs(reg:all("perks")) do
+    T.falsy(reg:has("catalog", perk.id), perk.id .. " collides with a catalog id")
+    T.truthy(sprites[perk.icon], perk.id .. ".icon")
+    for _, note in ipairs(perk.needs) do
+      T.truthy(reg:has("notes", note), perk.id .. ".needs." .. note)
+    end
+    for res in pairs(perk.startingResources or {}) do
+      T.truthy(reg:has("resources", res), perk.id .. ".startingResources." .. res)
+    end
+    for _, id in ipairs(perk.startingEquipment or {}) do
+      T.truthy(reg:has("catalog", id) and reg:get("catalog", id).equipment, perk.id .. ".startingEquipment." .. id)
+    end
+  end
+end)
+
+T.test("perks: they become ideas and are studied like catalog items", function()
+  local world = newWorld(3)
+  world.meta.journal.notes.first_trip = { day = 1, run = 1 }
+  T.eq(Journal.status(world, "charge_before_leaving"), "idea")
+  local found = false
+  for _, def in ipairs(Journal.ideas(world)) do
+    found = found or def.id == "charge_before_leaving"
+  end
+  T.truthy(found, "perks are listed among ideas")
+  T.truthy(Journal.study(world, "charge_before_leaving"))
+  T.eq(Journal.finishStudy(world), "charge_before_leaving")
+  T.eq(Journal.status(world, "charge_before_leaving"), "known")
+end)
+
+T.test("perks: known perks give head starts at the start of each run, once", function()
+  local base = newWorld(3)
+  local meta = { journal = { notes = {}, counts = {}, known = {}, queue = {}, progress = {} } }
+  meta.journal.known.pack_axe = true
+  meta.journal.known.trail_rations = true
+  meta.journal.known.charge_before_leaving = true
+  local world = newWorld(3, meta)
+  T.truthy(Inv.hasEquipment(world, "axe"))
+  T.eq(Ledger.get(world, "canned_food"), Ledger.get(base, "canned_food") + 4)
+  T.eq(Power.charge(world, world.state.land.truck), reg:get("perks", "charge_before_leaving").truckCharge)
+  -- Loading the same run again doesn't hand them out twice.
+  local again = World.new({ registry = reg, tuning = tun, meta = meta }, serialize.decode(serialize.encode(world.state)))
+  T.eq(Ledger.get(again, "canned_food"), Ledger.get(world, "canned_food"))
+end)
+
+T.test("perks: habits and weather sense change stats", function()
+  local meta = { journal = { notes = {}, counts = {}, known = {}, queue = {}, progress = {} } }
+  local world = newWorld(3, meta)
+  T.eq(Stats.modifier(world, "forecastLead"), 0)
+  meta.journal.known.weather_sense = true
+  meta.journal.known.steady_routine = true
+  meta.journal.known.good_habits = true
+  T.eq(Stats.modifier(world, "forecastLead"), 2)
+  T.near(Stats.modifier(world, "idleEfficiency"), 0.1, 1e-9)
+  T.eq(Stats.modifier(world, "idleTakeover"), 10)
+  -- Weather sense: the first forecast piece arrives two days early.
+  local pieces = collect(world, "weather.forecast")
+  local autumn = dayIn("autumn") - 1
+  setTime(world, autumn - 1, 23.5)
+  run(world, HOUR * 1.5)
+  T.truthy(#pieces >= 1, "severity known on the first day of autumn")
+end)

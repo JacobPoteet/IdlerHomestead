@@ -51,7 +51,7 @@ function JournalScene:layout()
   self.queueRows = {}
   for _, id in ipairs(Journal.queue(world)) do
     y = y + 12
-    self.queueRows[#self.queueRows + 1] = { item = registry:get("catalog", id), y = y }
+    self.queueRows[#self.queueRows + 1] = { item = Journal.node(world, id), y = y }
     self.buttons:add({ x = b.x + b.w - 70, y = y, w = 58, h = ROW_H - 4, label = "Remove", size = "small",
       onPress = function()
         Journal.unqueue(world, id)
@@ -161,7 +161,7 @@ function JournalScene:draw()
   heading(string.format("Studying at night (%d/%d)", #self.queueRows, world.tuning.study.queueSize), b.x + 12, self.queueY)
   for n, row in ipairs(self.queueRows) do
     local item = row.item
-    Panel.icon(Panel.catalogIcon(item), b.x + 12, row.y + 3)
+    Panel.icon(Panel.nodeIcon(world.registry, item), b.x + 12, row.y + 3)
     Text.draw(item.name, b.x + 30, row.y + 1, { size = "small", color = n == 1 and theme.colors.text or dim })
     local fraction = Journal.progress(world, item.id)
     progressBar(b.x + 30, row.y + 12, 140, fraction)
@@ -181,10 +181,11 @@ function JournalScene:draw()
   heading("Ideas", b.x + 12, self.ideasY)
   for _, row in ipairs(self.ideaRows) do
     local item = row.item
-    Panel.icon(Panel.catalogIcon(item), b.x + 12, row.y + 3)
+    Panel.icon(Panel.nodeIcon(world.registry, item), b.x + 12, row.y + 3)
     Text.draw(item.name, b.x + 30, row.y + 3, { size = "small" })
     needStamps(world, item, b.x + 150, row.y + 2)
-    Text.draw(string.format("%s · $%d", nights(item.studyNights), item.price), b.x + 240, row.y + 3, {
+    local cost = Journal.kindOf(world, item.id) == "perks" and "perk" or ("$" .. item.price)
+    Text.draw(string.format("%s · %s", nights(item.studyNights), cost), b.x + 240, row.y + 3, {
       size = "small",
       color = dim,
     })

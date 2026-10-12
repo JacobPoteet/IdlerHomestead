@@ -115,7 +115,7 @@ function Recovery:draw()
 
   local y = b.y + 92
   if recovery.finishedStudy then
-    Text.draw("Finished studying: " .. registry:get("catalog", recovery.finishedStudy).name, b.x + 12, y, {
+    Text.draw("Finished studying: " .. Journal.node(self.metaWorld, recovery.finishedStudy).name, b.x + 12, y, {
       size = "small",
       color = theme.colors.accent,
     })
@@ -123,7 +123,7 @@ function Recovery:draw()
 
   Text.draw("One free study while you recover", b.x + 12, b.y + 132, { size = "small", color = dim })
   if recovery.freeStudyUsed then
-    Text.draw("Learned: " .. registry:get("catalog", recovery.freeStudy).name, b.x + 12, b.y + 150, {
+    Text.draw("Learned: " .. Journal.node(self.metaWorld, recovery.freeStudy).name, b.x + 12, b.y + 150, {
       size = "body",
       color = theme.colors.accent,
     })
@@ -134,7 +134,7 @@ function Recovery:draw()
     })
   end
   for _, row in ipairs(self.ideaRows) do
-    Panel.icon(Panel.catalogIcon(row.item), b.x + 12, row.y + 5)
+    Panel.icon(Panel.nodeIcon(registry, row.item), b.x + 12, row.y + 5)
     Text.draw(row.item.name, b.x + 30, row.y + 5, { size = "small" })
     for n, noteId in ipairs(row.item.needs or {}) do
       Panel.icon(registry:get("notes", noteId).icon, b.x + 170 + (n - 1) * 14, row.y + 4)

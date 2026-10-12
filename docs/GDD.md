@@ -309,6 +309,7 @@ A **headline activity**: a satisfying skill toy and a collection.
   - **Habits** (idle): shorter idle takeover, better idle efficiency, more priority options.
   - **Weather sense**: earlier or more accurate forecasts.
   - **Discoveries**: new crops, fish, animals, events in future runs.
+- *Built (M3):* perks are content (`data/content/perks.lua`) sharing one id space with the catalog as journal nodes. Run-start effects (`startingResources`, `startingEquipment`, `truckCharge`) are handed out once per run by `src/sim/systems/perks.lua`; `modifiers` (`idleTakeover`, `idleEfficiency`, `forecastLead`, ...) apply through `src/sim/stats.lua` like equipment. Discoveries are not in yet.
 
 ### 8.3 Journal UI: a visual map, not text
 
@@ -527,3 +528,4 @@ Headless sim tests, plus a **balance harness** that simulates years with scripte
 | D37 | **Winter.** Each year rolls a winter: a severity multiplier on the warmth need (range grows each year) and a cold snap (a few nights at ×2). Autumn reveals the forecast in three pieces (severity word, snap timing, snap length); a `forecastLead` stat reveals them earlier. In frozen seasons nothing grows or is planted, the first frost kills crops still in the ground, solar output drops (`tuning.power.seasonalOutput`), and using the creek means cutting an ice hole first (holes stay open until the thaw; the routine reuses them). |
 | D38 | **Food model shortcuts kept for now** (issue #11): spoilage stays aggregate (fraction of stock per day), smoked fish stays one generic resource, food rules re-sort on an hourly timer. Fresh food flagged `keepsForWinter` (potatoes) tops up the winter stock after the pantry, standing in for a root cellar until one exists. Revisit with the balance harness. |
 | D39 | **Recovery is a saved state.** Failing discards `run` immediately and stores the run summary in `meta`; the slot shows "Recovering in town" until the player heads out. The free study during recovery learns one current idea instantly. Notes remember which run wrote them, for the run summary. |
+| D40 | **Perks are journal nodes like catalog items** (needs + study nights), not a separate tree. Head starts apply once at the start of each run; habit and weather-sense perks are stat modifiers. |

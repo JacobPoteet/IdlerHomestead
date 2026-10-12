@@ -13,6 +13,7 @@
 
 local Grid = require("src.sim.grid")
 local Sleep = require("src.sim.systems.sleep")
+local Stats = require("src.sim.stats")
 local Tasks = require("src.sim.systems.tasks")
 
 local Actors = {}
@@ -104,7 +105,8 @@ local function work(world, actor, dt)
     return
   end
   local idle = world.tuning.idle
-  local multiplier = job.ordered and idle.activeWorkMultiplier or idle.idleWorkMultiplier
+  local multiplier = job.ordered and idle.activeWorkMultiplier
+    or idle.idleWorkMultiplier + Stats.modifier(world, "idleEfficiency")
   job.progress = job.progress + dt * multiplier
   if job.progress >= taskType.workTime(world, actor, job.target) then
     local target, order = job.target, job.order

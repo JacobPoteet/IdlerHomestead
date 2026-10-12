@@ -90,6 +90,18 @@ return {
     modifiers = "table?", -- stat -> additive bonus (see src/sim/stats.lua)
     pickupOnly = "boolean?", -- only available on a truck trip
   },
+  perks = {
+    name = "string", -- journal map label (<= ~3 words)
+    page = "string", -- journal chapter grouping
+    icon = "string", -- sprite id
+    line = "string", -- what it does (<= ~8 words)
+    needs = "table", -- note ids that make it an idea
+    studyNights = "number", -- nights of study to learn it
+    startingResources = "table?", -- resource -> amount added at the start of every run
+    startingEquipment = "table?", -- catalog equipment ids owned at the start of every run
+    truckCharge = "number?", -- kWh in the truck battery at the start of every run
+    modifiers = "table?", -- stat -> bonus while known (see src/sim/stats.lua)
+  },
   task_categories = {
     name = "string",
   },
