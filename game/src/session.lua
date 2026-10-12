@@ -4,6 +4,8 @@
 local Clock = require("src.core.clock")
 local Rng = require("src.core.rng")
 local World = require("src.sim.world")
+local Actors = require("src.sim.systems.actors")
+local Sleep = require("src.sim.systems.sleep")
 
 local Session = {}
 Session.__index = Session
@@ -24,7 +26,9 @@ function Session.new(opts)
     world = World.new({ registry = opts.registry, tuning = tuning, events = opts.events, meta = data.meta }, data.run),
     clock = Clock.new({ tickRate = tuning.time.tickRate, maxTicksPerFrame = tuning.time.maxTicksPerFrame }),
     sinceSave = 0,
+    routineNow = false, -- the player started the routine by hand (runtime only, never saved)
   }, Session)
+  self.clock.timeScale = tuning.time.defaultSpeed
   self.tick = function(dt)
     self.world:tick(dt)
   end
@@ -36,8 +40,66 @@ function Session:setControl(mode)
   self.world.control = mode
 end
 
+--- The sim time scale (0 = paused). One mechanism for the player's speed button and the F2 debug key.
+function Session:speed()
+  return self.clock.timeScale
+end
+
+function Session:setSpeed(scale)
+  self.clock.timeScale = scale
+end
+
+--- Step to the next value in `steps` after the current one (wrapping); a current value that isn't in
+--- the list restarts from the first. Returns the new scale.
+function Session:cycleSpeed(steps)
+  local current = self.clock.timeScale
+  local nextScale = steps[1]
+  for i, s in ipairs(steps) do
+    if s == current then
+      nextScale = steps[i % #steps + 1]
+      break
+    end
+  end
+  self.clock.timeScale = nextScale
+  return nextScale
+end
+
+--- Hand the homesteader to the idle routine now instead of waiting out the takeover delay (GDD D43).
+--- Refused (returns false, reason) while the homesteader is resting: the routine stops at bedtime
+--- (D35). Stays on until `cancelRoutine` (a player order) or bedtime.
+function Session:startRoutineNow()
+  local ok, reason = self:canStartRoutine()
+  if not ok then
+    return false, reason
+  end
+  self.routineNow = true
+  return true
+end
+
+--- Can the routine be started by hand right now? Returns true, or false + "resting".
+function Session:canStartRoutine()
+  local world = self.world
+  if Sleep.isBedtime(world) or Sleep.resting(Actors.homesteader(world)) then
+    return false, "resting"
+  end
+  return true
+end
+
+--- Give control back to the player (any order does this).
+function Session:cancelRoutine()
+  self.routineNow = false
+end
+
+--- Is the routine running because the player asked for it?
+function Session:routineForced()
+  return self.routineNow == true
+end
+
 --- Advance real time: runs due sim ticks, accrues playtime, autosaves on the interval.
 function Session:update(dt)
+  if self.routineNow and not self:canStartRoutine() then
+    self.routineNow = false -- bedtime ends a started routine; in the morning normal takeover applies
+  end
   self.clock:advance(dt, self.tick)
   local header = self.data.header
   header.playtime = (header.playtime or 0) + dt

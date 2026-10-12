@@ -97,6 +97,35 @@ local function walk(world, actor, dt)
   return true
 end
 
+-- Work seconds done per second of game time: ordered jobs run at the active multiplier, routine
+-- jobs at the idle one (GDD §5.2).
+local function workRate(world, job)
+  local idle = world.tuning.idle
+  return job.ordered and idle.activeWorkMultiplier or idle.idleWorkMultiplier + Stats.modifier(world, "idleEfficiency")
+end
+
+--- Progress of the actor's current timed action, for the UI (GDD D44), or nil when there is none:
+--- walking, resting, or an instant action (work time 0). Read-only.
+--- Returns { task, target, fraction (0..1), duration (work seconds), remaining (game seconds) }.
+function Actors.progress(world, actor)
+  local job = actor.job
+  if not job or #job.path > 0 then
+    return nil
+  end
+  local duration = Tasks.get(world, job.task).workTime(world, actor, job.target)
+  if duration <= 0 then
+    return nil
+  end
+  local done = math.min(job.progress, duration)
+  return {
+    task = job.task,
+    target = job.target,
+    fraction = done / duration,
+    duration = duration,
+    remaining = (duration - done) / workRate(world, job),
+  }
+end
+
 local function work(world, actor, dt)
   local job = actor.job
   local taskType = Tasks.get(world, job.task)
@@ -104,10 +133,7 @@ local function work(world, actor, dt)
     dropJob(world, actor)
     return
   end
-  local idle = world.tuning.idle
-  local multiplier = job.ordered and idle.activeWorkMultiplier
-    or idle.idleWorkMultiplier + Stats.modifier(world, "idleEfficiency")
-  job.progress = job.progress + dt * multiplier
+  job.progress = job.progress + dt * workRate(world, job)
   if job.progress >= taskType.workTime(world, actor, job.target) then
     local target, order = job.target, job.order
     dropJob(world, actor)
