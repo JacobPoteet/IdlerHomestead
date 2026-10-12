@@ -8,8 +8,11 @@
 -- world.control ("active" | "idle") is set each frame by the session from player input
 -- (not saved). In idle control the homesteader follows the priority routine; in active
 -- control it only does what the player orders (an idle job already underway is finished).
+-- At bedtime the homesteader drops routine work and goes to sleep (see sleep.lua); a player
+-- order wakes them.
 
 local Grid = require("src.sim.grid")
+local Sleep = require("src.sim.systems.sleep")
 local Tasks = require("src.sim.systems.tasks")
 
 local Actors = {}
@@ -111,16 +114,38 @@ local function work(world, actor, dt)
   end
 end
 
+-- At bedtime, anything but a player order gives way to walking to bed.
+local function goToBed(world, actor)
+  local job = actor.job
+  if job and (job.ordered or job.task == "sleep") then
+    return
+  end
+  dropJob(world, actor)
+  actor.job = Sleep.bedJob(world, actor)
+  if actor.job then
+    Tasks.reserve(world, actor, actor.job)
+  else
+    -- No shelter in reach: sleep where you stand.
+    actor.asleep = true
+    world.events:emit("sleep.started", { actor = actor.id })
+  end
+end
+
 function Actors.tick(world, dt)
+  local bedtime = Sleep.isBedtime(world)
   for _, actor in ipairs(world.state.actors) do
     actor.prevX, actor.prevY = actor.x, actor.y
     if actor.order then
+      Sleep.wake(world, actor)
       dropJob(world, actor)
       actor.job = actor.order
       actor.order = nil
       Tasks.reserve(world, actor, actor.job)
     end
-    if not actor.job and world.control == "idle" then
+    if bedtime and not actor.asleep then
+      goToBed(world, actor)
+    end
+    if not actor.job and not bedtime and world.control == "idle" then
       actor.wait = (actor.wait or 0) - dt
       if actor.wait <= 0 then
         local job = Tasks.chooseIdleJob(world, actor)

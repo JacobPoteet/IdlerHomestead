@@ -260,6 +260,10 @@ function Renderer:draw(alpha, visible, daylight)
     items[#items + 1] = {
       feetY,
       function()
+        if actor.asleep then
+          self:drawSleep(feetX, feetY - 10)
+          return
+        end
         local sprite = Assets.sprite(actor.kind)
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(sprite.image, sprite.quad, math.floor(feetX - sprite.w / 2 + 0.5), math.floor(feetY - sprite.h + 0.5))
@@ -283,6 +287,23 @@ function Renderer:draw(alpha, visible, daylight)
     item[2]()
   end
   love.graphics.setColor(1, 1, 1, 1)
+end
+
+-- A tiny pixel "z" (4x4).
+local function pixelZ(x, y)
+  love.graphics.rectangle("fill", x, y, 4, 1)
+  love.graphics.rectangle("fill", x + 2, y + 1, 1, 1)
+  love.graphics.rectangle("fill", x + 1, y + 2, 1, 1)
+  love.graphics.rectangle("fill", x, y + 3, 4, 1)
+end
+
+--- Rising z's where the homesteader sleeps (inside the shelter, so no sprite).
+function Renderer:drawSleep(x, y)
+  for n = 0, 1 do
+    local t = (self.time * 0.5 + n * 0.5) % 1
+    love.graphics.setColor(0.92, 0.92, 1, 1 - t)
+    pixelZ(math.floor(x + n * 3 + t * 4), math.floor(y - t * 10))
+  end
 end
 
 --- Apply the colour grade while drawing `canvas` (the rendered world) to the screen.

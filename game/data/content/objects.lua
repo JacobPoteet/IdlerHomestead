@@ -22,6 +22,7 @@ return {
     footprintW = 2,
     footprintH = 1,
     battery = 60, -- kWh it can store (GDD §7.6)
+    shelter = true, -- you sleep in the truck at first
   },
   -- Placeable equipment (bought from the catalog or part of the starting kit)
   { id = "folding_panel", name = "Folding solar panel", blocks = false, clearable = false, placeable = true, powerOutput = 0.8 },

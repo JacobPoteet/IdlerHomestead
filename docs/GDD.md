@@ -295,7 +295,7 @@ A **headline activity**: a satisfying skill toy and a collection.
 - **Nothing is spent.** Notes stay. One Note can feed several Ideas.
 - **Choosing what to study is a decision**, so it's never automated. If nothing is queued, a gentle prompt shows. The **study queue** holds a few Ideas in order.
 - **Notes and Known items persist** across runs (per slot). A study in progress when you fail finishes during recovery (§4.3).
-- **How it's built (M3):** Notes are content (`data/content/notes.lua`): an event name, an optional field match, and an optional count ("10 fish caught"). Catalog entries list the Notes they need and their study length in nights. Study progress accrues during the hours of darkness of the current season (`tuning.time.daylight`); one "night" is `tuning.study.nightHours` dark hours, so a long winter night is worth more than one study night and a short summer night less (D34). Equipment with a `studySpeed` modifier (desk, lamp) speeds it up.
+- **How it's built (M3):** Notes are content (`data/content/notes.lua`): an event name, an optional field match, and an optional count ("10 fish caught"). Catalog entries list the Notes they need and their study length in nights. Study progress accrues while the homesteader is in bed: from `tuning.actors.eveningHours` after the season's sunset (`tuning.time.daylight`) until sunrise. One "night" is `tuning.study.nightHours` hours in bed, so a long winter night is worth more than one study night and a short summer night less (D34, D35). Equipment with a `studySpeed` modifier (desk, lamp) speeds it up.
 
 ### 8.2 What can be known
 
@@ -519,3 +519,4 @@ Headless sim tests, plus a **balance harness** that simulates years with scripte
 | D32 | **Equipment = catalog items with stat modifiers** (rods, big bucket). Systems combine a tuning base with the owned modifiers. |
 | D33 | **Every plot guarantees a walkable path from the truck to the creek** (land generation clears blockers along it). |
 | D34 | **Study happens during the dark hours** of the season's day/night cycle (seasonal sunrise/sunset in tuning; solar output follows the same daylight). Winter nights are longest, so winter is study season. The journal is a sim system whose state lives in the slot's `meta`. Early learnable items: smoker, sturdy rod, big bucket, used panel; seeds, canned food, bait and the basic rod stay starter stock. |
+| D35 | **The homesteader sleeps.** Bedtime is a couple of hours after sunset until sunrise, in the nearest shelter (the truck at first). The routine stops at bedtime; a player order wakes them ("stay up"), and they go back to bed when it's done. Study only progresses while resting, so staying up costs study time. |

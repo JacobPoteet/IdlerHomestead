@@ -17,5 +17,6 @@ return {
   "processing",
   "market",
   "needs",
+  "sleep",
   "actors",
 }
