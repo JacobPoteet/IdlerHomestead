@@ -20,7 +20,8 @@ T.test("tuning: every value has a comment (unit/intent)", function()
     local path = "game/data/tuning/" .. domain .. ".lua"
     local fh = assert(io.open(path, "r"), "cannot open " .. path)
     for line in fh:lines() do
-      local key = line:match("^%s*([%a_][%w_]*)%s*=")
+      -- Top-level knobs only; entries inside a table are covered by the table's own comment.
+      local key = line:match("^  ([%a_][%w_]*)%s*=")
       if key then
         T.truthy(line:find("%-%-"), path .. ": '" .. key .. "' needs a comment with unit and intent")
       end
@@ -37,6 +38,26 @@ T.test("registry: loads the game's content", function()
   local reg = Registry.new():loadAll()
   T.eq(reg:get("resources", "wood").name, "Wood")
   T.truthy(#reg:all("resources") > 0)
+end)
+
+T.test("registry: content cross-references point at real ids", function()
+  local r = Registry.new():loadAll()
+  for _, crop in ipairs(r:all("crops")) do
+    T.truthy(r:has("resources", crop.seed), crop.id .. ".seed")
+    T.truthy(r:has("resources", crop.produce), crop.id .. ".produce")
+  end
+  for _, obj in ipairs(r:all("objects")) do
+    for res in pairs(obj.yields or {}) do
+      T.truthy(r:has("resources", res), obj.id .. ".yields." .. res)
+    end
+  end
+  local tun = tuning.load()
+  for res in pairs(tun.run.startingResources) do
+    T.truthy(r:has("resources", res), "run.startingResources." .. res)
+  end
+  for res in pairs(tun.landgen.clutterWeights) do
+    T.truthy(r:has("objects", res), "landgen.clutterWeights." .. res)
+  end
 end)
 
 T.test("registry: get/has/all", function()

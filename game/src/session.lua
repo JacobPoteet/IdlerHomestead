@@ -31,6 +31,11 @@ function Session.new(opts)
   return self
 end
 
+--- "active" (the player is directing) or "idle" (the routine takes over). See GDD §5.2.
+function Session:setControl(mode)
+  self.world.control = mode
+end
+
 --- Advance real time: runs due sim ticks, accrues playtime, autosaves on the interval.
 function Session:update(dt)
   self.clock:advance(dt, self.tick)
