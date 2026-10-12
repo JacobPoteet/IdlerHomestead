@@ -90,6 +90,90 @@ T.test("save: invalid slot index errors", function()
   end, "Invalid save slot")
 end)
 
+-- Count how many full slot decodes a function triggers, by wrapping the backend's main-file reads.
+local function countMainReads(backend, fn)
+  local reads = 0
+  local original = backend.read
+  backend.read = function(path)
+    local contents = original(path)
+    if contents and path:match("%.sav$") then
+      reads = reads + 1
+    end
+    return contents
+  end
+  fn()
+  backend.read = original
+  return reads
+end
+
+T.test("save: list reads only the header sidecar", function()
+  local backend = Save.memoryBackend()
+  local store = Save.new(backend, { slotCount = 3 })
+  local data = Save.newSlotData("Pine Hollow")
+  data.header.playtime = 90
+  store:write(1, data)
+  store:write(2, Save.newSlotData("Other"))
+  T.truthy(backend.files["slot1.hdr"])
+  local list
+  T.eq(
+    countMainReads(backend, function()
+      list = store:list()
+    end),
+    0
+  )
+  T.eq(list[1].name, "Pine Hollow")
+  T.eq(list[1].header.playtime, 90)
+  T.eq(list[2].name, "Other")
+  T.eq(list[3].state, "empty")
+end)
+
+T.test("save: old saves without a sidecar still list, and gain one", function()
+  local backend = Save.memoryBackend()
+  local store = Save.new(backend, { slotCount = 1 })
+  local data = Save.newSlotData("Legacy")
+  data.header.playtime = 7
+  backend.files["slot1.sav"] = serialize.encode(data)
+  T.eq(store:list()[1].name, "Legacy")
+  T.truthy(backend.files["slot1.hdr"])
+  local list
+  T.eq(
+    countMainReads(backend, function()
+      list = store:list()
+    end),
+    0
+  )
+  T.eq(list[1].header.playtime, 7)
+end)
+
+T.test("save: rename updates the sidecar, delete removes it", function()
+  local backend = Save.memoryBackend()
+  local store = Save.new(backend, { slotCount = 1 })
+  store:write(1, Save.newSlotData("Before"))
+  local data = store:read(1)
+  data.name = "After"
+  store:write(1, data)
+  T.eq(store:list()[1].name, "After")
+  store:delete(1)
+  T.eq(backend.files["slot1.hdr"], nil)
+  T.eq(store:list()[1].state, "empty")
+end)
+
+T.test("save: a stale or damaged sidecar falls back to the slot itself", function()
+  local backend = Save.memoryBackend()
+  local store = Save.new(backend, { slotCount = 2 })
+  store:write(1, Save.newSlotData("First"))
+  -- Main file corrupted after the sidecar was written: list must not claim the slot is fine.
+  backend.files["slot1.sav"] = "garbage("
+  T.eq(store:list()[1].state, "corrupt")
+  -- Main replaced by a different save (size differs): the sidecar must not win.
+  store:write(2, Save.newSlotData("Old"))
+  backend.files["slot2.sav"] = serialize.encode(Save.newSlotData("A much longer replacement name"))
+  T.eq(store:list()[2].name, "A much longer replacement name")
+  -- Damaged sidecar.
+  backend.files["slot2.hdr"] = "not ( valid"
+  T.eq(store:list()[2].name, "A much longer replacement name")
+end)
+
 -- World & ledger -------------------------------------------------------------
 
 T.test("ledger: add, remove, capacity, events", function()

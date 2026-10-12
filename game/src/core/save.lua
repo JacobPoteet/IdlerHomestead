@@ -5,6 +5,9 @@
 -- `meta` is the persistent career (knowledge); `run` is the current run and is discarded on failure.
 -- `header` is a small summary written by the session so the slot list doesn't need the sim.
 --
+-- Each write also stores the header in a small slotN.hdr sidecar, which `list` reads instead of
+-- decoding the whole slot (see headerPath).
+--
 -- Storage goes through a backend so tests can run in memory. Each write first copies the
 -- previous file to a .bak, and reads fall back to the backup if the main file is unreadable.
 
@@ -33,6 +36,10 @@ function Save.loveBackend()
     remove = function(path)
       return love.filesystem.remove(path)
     end,
+    size = function(path)
+      local info = love.filesystem.getInfo(path, "file")
+      return info and info.size or nil
+    end,
   }
 end
 
@@ -51,6 +58,9 @@ function Save.memoryBackend()
     remove = function(path)
       files[path] = nil
       return true
+    end,
+    size = function(path)
+      return files[path] and #files[path] or nil
     end,
   }
 end
@@ -76,6 +86,13 @@ end
 
 local function backupPath(index)
   return "slot" .. index .. ".bak"
+end
+
+-- Sidecar with just the slot header, so the slot list never decodes a whole run. It records the
+-- byte size of the slot file it was written for; a mismatch (file replaced, truncated or edited
+-- outside the game) makes `list` ignore the sidecar and fall back to a full read.
+local function headerPath(index)
+  return "slot" .. index .. ".hdr"
 end
 
 local function decodeSlot(contents)
@@ -142,21 +159,63 @@ function Save:write(index, data)
   if not ok then
     return false, err
   end
+  self:writeHeader(index, data, #contents)
   return true
+end
+
+--- Write the header sidecar for a slot whose main file is `size` bytes. Best effort: the sidecar
+--- is only a cache, so a failed write just means `list` falls back to a full read.
+function Save:writeHeader(index, data, size)
+  self.backend.write(
+    headerPath(index),
+    serialize.encode({ name = data.name, header = data.header or {}, size = size })
+  )
+end
+
+--- The cached header for a slot, or nil when it is missing, unreadable or stale.
+function Save:readHeader(index)
+  local contents = self.backend.read(headerPath(index))
+  if not contents then
+    return nil
+  end
+  local cached = serialize.decode(contents)
+  if type(cached) ~= "table" or type(cached.header) ~= "table" or cached.size ~= self.backend.size(mainPath(index)) then
+    return nil
+  end
+  return cached
 end
 
 function Save:delete(index)
   self:checkIndex(index)
   self.backend.remove(mainPath(index))
   self.backend.remove(backupPath(index))
+  self.backend.remove(headerPath(index))
 end
 
 --- Summaries for the slot screen: { index, state = "empty"|"ok"|"corrupt", name?, header?, error? }.
 function Save:list()
   local slots = {}
   for i = 1, self.slotCount do
-    local data, err = self:read(i)
-    if data then
+    local cached = self:readHeader(i)
+    local data, err
+    if not cached then
+      local fromBackup
+      data, err = self:read(i)
+      if data then
+        fromBackup = err
+        err = nil
+      end
+      if data and not fromBackup then
+        -- Saves from before the sidecar existed: build it now so the next list is cheap.
+        local size = self.backend.size(mainPath(i))
+        if size then
+          self:writeHeader(i, data, size)
+        end
+      end
+    end
+    if cached then
+      slots[i] = { index = i, state = "ok", name = cached.name, header = cached.header }
+    elseif data then
       slots[i] = { index = i, state = "ok", name = data.name, header = data.header or {} }
     elseif err == "empty" then
       slots[i] = { index = i, state = "empty" }
