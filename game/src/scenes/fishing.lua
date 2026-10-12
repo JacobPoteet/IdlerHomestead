@@ -20,6 +20,8 @@ local RESULT_TEXT = {
   missed = "It got away before you set the hook.",
   slipped = "Too much tension. It slipped the hook.",
   escaped = "It ran off with the slack.",
+  full = "No room to keep a catch. Make space first.",
+  lostfull = "The store filled up. It got away.",
 }
 
 function FishingScene.new(world, onCatch)
@@ -33,11 +35,12 @@ end
 
 function FishingScene:cast()
   local world = self.world
-  self.fish = Fishing.rollFish(world, "active")
+  local why
+  self.fish, why = Fishing.rollFish(world, "active")
   self.result, self.size, self.first = nil, nil, nil
   self.pointerHeld = false
   if not self.fish then
-    self.result = "nothing"
+    self.result = why == "full" and "full" or "nothing"
     self.model = nil
   else
     local bait = Ledger.remove(world, "bait", 1, "fishing")
@@ -92,9 +95,12 @@ function FishingScene:update(dt)
       if result == "caught" then
         self.size = Fishing.rollSize(self.world, self.fish)
         self.first = (self.world.meta.fishGuide or {})[self.fish.id] == nil
-        Fishing.land(self.world, self.fish.id, self.size, "active")
-        if self.onCatch then
-          self.onCatch(self.fish, self.size, self.first)
+        if Fishing.land(self.world, self.fish.id, self.size, "active") then
+          if self.onCatch then
+            self.onCatch(self.fish, self.size, self.first)
+          end
+        else
+          self.result = "lostfull" -- its store filled while it was on the line: never claim the catch
         end
       elseif result == "slipped" or result == "escaped" then
         Fishing.lose(self.world, self.fish.id, result)

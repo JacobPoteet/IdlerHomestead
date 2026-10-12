@@ -99,3 +99,61 @@ T.test("registry: definitions reject new fields and typo reads", function()
     return def.nmae
   end, "not a field")
 end)
+
+-- Storage fit (D60) --------------------------------------------------------------
+-- Everything the game hands over must fit its store when that store is empty, using the base
+-- capacity (the least a player can ever have: storage buildings only add to it). Otherwise a paid
+-- order, a clearing job or a harvest could wait forever.
+
+local function baseCapacity(reg, id)
+  return reg:get("resources", id).capacity or math.huge
+end
+
+T.test("storage fit: every catalog item's gives fits its resource capacity", function()
+  local reg = Registry.new():loadAll()
+  for _, item in ipairs(reg:all("catalog")) do
+    for res, amount in pairs(item.gives or {}) do
+      T.truthy(
+        amount <= baseCapacity(reg, res),
+        string.format("catalog '%s' gives %d %s but its capacity is %s", item.id, amount, res, tostring(baseCapacity(reg, res)))
+      )
+    end
+  end
+end)
+
+T.test("storage fit: clearing yields and crop harvests fit their capacities", function()
+  local reg = Registry.new():loadAll()
+  local farming = tuning.load().farming
+  for _, obj in ipairs(reg:all("objects")) do
+    for res, amount in pairs(obj.yields or {}) do
+      local most = type(amount) == "table" and amount[2] or amount
+      T.truthy(most <= baseCapacity(reg, res), string.format("object '%s' can yield %d %s, over its capacity", obj.id, most, res))
+    end
+  end
+  for _, crop in ipairs(reg:all("crops")) do
+    local mostProduce = math.floor(crop.yield * farming.soilYieldMax) + 1
+    T.truthy(mostProduce <= baseCapacity(reg, crop.produce), "crop '" .. crop.id .. "' harvest is over its produce capacity")
+    T.truthy(crop.seedReturn[2] <= baseCapacity(reg, crop.seed), "crop '" .. crop.id .. "' seed return is over its capacity")
+  end
+end)
+
+T.test("storage fit: every recipe's output has a store, so a smoker batch can always be delivered", function()
+  local reg = Registry.new():loadAll()
+  for _, recipe in ipairs(reg:all("recipes")) do
+    -- A batch bigger than the store is delivered in parts, which is fine; a zero store is not.
+    T.truthy(baseCapacity(reg, recipe.output) >= 1, "recipe '" .. recipe.id .. "' output '" .. recipe.output .. "' has no room at all")
+    T.truthy(recipe.batch >= 1)
+  end
+end)
+
+T.test("storage fit: the guard rejects content that would never fit", function()
+  -- The check above must be able to fail: a made-up item over a capacity is flagged by Market.neverFits.
+  local World = require("src.sim.world")
+  local reg = Registry.new():loadAll()
+  local world = World.new({ registry = reg, tuning = tuning.load() }, World.newState(1))
+  local Ledger = require("src.sim.systems.ledger")
+  local Market = require("src.sim.systems.market")
+  T.falsy(Market.neverFits(world, "fuel_can"))
+  Ledger.setCapacity(world, "fuel", 4)
+  T.truthy(Market.neverFits(world, "fuel_can"))
+end)

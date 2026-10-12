@@ -28,6 +28,7 @@ local Power = require("src.sim.systems.power")
 local Land = require("src.sim.systems.land")
 local Water = require("src.sim.systems.water")
 local Processing = require("src.sim.systems.processing")
+local Market = require("src.sim.systems.market")
 local Stand = require("src.sim.systems.stand")
 local Cat = require("src.sim.systems.cat")
 local Finds = require("src.sim.systems.finds")
@@ -135,6 +136,17 @@ function Homestead:subscribe()
     end),
     events:on("processing.blocked", function(e)
       self:showToast(string.format("%d %s waiting: no room in storage", e.count, name("resources", e.output)))
+    end),
+    events:on("market.cancelled", function(e)
+      self:showToast(string.format("Cancelled %s: refunded $%d", name("catalog", e.item), e.amount))
+    end),
+    events:on("market.refunded", function(e)
+      self:queueToast(string.format("%s can never fit in storage: refunded $%d", name("catalog", e.item), e.amount))
+    end),
+    events:on("fish.lost", function(e)
+      if e.reason == "full" then
+        self:showToast(name("fish", e.fish) .. " got away: no room to keep it")
+      end
     end),
     events:on("ledger.overflow", function(e)
       self:showToast(string.format("Storage full: lost %d %s", e.lost, name("resources", e.id)))
@@ -288,7 +300,12 @@ function Homestead:stats()
     { "icon_battery", string.format("%d%%", math.floor(Power.charge(world, truck) / Power.capacity(world, truck) * 100)) },
     { "icon_crate", count(Food.crateCount(world)) },
     { "icon_wood", count(Ledger.get(world, "wood")) },
-    { "icon_firewood", need > 0 and string.format("%.1fn", warmth / need) or string.format("%.0f", warmth) },
+    {
+      "icon_firewood",
+      need > 0 and string.format("%.1fn", warmth / need) or string.format("%.0f", warmth),
+      -- The firewood chip turns red when either firewood store is full (D59).
+      (Ledger.isFull(world, "firewood") or Ledger.isFull(world, "seasoned_firewood")) and theme.colors.danger or nil,
+    },
   }
   if Water.hasCistern(world) then
     -- Cistern stock, once there is a cistern to hold it.
@@ -738,12 +755,15 @@ function Homestead:tap(i)
     return
   end
   local hs = Actors.homesteader(world)
-  local taskType = Actors.order(world, hs, i, { crop = self.seed, tool = self.tool })
+  local taskType, full = Actors.order(world, hs, i, { crop = self.seed, tool = self.tool })
   if taskType then
     self.session:cancelRoutine() -- any order hands control back (D43)
     if taskType.id ~= "move" then
       self:showToast(taskType.verb)
     end
+  elseif full then
+    -- Refused for lack of room: say which store is full (D59).
+    self:showToast(string.format("%s storage is full", world.registry:get("resources", full).name))
   else
     self:showToast("Can't do anything there")
   end
@@ -911,9 +931,39 @@ function Homestead:drawTopBar(view)
     local y = rowTop + math.floor((rowH - sprite.h) / 2)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.draw(sprite.image, sprite.quad, x, y)
-    Text.draw(s[2], x + sprite.w + ui.statIconGap, y + 1, { size = "small" })
+    Text.draw(s[2], x + sprite.w + ui.statIconGap, y + 1, { size = "small", color = s[3] })
     x = x + sprite.w + ui.statIconGap + Text.measure(s[2], "small") + gap
   end
+end
+
+-- Storage pills (D59): which stores are full, and what is being held back for lack of room.
+-- Returns { { text, color } } in the same shape as the weather pills; empty when all is well.
+function Homestead:storageNotes()
+  local world = self.world
+  local notes, full = {}, {}
+  for _, res in ipairs(world.registry:all("resources")) do
+    if res.id ~= "water" and Ledger.isFull(world, res.id) then
+      full[#full + 1] = res.name
+    end
+  end
+  if #full > 0 then
+    notes[#notes + 1] = { "Full: " .. table.concat(full, ", "), theme.colors.danger }
+  end
+  local held = Market.heldOrders(world)
+  if #held > 0 then
+    local names = {}
+    for _, h in ipairs(held) do
+      names[#names + 1] = world.registry:get("catalog", h.item).name
+    end
+    notes[#notes + 1] = { "Order waiting for room: " .. table.concat(names, ", ") .. " · cancel in Catalog", theme.colors.accent }
+  end
+  for _, batch in ipairs(Processing.blockedBatches(world)) do
+    notes[#notes + 1] = {
+      string.format("%d %s waiting in the station for room", batch.count, world.registry:get("resources", batch.output).name),
+      theme.colors.accent,
+    }
+  end
+  return notes
 end
 
 -- Winter forecast under the top bar, from autumn on (GDD §4.1); loud during the cold snap.
@@ -929,6 +979,9 @@ function Homestead:drawForecast()
       local frozen = Weather.isFrozen(world)
       lines[#lines + 1] = { (frozen and "This winter: " or "Forecast: ") .. summary, theme.colors.accent }
     end
+  end
+  for _, line in ipairs(self:storageNotes()) do
+    lines[#lines + 1] = line
   end
   local y = self.topH + 4
   for _, line in ipairs(lines) do
