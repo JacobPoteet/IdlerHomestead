@@ -166,8 +166,16 @@ end
 
 function Homestead:resize(view)
   local s = view.scale
-  self.canvas = love.graphics.newCanvas(math.floor(view.w * s + 0.5), math.floor(view.h * s + 0.5))
-  self.canvas:setFilter("nearest", "nearest")
+  local w, h = math.floor(view.w * s + 0.5), math.floor(view.h * s + 0.5)
+  -- Dragging the window edge fires many resizes: reuse the canvas when the pixel size is
+  -- unchanged and free the old one's GPU memory right away when it has to be replaced.
+  if not (self.canvas and self.canvas:getWidth() == w and self.canvas:getHeight() == h) then
+    if self.canvas then
+      self.canvas:release()
+    end
+    self.canvas = love.graphics.newCanvas(w, h)
+    self.canvas:setFilter("nearest", "nearest")
+  end
   self.camera:clamp(view)
   self:layout()
 end
