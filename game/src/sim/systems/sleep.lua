@@ -29,6 +29,15 @@ function Sleep.isBedtime(world)
   return hour >= from or hour < to
 end
 
+--- In-game hours until the homesteader wakes (sunrise); 0 outside the bedtime hours.
+function Sleep.hoursUntilMorning(world)
+  if not Sleep.isBedtime(world) then
+    return 0
+  end
+  local _, wake = Sleep.bedtimeHours(world)
+  return (wake - Calendar.now(world).hour) % 24
+end
+
 --- In bed or on the way there (both count as resting for study).
 function Sleep.resting(actor)
   return actor.asleep == true or (actor.job ~= nil and actor.job.task == "sleep")

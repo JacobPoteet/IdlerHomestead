@@ -5,7 +5,18 @@
 local Calendar = {}
 
 function Calendar.init(world)
-  world.state.calendar = world.state.calendar or { elapsed = 0, day = 1 }
+  local time = world.tuning.time
+  local cal = world.state.calendar
+  if not cal then
+    world.state.calendar = { elapsed = 0, day = 1, dayLength = time.dayLength }
+    return
+  end
+  -- A save written with another day length keeps its date and time of day (D56).
+  local written = cal.dayLength or time.legacyDayLength
+  if written ~= time.dayLength then
+    cal.elapsed = cal.elapsed * time.dayLength / written
+  end
+  cal.dayLength = time.dayLength
 end
 
 --- Days elapsed as a float, counting from midnight of day 1.

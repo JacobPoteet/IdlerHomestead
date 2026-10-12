@@ -8,6 +8,7 @@ return {
     escape = "cancel",
     space = "speed", -- cycle the game speed
     r = "routine", -- start the idle routine now
+    n = "skipNight", -- skip the rest of the night while asleep (D56)
   },
   panKeys = { -- key -> { dx, dy } direction the camera view moves (held keys)
     left = { -1, 0 },

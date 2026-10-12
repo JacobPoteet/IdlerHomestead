@@ -105,7 +105,7 @@ Energy budget per in-game day (1 kW for one hour = 1 kWh; seasons are 7 days, `t
 | chest freezer (0.15 kW) | 3.6 kWh | 3.6 kWh | always on |
 | work lamp (0.1 kW) | ~0.8 kWh | ~1.5 kWh | dark hours only |
 
-The squeeze (design goal): in winter an array plus a bank, heater, freezer and lamp wants about 26 kWh and the array alone makes under 9, so something is shed every night. The player's levers are the priority order (heating first, then the freezer), a turbine or micro-hydro, a generator and fuel, firewood (the heater only makes most of a mild night's warmth; `needs.dailyWarmth.winter` is 4 x severity), or leaving the truck uncharged. A winter truck trip (20 kWh) is a real choice against heating. `tests/test_power.lua` asserts the summer-versus-winter shape ("winter squeeze").
+The squeeze (design goal): in winter an array plus a bank, heater, freezer and lamp wants about 26 kWh and the array alone makes under 9, so something is shed every night. The player's levers are the priority order (heating first, then the freezer), a turbine or micro-hydro, a generator and fuel, firewood (the heater only makes most of a mild night's warmth; `needs.dailyWarmth.winter` is 8 x severity since D56, 4 before), or leaving the truck uncharged. A winter truck trip (20 kWh) is a real choice against heating. `tests/test_power.lua` asserts the summer-versus-winter shape ("winter squeeze").
 
 Prices are meant to put each power item a few trips out: array $110, bank $80, turbine $140, hydro $160, generator $90, heater $50, lamp $15, freezer $90, fuel x5 $15. They are unvalidated against real play.
 
@@ -122,3 +122,29 @@ Per in-game day a field of N crops wants N waterings (`farming.moistureDays` = 1
 | bucket fill | creek 1.5 s, dug well 1.2 s, hand pump 0.6 s, cistern 0.4 s | a bucket holds 6 waterings (10 with the big bucket) |
 
 Prices: dug well $20, hand pump $40, cistern $55, solar pump $70, drip line $25 (unvalidated against play). Harness effect: `lovec tools/balance policy=scripted,active seeds=5 years=1` gives identical survival, money, food and fuel numbers before and after, because no policy buys the rungs yet (#90); only the "journal nodes learned" and "ideas waiting" medians move by about one, because the well becomes a new idea once the bucket-hauling note is written and the policies study whatever is waiting.
+
+## Longer days and fast sleep (#112, D56)
+
+`time.dayLength` went from 128 to 320 game seconds. The harness drives the sim in game time, so it sees the full effect of the extra labour per day (walk speed and task times are still in seconds); it does not model the fast-sleep speed, which only changes how quickly the sim ticks, not what happens (tests assert an identical morning).
+
+Command: `lovec tools/balance policy=scripted,active seeds=10 years=1` (seeds 1-10), medians, all 10 of 10 seeds alive at the cap in every row. Fuel is warmth in stock divided by the *base* winter need, so after the change one "night" is 8 warmth, not 4.
+
+| metric (Sp1 / Su1 / Au1 / Wi1) | before (128 s days) | days only (320 s) | after (320 s, calories 3000, warmth x2) |
+|---|---|---|---|
+| active: food days in stock | 11.3 / 22.4 / 16.3 / 3.3 | 16.4 / 42.2 / 47.8 / 27.6 | 9.6 / 26.5 / 31.6 / 12.6 |
+| active: money $ | 14.5 / 34 / 106 / 54.5 | 10.5 / 17 / 62.5 / 71.5 | 7.5 / 20 / 47 / 54 |
+| active: Wi1 first day fuel / need, fully covered | 0.69, 20% | 1.51, 80% | 0.75, 20% |
+| active: journal nodes learned | 2 / 5 / 9 / 13 | 3 / 6 / 11.5 / 16.5 | 3 / 7 / 12 / 17 |
+| scripted: food days in stock | 9.4 / 14.2 / 11.2 / 0.5 | 13.1 / 13.0 / 13.2 / 4.1 | 8.3 / 10.1 / 9.1 / 0.7 |
+| scripted: money $ | 15.5 / 31.5 / 68.5 / 78 | 33.5 / 75.5 / 84.5 / 93.5 | 21.5 / 31.5 / 15 / 15 |
+| scripted: Wi1 first day fuel / need, fully covered | 1.13, 60% | 2.63, 100% | 0.97, 40% |
+| scripted: journal nodes learned | 1 / 4 / 8 / 11 | 1 / 4 / 10 / 14 | 2 / 5 / 11 / 15 |
+
+Reading it:
+
+- Lengthening the day alone makes the first year clearly easier: a day holds about 2.5x the work (the routine and the policies do the same jobs, in the same seconds), while food and fuel are still eaten and burned once per day. Fuel cover at the start of winter doubled to tripled.
+- Doubling the nightly warmth need and raising calories by half brings active back to the old fuel cover (0.75 against 0.69, 20 percent fully covered, same as before) and scripted close (0.97 against 1.13, 40 against 60 percent). Both policies still survive all 10 seeds, as before. A 2x calorie variant starved 2 of 10 scripted seeds in autumn and winter and left the early game too tight (the starting 4 cans last about a day), so 3000 was chosen.
+- Money is lower (more of the harvest is eaten) and journal progress is slightly higher (not from study yield, which is per in-bed hour and unchanged; more notes are written per day because the homesteader does more).
+- Still true from the findings above: the engaged player is not gated by winter. The goal of 40 to 60 percent first-winter failure for `active` is not met; this change aimed at preserving the old balance, not at fixing it. Scripted at 0.97 cover is nearer the "winter bites" target than before.
+
+Real-time pacing: a day is about 213 s awake plus about 13 s asleep (8x) at 1x, so a season is about 27 minutes, against about 15 before (the awake share of a day was about 85 s of 128). The harness runs on game time, so this is arithmetic, not a measurement. This is a first pass; revisit from play (follow-up issues cover trimming season length and re-tuning from human play).
