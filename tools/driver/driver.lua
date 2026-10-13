@@ -34,7 +34,7 @@ function Driver.new(opts)
     shots = {},
     backend = Save.memoryBackend(), -- never the real save directory
   }, Driver)
-  self.game = Game.new({ backend = self.backend, tips = false })
+  self.game = Game.new({ backend = self.backend, settingsBackend = Save.memoryBackend(), tips = false })
   self:frames(2)
   return self
 end

@@ -32,4 +32,5 @@ return {
   "alerts",
   "visuals",
   "ui",
+  "settings",
 }

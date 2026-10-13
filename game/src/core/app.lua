@@ -14,6 +14,8 @@
 --   opaque = true                                scenes below it are not drawn
 --   name = "..."                                 for the debug overlay
 
+local UiScale = require("src.core.ui_scale")
+
 local App = {}
 App.__index = App
 
@@ -24,8 +26,11 @@ function App.new(ctx)
 end
 
 function App:resize(pixelW, pixelH)
-  local display = self.ctx.tuning.display
-  local scale = math.max(1, math.floor(math.min(pixelW / display.minVirtualWidth, pixelH / display.minVirtualHeight)))
+  local tuning = self.ctx.tuning
+  local settings = self.ctx.settings
+  -- Auto, or the player's smaller whole scale clamped to what this window fits (D96).
+  local scale = UiScale.effective(settings and settings:get("uiScale") or "auto", pixelW, pixelH, tuning.display, tuning.settings)
+  self.pixelW, self.pixelH = pixelW, pixelH
   self.view = { w = pixelW / scale, h = pixelH / scale, scale = scale }
   for _, scene in ipairs(self.stack) do
     if scene.resize then

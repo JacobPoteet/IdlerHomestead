@@ -423,3 +423,20 @@ T.test("toolbar: the tool in hand stays on the bar in palette mode", function()
     T.falsy(b.id == "active", "no shortcut for the empty hand")
   end
 end)
+
+-- At every UI scale the window allows (D96) the toolbar still fits, stays inside the view and keeps
+-- touch-sized buttons: a smaller scale only adds virtual room, a larger one never goes under the minimum view.
+T.test("toolbar: fits at every allowed UI scale of every window size", function()
+  local UiScale = require("src.core.ui_scale")
+  local windows = { { 1280, 720 }, { 1920, 1080 }, { 3840, 2160 }, { 390, 844 }, { 844, 390 }, { 640, 360 }, { 340, 600 } }
+  for _, win in ipairs(windows) do
+    for _, s in ipairs(UiScale.steps(win[1], win[2], tun.display, tun.settings)) do
+      local view = { name = win[1] .. "x" .. win[2] .. "@" .. s, w = win[1] / s, h = win[2] / s }
+      local out = Toolbar.arrange(buttons(true, "rod"), view, cfgFor(view))
+      for _, a in ipairs(out.bar) do
+        T.truthy(inside(a, view), view.name .. ": " .. a.id .. " is off screen")
+        T.truthy(a.w >= tun.input.minTouchTarget and a.h >= tun.input.minTouchTarget, view.name .. ": " .. a.id .. " is under the touch size")
+      end
+    end
+  end
+end)
