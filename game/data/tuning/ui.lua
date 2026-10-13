@@ -20,7 +20,16 @@ return {
   statsAfterDate = 162, -- left edge of the stat strip when it sits beside the date
   reportSeconds = 16, -- real seconds the morning report card waits before folding itself away (Got it closes it sooner; a tip card pauses the count)
   storageNoteRefresh = 0.5, -- game seconds between re-scans for which full stores are holding something back (the "Full:" pill, D93)
+  planLatchWindow = 0.5, -- real seconds in which a second tap on Plan latches the tool on (touch counterpart of holding Shift, D94); a slower tap turns it off
+  planLatchToast = "Plan kept on after each plan. Tap Plan to stop.", -- toast when the Plan latch turns on
   scrollWheelStep = 22, -- virtual pixels a list scrolls per mouse-wheel notch (about one pantry row)
+  scrollPageOverlap = 22, -- virtual pixels of the old view kept when Page Up/Down scrolls, so the eye keeps its place (about one pantry row)
+  flingMinSpeed = 120, -- virtual pixels per second a drag must be moving at release to coast on (below it the list stops where the finger left it)
+  flingMaxSpeed = 2400, -- virtual pixels per second the coast is capped at, so a flick cannot throw a short list past its end unseen
+  flingBlend = 0.5, -- 0..1 weight of the newest frame's drag speed against the average so far (higher follows the last motion more closely)
+  flingStaleTime = 0.1, -- real seconds a held finger may rest before release; after that the list does not coast
+  flingFriction = 4, -- per second; a coast slows by this rate (the speed falls to a third in about a quarter second)
+  flingStopSpeed = 12, -- virtual pixels per second under which a coast ends cleanly, so the list never creeps
   scrollBarWidth = 3, -- virtual pixels wide the scroll thumb drawn at the edge of a scrolling list
   scrollHintHeight = 12, -- virtual pixels reserved under a scrolling list for its "drag or scroll" hint
   buttonWidths = { -- toolbar button widths
@@ -71,8 +80,9 @@ return {
     untill = "Untill: tap tilled soil to turn it back to grass",
     seed = "%s in hand: tap open ground to till and plant",
     plan = "Plan field: tap two corners",
-    planSeed = "Plan %s: tap two corners",
-    planClear = "Plan field: tap two corners to clear a plan",
+    planSeed = "Plan %s: tap two corners (double-tap Plan to keep on)",
+    planClear = "Plan field: tap two corners to clear a plan (double-tap Plan to keep on)",
+    planKept = "Plan kept on: tap two corners; tap Plan to stop", -- the Plan latch is on (D94, #205); the caption is the same for a seed or a clear
     place = "Placing %s: tap where it goes",
   },
   badges = { -- the routine badge above the toolbar (D72, #168); %d is seconds

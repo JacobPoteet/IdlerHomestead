@@ -59,6 +59,7 @@ function Load.new(world, onToast)
 end
 
 function Load:enter()
+  self.list.onMove = function() self:layout() end
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
   self.rowButtons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
 end
@@ -208,6 +209,9 @@ function Load:update(dt)
 end
 
 function Load:action(name, data)
+  if name == "press" or name == "release" then -- a drag that ends moving lets the list coast (D94)
+    self.list:action(name, data)
+  end
   if self.buttons:action(name, data) then
     return true
   end
@@ -219,7 +223,7 @@ function Load:action(name, data)
     self.rowButtons:action(name, data)
   elseif name == "cancel" then
     self.app:pop()
-  elseif self.list:action(name, data, self.app.ctx.tuning.ui.scrollWheelStep) then
+  elseif self.list:action(name, data, self.app.ctx.tuning.ui) then
     self:layout()
   end
   return true

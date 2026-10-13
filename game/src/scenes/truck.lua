@@ -66,7 +66,8 @@ end
 function Truck:enter()
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
   self.shopButtons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
-  self.shop, self.loadList = ScrollList.new(), ScrollList.new()
+  local relayout = function() self:layout() end
+  self.shop, self.loadList = ScrollList.new(relayout), ScrollList.new(relayout)
 end
 
 function Truck:inTown()
@@ -215,6 +216,10 @@ function Truck:update(dt)
 end
 
 function Truck:action(name, data)
+  if name == "press" or name == "release" then
+    self.shop:action(name, data)
+    self.loadList:action(name, data)
+  end
   if self.buttons:action(name, data) then
     return true
   end
@@ -229,7 +234,7 @@ function Truck:action(name, data)
       end
     elseif name == "release" then
       self.shopButtons:action(name, data)
-    elseif (self.leftFocus and self.loadList or self.shop):action(name, data, self.app.ctx.tuning.ui.scrollWheelStep) then
+    elseif (self.leftFocus and self.loadList or self.shop):action(name, data, self.app.ctx.tuning.ui) then
       self:layout()
     end
   end

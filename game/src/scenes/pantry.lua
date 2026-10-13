@@ -40,6 +40,7 @@ function Pantry.new(world)
 end
 
 function Pantry:enter()
+  self.list.onMove = function() self:layout() end
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
   -- Every row is at least a touch target tall, so row buttons never overlap the row below (#174).
   ROW_H = PantryLayout.rowHeight(self.app.ctx.tuning.input.minTouchTarget)
@@ -188,6 +189,9 @@ function Pantry:update(dt)
 end
 
 function Pantry:action(name, data)
+  if name == "press" or name == "release" then -- a drag that ends moving lets the list coast (D94)
+    self.list:action(name, data)
+  end
   if self.buttons:action(name, data) then
     return true
   end
@@ -200,7 +204,7 @@ function Pantry:action(name, data)
     self.rowButtons:action(name, data)
   elseif name == "cancel" then
     self.app:pop()
-  elseif self.list:action(name, data, self.app.ctx.tuning.ui.scrollWheelStep) then
+  elseif self.list:action(name, data, self.app.ctx.tuning.ui) then
     self:layout() -- the list follows the finger
   end
   return true

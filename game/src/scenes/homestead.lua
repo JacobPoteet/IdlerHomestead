@@ -89,7 +89,8 @@ function Homestead:enter(slot, data)
   self.renderer = Renderer.new(self.world)
   self.buttons = Buttons.new(tuning.input.minTouchTarget)
   self.paletteButtons = Buttons.new(tuning.input.minTouchTarget)
-  self.paletteLists = { tools = ScrollList.new(), more = ScrollList.new() }
+  local relayout = function() self:layout() end
+  self.paletteLists = { tools = ScrollList.new(relayout), more = ScrollList.new(relayout) }
   self.mode = "act" -- "act" | "plan" | "place"
   self.seed = nil -- crop id in hand
   self.tool = nil -- "rod" in hand
@@ -508,8 +509,34 @@ end
 
 -- HUD buttons --------------------------------------------------------------------------
 
+--- The Plan button (D94, #205). A tap turns the tool on, a tap while it is on turns it off; a second tap
+--- within `ui.planLatchWindow` seconds of the one that turned it on latches it, so it stays on after each
+--- plan (the touch counterpart of holding Shift); a tap while latched unlatches and turns it off.
+--- `now` is real seconds (love.timer.getTime in play).
+function Homestead:pressPlan(now)
+  local ui = self.app.ctx.tuning.ui
+  if self.mode == "plan" then
+    if not self.planLatch and self.planTapAt and now - self.planTapAt <= ui.planLatchWindow then
+      self.planLatch = true
+      self.planTapAt = nil
+      self:showToast(ui.planLatchToast)
+      self:layout()
+    else
+      self:setHand(self.seed, nil)
+    end
+    return
+  end
+  self.mode, self.planStart, self.tool, self.placing = "plan", nil, nil, nil
+  self.planLatch, self.planTapAt = false, now
+  local crops = self.world.registry
+  self:showToast(self.seed and "Tap two corners to plan " .. crops:get("crops", self.seed).name
+    or "Tap two corners to clear a plan")
+  self:layout()
+end
+
 function Homestead:setHand(seed, tool)
   self.seed, self.tool, self.mode, self.planStart, self.placing = seed, tool, "act", nil, nil
+  self.planLatch, self.planTapAt = false, nil
   if self.placeCard and self.placeCard.kind == "confirm" then
     self.placeCard = nil -- leaving Place drops a confirmation that was up (D79)
   end
@@ -756,14 +783,9 @@ function Homestead:layoutToolbar(view)
     w = fit(L.plan, bw.plan),
     label = L.plan,
     selected = self.mode == "plan",
+    latched = self.mode == "plan" and self.planLatch or nil,
     onPress = act(function()
-      if self.mode == "plan" then
-        self:setHand(self.seed, nil)
-        return
-      end
-      self.mode, self.planStart, self.tool, self.placing = "plan", nil, nil, nil
-      self:showToast(self.seed and "Tap two corners to plan " .. world.registry:get("crops", self.seed).name
-        or "Tap two corners to clear a plan")
+      self:pressPlan(love.timer.getTime())
     end),
   }
   local routineList = {
@@ -851,6 +873,7 @@ function Homestead:layoutToolbar(view)
       label = label,
       short = active.short,
       selected = true,
+      latched = active.latched,
       onPress = active.onPress,
     }
   end
@@ -1635,7 +1658,7 @@ function Homestead:tap(i)
       self.planStart = nil
       -- One plan per selection (D77, #192): back to the normal hand with the seed kept, so the next tap
       -- walks or acts. Holding Shift on a keyboard keeps the tool on for several plans.
-      local keep = love.keyboard and love.keyboard.isDown("lshift", "rshift")
+      local keep = self.planLatch or (love.keyboard and love.keyboard.isDown("lshift", "rshift"))
       if not keep then
         self.mode = "act"
         self:layout()
@@ -1749,11 +1772,14 @@ function Homestead:action(name, data)
       return true
     elseif name == "release" then
       self.paletteButtons:action(name, data)
+      list:action(name, data) -- a drag that ends moving lets the palette coast (D94)
     elseif name == "press" then
       self.palettePress = over -- a drag that began on the palette scrolls it, not the camera
+      list:action(name, data)
     end
-    local step = self.app.ctx.tuning.ui.scrollWheelStep
-    if list.overflow and ((name == "pan" and (self.palettePress or data.keys)) or (name == "zoom" and over)) then
+    local step = self.app.ctx.tuning.ui
+    local jump = name == "pageUp" or name == "pageDown" or name == "listHome" or name == "listEnd"
+    if list.overflow and ((name == "pan" and (self.palettePress or data.keys)) or (name == "zoom" and over) or jump) then
       if list:action(name, data, step) then
         self:layout()
       end
@@ -2260,6 +2286,9 @@ function Homestead:captionText()
   if self.mode == "place" and self.placing then
     return string.format(c.place, world.registry:get("objects", self.placing).name:lower())
   elseif self.mode == "plan" then
+    if self.planLatch then
+      return c.planKept
+    end
     return self.seed and string.format(c.planSeed, crop(self.seed)) or c.planClear
   elseif self.tool == "rod" then
     return c.rod

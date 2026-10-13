@@ -12,8 +12,8 @@ local theme = require("src.ui.theme")
 local ScrollList = {}
 ScrollList.__index = ScrollList
 
-function ScrollList.new()
-  return setmetatable({ offset = 0, contentH = 0, overflow = false, view = { x = 0, y = 0, w = 0, h = 0 } }, ScrollList)
+function ScrollList.new(onMove)
+  return setmetatable({ offset = 0, contentH = 0, overflow = false, onMove = onMove, view = { x = 0, y = 0, w = 0, h = 0 } }, ScrollList)
 end
 
 --- Fit the list into `rect` ({x, y, w, h}, the whole space the list may use, hint line included) for
@@ -59,19 +59,88 @@ function ScrollList:reveal(top, h)
   self.offset = Scroll.clamp(self.offset, self.contentH, v.h)
 end
 
+-- Lists that are being dragged or coasting after a drag (D94, #223). ScrollList.tick(dt, ui) moves them
+-- once a frame; a list leaves the set when it has stopped.
+local live = {}
+
 --- Feed an input action. Returns true when the offset changed (the panel should lay out again).
---- `step` is tuning.ui.scrollWheelStep.
-function ScrollList:action(name, data, step)
+--- `ui` is tuning.ui (a bare number is read as tuning.ui.scrollWheelStep, with no page overlap).
+--- Actions: pan (drag, arrow keys), zoom (wheel), pageUp / pageDown, listHome / listEnd, press (stops a
+--- coast), release (a drag that ends moving lets the list coast, see tick).
+function ScrollList:action(name, data, ui)
+  local step = type(ui) == "table" and ui.scrollWheelStep or ui
+  local overlap = type(ui) == "table" and ui.scrollPageOverlap or 0
+  if name == "press" then
+    self.coast, self.dragging = nil, false
+  elseif name == "release" then
+    if self.dragging then
+      self.released = true
+    end
+  end
   if not self.overflow then
     return false
   end
-  local before = self.offset
+  local before, v = self.offset, self.view
   if name == "pan" then
-    self.offset = Scroll.byDrag(self.offset, data.dy, self.contentH, self.view.h)
+    self.offset = Scroll.byDrag(self.offset, data.dy, self.contentH, v.h)
+    if not data.keys then
+      self.coast = nil
+      self.dragging = true
+      self.dragAcc = (self.dragAcc or 0) + data.dy
+      live[self] = true
+    end
   elseif name == "zoom" then
-    self.offset = Scroll.byWheel(self.offset, data.steps, step, self.contentH, self.view.h)
+    self.offset = Scroll.byWheel(self.offset, data.steps, step, self.contentH, v.h)
+  elseif name == "pageUp" or name == "pageDown" then
+    local page = math.max(1, v.h - overlap)
+    self.offset = Scroll.clamp(self.offset + (name == "pageDown" and page or -page), self.contentH, v.h)
+  elseif name == "listHome" then
+    self.offset = 0
+  elseif name == "listEnd" then
+    self.offset = Scroll.max(self.contentH, v.h)
+  end
+  if self.offset ~= before and name ~= "pan" and name ~= "zoom" then
+    self.coast = nil -- a jump ends any coast
   end
   return self.offset ~= before
+end
+
+--- Move every list that is being dragged or coasting by `dt` seconds (call once a frame; `ui` is
+--- tuning.ui). While a finger drags, the average drag speed is tracked; when it lifts while still moving
+--- the list coasts at that speed, slowing by flingFriction, and stops cleanly at an end or under
+--- flingStopSpeed. Time comes only from `dt`, so the same input and frames always give the same offsets.
+function ScrollList.tick(dt, ui)
+  for list in pairs(live) do
+    local moved = false
+    if list.dragging then
+      if (list.dragAcc or 0) ~= 0 and dt > 0 then
+        local sample = list.dragAcc / dt
+        list.speed = list.speed and (list.speed + (sample - list.speed) * ui.flingBlend) or sample
+        list.dragAcc, list.still = 0, 0
+      else
+        list.still = (list.still or 0) + dt
+      end
+      if list.released then
+        local fast = math.abs(list.speed or 0) >= ui.flingMinSpeed and (list.still or 0) <= ui.flingStaleTime
+        list.coast = fast and math.max(-ui.flingMaxSpeed, math.min(ui.flingMaxSpeed, list.speed)) or nil
+        list.dragging, list.released, list.speed, list.dragAcc, list.still = false, false, nil, 0, 0
+      end
+    elseif list.coast then
+      local before = list.offset
+      list.offset = Scroll.byDrag(list.offset, list.coast * dt, list.contentH, list.view.h)
+      moved = list.offset ~= before
+      list.coast = list.coast * math.exp(-ui.flingFriction * dt)
+      if math.abs(list.coast) < ui.flingStopSpeed or not moved then
+        list.coast = nil -- slow enough, or against an end
+      end
+    end
+    if not list.dragging and not list.coast then
+      live[list] = nil
+    end
+    if moved and list.onMove then
+      list.onMove(list)
+    end
+  end
 end
 
 --- Clip drawing to the window until finish() (scissor works in screen pixels, so it needs the view scale).

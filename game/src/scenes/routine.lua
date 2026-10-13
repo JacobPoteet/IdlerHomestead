@@ -5,6 +5,7 @@
 
 local Tasks = require("src.sim.systems.tasks")
 local Rules = require("src.sim.routine_rules")
+local ScrollList = require("src.ui.scroll_list")
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
 local Text = require("src.ui.text")
@@ -18,44 +19,61 @@ local HEADER_H = 40
 local EDITOR_H = 56
 
 function Routine.new(world)
-  return setmetatable({ world = world }, Routine)
+  return setmetatable({ world = world, list = ScrollList.new() }, Routine)
 end
 
 function Routine:enter()
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
+  self.rowButtons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
+  self.list.onMove = function()
+    self:layout()
+  end
   self.selected = self.selected or self.world.state.priorities[1].category
 end
 
 function Routine:resize(view)
   local list = self.world.state.priorities
   local w = math.min(380, view.w - 24)
-  local h = HEADER_H + #list * ROW_H + EDITOR_H + 44
+  local h = math.min(HEADER_H + #list * ROW_H + EDITOR_H + 44, view.h - 16)
   self.box = { x = (view.w - w) / 2, y = math.max(8, (view.h - h) / 2), w = w, h = h }
   self:layout()
 end
 
 function Routine:layout()
-  local b, world = self.box, self.world
+  local b, world, ui = self.box, self.world, self.app.ctx.tuning.ui
   self.buttons:clear()
+  self.rowButtons:clear()
   self.rows = {}
+  -- The priority rows scroll in a window (the shared kit, D87/D94) when the screen is too short for all
+  -- of them; the editor strip and Done stay put under it.
+  local count = #world.state.priorities
+  self.list:fit({
+    x = b.x,
+    y = b.y + HEADER_H,
+    w = b.w,
+    h = b.h - HEADER_H - EDITOR_H - 44,
+  }, count * ROW_H, ui.scrollHintHeight, ROW_H)
+  local top = self.list:origin()
   for i, entry in ipairs(world.state.priorities) do
-    local y = b.y + HEADER_H + (i - 1) * ROW_H
-    self.rows[i] = { y = y, entry = entry }
-    local right = b.x + b.w - 10
+    local y = top + (i - 1) * ROW_H
+    self.rows[i] = { y = y, entry = entry, visible = self.list:visible(y, ROW_H) }
+    local right = b.x + b.w - 10 - (self.list.overflow and ui.scrollBarWidth + 4 or 0)
     local function add(label, onPress, opts)
       opts = opts or {}
       local w = opts.w or 26
       right = right - w
-      self.buttons:add({
-        x = right,
-        y = y,
-        w = w,
-        h = 24,
-        label = label,
-        enabled = opts.enabled ~= false,
-        selected = opts.selected,
-        onPress = onPress,
-      })
+      if self.rows[i].visible then
+        self.rowButtons:add({
+          x = right,
+          y = y,
+          w = w,
+          h = 24,
+          label = label,
+          enabled = opts.enabled ~= false,
+          selected = opts.selected,
+          onPress = onPress,
+        })
+      end
       right = right - 4
     end
     add(entry.enabled and "On" or "Off", function()
@@ -77,7 +95,7 @@ function Routine:layout()
   end
 
   -- Editor strip for the selected category.
-  local ey = b.y + HEADER_H + #world.state.priorities * ROW_H + 18
+  local ey = b.y + b.h - EDITOR_H - 26
   self.editorY = ey - 14
   local cat = self.selected
   local cond = Tasks.condition(world, cat)
@@ -128,8 +146,23 @@ function Routine:layout()
 end
 
 function Routine:action(name, data)
-  if not self.buttons:action(name, data) and name == "cancel" then
+  if name == "press" or name == "release" then
+    self.list:action(name, data) -- a drag that ends moving lets the list coast (D94)
+  end
+  if self.buttons:action(name, data) then
+    return true
+  end
+  if name == "press" or name == "select" or name == "hover" then
+    -- Row buttons only answer inside the list's window: a half-scrolled row must not reach out of it.
+    if self.list:contains(data.x, data.y) then
+      self.rowButtons:action(name, data)
+    end
+  elseif name == "release" then
+    self.rowButtons:action(name, data)
+  elseif name == "cancel" then
     self.app:pop()
+  elseif self.list:action(name, data, self.app.ctx.tuning.ui) then
+    self:layout()
   end
   return true
 end
@@ -156,6 +189,7 @@ function Routine:draw()
     size = "small",
     color = theme.colors.textDim,
   })
+  self.list:begin(self.app.view.scale)
   for i, row in ipairs(self.rows) do
     local cat = row.entry.category
     local def = self.world.registry:get("task_categories", cat)
@@ -172,6 +206,9 @@ function Routine:draw()
       })
     end
   end
+  self.rowButtons:draw()
+  self.list:finish()
+  self.list:drawCue(self.app.ctx.tuning.ui)
   local cat = self.selected
   local def = self.world.registry:get("task_categories", cat)
   local cond = Tasks.condition(self.world, cat)

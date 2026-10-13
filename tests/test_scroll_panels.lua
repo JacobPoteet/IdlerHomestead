@@ -250,3 +250,121 @@ T.test("palette: scroll offset is clamped and the palette without overflow does 
   T.falsy(few.scrolls)
   T.eq(few.offset, 0)
 end)
+
+-- Page and Home/End keys, coasting after a drag (D94, #223) -------------------------------------------
+
+local function longList()
+  local list = ScrollList.new()
+  list:fit({ x = 0, y = 0, w = 100, h = 100 }, 600, 12, 10) -- window 88 tall, max offset 512
+  return list
+end
+
+local FRAME = 1 / 60
+
+--- Press, drag by `dy` a frame for `frames` frames (one tick each), then release.
+local function drag(list, dy, frames)
+  list:action("press", {})
+  for _ = 1, frames do
+    list:action("pan", { dy = dy }, tun.ui)
+    ScrollList.tick(FRAME, tun.ui)
+  end
+  list:action("release", {})
+end
+
+local function run(frames)
+  for _ = 1, frames do
+    ScrollList.tick(FRAME, tun.ui)
+  end
+end
+
+T.test("scroll list: Page Down/Up move one window less the overlap; Home and End jump", function()
+  local list = longList()
+  local page = 88 - tun.ui.scrollPageOverlap
+  T.truthy(list:action("pageDown", {}, tun.ui))
+  T.eq(list.offset, page)
+  list:action("pageDown", {}, tun.ui)
+  T.eq(list.offset, 2 * page)
+  T.truthy(list:action("pageUp", {}, tun.ui))
+  T.eq(list.offset, page)
+  T.truthy(list:action("listEnd", {}, tun.ui))
+  T.eq(list.offset, 512)
+  T.falsy(list:action("pageDown", {}, tun.ui), "no further")
+  T.truthy(list:action("listHome", {}, tun.ui))
+  T.eq(list.offset, 0)
+  T.falsy(list:action("pageUp", {}, tun.ui))
+end)
+
+T.test("input: the page and home/end keys send list actions", function()
+  T.eq(tun.input.keyActions.pageup, "pageUp")
+  T.eq(tun.input.keyActions.pagedown, "pageDown")
+  T.eq(tun.input.keyActions.home, "listHome")
+  T.eq(tun.input.keyActions["end"], "listEnd")
+end)
+
+T.test("scroll list: a fast drag coasts on after release and stops cleanly", function()
+  local list = longList()
+  drag(list, -12, 6)
+  run(1)
+  local atRelease = list.offset
+  T.truthy(list.coast, "coasting")
+  run(600)
+  T.truthy(list.offset > atRelease + 20, "coasted past where the finger left")
+  T.eq(list.coast, nil, "stopped")
+  local stopped = list.offset
+  run(60)
+  T.eq(list.offset, stopped, "no creep once stopped")
+end)
+
+T.test("scroll list: a slow drag, a held finger or a tap does not coast", function()
+  local slow = longList()
+  drag(slow, -0.5, 6) -- 30 px/s, under the minimum speed
+  run(120)
+  T.eq(slow.offset, 3, "stays where the finger left it")
+  local held = longList()
+  held:action("press", {})
+  for _ = 1, 4 do
+    held:action("pan", { dy = -12 }, tun.ui)
+    ScrollList.tick(FRAME, tun.ui)
+  end
+  run(20) -- the finger rests well past the stale time
+  held:action("release", {})
+  local at = held.offset
+  run(120)
+  T.eq(held.offset, at, "a resting finger leaves the list where it is")
+  local tap = longList()
+  tap:action("press", {})
+  tap:action("release", {})
+  run(10)
+  T.eq(tap.offset, 0)
+end)
+
+T.test("scroll list: a coast stops at the end, a press catches it, ticks alone move nothing", function()
+  local list = longList()
+  drag(list, -30, 5)
+  run(600)
+  T.eq(list.offset, 512, "the coast ended against the end")
+  T.eq(list.coast, nil)
+  local caught = longList()
+  drag(caught, -12, 5)
+  run(1)
+  T.truthy(caught.coast)
+  caught:action("press", {})
+  local at = caught.offset
+  run(5)
+  T.eq(caught.offset, at, "a touch stops the coast")
+  local idle = longList()
+  idle.offset = 100
+  run(60)
+  T.eq(idle.offset, 100, "ticks alone never move a list")
+end)
+
+T.test("scroll list: coasting calls onMove each time the offset changes", function()
+  local moves = 0
+  local list = ScrollList.new(function()
+    moves = moves + 1
+  end)
+  list:fit({ x = 0, y = 0, w = 100, h = 100 }, 600, 12, 10)
+  drag(list, -12, 5)
+  run(600)
+  T.truthy(moves > 5, "relaid out while coasting")
+end)

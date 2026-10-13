@@ -446,3 +446,57 @@ T.test("gentler start: the kit has the cans and the dollars from tuning", functi
   end
   T.truthy(tun.run.startingResources.money >= cheapest + tun.economy.deliveryFee, "the cheapest starter order is affordable on day one")
 end)
+
+-- Meal order (D94, #189) -----------------------------------------------------
+
+local function clearFood(world)
+  for _, res in ipairs(reg:all("resources")) do
+    if res.calories and Ledger.get(world, res.id) > 0 then
+      Ledger.remove(world, res.id, Ledger.get(world, res.id))
+    end
+  end
+end
+
+local function stockedOrder(world)
+  local order = {}
+  for _, res in ipairs(Needs.mealOrder(world)) do
+    if Ledger.get(world, res.id) > 0 then
+      order[#order + 1] = res.id
+    end
+  end
+  return table.concat(order, " ")
+end
+
+T.test("meal order: the food whose oldest batch spoils first is eaten first; preserved food last", function()
+  local world = newWorld(1)
+  clearFood(world)
+  Ledger.add(world, "potato", 5)
+  Spoilage.ageStock(world, "potato", 20) -- shelf life 21 days: spoils tomorrow
+  Ledger.add(world, "radish", 5) -- fresh, 7 days
+  Ledger.add(world, "egg", 5) -- fresh, 14 days
+  Ledger.add(world, "milk", 5) -- fresh, 2 days
+  Ledger.add(world, "smoked_fish", 5) -- never spoils
+  T.eq(stockedOrder(world), "potato milk radish egg smoked_fish")
+end)
+
+T.test("meal order: a day's meal eats the old potatoes before fresh radishes", function()
+  local world = newWorld(1)
+  clearFood(world)
+  local spuds = math.ceil(DAILY / reg:get("resources", "potato").calories)
+  Ledger.add(world, "potato", spuds)
+  Spoilage.ageStock(world, "potato", 20)
+  Ledger.add(world, "radish", 10)
+  Needs.eat(world)
+  T.eq(Ledger.get(world, "potato"), 0, "the soon-to-rot food was eaten")
+  T.eq(Ledger.get(world, "radish"), 10, "the fresh radishes were left")
+end)
+
+T.test("meal order: equal days left fall back to content-file order", function()
+  local world = newWorld(1)
+  clearFood(world)
+  Ledger.add(world, "radish", 5)
+  Ledger.add(world, "potato", 5)
+  Spoilage.ageStock(world, "potato", 14) -- 7 days left, like the fresh radishes
+  T.eq(Spoilage.info(world, "radish").daysLeft, Spoilage.info(world, "potato").daysLeft)
+  T.eq(stockedOrder(world), "radish potato")
+end)

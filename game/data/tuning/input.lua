@@ -9,6 +9,10 @@ return {
     space = "speed", -- cycle the game speed
     r = "routine", -- start the idle routine now
     n = "skipNight", -- skip the rest of the night while asleep (D56)
+    pageup = "pageUp", -- scroll the open panel list up one window (D94)
+    pagedown = "pageDown", -- scroll the open panel list down one window
+    home = "listHome", -- jump to the top of the open panel list
+    ["end"] = "listEnd", -- jump to the bottom of the open panel list
   },
   panKeys = { -- key -> { dx, dy } direction the camera view moves (held keys)
     left = { -1, 0 },

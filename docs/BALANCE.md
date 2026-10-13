@@ -332,3 +332,15 @@ Run starts with $6 (D68; bait is $3 + $3 delivery, so the first order is possibl
 D88 changes only what the player is told (tip card, Catalog line) and the starter field's layout; starting cash and junk pay are unchanged. The compact starter field moves idle from 17 to 19 failures of 20 (a seed or two, within noise); scripted and active are identical.
 
 Recommendation (not applied, the user decides): leave $6 and $2-$6 alone. If the first Catalog order still feels out of reach, the cheapest lever is 	uning.run.money 6 to 9 (one extra seed or bait order before any junk sells, no effect on the year-1 income of the truck, which is $240 to $280). Raising junk pay would also lift the early curve but changes how fast the first truck trip (#129, median day 5) is reached, so test it with the harness first.
+
+## Meal order: eat what spoils first (#189, D94)
+
+`lovec tools/balance policy=scripted,active seeds=6 years=2`, before and after the change (all runs alive both times, 0/6 failed in each policy; nothing was retuned):
+
+| | scripted before | scripted after | active before | active after |
+|---|---|---|---|---|
+| Spoiled per run (units) | 10.8 | 11.5 | 809 | 752 |
+| by food | potato 5.0, radish 5.8 | potato 0.2, radish 11.3 | potato 5.5, radish 803.7 | potato 2.5, radish 748.0, fish 1.0 |
+| Truck income | $502 | $555 | $755 | $983 |
+
+Read: the older potatoes are eaten instead of rotting (scripted potato spoilage 5.0 to 0.2) and the big active radish surplus is slightly smaller; scripted radishes rot a little more because fresh radishes now wait behind fish and milk. Six seeds is noisy (the per-seed spread is wide); treat the direction, not the decimals, as the finding.

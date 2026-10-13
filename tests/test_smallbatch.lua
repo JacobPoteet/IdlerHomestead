@@ -334,3 +334,65 @@ T.test("town: a trip costs no game time, and the run is the same as one without 
   a.world.state.market.tripReady, b.world.state.market.tripReady = nil, nil
   T.eq(serialize.encode(a.world.state), serialize.encode(b.world.state), "waiting in town changes nothing")
 end)
+
+-- Plan latch (#205, D94) -----------------------------------------------------------------------------
+
+--- A stand-in with just what Homestead.pressPlan and the plan branch of tap touch.
+local function latchScene()
+  local scene = planScene()
+  scene.mode, scene.seed = "act", "radish"
+  scene.toasts = {}
+  scene.app = { ctx = { tuning = tun } }
+  scene.world = { registry = reg }
+  function scene:showToast(text)
+    self.toasts[#self.toasts + 1] = text
+  end
+  function scene:setHand(seed)
+    self.seed, self.mode, self.planStart, self.planLatch, self.planTapAt = seed, "act", nil, false, nil
+  end
+  scene.pressPlan = Homestead.pressPlan
+  return scene
+end
+
+T.test("plan latch: a double tap keeps Plan on for several plans; a tap unlatches", function()
+  local scene = latchScene()
+  scene:pressPlan(10)
+  T.eq(scene.mode, "plan")
+  T.falsy(scene.planLatch)
+  scene:pressPlan(10 + tun.ui.planLatchWindow / 2)
+  T.truthy(scene.planLatch, "the second quick tap latches")
+  T.eq(scene.mode, "plan")
+  scene:tap(1)
+  scene:tap(2)
+  scene:tap(3)
+  scene:tap(4)
+  T.eq(#scene.applied, 2)
+  T.eq(scene.mode, "plan", "still on after two plans")
+  scene:pressPlan(20)
+  T.eq(scene.mode, "act", "a tap while latched turns it off")
+  T.falsy(scene.planLatch)
+end)
+
+T.test("plan latch: a slow second tap just turns Plan off; a latch does not leak into the next use", function()
+  local scene = latchScene()
+  scene:pressPlan(10)
+  scene:pressPlan(10 + tun.ui.planLatchWindow + 1)
+  T.eq(scene.mode, "act")
+  T.falsy(scene.planLatch)
+  scene:pressPlan(30)
+  T.eq(scene.mode, "plan")
+  scene:pressPlan(30.1)
+  T.truthy(scene.planLatch)
+  scene:setHand(nil)
+  scene:pressPlan(40)
+  T.falsy(scene.planLatch, "a fresh Plan starts unlatched")
+  scene:tap(1)
+  scene:tap(2)
+  T.eq(scene.mode, "act", "one plan per selection, as before")
+end)
+
+T.test("plan latch: the captions say how to keep it on", function()
+  local c = tun.ui.captions
+  T.truthy(c.planKept:find("kept on"))
+  T.truthy(c.planSeed:find("double%-tap"))
+end)

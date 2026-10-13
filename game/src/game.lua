@@ -9,6 +9,7 @@ local tuningLoader = require("src.core.tuning")
 local Debug = require("src.ui.debug_overlay")
 local Assets = require("src.render.assets")
 local Shaders = require("src.render.shaders")
+local ScrollList = require("src.ui.scroll_list")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 local TitleScene = require("src.scenes.title")
@@ -55,6 +56,7 @@ end
 function Game:update(dt)
   self.input:update(dt)
   self.app:update(dt)
+  ScrollList.tick(dt, self.app.ctx.tuning.ui) -- panel lists coast after a drag (D94)
 end
 
 function Game:draw()
