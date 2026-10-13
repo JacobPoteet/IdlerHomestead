@@ -70,6 +70,7 @@ local STATE_OWNERS = {
   priorities = "tasks",
   routine = "routine",
   processing = "processing",
+  spoilage = "spoilage",
   stand = "stand",
   startingKitGiven = "land",
   threats = "threats",

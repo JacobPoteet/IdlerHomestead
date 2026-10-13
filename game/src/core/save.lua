@@ -18,8 +18,28 @@ Save.__index = Save
 
 Save.FORMAT_VERSION = 1
 
--- Upgrades for old save formats: migrations[n] converts a version-n save to version n+1.
+-- Upgrades for old slot-file formats: migrations[n] converts a version-n file to version n+1. Empty
+-- by policy before launch: a change to the saved state bumps SAVE_COMPAT instead (D74).
 local migrations = {}
+
+--- The saved-state compatibility stamp (D74, #183): the one place it is defined. Every write stamps
+--- it into the slot as `compat`; a slot with any other stamp (or none) cannot be loaded, and the slot
+--- screen offers to delete it or keep it untouched. No migrations before launch: bump this whenever
+--- the shape of the saved run or meta changes in a way older code or data cannot read, and update the
+--- fingerprint in tests/test_save_compat.lua (that test fails until both are done).
+--- History: 1 = before the stamp existed (unstamped saves), 2 = shelf-life batches (D73).
+Save.SAVE_COMPAT = 2
+
+--- How a slot's data relates to this build: "ok", "older" (no stamp or a lower one) or "newer".
+function Save.compatibility(data)
+  local stamp = type(data) == "table" and data.compat or nil
+  if type(stamp) ~= "number" or stamp < Save.SAVE_COMPAT then
+    return "older"
+  elseif stamp > Save.SAVE_COMPAT then
+    return "newer"
+  end
+  return "ok"
+end
 
 --- Backend using love.filesystem (the game's save directory).
 function Save.loveBackend()
@@ -73,7 +93,7 @@ end
 
 --- Fresh data for a new slot.
 function Save.newSlotData(name)
-  return { version = Save.FORMAT_VERSION, name = name, header = { playtime = 0 }, meta = {}, run = nil }
+  return { version = Save.FORMAT_VERSION, compat = Save.SAVE_COMPAT, name = name, header = { playtime = 0 }, meta = {}, run = nil }
 end
 
 function Save:checkIndex(index)
@@ -145,10 +165,13 @@ function Save:read(index)
   return nil, err
 end
 
---- Write a slot, keeping the previous version as a backup.
+--- Write a slot, keeping the previous version as a backup. Stamps the current SAVE_COMPAT, so only
+--- data this build made or loaded may be written (the slot screen never writes an outdated slot).
 function Save:write(index, data)
   self:checkIndex(index)
+  assert(data.compat == nil or data.compat == Save.SAVE_COMPAT, "refusing to re-stamp a save from another version")
   data.version = Save.FORMAT_VERSION
+  data.compat = Save.SAVE_COMPAT
   local contents = serialize.encode(data)
   -- Only rotate a readable file into the backup; a corrupt main must never replace a good .bak.
   local previous = self.backend.read(mainPath(index))
@@ -168,7 +191,7 @@ end
 function Save:writeHeader(index, data, size)
   self.backend.write(
     headerPath(index),
-    serialize.encode({ name = data.name, header = data.header or {}, size = size })
+    serialize.encode({ name = data.name, header = data.header or {}, compat = data.compat, size = size })
   )
 end
 
@@ -192,7 +215,9 @@ function Save:delete(index)
   self.backend.remove(headerPath(index))
 end
 
---- Summaries for the slot screen: { index, state = "empty"|"ok"|"corrupt", name?, header?, error? }.
+--- Summaries for the slot screen: { index, state = "empty"|"ok"|"outdated"|"corrupt", name?, header?,
+--- compat? ("older"|"newer" for an outdated slot), error? }. An outdated slot is readable but must not
+--- be played (D74); the file is left as it is until the player deletes it.
 function Save:list()
   local slots = {}
   for i = 1, self.slotCount do
@@ -213,10 +238,16 @@ function Save:list()
         end
       end
     end
-    if cached then
-      slots[i] = { index = i, state = "ok", name = cached.name, header = cached.header }
-    elseif data then
-      slots[i] = { index = i, state = "ok", name = data.name, header = data.header or {} }
+    local found = cached or data
+    if found then
+      local compat = Save.compatibility(found)
+      slots[i] = {
+        index = i,
+        state = compat == "ok" and "ok" or "outdated",
+        compat = compat ~= "ok" and compat or nil,
+        name = found.name,
+        header = found.header or {},
+      }
     elseif err == "empty" then
       slots[i] = { index = i, state = "empty" }
     else

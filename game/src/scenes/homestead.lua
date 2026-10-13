@@ -472,8 +472,8 @@ function Homestead:stats()
   }
   local tonight = Spoilage.tonight(world)
   if tonight.warn then
-    -- Fresh food is about to rot (D68, #151): the number is how many units are expected to go tonight.
-    stats[#stats + 1] = { "icon_spoiled", "-" .. math.floor(tonight.expected + 0.5), theme.colors.danger, id = "spoiled" }
+    -- Fresh food is about to rot (D68, D73): the number is how many units go tonight.
+    stats[#stats + 1] = { "icon_spoiled", "-" .. tonight.units, theme.colors.danger, id = "spoiled" }
   end
   if Water.hasCistern(world) then
     -- Cistern stock, once there is a cistern to hold it.

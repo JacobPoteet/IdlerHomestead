@@ -44,6 +44,8 @@ local function describe(slot)
     return "Empty slot", ""
   elseif slot.state == "corrupt" then
     return "Unreadable save", tostring(slot.error)
+  elseif slot.state == "outdated" then
+    return string.format("From %s version: can't be loaded", slot.compat == "newer" and "a newer" or "an older"), ""
   end
   local h = slot.header
   local when = "New homestead"
@@ -55,7 +57,36 @@ local function describe(slot)
   return when, "Played " .. Draw.formatPlaytime(h.playtime)
 end
 
+--- The words of the out-of-date prompt (D74) for a slot summary or its data: title, message.
+function Slots.outdatedText(name, compat)
+  local which = compat == "newer" and "a newer" or "an older"
+  return "Can't load " .. (name or "this save"),
+    "This save is from " .. which .. " version and can't be loaded. Delete it to use the slot again, "
+      .. "or keep it: the file stays exactly as it is."
+end
+
+--- An out-of-date slot: say so, then Delete save (asks again) or Keep it (nothing is touched). Never
+--- deletes by itself (D74, #183).
+function Slots:outdated(index, name, compat)
+  local title, message = Slots.outdatedText(name, compat)
+  self.app:push(require("src.scenes.confirm").new({
+    title = title,
+    message = message,
+    confirmLabel = "Delete save",
+    cancelLabel = "Keep it",
+    danger = true,
+    onConfirm = function()
+      self:delete(index, name)
+    end,
+  }))
+end
+
 function Slots:play(index, data)
+  local compat = Save.compatibility(data)
+  if compat ~= "ok" then
+    self:outdated(index, data.name, compat)
+    return
+  end
   if Run.isRecovering(data) then
     self.app:switch(require("src.scenes.recovery").new(), index, data)
     return
@@ -150,6 +181,10 @@ function Slots:resize(view)
         if data then
           self:play(i, data)
         end
+      end)
+    elseif slot.state == "outdated" then
+      add("Play", "accent", function()
+        self:outdated(i, slot.name, slot.compat)
       end)
     elseif slot.state == "empty" then
       add("New", "accent", function()

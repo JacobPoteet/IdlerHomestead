@@ -257,6 +257,26 @@ Changes: the automatic pantry holds a fresh food only for `autoPantryHorizon` (0
 
 Reading: the early money is the visible change (the $6 and the crate that sells), survival is not worse anywhere and the one scripted failure became a survivor (6 seeds, so within noise). Spoilage fell only 6 percent: moving food to the crate does not stop it spoiling (D31, the crate is a reservation), it only gets sold when the stand or a truck trip runs, and the policies make a trip every 5 to 8 days. The real fix for the 410 units a run in the active policy is more sales channels or earlier preserving (smoker, freezer), and the visibility in the pantry (D68) so a player acts on it. The harness policies do not read the new warnings.
 
+### Shelf-life batches (#183, D73)
+
+Changes: spoilage is per batch with a shelf life (fish 2 days, milk 2, radish 7, egg 14, potato 21; `tuning.food.shelfLife`) instead of `1/spoilDays` of the whole stock a night; past its shelf life a batch loses half a night (`rotShare`). Food is eaten and sold oldest first. The report gained a "Spoiled per run by food" line.
+
+`policy=scripted,active seeds=6 years=2`, before and after (same seeds, 56 days):
+
+| | scripted before | scripted after | active before | active after |
+| --- | --- | --- | --- | --- |
+| failed in 2 years | 5/6 (winter Y2 2, spring Y3 3) | 1/6 (winter Y2) | 0/6 | 0/6 |
+| alive end of Wi2 | 67% | 83% | 100% | 100% |
+| money end of Sp1 / Su1 / Au1 / Wi1 (median $) | 36.5 / 30 / 8.5 / 11.5 | 34 / 27.5 / 23.5 / 18 | 13.5 / 8.5 / 15 / 7 | 7.5 / 7.5 / 19 / 12 |
+| money end of Sp2 / Su2 / Au2 / Wi2 (median $) | 11 / 22 / 19.5 / 14.5 | 32.5 / 22 / 31.5 / 29 | 17.5 / 34.5 / 50.5 / 24.5 | 29 / 37 / 67 / 26 |
+| truck income Y1 / Y2 (median $) | 62 / 80 | 161 / 323 | 196 / 285 | 207 / 304 |
+| stand income Y1 / Y2 (median $) | 3 / 15 | 0 / 10 | 10 / 123 | 11 / 97 |
+| trips per run | 10.0 | 14.3 | 12.5 | 13.5 |
+| fresh food spoiled per run (units) | 269.2 | 5.8 (potato 5.5, egg 0.3) | 881.3 | 671.7 (radish 540, potato 102, egg 30) |
+| food in stock on the first day of winter 1 / 2 (days, median) | 8.8 / 9.3 | 16.9 / 17.7 | 25.9 / 34.2 | 65.5 / 67.4 |
+
+Reading: the playtest complaint is gone (`tests/test_spoilage.lua`, "the playtest complaint": 40 radishes picked at 20:00 lose nothing by morning, where the old rate took about 10). The scripted policy keeps almost all of its food: it goes into the winter stock and the truck (Y2 truck income four times higher), and four of the five winter-2 deaths become survivors. The active policy still loses about 670 units, almost all surplus radishes waiting in the crate longer than a week: it harvests 1780 units a run and the truck (40 cargo a trip) and the stand cannot sell them in time (#169). Stand income fell a little: with less produce rotting, the "Produce rots" note that gates the stand, the freezer and the cheese press comes later (#164). The game is now easier for a food-focused player; winter fuel, not food, decides the scripted failures.
+
 ### Follow-up issues
 
 - #153 harness policies do not prepare for threats

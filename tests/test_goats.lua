@@ -99,8 +99,8 @@ T.test("goats content: pen, goats, milk, hay, cheese, trailer, notes and art all
   T.eq(reg:get("resources", "goat").category, "animal")
   T.eq(reg:get("resources", "goat").capacity, 0, "goats live only where a pen gives them room")
   local milk = reg:get("resources", "milk")
-  T.truthy(milk.calories and milk.value and milk.spoilDays <= 2, "milk is food, sells, and spoils fast")
-  T.truthy(reg:get("resources", "cheese").category == "preserved" and not reg:get("resources", "cheese").spoilDays)
+  T.truthy(milk.calories and milk.value and tun.food.shelfLife.byCategory[milk.category] <= 2, "milk is food, sells, and spoils fast")
+  T.truthy(reg:get("resources", "cheese").category == "preserved" and not Spoilage.perishable(newWorld(), "cheese"))
   T.truthy(reg:get("resources", "cheese").value > reg:get("resources", "milk").value * 2, "cheese sells for more than the milk in it")
   for _, name in ipairs({ "goat_pen", "cheese_press", "goat", "icon_goat", "icon_milk", "icon_hay", "icon_cheese", "icon_goat_pen", "icon_goat_trailer", "icon_cheese_press" }) do
     T.truthy(sprites[name], name .. " sprite")
@@ -308,10 +308,13 @@ T.test("goats: milk waits in the pail until tended, then goes to the ledger and 
   T.eq(Ledger.get(world, "milk"), 5)
   T.eq(events[1].count, 5)
   T.eq(s.collected, 5)
+  -- Milk is a batch like any other food (D73): fresh tonight, gone soon after its short shelf life.
   local info = Spoilage.info(world, "milk")
-  T.eq(info.band, "fast")
-  T.truthy(info.percent >= 50, "half a stock goes every night at two days")
-  T.truthy(info.warn, "the pantry warns about it")
+  T.truthy(info.shelfLife <= 2, "milk keeps only a couple of days")
+  T.eq(info.tonight, 0, "fresh milk does not rot tonight")
+  T.falsy(info.warn)
+  Spoilage.ageStock(world, "milk", info.shelfLife)
+  T.truthy(Spoilage.info(world, "milk").warn, "the pantry warns once it is at the end of its shelf life")
 end)
 
 T.test("goats: a full milk store holds milk in the pail, and a full pail stops the milking (D59)", function()
@@ -428,7 +431,7 @@ T.test("goats: the cheese press turns two milk into one cheese, which keeps", fu
   end
   T.eq(Ledger.get(world, "cheese"), 2)
   T.eq(done[1].output, "cheese")
-  T.eq(Spoilage.expected(world, "cheese"), 0, "cheese keeps")
+  T.eq(Spoilage.info(world, "cheese"), nil, "cheese keeps")
   -- With one milk left the press has nothing to do.
   Ledger.remove(world, "milk", Ledger.get(world, "milk") - 1)
   local hs2 = Actors.homesteader(world)

@@ -1,25 +1,37 @@
--- Plain-words descriptions of spoilage (D68, #151) for the pantry, the HUD and the notice card.
+-- Plain-words descriptions of spoilage (D68, D73) for the pantry, the HUD and the notice card.
 -- All numbers come from the Spoilage accessors; this file only turns them into sentences.
 
 local Spoilage = require("src.sim.systems.spoilage")
 
 local SpoilText = {}
 
-local BAND_WORDS = { fast = "Spoils fast", steady = "Spoils steadily", slow = "Keeps well" }
-
---- "may lose 1", "lose 3" or "lose 2-3" for tonight's range.
-function SpoilText.loss(info)
-  if info.lo == info.hi then
-    return string.format("lose %d", info.lo)
-  elseif info.lo == 0 then
-    return string.format("may lose %d", info.hi)
-  end
-  return string.format("lose %d-%d", info.lo, info.hi)
+local function days(n)
+  return n == 1 and "1 day" or string.format("%d days", n)
 end
 
---- One line for a pantry row: "Spoils fast: 50% a night. Tonight: lose 2".
-function SpoilText.rateLine(info)
-  return string.format("%s: %d%% a night. Tonight: %s", BAND_WORDS[info.band], info.percent, SpoilText.loss(info))
+--- "in 3 days", "tomorrow night" or "tonight" for a whole number of days left.
+function SpoilText.when(daysLeft)
+  if daysLeft <= 0 then
+    return "tonight"
+  elseif daysLeft == 1 then
+    return "tomorrow night"
+  end
+  return "in " .. days(daysLeft)
+end
+
+--- One line for a pantry row: "Keeps 7 days. Oldest batch spoils in 3 days" or, when something is
+--- past its shelf life, "4 past their shelf life: 2 rot tonight".
+function SpoilText.ageLine(info)
+  if info.rotting > 0 then
+    return string.format("%d past their shelf life: %d rot tonight", info.rotting, info.tonight)
+  elseif info.tonight > 0 then
+    return string.format("Oldest batch spoils tonight: %d will rot", info.tonight)
+  end
+  local keeps = days(math.floor(info.shelfLife + 0.5))
+  if info.daysLeft then
+    return string.format("Keeps %s. Oldest batch spoils %s", keeps, SpoilText.when(info.daysLeft))
+  end
+  return "Keeps " .. keeps
 end
 
 --- "3 Radish, 1 Creek chub" for a list of { resource, amount }.
@@ -45,7 +57,7 @@ function SpoilText.slowing(world)
   elseif slow.freezer == "off" then
     parts[#parts + 1] = "The chest freezer has no power, so it is not slowing anything."
   else
-    parts[#parts + 1] = "Only a powered chest freezer slows spoilage."
+    parts[#parts + 1] = "Only a powered chest freezer makes fresh food keep longer."
   end
   if slow.preserves.fish then
     parts[#parts + 1] = "Load fish into the smoker: smoked fish never spoils."
@@ -59,11 +71,41 @@ function SpoilText.slowing(world)
   return table.concat(parts, " ")
 end
 
+-- "fish and milk 2 days, radishes 7, ..." from the shelf-life tuning, shortest first.
+local function shelfLives(world)
+  local byLife, order = {}, {}
+  for _, res in ipairs(world.registry:all("resources")) do
+    local life = Spoilage.shelfLife(world, res.id)
+    if life and res.calories then
+      local label = res.category == "fish" and "fish" or res.name:lower()
+      if not byLife[life] then
+        byLife[life] = {}
+        order[#order + 1] = life
+      end
+      local seen = false
+      for _, l in ipairs(byLife[life]) do
+        seen = seen or l == label
+      end
+      if not seen then
+        table.insert(byLife[life], label)
+      end
+    end
+  end
+  table.sort(order)
+  local parts = {}
+  for _, life in ipairs(order) do
+    parts[#parts + 1] = table.concat(byLife[life], " and ") .. " " .. days(life)
+  end
+  return table.concat(parts, ", ")
+end
+
 --- The first-spoil explanation (card body).
 function SpoilText.explanation(world)
-  return "Fresh food rots a little every night, about a fixed share of what you hold. Fish go fastest, "
-    .. "radishes next, potatoes and eggs slowly. Eat it, sell it (the stand or a truck trip) or preserve it "
-    .. "before then. The Pantry shows each food's rate and what you are likely to lose tonight. "
+  return "Fresh food keeps for a while, then rots. Each harvest, catch or collection is a batch with its "
+    .. "own age, and nothing in it spoils until it is older than the food's shelf life ("
+    .. shelfLives(world)
+    .. "). After that it rots over a night or two. The oldest food is eaten and sold first. The Pantry "
+    .. "shows when each food's oldest batch spoils. "
     .. SpoilText.slowing(world)
 end
 

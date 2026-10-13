@@ -567,11 +567,13 @@ T.test("power: a powered lamp speeds study and a powered freezer slows spoilage"
   T.truthy(Power.effect(world, "spoilSlow") > 0)
   T.truthy(Power.effect(world, "spoilSlow") <= sink("chest_freezer").effects.spoilSlow)
   T.eq(Power.effect(world, "nothing"), 0)
-  -- Spoilage: a big stock of fresh radishes, with and without the freezer's effect.
+  -- Spoilage: radishes at the end of their shelf life, with and without the freezer's effect (D73:
+  -- a frozen night counts for less of the shelf life, so the freezer saves them for now).
   local function spoiled(freezerEffect)
     local w = newWorld(9)
     w.state.power.flow.effects.spoilSlow = freezerEffect
     Ledger.add(w, "radish", 20)
+    Spoilage.ageStock(w, "radish", Spoilage.shelfLife(w, "radish") - 0.5)
     local before = Ledger.get(w, "radish")
     Spoilage.daily(w)
     return before - Ledger.get(w, "radish")

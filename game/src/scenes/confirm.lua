@@ -1,5 +1,6 @@
 -- Modal yes/no confirmation.
--- opts: { title, message, confirmLabel, danger = bool, onConfirm() }
+-- opts: { title, message, confirmLabel, cancelLabel?, danger = bool, onConfirm(), onCancel()? }
+-- The box grows to fit a long message.
 
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
@@ -18,7 +19,8 @@ function Confirm:enter()
 end
 
 function Confirm:resize(view)
-  local w, h = math.min(300, view.w - 32), 100
+  local w = math.min(300, view.w - 32)
+  local h = math.max(100, 28 + Text.wrappedHeight(self.opts.message or "", "small", w - 24) + 46)
   self.box = { x = (view.w - w) / 2, y = (view.h - h) / 2, w = w, h = h }
   local b, bw = self.box, 80
   self.buttons:clear()
@@ -39,9 +41,12 @@ function Confirm:resize(view)
     y = b.y + b.h - 34,
     w = bw,
     h = 24,
-    label = "Cancel",
+    label = self.opts.cancelLabel or "Cancel",
     onPress = function()
       self.app:pop()
+      if self.opts.onCancel then
+        self.opts.onCancel()
+      end
     end,
   })
 end

@@ -165,6 +165,7 @@ local function playRun(ctx, session, policyName, seed, years, features)
       brownouts = 0,
     },
     finds = {}, -- find id -> times picked
+    spoiledBy = {}, -- resource id -> units spoiled (D73)
     daysTotal = daysTotal,
     features = Features.label(features or {}),
   }
@@ -211,6 +212,7 @@ local function playRun(ctx, session, policyName, seed, years, features)
   end)
   events:on("food.spoiled", function(e)
     result.counters.spoiled = result.counters.spoiled + e.amount
+    result.spoiledBy[e.resource] = (result.spoiledBy[e.resource] or 0) + e.amount
   end)
   events:on("mice.caught", function()
     result.counters.miceCaught = result.counters.miceCaught + 1
@@ -503,7 +505,7 @@ function Balance.summarize(ctx, results, years)
     keys[#keys + 1] = k
   end
   table.sort(keys)
-  summary.totals, summary.owned, summary.finds = {}, {}, {}
+  summary.totals, summary.owned, summary.finds, summary.spoiledBy = {}, {}, {}, {}
   for _, k in ipairs(keys) do
     local values = {}
     for _, r in ipairs(results) do
@@ -522,6 +524,9 @@ function Balance.summarize(ctx, results, years)
     end
     for id, count in pairs(r.finds or {}) do
       summary.finds[id] = (summary.finds[id] or 0) + count
+    end
+    for id, count in pairs(r.spoiledBy or {}) do
+      summary.spoiledBy[id] = (summary.spoiledBy[id] or 0) + count
     end
   end
   summary.features = results[1] and results[1].features or "none"
@@ -790,6 +795,12 @@ function Balance.printFeatures(summary, years)
   table.sort(finds)
   line("Owned at the end (share of seeds): " .. (#owned > 0 and table.concat(owned, ", ") or "-"))
   line("Finds picked per run (mean): " .. (#finds > 0 and table.concat(finds, ", ") or "-"))
+  local spoiled = {}
+  for id, n in pairs(summary.spoiledBy) do
+    spoiled[#spoiled + 1] = string.format("%s %.1f", id, n / summary.n)
+  end
+  table.sort(spoiled)
+  line("Spoiled per run by food (mean units): " .. (#spoiled > 0 and table.concat(spoiled, ", ") or "-"))
 end
 
 -- File output -------------------------------------------------------------------------------------
