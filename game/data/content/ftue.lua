@@ -9,6 +9,9 @@
 --   retire   events that mean the player already knows it: the step is marked seen without a card.
 --   doneFlag a meta flag that means the step was already told by another card (the spoilage card, D68).
 --   card     false: the step never queues a card (told elsewhere); the Tips list still replays it.
+--   highlight optional target the scene outlines while the card is up (D89, src/ui/highlight.lua):
+--            "button:<id>", "seeds", "chip:<id>" or "tile:truck". Render only; a target that is not on
+--            screen shows no outline.
 --   replay   "spoil": the Tips list shows the live spoilage explanation instead of `text`.
 -- Text may hold {domain.key} tokens, read from tuning at show time so a retuned number stays true.
 return {
@@ -20,7 +23,18 @@ return {
     text = "Your truck died here. Tap the ground to walk, and tap trees, rocks and junk to clear them. Junk pays a few dollars.",
   },
   {
+    -- The top-bar chips explain themselves on tap (D72), but nothing says so (#186, D89). Retired by the
+    -- first chip card opened (hud.chipOpened, emitted by the homestead scene).
+    id = "chips",
+    title = "The top bar",
+    highlight = "chip:food",
+    after = { step = "welcome", seconds = 5 },
+    retire = { "hud.chipOpened" },
+    text = "Tap a chip in the top bar (food, health, money ...) to see what it means and what moves it.",
+  },
+  {
     id = "plant",
+    highlight = "seeds",
     title = "Plant a seed",
     trigger = "object.cleared",
     after = { step = "welcome", seconds = 60 },
@@ -30,6 +44,7 @@ return {
   {
     -- Early money is invisible (#161, D88): the first junk pile cleared pays, so say that is where it comes from.
     id = "junk_money",
+    highlight = "button:catalog",
     title = "Where money comes from",
     trigger = "object.cleared",
     match = { object = "junk" },
@@ -43,6 +58,7 @@ return {
   },
   {
     id = "food_clock",
+    highlight = "chip:food",
     title = "Food and health",
     trigger = "needs.ate",
     text = "You eat {needs.dailyCalories} calories a day. The food chip is days of food left. At zero your health (heart) drops. Harvest radishes or catch fish.",
@@ -61,12 +77,14 @@ return {
   },
   {
     id = "idea",
+    highlight = "button:journal",
     title = "A new idea",
     trigger = "journal.idea",
     text = "Open the Journal and pick an idea to study. It finishes while you sleep, then you can buy it in the Catalog.",
   },
   {
     id = "harvest",
+    highlight = "button:pantry",
     title = "First harvest",
     trigger = "crop.harvested",
     text = "The Pantry keeps what you need to eat. Anything above that is spare: the stand and the truck can sell it. Open the Pantry to change what you keep.",
@@ -89,12 +107,14 @@ return {
   },
   {
     id = "delivery",
+    highlight = "button:place",
     title = "A delivery",
     trigger = "market.delivered",
     text = "Your order arrived at the road. Tap the Place button in the bottom bar, then tap where it should go.",
   },
   {
     id = "truck_ready",
+    highlight = "tile:truck",
     title = "The truck can drive",
     trigger = "market.tripReady",
     retire = { "market.trip" },

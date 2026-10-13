@@ -11,7 +11,7 @@ local theme = require("src.ui.theme")
 local Tips = { name = "tips" }
 Tips.__index = Tips
 
-local ROW_H, ROW_GAP, PAD, HEADER_H = 26, 4, 12, 30
+local ROW_H, ROW_GAP, PAD, HEADER_H, LEGEND_H = 26, 4, 12, 30, 16
 
 function Tips.new(world)
   return setmetatable({ world = world }, Tips)
@@ -41,9 +41,16 @@ function Tips:resize(view)
   self.view = view
   local cols = self.app.ctx.tuning.ftue.tipsColumns
   local steps = Ftue.steps(self.world)
-  local rows = math.ceil(#steps / cols)
-  local w = math.min(360, view.w - 16)
-  local h = HEADER_H + ROW_H + ROW_GAP + rows * (ROW_H + ROW_GAP) + ROW_H + 2 * PAD
+  local function heightFor(c)
+    return HEADER_H + ROW_H + ROW_GAP + math.ceil(#steps / c) * (ROW_H + ROW_GAP) + LEGEND_H + ROW_H + 2 * PAD
+  end
+  -- A short view gets more, narrower columns rather than a list that runs off the screen.
+  while heightFor(cols) > view.h - 8 and cols < 4 and (cols + 1) * 120 + 2 * PAD <= view.w - 16 do
+    cols = cols + 1
+  end
+  self.cols = cols
+  local w = math.min(360 + (cols - self.app.ctx.tuning.ftue.tipsColumns) * 130, view.w - 16)
+  local h = heightFor(cols)
   self.box = { x = math.floor((view.w - w) / 2), y = math.max(4, math.floor((view.h - h) / 2)), w = w, h = h }
   local b = self.box
   local inner = b.w - 2 * PAD
@@ -85,6 +92,7 @@ function Tips:resize(view)
       h = ROW_H,
       label = step.def.title,
       size = "small",
+      dim = step.seen, -- tips already seen are muted, so the ones still to come stand out (D89)
       onPress = function()
         self:replay(step.def)
       end,
@@ -115,6 +123,12 @@ function Tips:draw()
   Draw.panel(b.x, b.y, b.w, b.h)
   Text.draw("Tips", b.x, b.y + 10, { size = "body", width = b.w, align = "center", color = theme.colors.text })
   self.buttons:draw()
+  Text.draw("Dim tips are the ones you have seen.", b.x, b.y + b.h - PAD - ROW_H - LEGEND_H + 2, {
+    size = "small",
+    width = b.w,
+    align = "center",
+    color = theme.colors.textDim,
+  })
 end
 
 return Tips

@@ -24,6 +24,7 @@ local Spoilage = require("src.sim.systems.spoilage")
 local Inventory = require("src.sim.systems.inventory")
 local Placement = require("src.sim.systems.placement")
 local PlaceCard = require("src.ui.place_card")
+local Highlight = require("src.ui.highlight")
 local PlaceText = require("src.ui.place_text")
 local Journal = require("src.sim.systems.journal")
 local Weather = require("src.sim.systems.weather")
@@ -1134,11 +1135,88 @@ function Homestead:overCard(x, y)
   return c ~= nil and x >= c.x and x < c.x + c.w and y >= c.y and y < c.y + c.h
 end
 
+--- Where a tip card's `highlight` target is on screen now, { x, y, w, h } or nil (D89, #171). Reads layout
+--- only; a target that is missing or off screen gives nil and nothing is drawn.
+function Homestead:highlightRect(target)
+  local function inList(list, match)
+    for _, b in ipairs(list) do
+      if b.id and match(b.id) then
+        return { x = b.x, y = b.y, w = b.w, h = b.h }
+      end
+    end
+    return nil
+  end
+  local function button(id)
+    return inList(self.buttons.list, function(bid)
+      return bid == id
+    end) or inList(self.paletteButtons.list, function(bid)
+      return bid == id
+    end)
+  end
+  local find = {
+    button = button,
+    seed = function()
+      return inList(self.paletteButtons.list, function(bid)
+        return bid:find("^seed:") ~= nil
+      end) or inList(self.buttons.list, function(bid)
+        return bid:find("^seed:") ~= nil
+      end)
+    end,
+    chip = function(id)
+      for _, r in ipairs(self:chipRects()) do
+        if r.id == id then
+          return r
+        end
+      end
+      return nil
+    end,
+    tile = function(name)
+      local world, camera, view = self.world, self.camera, self.app.view
+      local i = name == "truck" and Land.truck(world) or nil
+      if not i then
+        return nil
+      end
+      local grid = world.state.grid
+      local def, anchor = Grid.object(world, i)
+      local tiles = { i }
+      if def then
+        local ax, ay = Grid.coords(grid, anchor)
+        tiles = Grid.footprintTiles(grid, def, ax, ay) or tiles
+      end
+      local list = {}
+      for _, t in ipairs(tiles) do
+        local tx, ty = Grid.coords(grid, t)
+        list[#list + 1] = { x = tx, y = ty }
+      end
+      local size = camera.tileSize * camera:zoom()
+      return PlaceCard.bounds(list, function(tx, ty)
+        local wx, wy = camera:tileToWorld(tx, ty)
+        local vx, vy = camera:worldToView(wx, wy, view)
+        return vx, vy, size, size
+      end)
+    end,
+  }
+  return Highlight.visible(Highlight.resolve(target, find), self.app.view)
+end
+
+--- The pulsing outline for the tip card on screen, if its step has a `highlight` that can be found.
+function Homestead:drawHighlight()
+  if self.cardKind ~= "tip" or not self.cardId then
+    return
+  end
+  local def = self.world.registry:get("ftue", self.cardId)
+  local rect = def and def.highlight and self:highlightRect(def.highlight)
+  if rect then
+    Highlight.draw(rect, self.app.ctx.tuning.ftue, theme.colors.accent, love.timer.getTime(), self.app.view)
+  end
+end
+
 function Homestead:drawCard()
   local c = self.card
   if not c then
     return
   end
+  self:drawHighlight()
   Draw.panel(c.x, c.y, c.w, c.h)
   Text.draw(c.title, c.x + c.pad, c.y + c.pad, { size = "body", color = theme.colors.accent })
   local y = c.y + c.pad + c.titleH + 3
@@ -1872,6 +1950,7 @@ end
 function Homestead:openChip(id)
   local world, app = self.world, self.app
   local card = ChipText.card(world, id)
+  world.events:emit("hud.chipOpened", { chip = id }) -- retires the "tap a chip" tip (D89, #186)
   local more
   if card.shortcut then
     local panel = card.shortcut.panel

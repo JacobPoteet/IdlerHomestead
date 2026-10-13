@@ -16,6 +16,30 @@ return function(d)
   d:frames(3)
   d:shot("dismissed") -- cards leave the screen clear
 
+  -- The chip tip (D89, #186) follows the welcome card and outlines the food chip; tapping a chip retires it.
+  d:advance(1.8)
+  d:frames(3)
+  d:shot("chips") -- pulsing outline on the food chip
+  d:press("Got it")
+  -- The real sim raises the routine and bedtime cards on its own in this stretch; hold them back so
+  -- the highlighted cards below are the ones on screen (the routine card is shot further down).
+  local held = Ftue.state(world).seen
+  held.routine, held.bedtime, held.plant = true, true, true
+  d:advance(1.8)
+  world.events:emit("market.tripReady", {})
+  d:advance(0.4)
+  d:frames(3)
+  d:shot("truck_ready") -- pulsing outline on the truck
+  d:press("Got it")
+  d:advance(1.8)
+  world.events:emit("journal.idea", { item = "smoker" })
+  d:advance(0.4)
+  d:frames(3)
+  d:shot("idea") -- outline on the Journal button
+  d:press("Got it")
+  held.routine, held.bedtime, held.plant = nil, nil, nil
+  world.events:emit("hud.chipOpened", {}) -- a chip opened: the chip tip is retired (tests cover it)
+
   -- The first thing cleared: the plant tip, with the tile info panel pushed above the card.
   world.events:emit("object.cleared", { id = "tree" })
   d:advance(2)

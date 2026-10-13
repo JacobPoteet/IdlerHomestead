@@ -86,6 +86,13 @@ local function emittedEvents()
       found[event] = true
     end
   end
+  -- Events the scene raises for what the player did on screen (hud.*), D89.
+  local fh = assert(io.open("game/src/scenes/homestead.lua", "r"))
+  local text = fh:read("*a")
+  fh:close()
+  for event in text:gmatch('emit%("(hud%.[%w_.]+)"') do
+    found[event] = true
+  end
   return found
 end
 
@@ -169,6 +176,7 @@ end)
 T.test("ftue: several due cards come one at a time, in content order, with a gap between", function()
   local world = newWorld()
   Ftue.dismiss(world, "welcome")
+  world.events:emit("hud.chipOpened", {}) -- the chip tip (D89) is not part of this test
   pastGap(world)
   -- Emitted in the "wrong" order on purpose.
   world.events:emit("needs.ate", { calories = 100, shortfall = 0 })
@@ -188,6 +196,7 @@ end)
 T.test("ftue: a step that already happened is not queued again after it was seen", function()
   local world = newWorld()
   Ftue.dismiss(world, "welcome")
+  world.events:emit("hud.chipOpened", {})
   world.events:emit("crop.planted", {})
   run(world, 5)
   Ftue.dismiss(world, "water")
@@ -200,6 +209,7 @@ T.test("ftue: plant is due after the welcome if the player does not clear anythi
   local world = newWorld()
   run(world, 5)
   Ftue.dismiss(world, "welcome")
+  world.events:emit("hud.chipOpened", {})
   local after = reg:get("ftue", "plant").after.seconds
   run(world, after - 5)
   T.eq(currentId(world), nil)
@@ -210,6 +220,7 @@ T.test("ftue: plant is due after the welcome if the player does not clear anythi
   local other = newWorld()
   run(other, 5)
   Ftue.dismiss(other, "welcome")
+  other.events:emit("hud.chipOpened", {})
   other.events:emit("crop.planted", {})
   T.truthy(Ftue.isSeen(other, "plant"), "planting first retires the plant tip")
   pastGap(other)
@@ -390,4 +401,103 @@ T.test("ftue: the money card comes on the first junk cleared, once, and not for 
   T.truthy(contains(drain(world), "junk_money"))
   world.events:emit("object.cleared", { object = "junk", tile = 3, yields = { money = 4 } })
   T.falsy(contains(drain(world), "junk_money"), "told once")
+end)
+
+-- Chip step and highlights (D89, #171, #186) ---------------------------------------------
+
+T.test("ftue chips: due after the welcome card, retired by opening any chip", function()
+  local w2 = newWorld()
+  pastGap(w2)
+  T.eq(currentId(w2), "welcome")
+  Ftue.dismiss(w2, "welcome")
+  run(w2, tun.ftue.minGap + 10)
+  run(w2, tun.ftue.defaultDelay + 1)
+  T.eq(currentId(w2), "chips", "follows the welcome card")
+
+  local w3 = newWorld()
+  pastGap(w3)
+  Ftue.dismiss(w3, "welcome")
+  w3.events:emit("hud.chipOpened", { chip = "food" })
+  run(w3, tun.ftue.minGap + 10)
+  T.falsy(contains(drain(w3), "chips"), "no card once a chip was opened")
+  T.truthy(Ftue.isSeen(w3, "chips"))
+end)
+
+T.test("ftue chips: opening a chip before the welcome card is dismissed retires it too", function()
+  local world = newWorld()
+  world.events:emit("hud.chipOpened", { chip = "food" })
+  T.truthy(Ftue.isSeen(world, "chips"))
+  Ftue.dismiss(world, "welcome")
+  run(world, tun.ftue.minGap + 10)
+  T.falsy(contains(drain(world), "chips"))
+end)
+
+T.test("ftue tips list: steps report which were seen", function()
+  local world = newWorld()
+  local function seen(id)
+    for _, s in ipairs(Ftue.steps(world)) do
+      if s.def.id == id then
+        return s.seen
+      end
+    end
+  end
+  T.falsy(seen("welcome"))
+  pastGap(world)
+  Ftue.dismiss(world, "welcome")
+  T.truthy(seen("welcome"))
+  T.falsy(seen("water"))
+  Ftue.reset(world)
+  T.falsy(seen("welcome"), "Show all again forgets them")
+end)
+
+T.test("ftue highlight: every target in the content parses", function()
+  local n = 0
+  for _, def in ipairs(reg:all("ftue")) do
+    if def.highlight then
+      n = n + 1
+      T.truthy(
+        def.highlight == "seeds" or def.highlight:match("^button:%w+$") or def.highlight:match("^chip:%w+$") or def.highlight == "tile:truck",
+        def.id .. ": " .. def.highlight
+      )
+    end
+  end
+  T.truthy(n >= 6)
+end)
+
+T.test("ftue highlight: targets resolve to a rect, fall back, and a missing target gives nothing", function()
+  local Highlight = require("src.ui.highlight")
+  local rects = {
+    pantry = { x = 1, y = 2, w = 3, h = 4 },
+    tools = { x = 9, y = 9, w = 9, h = 9 },
+  }
+  local find = {
+    button = function(id)
+      return rects[id]
+    end,
+    chip = function(id)
+      return id == "food" and { x = 5, y = 0, w = 20, h = 20 } or nil
+    end,
+    tile = function(name)
+      return name == "truck" and { x = 50, y = 50, w = 32, h = 32 } or nil
+    end,
+    seed = function()
+      return nil
+    end,
+  }
+  T.eq(Highlight.resolve("button:pantry", find), rects.pantry)
+  T.eq(Highlight.resolve("button:place", find), rects.tools, "a tool not on the bar points at the Tools button")
+  T.eq(Highlight.resolve("seeds", find), rects.tools, "no seed button: the Tools button")
+  T.eq(Highlight.resolve("chip:food", find).w, 20)
+  T.eq(Highlight.resolve("tile:truck", find).x, 50)
+  T.eq(Highlight.resolve("button:journal", find), nil, "missing target")
+  T.eq(Highlight.resolve("chip:nope", find), nil)
+  T.eq(Highlight.resolve("tile:nope", find), nil)
+  T.eq(Highlight.resolve("garbage", find), nil)
+  T.eq(Highlight.resolve(nil, find), nil)
+  T.eq(Highlight.resolve("chip:food", nil), nil)
+  local view = { w = 100, h = 100 }
+  T.eq(Highlight.visible({ x = 200, y = 0, w = 10, h = 10 }, view), nil, "off screen")
+  T.truthy(Highlight.visible({ x = 90, y = 0, w = 30, h = 10 }, view))
+  T.eq(Highlight.visible(nil, view), nil)
+  T.truthy(Highlight.phase(7.3, 1.2) >= 0 and Highlight.phase(7.3, 1.2) < 1)
 end)
