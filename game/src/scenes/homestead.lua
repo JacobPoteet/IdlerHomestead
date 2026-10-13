@@ -95,6 +95,7 @@ function Homestead:enter(slot, data)
   self.seed = nil -- crop id in hand
   self.tool = nil -- "rod" in hand
   self.placing = nil -- object id being placed
+  self.moving = nil -- anchor of the placed object being moved (D98), or nil
   self.toast = nil
   self.toastQueue = {}
   local logCfg = self.app.ctx.tuning.ui.log
@@ -526,7 +527,7 @@ function Homestead:pressPlan(now)
     end
     return
   end
-  self.mode, self.planStart, self.tool, self.placing = "plan", nil, nil, nil
+  self.mode, self.planStart, self.tool, self.placing, self.moving = "plan", nil, nil, nil, nil
   self.planLatch, self.planTapAt = false, now
   local crops = self.world.registry
   self:showToast(self.seed and "Tap two corners to plan " .. crops:get("crops", self.seed).name
@@ -535,7 +536,7 @@ function Homestead:pressPlan(now)
 end
 
 function Homestead:setHand(seed, tool)
-  self.seed, self.tool, self.mode, self.planStart, self.placing = seed, tool, "act", nil, nil
+  self.seed, self.tool, self.mode, self.planStart, self.placing, self.moving = seed, tool, "act", nil, nil, nil
   self.planLatch, self.planTapAt = false, nil
   if self.placeCard and self.placeCard.kind == "confirm" then
     self.placeCard = nil -- leaving Place drops a confirmation that was up (D79)
@@ -755,23 +756,23 @@ function Homestead:layoutToolbar(view)
       self:setHand(nil, self.tool ~= "untill" and "untill" or nil)
     end),
   }
-  local placeable = self:nextPlaceable()
+  local placeable = self.moving and self.placing or self:nextPlaceable() -- while moving, the button is the way to cancel
   if placeable then
     local def = world.registry:get("objects", placeable)
-    local label = L.place .. " " .. def.name:lower()
+    local label = (self.moving and L.moving or L.place) .. " " .. def.name:lower()
     tools[#tools + 1] = {
       id = "place",
       gapBefore = ui.groupGap,
       w = math.max(bw.placeMin, math.ceil(Text.measure(label, "body")) + 12),
       label = label,
-      short = L.place,
+      short = self.moving and L.moving or L.place,
       style = "accent",
       selected = self.mode == "place",
       onPress = act(function()
         if self.mode == "place" then
           self:setHand(nil, nil)
         else
-          self.mode, self.placing, self.planStart = "place", placeable, nil
+          self.mode, self.placing, self.moving, self.planStart = "place", placeable, nil, nil
           self:showToast("Tap where the " .. def.name:lower() .. " should go")
         end
       end),
@@ -970,7 +971,7 @@ function Homestead:placeCardRect()
   end
   local tiles
   if pc.kind == "confirm" then
-    tiles = Placement.preview(world, self.placing, pc.tile).tiles
+    tiles = Placement.preview(world, self.placing, pc.tile, self.moving).tiles
   else
     local order = Placement.orderAt(world, pc.tile)
     tiles = order and Placement.footprintOf(world, order)
@@ -1094,8 +1095,8 @@ function Homestead:cardSpec()
     local p = self.app.ctx.tuning.ui.placement
     local colors = { text = theme.colors.text, dim = theme.colors.textDim, warn = theme.colors.danger }
     if pc.kind == "confirm" then
-      local preview = Placement.preview(world, self.placing, pc.tile)
-      local text = PlaceText.confirm(world, self.placing, preview, colors)
+      local preview = Placement.preview(world, self.placing, pc.tile, self.moving)
+      local text = PlaceText.confirm(world, self.placing, preview, colors, self.moving ~= nil)
       return {
         id = "place:confirm:" .. pc.tile,
         kind = "place",
@@ -1573,7 +1574,7 @@ function Homestead:update(dt)
     self.placeCard = nil -- the order was built or cancelled
     self:layoutCard()
   end
-  if self.mode == "place" and Placement.available(self.world, self.placing) <= 0 then
+  if self.mode == "place" and not self.moving and Placement.available(self.world, self.placing) <= 0 then
     self:setHand(nil, nil)
   end
 end
@@ -1637,15 +1638,71 @@ function Homestead:confirmPlacement(i)
   local world, id = self.world, self.placing
   local p = self.app.ctx.tuning.ui.placement
   self.placeCard = nil
-  local result, reason, rule = Placement.request(world, id, i)
+  local name = world.registry:get("objects", id).name:lower()
+  local result, reason, rule = self:requestHere(i)
   if result == "queued" then
-    self:showToast(p.ordered)
+    self:showToast(self.moving and string.format(p.moveOrdered, name) or p.ordered)
     self:setHand(nil, nil)
   elseif result == "placed" then
-    self:showToast("Placed " .. world.registry:get("objects", id).name:lower())
+    self:showToast(self.moving and string.format(p.moved, name) or "Placed " .. name)
     self:setHand(nil, nil)
   else
     self:showToast(PlaceText.reason(world, reason, rule))
+  end
+end
+
+-- Place the item in hand at tile i, or move the object being moved there (D98): Placement's answer.
+function Homestead:requestHere(i)
+  if self.moving then
+    return Placement.requestMove(self.world, self.moving, i)
+  end
+  return Placement.request(self.world, self.placing, i)
+end
+
+--- Start moving the placed object at `anchor`: Place mode with that object as the ghost. It stays where it is
+--- until the spot is chosen (and cleared); leaving Place cancels (D98, #15).
+function Homestead:startMove(anchor)
+  local world = self.world
+  local p = self.app.ctx.tuning.ui.placement
+  local check = Placement.moveCheck(world, anchor)
+  if not check.ok then
+    self:showToast(PlaceText.pickUpRefusal(world, check))
+    return
+  end
+  local id = world.state.grid.objects[anchor].id
+  self:setHand(nil, nil)
+  self.mode, self.placing, self.moving = "place", id, anchor
+  self:showToast(string.format(p.moveStart, world.registry:get("objects", id).name:lower()))
+  self:layout()
+end
+
+--- Pick the object at `anchor` up, asking first when that throws something away (D98, #15).
+function Homestead:askPickUp(anchor)
+  local world = self.world
+  local p = self.app.ctx.tuning.ui.placement
+  local check = Placement.pickUpCheck(world, anchor)
+  if not check.ok then
+    self:showToast(PlaceText.pickUpRefusal(world, check))
+    return
+  end
+  local name = world.registry:get("objects", world.state.grid.objects[anchor].id).name:lower()
+  local function pick()
+    if Placement.pickUp(world, anchor) then
+      self:showToast(string.format(p.pickedUp, name))
+      self:layout()
+    end
+  end
+  if check.warn then
+    local text = PlaceText.pickUpConfirm(world, anchor, check.warn)
+    self.app:push(require("src.scenes.confirm").new({
+      title = text.title,
+      message = text.text,
+      confirmLabel = p.pickConfirmLabel,
+      danger = true,
+      onConfirm = pick,
+    }))
+  else
+    pick()
   end
 end
 
@@ -1671,15 +1728,16 @@ function Homestead:tap(i)
   if self.mode == "place" then
     -- Any buildable tile its own rules allow (D79). Open ground is placed at once; trees, rocks and crops in
     -- the way open the confirmation card first, which says what will be cleared or removed.
-    local preview = Placement.preview(world, self.placing, i)
+    local preview = Placement.preview(world, self.placing, i, self.moving)
     if not preview.ok then
       self.placeCard = nil
       self:showToast(PlaceText.reason(world, preview.reason, preview.rule))
       self:layoutCard()
     elseif preview.immediate then
       self.placeCard = nil
-      if Placement.request(world, self.placing, i) == "placed" then
-        self:showToast("Placed " .. world.registry:get("objects", self.placing).name:lower())
+      local name = world.registry:get("objects", self.placing).name:lower()
+      if self:requestHere(i) == "placed" then
+        self:showToast(self.moving and string.format(self.app.ctx.tuning.ui.placement.moved, name) or "Placed " .. name)
         self:setHand(nil, nil)
       else
         self:showToast(PlaceText.reason(world, "bounds"))
@@ -2007,6 +2065,14 @@ function Homestead:drawOverlays()
       outlineTile(camera, t, grid, order.why and theme.colors.danger or theme.colors.accent, 2)
     end
   end
+  if self.moving and world.state.grid.objects[self.moving] then
+    -- The object being moved stays where it is until the new spot is ready: outline where it stands.
+    local mdef = world.registry:get("objects", world.state.grid.objects[self.moving].id)
+    local mx, my = Grid.coords(grid, self.moving)
+    for _, t in ipairs(Grid.footprintTiles(grid, mdef, mx, my)) do
+      outlineTile(camera, t, grid, theme.colors.accent, 2)
+    end
+  end
   local target = self.mode == "place" and (self.placeCard and self.placeCard.kind == "confirm" and self.placeCard.tile or self.hover)
   if target then
     -- Ghost of the object being placed: green where it fits now, amber where trees, rocks or crops must go
@@ -2014,7 +2080,7 @@ function Homestead:drawOverlays()
     local def = world.registry:get("objects", self.placing)
     local sprite = Assets.sprite(self.placing)
     local x, y = Grid.coords(grid, target)
-    local preview = Placement.preview(world, self.placing, target)
+    local preview = Placement.preview(world, self.placing, target, self.moving)
     if not preview.ok then
       love.graphics.setColor(1, 0.45, 0.45, 0.7)
     elseif preview.immediate then
@@ -2286,7 +2352,7 @@ function Homestead:captionText()
     return world.registry:get("crops", id).name
   end
   if self.mode == "place" and self.placing then
-    return string.format(c.place, world.registry:get("objects", self.placing).name:lower())
+    return string.format(self.moving and c.moving or c.place, world.registry:get("objects", self.placing).name:lower())
   elseif self.mode == "plan" then
     if self.planLatch then
       return c.planKept
@@ -2554,24 +2620,29 @@ function Homestead:drawInfo(view)
     local lines = self:tileInfo(self.selected)
     local anchor, batch = self:blockedStation()
     local minSize = self.app.ctx.tuning.input.minTouchTarget
-    local btnH = anchor and minSize + 4 or 0 -- room for the Discard button under the lines
+    local def, placed = Grid.object(self.world, self.selected)
+    -- A player-placed object (not the truck) can be picked up or moved from its card (D98, #15).
+    local movable = def and def.placeable and self.mode ~= "place" and not Placement.orderAt(self.world, self.selected)
+    local rows = (anchor and 1 or 0) + (movable and 1 or 0)
+    local btnH = rows * (minSize + 4) -- room for the buttons under the lines
     local h = #lines * 11 + 8 + btnH
     local y = (self.card and self.card.y or self.captionTop or view.h - self.bottomH) - h - 4 -- above the tip card (or the tool caption) when one is up
     local w = 132
     for _, line in ipairs(lines) do
       w = math.max(w, Text.measure(line, "small") + 14) -- a long line widens the card rather than spilling out
     end
-    if anchor then
+    if rows > 0 then
       w = math.max(w, 150)
     end
     Draw.panel(4, y, w, h)
     for n, line in ipairs(lines) do
       Text.draw(line, 10, y + 4 + (n - 1) * 11, { size = "small", color = n == 1 and theme.colors.text or theme.colors.textDim })
     end
+    local rowY = y + #lines * 11 + 6
     if anchor then
       self.infoButtons:add({
         x = 10,
-        y = y + h - btnH - 2,
+        y = rowY,
         w = w - 12,
         h = minSize,
         label = "Discard waiting output",
@@ -2581,6 +2652,35 @@ function Homestead:drawInfo(view)
           self:askDiscard(anchor, batch)
         end,
       })
+      rowY = rowY + minSize + 4
+    end
+    if movable then
+      local p = self.app.ctx.tuning.ui.placement
+      local half = math.floor((w - 12 - 4) / 2)
+      self.infoButtons:add({
+        x = 10,
+        y = rowY,
+        w = half,
+        h = minSize,
+        label = p.pickUp,
+        size = "small",
+        onPress = function()
+          self:askPickUp(placed)
+        end,
+      })
+      self.infoButtons:add({
+        x = 10 + half + 4,
+        y = rowY,
+        w = half,
+        h = minSize,
+        label = p.move,
+        size = "small",
+        onPress = function()
+          self:startMove(placed)
+        end,
+      })
+    end
+    if rows > 0 then
       self.infoButtons:draw()
     end
     info = { x = 4, y = y, w = w, h = h }
