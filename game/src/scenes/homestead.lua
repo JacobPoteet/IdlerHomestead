@@ -2196,6 +2196,8 @@ function Homestead:draw()
     zoom = z,
     ox = (view.w / 2 - self.camera.x * z) % z,
     oy = (view.h / 2 - self.camera.y * z) % z,
+    wx = math.ceil(self.camera.x - view.w / 2 / z), -- the world art pixel at the grid's first column and row, to place splashes on the ground
+    wy = math.ceil(self.camera.y - view.h / 2 / z),
   })
 
   -- HUD (not graded)

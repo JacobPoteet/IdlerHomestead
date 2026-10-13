@@ -13,13 +13,16 @@ return {
   iceColor = { 0.78, 0.88, 0.92 }, -- frozen creek, near the banks
   iceDeepColor = { 0.52, 0.66, 0.76 }, -- frozen creek, mid-channel and cracks
   iceHoleColor = { 0.08, 0.16, 0.24 }, -- open water showing through a cut ice hole
-  -- Snow (shaders/snow.glsl)
+  -- Snow, frost and wet ground (shaders/ground.glsl, snowcap.glsl)
   snowColor = { 0.93, 0.95, 0.98 }, -- fresh snow
   snowShade = { 0.72, 0.80, 0.90 }, -- clump edges
   snowClumpScale = 0.18, -- snow clump noise frequency, 1/ground pixels (higher = smaller patches; world-anchored)
   snowPatchScale = 0.035, -- broad snow drift noise frequency, 1/ground pixels (0.035 = drifts about 2 tiles across)
   snowRampDays = 1.5, -- in-game days for snow to cover the ground once the freeze starts
   snowMeltDays = 2, -- in-game days for snow to melt after the thaw
+  snowCapDepth = 3, -- art pixels of snow resting on the top of objects at full snow (1..4; shaders/snowcap.glsl)
+  frostReach = 3, -- art pixels the frost creeps in from the creek bank when the creek is frozen over (1..4)
+  frostColor = { 0.86, 0.94, 1.00 }, -- frost crust along the bank, over bare ground and snow
   iceRampDays = 0.5, -- in-game days for the creek to freeze over / break up
   -- Screen grading (shaders/grade.glsl)
   lightKeysSunrise = 6, -- sunrise hour the lightKeys are authored for; stretched to the season's sunrise
@@ -98,7 +101,7 @@ return {
     armWobble = 1.5, -- world art pixels the arm's tip bobs while working
     armWobbleSpeed = 6, -- radians per second of the bob
   },
-  weather = { -- day-to-day weather look (D51); full ambience (cloud shadows, wind sway, wet ground) is #49
+  weather = { -- day-to-day weather look (D51, D83); wind sway is still to come (#193)
     blendSeconds = 3, -- real seconds for the look to ease into a new day's weather
     looks = { -- weather kind -> { tint multiplier on the grade, light multiplier, rain 0..1 streak density }
       clear = { tint = { 1.00, 1.00, 1.00 }, light = 1.00, rain = 0 },
@@ -106,6 +109,36 @@ return {
       rain = { tint = { 0.80, 0.88, 1.00 }, light = 0.76, rain = 0.7 },
       windy = { tint = { 0.95, 0.97, 1.00 }, light = 0.94, rain = 0 },
       storm = { tint = { 0.68, 0.76, 0.94 }, light = 0.62, rain = 1 },
+    },
+    wet = { -- ground soaked by rain (shaders/ground.glsl); eases in with the rain and dries out slowly, in real seconds
+      riseSeconds = 6, -- seconds for the ground to soak through once the rain starts
+      drySeconds = 45, -- seconds for it to dry out after the rain stops
+      fullRain = 0.7, -- rain intensity (looks.rain) at which the ground is fully wet
+      darken = 0.72, -- brightness left on fully wet ground (1 = unchanged)
+      saturation = 1.15, -- saturation on fully wet ground (above 1 = richer)
+      puddleCover = 0.16, -- 0..1 share of the ground under a puddle when fully wet
+      puddleOpacity = 0.5, -- 0..1 how much of the sky shows in a puddle (the wet ground shows through the rest)
+      puddleScale = 0.1, -- puddle noise frequency, 1/ground pixels (0.1 = puddles about a tile across)
+      puddleColor = { 0.46, 0.60, 0.72 }, -- the sky in a puddle
+      puddleGlint = { 0.80, 0.90, 0.98 }, -- bright pixel along a puddle's upper edge
+    },
+    waterRain = { -- rain rings on the creek (shaders/water.glsl; #98)
+      cell = 10, -- art pixels per ring cell: one ring at a time per cell
+      seconds = 0.7, -- seconds a ring takes to spread and fade
+      radius = 3, -- art pixels, widest ring radius (flat: half as tall)
+      density = 0.6, -- 0..1 chance a cell gets a ring each cycle at full rain
+      alpha = 0.7, -- 0..1 ring strength when it lands, fading to 0
+    },
+    clouds = { -- cloud shadows drifting over the land (shaders/clouds.glsl); world-anchored, subtle. Cover comes from the weather kind's `cloud` (tuning.weather.kinds, the same number that dims solar power)
+      base = 0.2, -- 0..1 cover under an open sky, so even a clear day has a few passing shadows
+      gain = 1.0, -- cover added per unit of the kind's cloud (0.8 on a storm makes it 1.0)
+      scale = 0.012, -- noise frequency, 1/art pixels (0.012 = clouds about 80 art pixels across, five tiles)
+      block = 2, -- art pixels per shadow pixel, so the edges stay chunky pixel art
+      strength = 0.30, -- 0..1 alpha of the darkest shadow band at full daylight
+      color = { 0.10, 0.14, 0.26 }, -- shadow tint (cool, not black)
+      speed = 5, -- art pixels per second the shadows drift at wind strength 1
+      direction = { 1.0, 0.35 }, -- drift direction (x east, y south); normalised in code
+      windBlendSeconds = 4, -- real seconds for the drift speed to ease toward a new day's wind
     },
     rain = { -- falling streaks and splash rings, drawn over the graded world in WORLD art pixels (#193):
       -- every size, speed and count below is in art pixels, scaled by the camera zoom on screen, so
@@ -116,7 +149,9 @@ return {
       slant = 0.25, -- art pixels each streak leans sideways per art pixel fallen (wind direction)
       speed = 130, -- art pixels per second, average fall speed
       color = { 0.78, 0.88, 1.00, 0.7 }, -- r, g, b, alpha at full intensity
-      splashes = 36, -- splash rings alive at full intensity per referenceArea
+      splashCellW = 24, -- art pixels wide of one splash cell: each cell lands at most one ring per cycle, placed in world space
+      splashCellH = 16, -- art pixels tall of one splash cell
+      splashChance = 0.25, -- 0..1 chance a cell lands a ring each cycle at full intensity (about 36 rings per 320x180 view)
       splashSeconds = 0.6, -- seconds a ring takes to spread and fade
       splashRadius = 3, -- art pixels, widest ring radius (rings are flat: half as tall as wide)
       splashAlpha = 0.55, -- 0..1 ring alpha when it first lands, fading to 0 as it spreads

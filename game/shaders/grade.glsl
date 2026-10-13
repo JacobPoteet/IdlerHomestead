@@ -13,6 +13,10 @@ uniform float time;
 uniform float pixelSize;     // screen pixels per art pixel, so grain matches the pixel art
 
 #ifdef PIXEL
+#ifdef GL_ES
+// The grain seed grows with `time`: mediump would overflow and band it on phones.
+precision highp float;
+#endif
 float hash(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);
     p3 += dot(p3, p3.yzx + 33.33);

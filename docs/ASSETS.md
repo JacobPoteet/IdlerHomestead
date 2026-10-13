@@ -32,7 +32,7 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 | `ford_stones` | 1 | M1 | Transparent overlay of stepping stones drawn over water. |
 | `plan_marker` | 1 | M1 | Corner ticks on planned field tiles. |
 | Grass→dirt / grass→water transition tiles | autotile set | M7 | Today the creek edge is handled by the water shader's foam. |
-| Snow ground, frozen water | — | M3 | Done as shaders (`snow.glsl`, `water.glsl` ice) over the normal tiles. |
+| Snow ground, frozen water | — | M3 | Done as shaders (`ground.glsl`, `snowcap.glsl`, `water.glsl` ice) over the normal tiles. |
 
 ### Objects
 
@@ -106,18 +106,39 @@ gradients), avoid `sin()`-based hashes (precision on mobile), and keep everythin
 
 | Shader | Status | What it does |
 |---|---|---|
-| `water.glsl` | **M1** | Creek: depth shading from a per-tile depth map, pixel-snapped ripples drifting downstream, banding, daylight sparkles, foam along the banks. **M3:** `ice` blends to a pale frozen surface with crack lines; ice holes are drawn on top by the renderer. |
+| `water.glsl` | **M1** | Creek: depth shading from a per-tile depth map, pixel-snapped ripples drifting downstream, banding, daylight sparkles, foam along the banks. **M3:** `ice` blends to a pale frozen surface with crack lines; ice holes are drawn on top by the renderer. **D83:** `rain` adds flat pixel rain rings in world cells and a few more crests (#98); `precision highp` on GL ES. |
 | `grade.glsl` | **M1** | Whole-world post-process: time-of-day tint & light (dawn warm, night blue), saturation, vignette, film grain on the art-pixel grid at 12 fps. **M3:** the lighting keys stretch to each season's sunrise/sunset, and a per-season tint/saturation (`visuals.seasonGrade`) sits on top. |
-| `snow.glsl` | **M3** | Snow over the ground canvas: clumpy pixel coverage that ramps in after the freeze and melts after the thaw (`visuals.snow*`). World-anchored (D80): the clump position comes from the texture coordinate times `groundSize`, never `vertex_position` (LÖVE transforms streamed vertices on the CPU, so it is already screen space). `precision highp` on GL ES. |
-| Rain (`weather_fx.lua`) | **M3** | Not a shader: streaks and splash rings drawn as art-pixel squares on the world grid, scaled by camera zoom, so size, speed and density match at every zoom and window size (`visuals.weather.rain`, all in art pixels; D80). |
+| `ground.glsl` (was `snow.glsl`) | **M3, D83** | The ground canvas's weather coat in one pass: **snow** (clumpy pixel coverage that ramps in after the freeze and melts after the thaw, `visuals.snow*`), **wet ground** (darker, richer, banded sky-coloured puddles with a glint pixel on their upper edge; `visuals.weather.wet`) and **frost** creeping up to `frostReach` pixels in from the creek bank in ragged steps, over bare ground and snow (`visuals.frost*`; it follows the creek's ice amount). World-anchored (D80): every position comes from the texture coordinate times `groundSize`, never `vertex_position` (LÖVE transforms streamed vertices on the CPU, so it is already screen space). `precision highp` on GL ES. |
+| `snowcap.glsl` | **D83** | Snow resting on the tops of objects: drawn instead of the sprite while it snows. A pixel is "top" when a transparent pixel (or the edge of its atlas cell, passed as `bounds`) is within `capDepth` pixels straight above; coverage follows the ground's snow amount, ragged by a per-pixel hash (`visuals.snowCapDepth`). Needs no art: it reads the sprite's own silhouette. |
+| `clouds.glsl` | **D83** | Cloud shadows: one translucent quad over the visible tiles after the y-sorted pass, before the grade. Position from the texture coordinate over `rect` (world art pixels), snapped to `block`-pixel blocks and cut into three bands. Cover from the weather kind's `cloud` (the same number that dims solar), drift from `Weather.windStrength` (eased, so a gust never jumps the pattern), faded out at night (`visuals.weather.clouds`). |
+| Rain (`weather_fx.lua`) | **M3** | Not a shader: streaks and splash rings drawn as art-pixel squares on the world grid, scaled by camera zoom, so size, speed and density match at every zoom and window size (`visuals.weather.rain`, all in art pixels; D80). D83: splash rings sit in world cells on the ground (none on water: the creek shader draws its own). |
 | Wind sway | Planned | Vertex shader bending crops, brush and tree canopies with gusts; strength from weather. |
-| Cloud shadows | Planned | Soft noise shadows drifting across the land; ties into solar output on cloudy days. |
 | Night lights | Planned (M3) | Light-map canvas: lamp/window/stove/campfire glows that punch through the night grade. |
-| Rain & wet ground | Planned | Rain streaks + ripple rings on water + darkened, glossier ground. |
-| Snow on objects & frost | Planned | Snow on tops of objects and trees, frost creeping over edges (ground snow and the frozen creek are done). |
 | Morning mist | Planned | Low fog band over the creek and fields at dawn. |
 | Heat shimmer | Planned | Summer midday distortion near the horizon/fields. |
 | Fireflies / dust motes | Planned | Particle + glow on summer evenings. |
 | Tilt-shift | Planned (widget mode) | Blur toward the top/bottom of the frame for a diorama feel on the desktop companion. |
 | Selection outline | Planned | Pixel outline for hovered/selected objects instead of tile boxes. |
 | Fishing water | Planned (M2) | Close-up underwater view for the tension mini-game (cutaway, light rays, fish silhouettes). |
+
+### Shader audit (#193, D83)
+
+Camera correctness is the main trap. In LÖVE 11 a **streamed** draw (`rectangle`, `draw(image)`, `draw(canvas)`)
+has its vertices transformed by the current transform **on the CPU**, so `vertex_position` in a vertex shader is
+already screen space; a **SpriteBatch or Mesh** is transformed on the GPU, so `vertex_position` is the local (world)
+position. Verified with a test draw under a translate (batch gave world, rectangle gave screen). Anything that must
+move with the land takes its position from a texture coordinate over a known world rectangle instead.
+
+| Effect | Anchoring | Intent | Notes |
+|---|---|---|---|
+| `water.glsl` | **World** (SpriteBatch, so `vertex_position` is world space; the ripples, foam and rain rings pan with the creek) | World | Fixed: added `precision highp` on GL ES (world pixels reach the thousands). Snapped to art pixels, banded. |
+| `ground.glsl`, `snowcap.glsl`, `clouds.glsl` | World (texture coordinate over the ground canvas / sprite cell / `rect`) | World | `precision highp` on GL ES. All snap to the art-pixel grid. |
+| `grade.glsl` | Screen | Screen (tint, vignette, grain) | Grain cells are `pixelSize` screen pixels, so they match the art pixels' size but not their phase (deliberate: grain is a lens effect). Fixed: `precision highp` on GL ES (the seed grows with `time * 12 * 13.7` and overflowed mediump). |
+| Rain streaks (`weather_fx.lua`) | Screen | Screen (air) | Art-pixel sized and scaled by the zoom (D80). Splash rings are now world cells (D83): they stay on the ground they hit. |
+| Action ring, power lamps | Screen / world sprites | by intent | Not shaders. |
+
+Performance (desktop, zoom 2, uncapped, 150 draws of the whole scene incl. the HUD, headless-ish GPU readback): about
+0.85 ms per frame clear, 0.8 ms with cloud shadows, 1.1 ms raining, 1.2 ms in snow with caps and frost. The ground shader
+only runs when snow, wet or frost is non-zero; while the creek is frozen the frost searches four directions up to `frostReach` pixels (at most 16 taps per ground pixel, only when frost is
+non-zero); the snow cap shader is set per object only while it snows.
+Not yet profiled on a phone GPU: the tight loops are fixed-bound for GLSL ES, but check F3 on a real device (#193).

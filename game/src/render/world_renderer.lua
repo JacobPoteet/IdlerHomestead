@@ -261,6 +261,12 @@ function Renderer:drawWater(daylight, ice)
       ice = ice,
       iceColor = v.iceColor,
       iceDeepColor = v.iceDeepColor,
+      rain = (self.fx:rainAndWet()),
+      rainCell = v.weather.waterRain.cell,
+      rainSeconds = v.weather.waterRain.seconds,
+      rainRadius = v.weather.waterRain.radius,
+      rainDensity = v.weather.waterRain.density,
+      rainAlpha = v.weather.waterRain.alpha,
     })
     love.graphics.setShader(shader)
     love.graphics.setColor(1, 1, 1, 1)
@@ -304,17 +310,31 @@ function Renderer:draw(alpha, visible, daylight)
 
   local snow, ice = self:winterAmounts()
   local v = world.tuning.visuals
-  local snowShader = snow > 0 and Shaders.get("snow")
-  if snowShader then
-    Shaders.send(snowShader, {
+  local _, wet = self.fx:rainAndWet()
+  local frost = ice -- the creek's freeze brings the frost in from its banks, and it melts away with the ice
+  local groundShader = (snow > 0 or wet > 0 or frost > 0) and Shaders.get("ground")
+  if groundShader then
+    local w = v.weather.wet
+    Shaders.send(groundShader, {
       amount = snow,
       snowColor = v.snowColor,
       shadeColor = v.snowShade,
       clumpScale = v.snowClumpScale,
       patchScale = v.snowPatchScale,
+      wet = wet,
+      wetDarken = w.darken,
+      wetSaturation = w.saturation,
+      puddleCover = w.puddleCover,
+      puddleScale = w.puddleScale,
+      puddleOpacity = w.puddleOpacity,
+      puddleColor = w.puddleColor,
+      puddleGlint = w.puddleGlint,
+      frost = frost,
+      frostReach = v.frostReach,
+      frostColor = v.frostColor,
       groundSize = { self.ground:getWidth(), self.ground:getHeight() },
     })
-    love.graphics.setShader(snowShader)
+    love.graphics.setShader(groundShader)
   end
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(self.ground, 0, 0)
@@ -362,6 +382,17 @@ function Renderer:draw(alpha, visible, daylight)
     end
   end
 
+  -- Snow resting on top of objects while the ground is white.
+  local capShader = snow > 0 and Shaders.get("snowcap") or nil
+  if capShader then
+    Shaders.send(capShader, {
+      amount = snow,
+      capDepth = v.snowCapDepth,
+      snowColor = v.snowColor,
+      shadeColor = v.snowShade,
+    })
+  end
+
   -- Y-sorted sprites: { sortY, draw function }
   local items = {}
   for i, crop in pairs(crops) do
@@ -393,7 +424,13 @@ function Renderer:draw(alpha, visible, daylight)
         bottom,
         function()
           love.graphics.setColor(1, 1, 1, 1)
+          if capShader then
+            self:capSprite(capShader, sprite)
+          end
           love.graphics.draw(sprite.image, sprite.quad, (x - 1) * tile, bottom - sprite.h)
+          if capShader then
+            love.graphics.setShader()
+          end
           if smoking then
             self:drawSmoke((x - 1) * tile + 8, bottom - sprite.h + 2)
           end
@@ -479,6 +516,61 @@ function Renderer:draw(alpha, visible, daylight)
     item[2]()
   end
   love.graphics.setColor(1, 1, 1, 1)
+  self:drawCloudShadows(visible, daylight)
+end
+
+--- Switch to the snow-cap shader for one sprite: tell it where the sprite's cell sits in its atlas, so
+--- the cap never reads a neighbouring sprite as "the pixel above".
+function Renderer:capSprite(shader, sprite)
+  local cell = sprite.capCell
+  if not cell then
+    local iw, ih = sprite.image:getDimensions()
+    local qx, qy, qw, qh = sprite.quad:getViewport()
+    cell = { { qx / iw, qy / ih, (qx + qw) / iw, (qy + qh) / ih }, { 1 / iw, 1 / ih } }
+    sprite.capCell = cell
+  end
+  shader:send("bounds", cell[1])
+  shader:send("texel", cell[2])
+  love.graphics.setShader(shader)
+end
+
+--- Soft cloud shadows drifting over the visible land (world-anchored; weather_fx supplies the cover and
+--- the drift). One translucent quad over the visible tiles, shaded by clouds.glsl.
+function Renderer:drawCloudShadows(visible, daylight)
+  local shader = Shaders.get("clouds")
+  local cfg = self.world.tuning.visuals.weather.clouds
+  local strength = cfg.strength * daylight
+  if not shader or strength <= 0.001 then
+    return
+  end
+  local grid, tile = self.world.state.grid, self.tile
+  local x1, y1 = math.max(1, visible[1] - 1), math.max(1, visible[2] - 1)
+  local x2, y2 = math.min(grid.w, visible[3] + 1), math.min(grid.h, visible[4] + 2)
+  local rx, ry, rw, rh = (x1 - 1) * tile, (y1 - 1) * tile, (x2 - x1 + 1) * tile, (y2 - y1 + 1) * tile
+  local cover, drift = self.fx:clouds()
+  Shaders.send(shader, {
+    rect = { rx, ry, rw, rh },
+    offset = drift,
+    coverage = cover,
+    strength = strength,
+    scale = cfg.scale,
+    block = cfg.block,
+    shadowColor = cfg.color,
+  })
+  love.graphics.setShader(shader)
+  love.graphics.setColor(1, 1, 1, 1)
+  love.graphics.draw(self:whiteImage(), rx, ry, 0, rw, rh)
+  love.graphics.setShader()
+end
+
+--- A 1x1 white image, scaled up as a flat quad for the full-area effects.
+function Renderer:whiteImage()
+  if not self.white then
+    local data = love.image.newImageData(1, 1)
+    data:setPixel(0, 0, 1, 1, 1, 1)
+    self.white = love.graphics.newImage(data)
+  end
+  return self.white
 end
 
 --- Queue the flock for the y-sorted pass. Hens roam the run in front of each coop by day (they roost
