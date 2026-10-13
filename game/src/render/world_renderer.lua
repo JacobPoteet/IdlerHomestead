@@ -12,6 +12,7 @@ local Crops = require("src.sim.systems.crops")
 local Machines = require("src.sim.systems.machines")
 local Market = require("src.sim.systems.market")
 local TripMarker = require("src.render.trip_marker")
+local CropCues = require("src.render.crop_cues")
 local Water = require("src.sim.systems.water")
 local Power = require("src.sim.systems.power")
 local Processing = require("src.sim.systems.processing")
@@ -420,6 +421,13 @@ function Renderer:draw(alpha, visible, daylight)
   for i, cropId in pairs(fields.plan) do
     if not crops[i] and onScreen(i) then
       local x, y = Grid.coords(grid, i)
+      if CropCues.planState(cropId, fields.tilled[i], crops[i]) then
+        -- A faint sprout says what is planned; a planted crop is solid, so a plan never passes for a plant (D102).
+        local ghost = Assets.sprite(cropId .. "_1")
+        love.graphics.setColor(1, 1, 1, v.cropCues.planGhostAlpha)
+        love.graphics.draw(ghost.image, ghost.quad, (x - 1) * tile, y * tile - ghost.h)
+        love.graphics.setColor(1, 1, 1, 1)
+      end
       Assets.draw("plan_marker", (x - 1) * tile, (y - 1) * tile)
       if risky[cropId] == nil then
         risky[cropId] = Crops.frostRisk(world, cropId) ~= nil
@@ -987,6 +995,55 @@ function Renderer:drawSelection(i, pixelSize)
     local cx, cy, sx, sy = corner[1], corner[2], corner[3], corner[4]
     love.graphics.rectangle("fill", sx > 0 and cx or cx - cl, sy > 0 and cy or cy - cw, cl, cw)
     love.graphics.rectangle("fill", sx > 0 and cx or cx - cw, sy > 0 and cy or cy - cl, cw, cl)
+  end
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
+--- Crop cues over the graded world (world space, camera transform on; D102): a lift that keeps crop
+--- sprites readable on the dark soil at night, a droplet over a thirsty crop and a sparkle over a ripe one.
+--- UI cues on the real-time clock (like the selection ring, D97); reduce motion holds the sparkle still.
+function Renderer:drawCropCues(visible, daylight)
+  local world, grid, tile = self.world, self.world.state.grid, self.tile
+  local cfg = world.tuning.visuals.cropCues
+  local lift = CropCues.nightLift(daylight, cfg)
+  local alpha = CropCues.iconAlpha(daylight, cfg)
+  local reduce = Settings.read("reduceMotion", false)
+  local x1, y1, x2, y2 = visible[1] - 1, visible[2] - 1, visible[3] + 1, visible[4] + 2
+  if lift > 0.001 then -- planned tiles get the same lift, so a standing order still shows at night
+    local frame = Assets.sprite("plan_marker")
+    love.graphics.setBlendMode("add", "alphamultiply")
+    love.graphics.setColor(1, 1, 1, lift)
+    for i in pairs(world.state.fields.plan) do
+      local x, y = Grid.coords(grid, i)
+      if not world.state.crops[i] and x >= x1 and x <= x2 and y >= y1 and y <= y2 then
+        love.graphics.draw(frame.image, frame.quad, (x - 1) * tile, (y - 1) * tile)
+      end
+    end
+    love.graphics.setBlendMode("alpha")
+  end
+  for i, crop in pairs(world.state.crops) do
+    local x, y = Grid.coords(grid, i)
+    if x >= x1 and x <= x2 and y >= y1 and y <= y2 then
+      local left, top = (x - 1) * tile, (y - 1) * tile
+      if lift > 0.001 then
+        local sprite = Assets.sprite(crop.id .. "_" .. cropStage(crop))
+        love.graphics.setBlendMode("add", "alphamultiply")
+        love.graphics.setColor(1, 1, 1, lift)
+        love.graphics.draw(sprite.image, sprite.quad, left, y * tile - sprite.h)
+        love.graphics.setBlendMode("alpha")
+      end
+      local cue = CropCues.cue(crop)
+      if cue == "thirsty" then
+        local drop = Assets.sprite("cue_droplet")
+        love.graphics.setColor(1, 1, 1, alpha)
+        love.graphics.draw(drop.image, drop.quad, left + tile - drop.w - 1, top - cfg.dropletGap - 1)
+      elseif cue == "ready" then
+        local a, frame = CropCues.sparkle(self.uiTime, x, y, cfg, reduce)
+        local star = Assets.sprite("cue_ready_" .. frame)
+        love.graphics.setColor(1, 1, 1, a * alpha)
+        love.graphics.draw(star.image, star.quad, left + tile - star.w - 1, top - 2)
+      end
+    end
   end
   love.graphics.setColor(1, 1, 1, 1)
 end

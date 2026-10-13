@@ -14,16 +14,56 @@ local images = {}
 local Painter = {}
 Painter.__index = Painter
 
+-- Pixels painted with a mostly opaque colour are remembered, so `outline` can ring the sprite.
+local SOLID_ALPHA = 0.6 -- a colour at least this opaque counts as part of the shape (shadows do not)
+
+function Painter:mark(x, y, c)
+  if (c[4] or 1) >= SOLID_ALPHA then
+    self.mask = self.mask or {}
+    self.mask[y * self.w + x] = true
+  end
+end
+
 function Painter:px(x, y, c)
   if x >= 0 and y >= 0 and x < self.w and y < self.h then
     love.graphics.setColor(c)
     love.graphics.rectangle("fill", self.ox + x, self.oy + y, 1, 1)
+    self:mark(x, y, c)
   end
 end
 
 function Painter:rect(x, y, w, h, c)
   love.graphics.setColor(c)
   love.graphics.rectangle("fill", self.ox + x, self.oy + y, w, h)
+  for yy = math.max(0, y), math.min(self.h, y + h) - 1 do
+    for xx = math.max(0, x), math.min(self.w, x + w) - 1 do
+      self:mark(xx, yy, c)
+    end
+  end
+end
+
+--- A 1-pixel ring of `c` round everything painted so far (4-neighbours), so a small sprite keeps a
+--- silhouette on any ground, snow and night included (#20, D102). Call it last.
+function Painter:outline(c)
+  local m = self.mask
+  if not m then
+    return
+  end
+  local w, h = self.w, self.h
+  local function has(x, y)
+    return x >= 0 and y >= 0 and x < w and y < h and m[y * w + x]
+  end
+  local ring = {}
+  for y = 0, h - 1 do
+    for x = 0, w - 1 do
+      if not has(x, y) and (has(x - 1, y) or has(x + 1, y) or has(x, y - 1) or has(x, y + 1)) then
+        ring[#ring + 1] = { x, y }
+      end
+    end
+  end
+  for _, t in ipairs(ring) do
+    self:px(t[1], t[2], c)
+  end
 end
 
 function Painter:ellipse(cx, cy, rx, ry, c)

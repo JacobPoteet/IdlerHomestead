@@ -80,6 +80,17 @@ return {
   },
   waterSpots = { 0.35, 0.62, 0.80, 0.28 }, -- tint over tiles where a well or pump can be sunk, while placing one
   frostPlan = { 0.95, 0.55, 0.15, 0.40 }, -- amber tint over a planned tile whose crop cannot ripen before winter (D70, #165)
+  cropCues = { -- crop and plan readability (#20, D102; src/render/crop_cues.lua); icons are drawn over the graded world so they hold at night
+    iconAlpha = 0.95, -- 0..1 opacity of the thirsty droplet and the ready sparkle at full strength
+    nightIconDim = 0.15, -- 0..1 how much the icons fade at full darkness (they stay bright enough to read, but do not glare)
+    dropletGap = 0, -- art pixels the droplet floats above the top of its tile (negative sinks it into the tile)
+    sparkleSeconds = 1.8, -- seconds for one sparkle cycle (UI cue, real-time clock like the selection ring, D97)
+    sparkleDuty = 0.35, -- 0..1 share of the cycle the sparkle twinkles; the rest of the time it rests as the small plus
+    sparkleRest = 0.7, -- 0..1 opacity of the resting plus (the ripe cue is always visible, also under reduce motion)
+    sparkleSpread = 8, -- number of staggered phases, so a whole field does not twinkle in step
+    planGhostAlpha = 0.5, -- 0..1 opacity of the faint sprout drawn on a planned tile (a plant it is not yet)
+    nightLift = 0.4, -- 0..1 extra brightness added to crop sprites at full darkness, so a graded sprout keeps contrast against the dark soil
+  },
   shelter = { -- shelter ladder (D82)
     zone = { 1.00, 0.62, 0.22, 0.20 }, -- warm tint over the heater slot of a shelter (selected, being placed, or while placing a heat source)
   },

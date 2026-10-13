@@ -43,6 +43,15 @@ local C = {
   water = { 0.35, 0.62, 0.80 },
   white = { 0.95, 0.95, 0.92 },
   heart = { 0.86, 0.30, 0.32 },
+  outline = { 0.07, 0.09, 0.06 }, -- the 1-pixel edge round crops and small sprites (#20)
+  sprout = { 0.58, 0.88, 0.36 }, -- fresh bright green: sprouts and new leaves
+  sproutLight = { 0.80, 0.97, 0.52 },
+  sproutDark = { 0.30, 0.62, 0.24 },
+  moundSoil = { 0.66, 0.50, 0.34 }, -- pale turned soil under a sprout
+  radishLight = { 0.98, 0.50, 0.55 },
+  waterLight = { 0.58, 0.82, 0.96 },
+  sparkle = { 1.00, 0.90, 0.45 },
+  sparkleEdge = { 0.55, 0.38, 0.08, 0.8 },
 }
 P.colors = C
 
@@ -93,12 +102,25 @@ function P.ford_stones(p)
 end
 
 function P.plan_marker(p, w, h)
-  local c = { 0.95, 0.88, 0.60, 0.85 }
-  for _, corner in ipairs({ { 1, 1, 1, 1 }, { w - 2, 1, -1, 1 }, { 1, h - 2, 1, -1 }, { w - 2, h - 2, -1, -1 } }) do
-    local x, y, dx, dy = corner[1], corner[2], corner[3], corner[4]
-    p:px(x, y, c)
-    p:px(x + dx, y, c)
-    p:px(x, y + dy, c)
+  -- A dashed gold frame with a dark dash just inside it (#20, D102): a standing order, not a plant. The
+  -- renderer adds a faint ghost of the planned crop in the middle.
+  local c = { 1.00, 0.90, 0.52, 0.95 }
+  local dark = { 0.07, 0.06, 0.03, 0.55 }
+  for n = 1, w - 2 do
+    if n % 4 ~= 0 then
+      p:px(n, 1, c)
+      p:px(n, h - 2, c)
+      p:px(n, 2, dark)
+      p:px(n, h - 3, dark)
+    end
+  end
+  for n = 2, h - 3 do
+    if n % 4 ~= 0 then
+      p:px(1, n, c)
+      p:px(w - 2, n, c)
+      p:px(2, n, dark)
+      p:px(w - 3, n, dark)
+    end
   end
 end
 
@@ -126,6 +148,7 @@ function P.brush(p)
   end
   p:px(4, 12, C.barkDark)
   p:px(11, 12, C.barkDark)
+  p:outline(C.outline)
 end
 
 function P.rock(p)
@@ -134,6 +157,7 @@ function P.rock(p)
   p:ellipse(8, 8, 5, 4, C.stone)
   p:rect(5, 6, 3, 1, C.stoneLight)
   p:px(10, 9, C.stoneDark)
+  p:outline(C.outline)
 end
 
 function P.log(p)
@@ -145,6 +169,7 @@ function P.log(p)
   p:px(13, 9, C.barkDark)
   p:px(5, 9, C.barkDark)
   p:px(9, 8, C.barkDark)
+  p:outline(C.outline)
 end
 
 function P.junk(p)
@@ -155,6 +180,7 @@ function P.junk(p)
   p:circle(11, 10, 1, C.metal)
   p:rect(5, 4, 5, 3, C.metal) -- sheet metal
   p:px(6, 5, C.stoneLight)
+  p:outline(C.outline)
 end
 
 function P.tree(p)
@@ -186,45 +212,82 @@ function P.truck(p)
   end
 end
 
-local function cropBase(p)
+-- Crops (#20, D102): every stage is a bright shape with a dark outline, and the sprout stands on a
+-- pale mound of turned soil, so it reads against dark furrows, snow and the night grade.
+local function cropBase(p, mound)
   p:rect(4, 12, 8, 1, C.furrowWet)
+  if mound then
+    p:ellipse(8, 12, 3, 1, C.moundSoil)
+  end
 end
 
 function P.radish(p, _, _, variant)
-  cropBase(p)
-  if variant == 1 then
-    p:px(7, 10, C.leafLight)
-    p:px(8, 9, C.leafLight)
-    p:px(8, 10, C.leaf)
-  elseif variant == 2 then
-    p:ellipse(6, 8, 2, 3, C.leaf)
-    p:ellipse(10, 8, 2, 3, C.leafLight)
-    p:rect(8, 9, 1, 3, C.leafDark)
-  else
-    p:circle(8, 11, 2, C.radish)
-    p:ellipse(5, 6, 2, 3, C.leaf)
-    p:ellipse(11, 6, 2, 3, C.leafLight)
-    p:ellipse(8, 5, 2, 3, C.leaf)
+  cropBase(p, variant == 1)
+  if variant == 1 then -- sprout: two seed leaves on a stem, 8 pixels wide
+    p:rect(8, 8, 1, 4, C.sproutDark)
+    p:ellipse(5, 8, 2, 1, C.sprout)
+    p:ellipse(11, 7, 2, 1, C.sproutLight)
+    p:px(8, 7, C.sproutLight)
+  elseif variant == 2 then -- growing: a leafy fan, twice as tall
+    p:rect(8, 6, 1, 6, C.leafDark)
+    p:ellipse(5, 7, 2, 3, C.leaf)
+    p:ellipse(11, 7, 2, 3, C.sprout)
+    p:ellipse(8, 4, 2, 3, C.sproutLight)
+  else -- ready: the red root shows above the soil under a tall crown
+    p:ellipse(5, 5, 2, 3, C.leaf)
+    p:ellipse(11, 5, 2, 3, C.sprout)
+    p:ellipse(8, 3, 2, 3, C.sproutLight)
+    p:circle(8, 10, 3, C.radish)
+    p:px(7, 9, C.radishLight)
+    p:px(8, 13, C.white)
   end
+  p:outline(C.outline)
 end
 
 function P.potato(p, _, _, variant)
-  cropBase(p)
-  if variant == 1 then
-    p:px(7, 10, C.leafLight)
-    p:px(8, 10, C.leaf)
-    p:px(8, 9, C.leafLight)
-  elseif variant == 2 then
+  cropBase(p, variant == 1)
+  if variant == 1 then -- sprout: a stem with a round cluster of leaves
+    p:rect(8, 9, 1, 3, C.sproutDark)
+    p:circle(8, 8, 2, C.sprout)
+    p:px(7, 7, C.sproutLight)
+    p:px(9, 8, C.sproutLight)
+  elseif variant == 2 then -- growing: a bushy mound
     p:circle(8, 8, 4, C.leaf)
-    p:px(6, 7, C.leafLight)
-    p:px(10, 8, C.leafLight)
-  else
+    p:px(6, 6, C.sproutLight)
+    p:px(7, 5, C.sproutLight)
+    p:px(10, 7, C.sprout)
+    p:px(5, 9, C.sprout)
+  else -- ready: a big dark bush dotted with white flowers
     p:circle(8, 7, 6, C.leafDark)
     p:circle(8, 7, 5, C.leaf)
-    for _, f in ipairs({ { 5, 4 }, { 10, 5 }, { 8, 8 } }) do
+    for _, f in ipairs({ { 5, 4 }, { 10, 5 }, { 8, 8 }, { 6, 8 }, { 11, 9 }, { 8, 3 } }) do
       p:px(f[1], f[2], C.potatoFlower)
     end
   end
+  p:outline(C.outline)
+end
+
+-- The "thirsty" droplet over a dry crop (#20): a blue drop with a dark edge, drawn over the graded world.
+function P.cue_droplet(p)
+  p:px(3, 1, C.waterLight)
+  p:rect(2, 2, 3, 2, C.waterLight)
+  p:rect(1, 4, 5, 3, C.water)
+  p:rect(2, 7, 3, 1, C.water)
+  p:px(2, 5, C.white)
+  p:outline(C.outline)
+end
+
+-- The "ready to harvest" sparkle (#20), two twinkle frames: a small plus, then a bigger four-point star.
+function P.cue_ready(p, _, _, variant)
+  if variant == 1 then
+    p:rect(3, 2, 1, 3, C.sparkle)
+    p:rect(2, 3, 3, 1, C.sparkle)
+  else
+    p:rect(3, 0, 1, 7, C.sparkle)
+    p:rect(0, 3, 7, 1, C.sparkle)
+    p:rect(2, 2, 3, 3, C.white)
+  end
+  p:outline(C.sparkleEdge)
 end
 
 function P.homesteader(p)
@@ -300,6 +363,7 @@ function P.icon_food(p)
   p:ellipse(6, 7, 5, 3, { 0.62, 0.45, 0.30 })
   p:ellipse(6, 6, 4, 2, { 0.78, 0.60, 0.40 })
   p:px(4, 5, C.white)
+  p:outline(C.outline)
 end
 
 function P.icon_water(p)
@@ -320,24 +384,28 @@ function P.icon_stone(p)
   p:ellipse(6, 7, 5, 3, C.stoneDark)
   p:ellipse(6, 6, 4, 3, C.stone)
   p:px(4, 5, C.stoneLight)
+  p:outline(C.outline)
 end
 
 function P.icon_scrap(p)
   p:rect(2, 5, 6, 4, C.rust)
   p:rect(5, 2, 5, 4, C.metal)
   p:px(6, 3, C.stoneLight)
+  p:outline(C.outline)
 end
 
 function P.icon_seed_radish(p)
   p:ellipse(6, 7, 4, 4, C.radish)
   p:rect(5, 1, 2, 3, C.leaf)
   p:px(5, 6, C.white)
+  p:outline(C.outline)
 end
 
 function P.icon_seed_potato(p)
   p:ellipse(6, 7, 5, 4, { 0.72, 0.56, 0.36 })
   p:px(4, 6, { 0.52, 0.38, 0.24 })
   p:px(8, 8, { 0.52, 0.38, 0.24 })
+  p:outline(C.outline)
 end
 
 function P.icon_heart(p)
@@ -1268,6 +1336,7 @@ function P.fish_icon(p, _, _, _, id)
   p:rect(2, 6, 6, 1, colors[2]) -- belly stripe
   p:rect(9, 4, 2, 5, colors[1]) -- tail
   p:px(3, 5, { 0.05, 0.05, 0.05 })
+  p:outline(C.outline)
 end
 
 return P
