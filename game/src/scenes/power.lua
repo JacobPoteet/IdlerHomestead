@@ -7,7 +7,7 @@ local Ledger = require("src.sim.systems.ledger")
 local Power = require("src.sim.systems.power")
 local Buttons = require("src.ui.buttons")
 local Panel = require("src.ui.panel")
-local Scroll = require("src.ui.scroll")
+local ScrollList = require("src.ui.scroll_list")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
@@ -19,7 +19,7 @@ local WIDE = 560 -- box width at which the two-column layout is used
 local GREEN = { 0.45, 0.82, 0.42 }
 
 function PowerPanel.new(world, onToast)
-  return setmetatable({ world = world, onToast = onToast }, PowerPanel)
+  return setmetatable({ world = world, onToast = onToast, list = ScrollList.new() }, PowerPanel)
 end
 
 function PowerPanel:enter()
@@ -197,21 +197,15 @@ function PowerPanel:layout()
     contentH = contentH + r.h
   end
   local viewH = math.max(ROW_H * 2, bottom - top)
-  self.overflow = Scroll.overflows(contentH, viewH)
-  if self.overflow then
-    viewH = math.max(ROW_H * 2, viewH - ui.scrollHintHeight)
-  end
-  self.contentH = contentH
-  self.view = { x = rightX - 4, y = top, w = colW + 8, h = viewH }
-  self.scroll = Scroll.clamp(self.scroll or 0, contentH, viewH)
+  viewH = self.list:fit({ x = rightX - 4, y = top, w = colW + 8, h = viewH }, contentH, ui.scrollHintHeight, ROW_H * 2).h
   self.rowButtons:clear()
   self.listItems = {}
   local function ltext(x, ty, str, color)
     self.listItems[#self.listItems + 1] = { kind = "text", x = x, y = ty, str = str, color = color, size = "small" }
   end
   -- Row content stops short of the scroll thumb at the list's right edge.
-  local right = rightX + colW - (self.overflow and (ui.scrollBarWidth + 4) or 0)
-  local ry = top - self.scroll
+  local right = rightX + colW - (self.list.overflow and (ui.scrollBarWidth + 4) or 0)
+  local ry = self.list:origin()
   for _, r in ipairs(rows) do
     if ry + r.h > top and ry < top + viewH then
       if r.kind == "head" then
@@ -274,10 +268,6 @@ function PowerPanel:changed()
   self:layout()
 end
 
-local function inside(r, x, y)
-  return x >= r.x and x < r.x + r.w and y >= r.y and y < r.y + r.h
-end
-
 function PowerPanel:update(dt)
   self.refresh = (self.refresh or 0) - dt
   if self.refresh <= 0 then
@@ -290,23 +280,17 @@ function PowerPanel:action(name, data)
   if self.buttons:action(name, data) then
     return true
   end
-  local view = self.view
   if name == "press" or name == "select" or name == "hover" then
     -- Row buttons only answer inside the list's window: a half-scrolled row must not reach out of it.
-    if inside(view, data.x, data.y) and self.rowButtons:action(name, data) then
+    if self.list:contains(data.x, data.y) and self.rowButtons:action(name, data) then
       return true
     end
   elseif name == "release" then
     self.rowButtons:action(name, data)
   elseif name == "cancel" then
     self.app:pop()
-  elseif name == "pan" and self.overflow then
-    self.scroll = Scroll.byDrag(self.scroll, data.dy, self.contentH, view.h) -- the list follows the finger
-    self:layout()
-  elseif name == "zoom" and self.overflow then
-    local step = self.app.ctx.tuning.ui.scrollWheelStep
-    self.scroll = Scroll.byWheel(self.scroll, data.steps, step, self.contentH, view.h)
-    self:layout()
+  elseif self.list:action(name, data, self.app.ctx.tuning.ui.scrollWheelStep) then
+    self:layout() -- the list follows the finger
   end
   return true
 end
@@ -337,41 +321,14 @@ function PowerPanel:draw()
   end
   self.buttons:draw()
   -- The sources and devices list is clipped to its window (scissor works in screen pixels).
-  local v, scale = self.view, self.app.view.scale
-  love.graphics.setScissor(math.floor(v.x * scale), math.floor(v.y * scale), math.ceil(v.w * scale), math.ceil(v.h * scale))
+  local scale = self.app.view.scale
+  self.list:begin(scale)
   for _, item in ipairs(self.listItems) do
     drawItem(item)
   end
   self.rowButtons:draw()
-  love.graphics.setScissor()
-  if self.overflow then
-    self:drawScrollCue()
-  end
-end
-
---- The scroll cues: a thumb down the right edge of the list and a hint line under it.
-function PowerPanel:drawScrollCue()
-  local v, ui = self.view, self.app.ctx.tuning.ui
-  local at, h = Scroll.thumb(self.scroll, self.contentH, v.h, v.h, ui.scrollHintHeight)
-  local barW = ui.scrollBarWidth
-  love.graphics.setColor(0, 0, 0, 0.35)
-  love.graphics.rectangle("fill", v.x + v.w - barW - 2, v.y, barW, v.h, 1, 1)
-  love.graphics.setColor(theme.colors.accent)
-  love.graphics.rectangle("fill", v.x + v.w - barW - 2, v.y + at, barW, h, 1, 1)
-  local above, below = Scroll.hidden(self.scroll, self.contentH, v.h)
-  local parts = {}
-  if above > 0 then
-    parts[#parts + 1] = "^ more above"
-  end
-  if below > 0 then
-    parts[#parts + 1] = "v more below"
-  end
-  Text.draw(
-    "Drag or scroll: " .. table.concat(parts, ", "),
-    v.x + 4,
-    v.y + v.h + 2,
-    { size = "small", color = theme.colors.textDim }
-  )
+  self.list:finish()
+  self.list:drawCue(self.app.ctx.tuning.ui)
 end
 
 return PowerPanel

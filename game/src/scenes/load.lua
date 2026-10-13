@@ -13,7 +13,7 @@ local Needs = require("src.sim.systems.needs")
 local Readiness = require("src.sim.systems.readiness")
 local Buttons = require("src.ui.buttons")
 local Panel = require("src.ui.panel")
-local Scroll = require("src.ui.scroll")
+local ScrollList = require("src.ui.scroll_list")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
@@ -55,7 +55,7 @@ function Load.warningText(world, warning)
 end
 
 function Load.new(world, onToast)
-  return setmetatable({ world = world, onToast = onToast or function() end }, Load)
+  return setmetatable({ world = world, onToast = onToast or function() end, list = ScrollList.new() }, Load)
 end
 
 function Load:enter()
@@ -158,15 +158,11 @@ function Load:layout()
   local footH = Text.wrappedHeight(self:footerText(), "small", b.w - 24) + 4
   local contentH = #goods * ROW_H
   local viewH = math.max(ROW_H, b.y + b.h - 6 - footH - top)
-  self.overflow = Scroll.overflows(contentH, viewH)
-  if self.overflow then
-    viewH = math.max(ROW_H, viewH - ui.scrollHintHeight)
-  end
-  self.contentH, self.footH = contentH, footH
-  self.view = { x = b.x, y = top, w = b.w, h = viewH }
-  self.scroll = Scroll.clamp(self.scroll or 0, contentH, viewH)
+  self.footH = footH
+  self.view = self.list:fit({ x = b.x, y = top, w = b.w, h = viewH }, contentH, ui.scrollHintHeight, ROW_H)
+  viewH = self.view.h
   local keeps = Food.keeps(world)
-  local y = top - self.scroll
+  local y = self.list:origin()
   for _, res in ipairs(goods) do
     if y + ROW_H > top and y < top + viewH then
       local id = res.id
@@ -203,10 +199,6 @@ function Load:footerText()
   return "Anything not loaded stays home. Loaded goods stay in stock (eaten in a pinch, aging oldest first) until they sell in town, and the roadside stand leaves them alone."
 end
 
-local function inside(r, x, y)
-  return x >= r.x and x < r.x + r.w and y >= r.y and y < r.y + r.h
-end
-
 function Load:update(dt)
   self.refresh = (self.refresh or 0) - dt
   if self.refresh <= 0 then
@@ -219,20 +211,15 @@ function Load:action(name, data)
   if self.buttons:action(name, data) then
     return true
   end
-  local view = self.view
   if name == "press" or name == "select" or name == "hover" then
-    if inside(view, data.x, data.y) and self.rowButtons:action(name, data) then
+    if self.list:contains(data.x, data.y) and self.rowButtons:action(name, data) then
       return true
     end
   elseif name == "release" then
     self.rowButtons:action(name, data)
   elseif name == "cancel" then
     self.app:pop()
-  elseif name == "pan" and self.overflow then
-    self.scroll = Scroll.byDrag(self.scroll, data.dy, self.contentH, view.h)
-    self:layout()
-  elseif name == "zoom" and self.overflow then
-    self.scroll = Scroll.byWheel(self.scroll, data.steps, self.app.ctx.tuning.ui.scrollWheelStep, self.contentH, view.h)
+  elseif self.list:action(name, data, self.app.ctx.tuning.ui.scrollWheelStep) then
     self:layout()
   end
   return true
@@ -255,8 +242,8 @@ function Load:draw()
   end
   Text.draw(HELP, b.x + 12, b.y + HELP_Y, { size = "small", width = b.w - 24, color = dim })
   Text.draw("Loaded", right - COL.count - 6, self.view.y - 12, { size = "small", color = dim })
-  local v, scale = self.view, self.app.view.scale
-  love.graphics.setScissor(math.floor(v.x * scale), math.floor(v.y * scale), math.ceil(v.w * scale), math.ceil(v.h * scale))
+  local scale = self.app.view.scale
+  self.list:begin(scale)
   for _, row in ipairs(self.rows) do
     local res = row.res
     Panel.icon(Panel.resourceIcon(res.id), b.x + 12, row.y + 5)
@@ -275,21 +262,11 @@ function Load:draw()
     })
   end
   self.rowButtons:draw()
-  love.graphics.setScissor()
+  self.list:finish()
   if #self.rows == 0 then
     Text.draw("Nothing to sell in stock yet.", b.x + 12, self.view.y + 4, { size = "small", color = dim })
   end
-  if self.overflow then
-    local above, below = Scroll.hidden(self.scroll, self.contentH, v.h)
-    local parts = {}
-    if above > 0 then
-      parts[#parts + 1] = "^ more above"
-    end
-    if below > 0 then
-      parts[#parts + 1] = "v more below"
-    end
-    Text.draw("Drag or scroll: " .. table.concat(parts, ", "), v.x + 12, v.y + v.h + 2, { size = "small", color = dim })
-  end
+  self.list:drawCue(self.app.ctx.tuning.ui)
   Text.draw(self:footerText(), b.x + 12, b.y + b.h - 6 - self.footH + 4, { size = "small", width = b.w - 24, color = dim })
   self.buttons:draw()
 end
