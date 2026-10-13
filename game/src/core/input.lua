@@ -55,6 +55,12 @@ function Input:activity(px, py)
   self.lastActivity = love.timer.getTime()
 end
 
+--- Stop the idle clock for `dt` seconds (game time stands still in town, D78): the idle seconds stay
+--- where they were.
+function Input:holdIdle(dt)
+  self.lastActivity = math.min(love.timer.getTime(), self.lastActivity + dt)
+end
+
 --- Seconds since the player last gave any input.
 function Input:idleSeconds()
   return love.timer.getTime() - self.lastActivity

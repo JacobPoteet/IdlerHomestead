@@ -7,6 +7,7 @@ local Ledger = require("src.sim.systems.ledger")
 local Power = require("src.sim.systems.power")
 local Buttons = require("src.ui.buttons")
 local Panel = require("src.ui.panel")
+local Scroll = require("src.ui.scroll")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
@@ -23,6 +24,7 @@ end
 
 function PowerPanel:enter()
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
+  self.rowButtons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
 end
 
 function PowerPanel:resize(view)
@@ -107,7 +109,7 @@ function PowerPanel:layout()
     selected = lends,
     onPress = function()
       Power.setTruckLends(world, not Power.truckLends(world))
-      self:layout()
+      self:changed()
     end,
   })
   y = y + ROW_H + 8
@@ -145,7 +147,7 @@ function PowerPanel:layout()
       enabled = n > 1,
       onPress = function()
         Power.moveTier(world, id, -1)
-        self:layout()
+        self:changed()
       end,
     })
     self.buttons:add({
@@ -157,82 +159,123 @@ function PowerPanel:layout()
       enabled = n < #order,
       onPress = function()
         Power.moveTier(world, id, 1)
-        self:layout()
+        self:changed()
       end,
     })
     y = y + ROW_H
   end
 
-  -- Sources and devices ---------------------------------------------------------------------
-  local ry = wide and (b.y + 38) or (y + 8)
+
+  -- Sources and devices: one scrolling list (D76, #82). Rows are laid out from the top of the list
+  -- minus the scroll offset; only rows in view get buttons, and they answer only inside the window.
+  local ui = self.app.ctx.tuning.ui
   local bottom = b.y + b.h - 8
-  text(rightX, ry, "Sources", theme.colors.textDim)
-  ry = ry + 12
+  local top = wide and (b.y + 38) or (y + 8)
+  local rows = {}
+  local function row(r)
+    rows[#rows + 1] = r
+  end
+  row({ kind = "head", label = "Sources", h = 12 })
   local sources = Power.sourceList(world)
   if #sources == 0 then
-    text(rightX + 4, ry + 2, "None", theme.colors.textDim)
-    ry = ry + 14
+    row({ kind = "none", label = "None", h = 14 })
   end
   for _, src in ipairs(sources) do
-    if ry + ROW_H > bottom then
-      text(rightX + 4, ry, "...", theme.colors.textDim)
-      break
-    end
-    local generator = src.curve == "fuel"
-    local detail
-    if generator then
-      local fuel = Ledger.get(world, "fuel")
-      detail = src.output > 0 and string.format("%.1f kW", src.output) or string.format("fuel %d", fuel)
-    else
-      detail = string.format("%.1f / %g kW", src.output, src.peak)
-    end
-    text(rightX + 4, ry + 8, src.name, theme.colors.text)
-    text(rightX + colW - (generator and 118 or 70), ry + 8, detail, src.output > 0 and GREEN or theme.colors.textDim)
-    if generator then
-      self.buttons:add({
-        x = rightX + colW - 54,
-        y = ry,
-        w = 52,
-        h = ROW_H,
-        label = src.enabled and "Auto" or "Off",
-        selected = src.enabled,
-        onPress = function()
-          Power.setEnabled(world, src.anchor, not Power.isEnabled(world, src.anchor))
-          self:layout()
-        end,
-      })
-    end
-    ry = ry + ROW_H
+    row({ kind = "source", src = src, h = ROW_H })
   end
-  ry = ry + 6
-  text(rightX, ry, "Devices", theme.colors.textDim)
-  ry = ry + 12
+  row({ kind = "gap", h = 6 })
+  row({ kind = "head", label = "Devices", h = 12 })
   local sinks = Power.sinkList(world)
   if #sinks == 0 then
-    text(rightX + 4, ry + 2, "None placed yet", theme.colors.textDim)
+    row({ kind = "none", label = "None placed yet", h = 14 })
   end
-  for n, sink in ipairs(sinks) do
-    if ry + ROW_H > bottom then
-      text(rightX + 4, ry, string.format("+%d more", #sinks - n + 1), theme.colors.textDim)
-      break
+  for _, sink in ipairs(sinks) do
+    row({ kind = "sink", sink = sink, h = ROW_H })
+  end
+  local contentH = 0
+  for _, r in ipairs(rows) do
+    contentH = contentH + r.h
+  end
+  local viewH = math.max(ROW_H * 2, bottom - top)
+  self.overflow = Scroll.overflows(contentH, viewH)
+  if self.overflow then
+    viewH = math.max(ROW_H * 2, viewH - ui.scrollHintHeight)
+  end
+  self.contentH = contentH
+  self.view = { x = rightX - 4, y = top, w = colW + 8, h = viewH }
+  self.scroll = Scroll.clamp(self.scroll or 0, contentH, viewH)
+  self.rowButtons:clear()
+  self.listItems = {}
+  local function ltext(x, ty, str, color)
+    self.listItems[#self.listItems + 1] = { kind = "text", x = x, y = ty, str = str, color = color, size = "small" }
+  end
+  -- Row content stops short of the scroll thumb at the list's right edge.
+  local right = rightX + colW - (self.overflow and (ui.scrollBarWidth + 4) or 0)
+  local ry = top - self.scroll
+  for _, r in ipairs(rows) do
+    if ry + r.h > top and ry < top + viewH then
+      if r.kind == "head" then
+        ltext(rightX, ry, r.label, theme.colors.textDim)
+      elseif r.kind == "none" then
+        ltext(rightX + 4, ry + 2, r.label, theme.colors.textDim)
+      elseif r.kind == "source" then
+        local src = r.src
+        local generator = src.curve == "fuel"
+        local detail
+        if generator then
+          local fuel = Ledger.get(world, "fuel")
+          detail = src.output > 0 and string.format("%.1f kW", src.output) or string.format("fuel %d", fuel)
+        else
+          detail = string.format("%.1f / %g kW", src.output, src.peak)
+        end
+        ltext(rightX + 4, ry + 8, src.name, theme.colors.text)
+        ltext(right - (generator and 118 or 70), ry + 8, detail, src.output > 0 and GREEN or theme.colors.textDim)
+        if generator then
+          self.rowButtons:add({
+            x = right - 54,
+            y = ry,
+            w = 52,
+            h = ROW_H,
+            label = src.enabled and "Auto" or "Off",
+            selected = src.enabled,
+            onPress = function()
+              Power.setEnabled(world, src.anchor, not Power.isEnabled(world, src.anchor))
+              self:changed()
+            end,
+          })
+        end
+      elseif r.kind == "sink" then
+        local sink = r.sink
+        ltext(rightX + 4, ry + 3, sink.name, theme.colors.text)
+        ltext(rightX + 4, ry + 13, string.format("%s  %.2g kW", Power.tierName(world, sink.tier), sink.draw), theme.colors.textDim)
+        ltext(right - 112, ry + 8, stateText(sink), stateColor(sink.state))
+        self.rowButtons:add({
+          x = right - 54,
+          y = ry,
+          w = 52,
+          h = ROW_H,
+          label = sink.enabled and "On" or "Off",
+          selected = sink.enabled,
+          onPress = function()
+            Power.setEnabled(world, sink.anchor, not Power.isEnabled(world, sink.anchor))
+            self:changed()
+          end,
+        })
+      end
     end
-    text(rightX + 4, ry + 3, sink.name, theme.colors.text)
-    text(rightX + 4, ry + 13, string.format("%s  %.2g kW", Power.tierName(world, sink.tier), sink.draw), theme.colors.textDim)
-    text(rightX + colW - 112, ry + 8, stateText(sink), stateColor(sink.state))
-    self.buttons:add({
-      x = rightX + colW - 54,
-      y = ry,
-      w = 52,
-      h = ROW_H,
-      label = sink.enabled and "On" or "Off",
-      selected = sink.enabled,
-      onPress = function()
-        Power.setEnabled(world, sink.anchor, not Power.isEnabled(world, sink.anchor))
-        self:layout()
-      end,
-    })
-    ry = ry + ROW_H
+    ry = ry + r.h
   end
+end
+
+--- The player changed a switch or the priorities: rebuild the network numbers now (so a paused game
+--- shows the effect) and redraw.
+function PowerPanel:changed()
+  Power.refresh(self.world)
+  self:layout()
+end
+
+local function inside(r, x, y)
+  return x >= r.x and x < r.x + r.w and y >= r.y and y < r.y + r.h
 end
 
 function PowerPanel:update(dt)
@@ -244,33 +287,91 @@ function PowerPanel:update(dt)
 end
 
 function PowerPanel:action(name, data)
-  if not self.buttons:action(name, data) and name == "cancel" then
+  if self.buttons:action(name, data) then
+    return true
+  end
+  local view = self.view
+  if name == "press" or name == "select" or name == "hover" then
+    -- Row buttons only answer inside the list's window: a half-scrolled row must not reach out of it.
+    if inside(view, data.x, data.y) and self.rowButtons:action(name, data) then
+      return true
+    end
+  elseif name == "release" then
+    self.rowButtons:action(name, data)
+  elseif name == "cancel" then
     self.app:pop()
+  elseif name == "pan" and self.overflow then
+    self.scroll = Scroll.byDrag(self.scroll, data.dy, self.contentH, view.h) -- the list follows the finger
+    self:layout()
+  elseif name == "zoom" and self.overflow then
+    local step = self.app.ctx.tuning.ui.scrollWheelStep
+    self.scroll = Scroll.byWheel(self.scroll, data.steps, step, self.contentH, view.h)
+    self:layout()
   end
   return true
+end
+
+local function drawItem(item)
+  if item.kind == "text" then
+    Text.draw(item.str, item.x, item.y, { size = item.size, color = item.color })
+  else
+    love.graphics.setColor(theme.colors.background)
+    love.graphics.rectangle("fill", item.x, item.y, item.w, 8, 2, 2)
+    love.graphics.setColor(item.color)
+    local fill = (item.w - 2) * math.min(1, item.frac)
+    if fill >= 1 then
+      love.graphics.rectangle("fill", item.x + 1, item.y + 1, fill, 6, 2, 2)
+    end
+    if item.mark then
+      love.graphics.setColor(theme.colors.accent)
+      love.graphics.rectangle("fill", item.x + item.w * item.mark, item.y - 2, 1, 12)
+    end
+  end
 end
 
 function PowerPanel:draw()
   local b = self.box
   Panel.frame(self.app.view, b, "Power", "Priority decides who gets power when it is short.")
   for _, item in ipairs(self.items) do
-    if item.kind == "text" then
-      Text.draw(item.str, item.x, item.y, { size = item.size, color = item.color })
-    else
-      love.graphics.setColor(theme.colors.background)
-      love.graphics.rectangle("fill", item.x, item.y, item.w, 8, 2, 2)
-      love.graphics.setColor(item.color)
-      local fill = (item.w - 2) * math.min(1, item.frac)
-      if fill >= 1 then
-        love.graphics.rectangle("fill", item.x + 1, item.y + 1, fill, 6, 2, 2)
-      end
-      if item.mark then
-        love.graphics.setColor(theme.colors.accent)
-        love.graphics.rectangle("fill", item.x + item.w * item.mark, item.y - 2, 1, 12)
-      end
-    end
+    drawItem(item)
   end
   self.buttons:draw()
+  -- The sources and devices list is clipped to its window (scissor works in screen pixels).
+  local v, scale = self.view, self.app.view.scale
+  love.graphics.setScissor(math.floor(v.x * scale), math.floor(v.y * scale), math.ceil(v.w * scale), math.ceil(v.h * scale))
+  for _, item in ipairs(self.listItems) do
+    drawItem(item)
+  end
+  self.rowButtons:draw()
+  love.graphics.setScissor()
+  if self.overflow then
+    self:drawScrollCue()
+  end
+end
+
+--- The scroll cues: a thumb down the right edge of the list and a hint line under it.
+function PowerPanel:drawScrollCue()
+  local v, ui = self.view, self.app.ctx.tuning.ui
+  local at, h = Scroll.thumb(self.scroll, self.contentH, v.h, v.h, ui.scrollHintHeight)
+  local barW = ui.scrollBarWidth
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.rectangle("fill", v.x + v.w - barW - 2, v.y, barW, v.h, 1, 1)
+  love.graphics.setColor(theme.colors.accent)
+  love.graphics.rectangle("fill", v.x + v.w - barW - 2, v.y + at, barW, h, 1, 1)
+  local above, below = Scroll.hidden(self.scroll, self.contentH, v.h)
+  local parts = {}
+  if above > 0 then
+    parts[#parts + 1] = "^ more above"
+  end
+  if below > 0 then
+    parts[#parts + 1] = "v more below"
+  end
+  Text.draw(
+    "Drag or scroll: " .. table.concat(parts, ", "),
+    v.x + 4,
+    v.y + v.h + 2,
+    { size = "small", color = theme.colors.textDim }
+  )
 end
 
 return PowerPanel

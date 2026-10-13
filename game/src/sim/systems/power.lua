@@ -423,7 +423,8 @@ end
 -- The tick ------------------------------------------------------------------------------------
 
 -- Fill batteries of one class (vehicle or home) from `avail` kW. Returns kW used.
-local function chargeBatteries(world, banks, vehicle, avail, hours)
+-- `commit` false solves without changing any stored charge (the on-demand refresh, Power.refresh).
+local function chargeBatteries(world, banks, vehicle, avail, hours, flow, commit)
   local used = 0
   local s = state(world)
   for _, anchor in ipairs(banks) do
@@ -433,8 +434,10 @@ local function chargeBatteries(world, banks, vehicle, avail, hours)
       local eff = def.efficiency or 1
       local power = math.min(avail - used, room / (hours * eff), def.maxRate or math.huge)
       if power > 0 then
-        s.charge[anchor] = (s.charge[anchor] or 0) + power * hours * eff
-        s.flow.rates[anchor] = (s.flow.rates[anchor] or 0) + power * eff
+        if commit then
+          s.charge[anchor] = (s.charge[anchor] or 0) + power * hours * eff
+        end
+        flow.rates[anchor] = (flow.rates[anchor] or 0) + power * eff
         used = used + power
       end
     end
@@ -457,7 +460,7 @@ local function dischargeLimit(world, anchor, hours)
 end
 
 -- Draw up to `need` kW from batteries, home bank first. Returns kW delivered.
-local function dischargeBatteries(world, banks, need, hours)
+local function dischargeBatteries(world, banks, need, hours, flow, commit)
   local s = state(world)
   local got = 0
   for pass = 1, 2 do
@@ -466,8 +469,10 @@ local function dischargeBatteries(world, banks, need, hours)
       if need - got > 0 and vehicle == (pass == 2) then
         local power = math.min(need - got, dischargeLimit(world, anchor, hours))
         if power > 0 then
-          s.charge[anchor] = s.charge[anchor] - power * hours
-          s.flow.rates[anchor] = (s.flow.rates[anchor] or 0) - power
+          if commit then
+            s.charge[anchor] = s.charge[anchor] - power * hours
+          end
+          flow.rates[anchor] = (flow.rates[anchor] or 0) - power
           got = got + power
         end
       end
@@ -478,22 +483,27 @@ end
 
 -- Run generators for up to `need` kW (fuel permitting). `left` tracks each generator's spare kW
 -- this tick. Returns kW delivered.
-local function runGenerators(world, gens, left, need, hours)
+local function runGenerators(world, gens, left, need, hours, flow, commit, spent)
   local s = state(world)
   local got = 0
   for _, anchor in ipairs(gens) do
     local src = defAt(world, anchor).source
     if need - got > 0 and Power.isEnabled(world, anchor) and left[anchor] > 0 then
-      local fuelUnits = s.tank + Ledger.get(world, src.fuel)
+      -- A refresh burns nothing, so it tracks the fuel earlier generators would have used in `spent`.
+      local fuelUnits = s.tank + Ledger.get(world, src.fuel) - (commit and 0 or spent.fuel)
       local power = math.min(need - got, left[anchor], fuelUnits / (src.fuelPerKwh * hours))
       if power > 0 then
         local burn = power * hours * src.fuelPerKwh
-        while s.tank < burn and Ledger.remove(world, src.fuel, 1, "generator") do
-          s.tank = s.tank + 1
+        if commit then
+          while s.tank < burn and Ledger.remove(world, src.fuel, 1, "generator") do
+            s.tank = s.tank + 1
+          end
+          s.tank = math.max(0, s.tank - burn)
+        else
+          spent.fuel = spent.fuel + burn
         end
-        s.tank = math.max(0, s.tank - burn)
         left[anchor] = left[anchor] - power
-        s.flow.sources[anchor] = (s.flow.sources[anchor] or 0) + power
+        flow.sources[anchor] = (flow.sources[anchor] or 0) + power
         got = got + power
       end
     end
@@ -503,16 +513,21 @@ end
 
 local scratchTiers = {}
 
-function Power.tick(world, dt)
+-- One solve of the network over `hours`. With `commit` it is the real tick (batteries, fuel, wind,
+-- held satisfaction, warmth and announcements all change); without, it only rebuilds state.flow, so
+-- the panel can show the effect of a player change while the game is paused (Power.refresh).
+local function solve(world, hours, commit)
   local s, cfg = state(world), world.tuning.power
-  local hours = dt / Calendar.hourLength(world)
   local now = Calendar.now(world)
   local env = Weather.powerInputs(world)
-  updateWind(world, hours, now)
+  if commit then
+    updateWind(world, hours, now)
+  end
   local sources, sinks, banks = scan(world)
 
   local flow = emptyFlow()
   s.flow = flow
+  local spent = { fuel = 0 }
 
   -- Generation from the weather-driven sources; generators wait until they are needed.
   local gens, left = {}, {}
@@ -564,7 +579,7 @@ function Power.tick(world, dt)
       tier.direct = math.min(avail, tier.demand)
       avail = avail - tier.direct
     elseif rawget(cfg.chargeTiers, id) ~= nil then -- a charge tier (the strict table errors on other ids)
-      local used = chargeBatteries(world, banks, rawget(cfg.chargeTiers, id), avail, hours)
+      local used = chargeBatteries(world, banks, rawget(cfg.chargeTiers, id), avail, hours, flow, commit)
       tier.charging = used
       avail = avail - used
       flow.charging = flow.charging + used
@@ -578,9 +593,9 @@ function Power.tick(world, dt)
     tier.served = tier.direct
     local need = tier.demand - tier.direct
     if need > cfg.overdrawEpsilon then
-      local fromBattery = dischargeBatteries(world, banks, need, hours)
+      local fromBattery = dischargeBatteries(world, banks, need, hours, flow, commit)
       flow.discharging = flow.discharging + fromBattery
-      local fromGenerator = runGenerators(world, gens, left, need - fromBattery, hours)
+      local fromGenerator = runGenerators(world, gens, left, need - fromBattery, hours, flow, commit, spent)
       generated = generated + fromGenerator
       tier.served = tier.direct + fromBattery + fromGenerator
     end
@@ -602,15 +617,22 @@ function Power.tick(world, dt)
     flow.sinks[anchor] = { demand = want, ratio = ratio }
     local target = want > 0 and ratio or 0
     local held = s.held[anchor] or 0
-    held = sink.inertia and (held + (target - held) * math.min(1, hours / sink.inertia)) or target
-    s.held[anchor] = held
+    if commit then
+      held = sink.inertia and (held + (target - held) * math.min(1, hours / sink.inertia)) or target
+      s.held[anchor] = held
+    end
     for name, amount in pairs(sink.effects or {}) do
       if name == "warmthPerKwh" then
-        s.warmth = s.warmth + want * ratio * hours * amount
+        if commit then
+          s.warmth = s.warmth + want * ratio * hours * amount
+        end
       else
         flow.effects[name] = (flow.effects[name] or 0) + amount * held
       end
     end
+  end
+  if not commit then
+    return
   end
 
   -- Announcements: a tier served less than it wants (once a day), a battery filling up.
@@ -630,6 +652,18 @@ function Power.tick(world, dt)
       s.full[anchor] = nil
     end
   end
+end
+
+function Power.tick(world, dt)
+  solve(world, dt / Calendar.hourLength(world), true)
+end
+
+--- Rebuild the network numbers (state.flow) for the current switches and priorities without
+--- advancing anything: no charge moves, no fuel burns, nothing is announced. The power panel calls it
+--- after the player flips a device or reorders the list, so a paused game shows the new picture.
+--- The numbers are the same ones the next tick would compute for a very short step.
+function Power.refresh(world)
+  solve(world, world.tuning.power.refreshHours, false)
 end
 
 return Power

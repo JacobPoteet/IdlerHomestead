@@ -1028,7 +1028,8 @@ function Homestead:layoutControls(view)
     y = y + b.h + ui.buttonGap
   end
   addCol(speedLabel, {
-    style = self.session:speed() == 0 and "accent" or nil,
+    style = self.session:effectiveSpeed() == 0 and "accent" or nil,
+    enabled = not self.session:inTown(), -- the speed waits for the drive home (D78)
     onPress = function()
       self:cycleSpeed()
     end,
@@ -1099,6 +1100,15 @@ function Homestead:update(dt)
   self.session:update(dt) -- (also ends a hand-started routine at bedtime)
   local idle = self.session:routineForced() or ctx.input:idleSeconds() >= self:takeoverDelay()
   self.session:setControl(idle and "idle" or "active")
+  if self.session:inTown() then
+    -- Time stands still in town (D78): the takeover countdown waits too, so the routine does not
+    -- grab the homesteader the moment the truck is back.
+    ctx.input:holdIdle(dt)
+    if self.app:top() == self and not Finds.pending(self.world) then
+      -- A save written in town loads paused in town: the town menu comes back (it is the only way home).
+      self:openPanel("truck")
+    end
+  end
   if self.failed then
     -- Condition hit zero: the run is over (GDD §4.3). Record it, then search & rescue.
     local slot, data = self.session.slot, self.session.data
@@ -1221,6 +1231,13 @@ function Homestead:tap(i)
     else
       self:applyPlan(self.planStart, i)
       self.planStart = nil
+      -- One plan per selection (D77, #192): back to the normal hand with the seed kept, so the next tap
+      -- walks or acts. Holding Shift on a keyboard keeps the tool on for several plans.
+      local keep = love.keyboard and love.keyboard.isDown("lshift", "rshift")
+      if not keep then
+        self.mode = "act"
+        self:layout()
+      end
     end
     return
   end
@@ -1727,7 +1744,7 @@ function Homestead:badgeText()
   local b = self.app.ctx.tuning.ui.badges
   if Actors.homesteader(self.world).asleep then
     return b.asleep, theme.colors.textDim
-  elseif self.session:speed() == 0 then
+  elseif self.session:effectiveSpeed() == 0 then -- also true in town (D78)
     return b.paused, theme.colors.accent
   elseif self.world.control == "idle" then
     return b.running, theme.colors.accent

@@ -293,6 +293,13 @@ function Truck:draw()
       })
     end
     Text.draw(string.format("Total $%d", total), b.x + 12, b.y + b.h - 50, { size = "small", color = theme.colors.accent })
+    -- A trip costs no game time (D78): the clock waits while the town menu is open.
+    Text.draw("Game time is paused while you are in town.", b.x + 12, b.y + b.h - 50, {
+      size = "small",
+      width = b.w - 24,
+      align = "right",
+      color = theme.colors.textDim,
+    })
     Text.draw("Shop", b.x + b.w / 2 + 6, b.y + 38, { size = "small", color = theme.colors.textDim })
     if (self.shopMore or 0) > 0 then
       Text.draw(string.format("Drag or scroll: %d more", self.shopMore), b.x + b.w / 2 + 6, b.y + b.h - 14, {

@@ -53,6 +53,9 @@ end
 --- Step to the next value in `steps` after the current one (wrapping); a current value that isn't in
 --- the list restarts from the first. Returns the new scale.
 function Session:cycleSpeed(steps)
+  if self:inTown() then
+    return self.clock.timeScale -- time stands still in town (D78); the chosen speed waits for the drive home
+  end
   local current = self.clock.timeScale
   local nextScale = steps[1]
   for i, s in ipairs(steps) do
@@ -119,10 +122,19 @@ function Session:skippingNight()
   return self.skipping == true and self:sleeping()
 end
 
+--- Is the player on a town trip (the town menu is open)? Game time stands still meanwhile (D78).
+function Session:inTown()
+  return self.world.state.market.inTown == true
+end
+
 --- The sim speed actually applied: the player's speed, raised automatically while asleep (D56).
---- A pause stays a pause. Sleep speed never lowers a speed the player chose above it.
+--- A pause stays a pause. Sleep speed never lowers a speed the player chose above it. In town it is
+--- 0 whatever was chosen (D78): the chosen speed is untouched, so it is back on the drive home.
 function Session:effectiveSpeed()
   local chosen = self.clock.timeScale
+  if self:inTown() then
+    return 0
+  end
   if chosen == 0 or not self:sleeping() then
     return chosen
   end
