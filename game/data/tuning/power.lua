@@ -36,5 +36,6 @@ return {
   refreshHours = 1 / 60, -- in-game hours of the step Power.refresh solves for (battery rate limits are scaled by it); a minute, close to one tick
   overdrawEpsilon = 0.0001, -- kW below which a shortfall counts as none (rounding)
   fullFraction = 0.99, -- battery charge fraction counted as full for the "power.full" event
+  pickupChargeWarn = 0.05, -- kWh a battery must hold before picking it up asks first (the stored charge is lost in the inventory, D98)
   refullFraction = 0.9, -- battery charge fraction it must drop below before it can announce full again
 }

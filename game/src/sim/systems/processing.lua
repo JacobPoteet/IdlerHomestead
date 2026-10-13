@@ -104,6 +104,12 @@ function Processing.discard(world, anchor)
   return batch.count
 end
 
+--- Carry the batch of the station at `from` to the station now at `to` (it was moved, D98).
+function Processing.relocate(world, from, to)
+  local batches = world.state.processing
+  batches[to], batches[from] = batches[from], nil
+end
+
 function Processing.init(world)
   world.state.processing = world.state.processing or {}
   Tasks.register(world, {

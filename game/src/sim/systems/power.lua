@@ -223,6 +223,22 @@ function Power.add(world, anchor, amount)
   return stored
 end
 
+--- Forget everything the network holds for the object at `anchor` (it was picked up, D98).
+function Power.forget(world, anchor)
+  local s = state(world)
+  s.charge[anchor], s.off[anchor], s.held[anchor], s.full[anchor], s.requests[anchor] = nil, nil, nil, nil, nil
+end
+
+--- Carry what the network holds for the object at `from` (charge, switched-off, smoothed satisfaction) to
+--- `to`, where it was moved (D98). Nothing is left at `from`.
+function Power.relocate(world, from, to)
+  local s = state(world)
+  for _, key in ipairs({ "charge", "off", "held", "full" }) do
+    s[key][to], s[key][from] = s[key][from], nil
+  end
+  s.requests[from] = nil
+end
+
 --- Charge and capacity (kWh) of the home batteries (everything but the truck): { charge, capacity }.
 function Power.bank(world)
   local charge, capacity = 0, 0

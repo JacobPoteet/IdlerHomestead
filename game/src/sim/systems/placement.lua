@@ -9,7 +9,11 @@
 -- goes up (no refund; D86), so cancelling an order never destroys anything. Orders run in the order
 -- they were made.
 --
--- State: world.state.placement = { orders = { { object = objectId, tile = anchorIndex, why? } ... } }
+-- Pick up and move (D98, #15) live here too: `Placement.pickUp` returns a placed object to the inventory and
+-- `Placement.requestMove` relocates one, through the same orders when the new spot needs clearing.
+--
+-- State: world.state.placement = { orders = { { object = objectId, tile = anchorIndex, from? = anchor of the
+--   placed object being moved there, why? } ... } }
 --   why: nil, or { kind = "full", resource = id } (a store has no room for the clearing),
 --        { kind = "unreachable" } or { kind = "blocked" } (no spot to stand or step aside to).
 -- Emits "placement.queued" { object, tile }, "placement.held" { object, tile, kind, resource? },
@@ -19,6 +23,10 @@ local Actors = require("src.sim.systems.actors")
 local Crops = require("src.sim.systems.crops")
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
+local Ledger = require("src.sim.systems.ledger")
+local Power = require("src.sim.systems.power")
+local Processing = require("src.sim.systems.processing")
+local Shelter = require("src.sim.systems.shelter")
 local Sleep = require("src.sim.systems.sleep")
 local Tasks = require("src.sim.systems.tasks")
 
@@ -60,7 +68,7 @@ end
 function Placement.available(world, id)
   local n = Inventory.objectCount(world, id)
   for _, order in ipairs(orders(world)) do
-    if order.object == id then
+    if order.object == id and not order.from then -- a move carries its own object, not one from the inventory
       n = n - 1
     end
   end
@@ -70,9 +78,14 @@ end
 --- What the order would do: the Inventory.check result plus `available` (an item is free to use) and, when
 --- another queued order already covers part of the footprint, ok = false with reason "claimed".
 --- `queue` is true when the spot is legal but needs clearing or removing first.
-function Placement.preview(world, id, i)
-  local result = Inventory.check(world, id, i)
-  result.available = Placement.available(world, id) > 0
+--- `from`: the anchor of a placed object being moved (D98); its own footprint counts as free and it needs no
+--- item in the inventory. Moving it onto its own anchor is refused (reason "here").
+function Placement.preview(world, id, i, from)
+  local result = Inventory.check(world, id, i, nil, from)
+  result.available = from ~= nil or Placement.available(world, id) > 0
+  if from and result.ok and i == from then
+    result.ok, result.immediate, result.reason = false, false, "here"
+  end
   result.queue = result.ok and not result.immediate
   return result
 end
@@ -113,6 +126,237 @@ function Placement.request(world, id, i)
   orders(world)[#orders(world) + 1] = { object = id, tile = i }
   world.events:emit("placement.queued", { object = id, tile = i })
   return "queued"
+end
+
+-- Pick up and move (D98, #15) -----------------------------------------------------------------------------
+
+local function placedDef(world, anchor)
+  local obj = world.state.grid.objects[anchor]
+  return obj and world.registry:get("objects", obj.id), obj
+end
+
+-- Does the homesteader sleep in (or walk to) this shelter? Sleep goes to the best shelter (D82).
+local function sleepsIn(world, anchor, def)
+  local hs = Actors.homesteader(world)
+  return def.shelter == true and Sleep.resting(hs) and Shelter.best(world) == anchor
+end
+
+--- Rules shared by pick up and move: { ok = true } or { ok = false, reason }, where reason is "none" (nothing
+--- there), "fixed" (not a player-placed object: the truck) or "asleep" (the homesteader is in this bed).
+function Placement.moveCheck(world, anchor)
+  local def = placedDef(world, anchor)
+  if not def then
+    return { ok = false, reason = "none" }
+  end
+  if not def.placeable then
+    return { ok = false, reason = "fixed" }
+  end
+  if sleepsIn(world, anchor, def) then
+    return { ok = false, reason = "asleep" }
+  end
+  return { ok = true }
+end
+
+--- Can the object at `anchor` go back to the inventory? Returns { ok = true, warn? } or { ok = false, reason,
+--- resource?, name? }: the shared reasons of `moveCheck`, "batch" (a station is working: its inputs are
+--- already in the pot) or "storage" (what the object stores would no longer fit: `resource`, with `animal` set
+--- when the resource is livestock housed here). `warn` is what the pick-up would throw away, for a confirmation:
+--- { kind = "charge", kwh } (a battery), { kind = "output", resource, count } (a finished batch waiting for room).
+function Placement.pickUpCheck(world, anchor)
+  local shared = Placement.moveCheck(world, anchor)
+  if not shared.ok then
+    return shared
+  end
+  local def = placedDef(world, anchor)
+  local result = { ok = true }
+  if def.station then
+    local batch = Processing.batch(world, anchor)
+    if batch and not batch.blocked then
+      return { ok = false, reason = "batch" }
+    elseif batch then
+      result.warn = { kind = "output", resource = world.registry:get("recipes", batch.recipe).output, count = batch.count }
+    end
+  end
+  local res = {}
+  for id in pairs(def.storage or {}) do
+    res[#res + 1] = id
+  end
+  table.sort(res)
+  for _, id in ipairs(res) do
+    if Ledger.get(world, id) > Ledger.capacity(world, id) - def.storage[id] then
+      local kind = world.registry:get("resources", id)
+      return { ok = false, reason = "storage", resource = id, animal = kind.category == "animal" }
+    end
+  end
+  if def.battery and not def.vehicle then
+    local kwh = Power.charge(world, anchor)
+    if kwh >= world.tuning.power.pickupChargeWarn then
+      result.warn = { kind = "charge", kwh = kwh }
+    end
+  end
+  return result
+end
+
+-- Orders that move the object at `anchor`.
+local function dropMoves(world, anchor, reason)
+  local list = orders(world)
+  for index = #list, 1, -1 do
+    if list[index].from == anchor then
+      local order = table.remove(list, index)
+      Crops.hold(world, footprint(world, order), false)
+      if reason then
+        world.events:emit("placement.cancelled", { object = order.object, tile = order.tile, reason = reason })
+      end
+    end
+  end
+end
+
+-- Let go of any job the homesteader holds or has been ordered to on the object's tiles.
+local function dropJobsOn(world, tiles)
+  local on = {}
+  for _, t in ipairs(tiles) do
+    on[t] = true
+  end
+  for _, actor in ipairs(Actors.list(world)) do
+    if actor.job and on[actor.job.target] and actor.job.task ~= "move" then
+      Tasks.release(world, actor.job)
+      actor.job = nil
+    end
+    if actor.order and on[actor.order.target] and actor.order.task ~= "move" then
+      actor.order = nil
+    end
+  end
+end
+
+-- Tilled soil under an object goes back to farming as it was (Crops.restoreTilled).
+local function giveBackSoil(world, obj)
+  local tiles = {}
+  for t in pairs(obj.tilled or {}) do
+    tiles[#tiles + 1] = t
+  end
+  table.sort(tiles)
+  for _, t in ipairs(tiles) do
+    Crops.restoreTilled(world, t)
+  end
+end
+
+-- Take the object off the ground (the caller has checked the rules): soil back, jobs on it dropped.
+-- Returns the saved object record.
+local function lift(world, anchor)
+  local def, obj = placedDef(world, anchor)
+  local x, y = Grid.coords(world.state.grid, anchor)
+  dropJobsOn(world, Grid.footprintTiles(world.state.grid, def, x, y))
+  giveBackSoil(world, obj)
+  Grid.removeObject(world, anchor)
+  return obj
+end
+
+--- Put the object at `anchor` back in the inventory (instant: placing on clear ground is too). Returns true, or
+--- nil plus the `pickUpCheck` result when refused. A finished batch waiting in a station is discarded (the UI
+--- asks first); a battery's charge is lost; tilled soil it covered is tilled again, everything else is grass.
+--- Emits "object.pickedup" { object, tile } (and "processing.discarded" for a waiting batch).
+function Placement.pickUp(world, anchor)
+  local check = Placement.pickUpCheck(world, anchor)
+  if not check.ok then
+    return nil, check
+  end
+  local id = world.state.grid.objects[anchor].id
+  dropMoves(world, anchor, "pickedup")
+  if check.warn and check.warn.kind == "output" then
+    Processing.discard(world, anchor)
+  end
+  lift(world, anchor)
+  Power.forget(world, anchor)
+  Inventory.addObject(world, id)
+  Inventory.refreshStorage(world)
+  Power.refresh(world) -- the network is whatever is left
+  world.events:emit("object.pickedup", { object = id, tile = anchor })
+  return true
+end
+
+-- Set the object at `from` down at `to` in one step (the footprint there is clear). Keeps its state: the
+-- battery's charge and switch, a station's batch, the record's other fields; a machine starts a fresh unit.
+local function relocate(world, from, to)
+  local grid = world.state.grid
+  local id = grid.objects[from].id
+  local def = world.registry:get("objects", id)
+  local fx, fy = Grid.coords(grid, from)
+  local oldTiles = Grid.footprintTiles(grid, def, fx, fy)
+  local obj = lift(world, from)
+  if not Inventory.canPlace(world, id, to) then
+    -- (A tile the object left is open ground, so this fails only when the new spot is not clear after all.)
+    Grid.placeObject(world, id, fx, fy)
+    local was
+    for _, t in ipairs(oldTiles) do
+      if Crops.cover(world, t, "placement") then
+        was = was or {}
+        was[t] = true
+      end
+    end
+    grid.objects[from] = obj
+    obj.tilled = was
+    return false
+  end
+  local tx, ty = Grid.coords(grid, to)
+  local newTiles = Grid.footprintTiles(grid, def, tx, ty)
+  Grid.placeObject(world, id, tx, ty)
+  local was
+  for _, t in ipairs(newTiles) do
+    if Crops.cover(world, t, "placement") then
+      was = was or {}
+      was[t] = true
+    end
+  end
+  for key, value in pairs(obj) do
+    if key ~= "tilled" then
+      grid.objects[to][key] = value
+    end
+  end
+  grid.objects[to].tilled = was
+  Power.relocate(world, from, to)
+  Processing.relocate(world, from, to)
+  Inventory.refreshStorage(world)
+  Power.refresh(world)
+  world.events:emit("object.moved", { object = id, from = from, tile = to })
+  return true
+end
+
+--- Start moving the object at `anchor` to tile `i` (its top-left): the spot is checked like any placement
+--- (`Placement.preview(world, id, i, anchor)`), the object goes at once when the way is clear and otherwise a
+--- move order is queued behind the clearing (crops and plans go last, D86). Until the move happens the object
+--- stays where it is and keeps working; cancelling the order leaves it there. Returns "placed", "queued", or
+--- nil plus the reason it was refused (the `moveCheck` reasons, or an `Inventory.check` reason and rule).
+function Placement.requestMove(world, anchor, i)
+  local shared = Placement.moveCheck(world, anchor)
+  if not shared.ok then
+    return nil, shared.reason
+  end
+  local id = world.state.grid.objects[anchor].id
+  local result = Placement.preview(world, id, i, anchor)
+  if not result.ok then
+    return nil, result.reason, result.rule
+  end
+  dropMoves(world, anchor, "replaced") -- one move at a time per object
+  if result.immediate then
+    if relocate(world, anchor, i) then
+      return "placed"
+    end
+    return nil, "blocked"
+  end
+  Crops.hold(world, result.tiles, true)
+  orders(world)[#orders(world) + 1] = { object = id, tile = i, from = anchor }
+  world.events:emit("placement.queued", { object = id, tile = i, from = anchor })
+  return "queued"
+end
+
+--- The move order for the object at `anchor`, or nil.
+function Placement.moveFrom(world, anchor)
+  for _, order in ipairs(orders(world)) do
+    if order.from == anchor then
+      return order
+    end
+  end
+  return nil
 end
 
 local function drop(world, index, reason)
@@ -213,27 +457,42 @@ function Placement.tick(world)
   local index = 1
   while index <= #list do
     local order = list[index]
-    used[order.object] = (used[order.object] or 0) + 1
     local tiles = footprint(world, order)
-    local check = Inventory.check(world, order.object, order.tile, true)
-    if used[order.object] > Inventory.objectCount(world, order.object) then
+    local from = order.from
+    local check = Inventory.check(world, order.object, order.tile, true, from)
+    local gone
+    if from then
+      local placed = world.state.grid.objects[from]
+      gone = not placed or placed.id ~= order.object -- the object being moved is no longer there
+    else
+      used[order.object] = (used[order.object] or 0) + 1
+      gone = used[order.object] > Inventory.objectCount(world, order.object)
+    end
+    if gone then
       drop(world, index, "item")
     elseif not check.ok then
       drop(world, index, check.reason) -- something that can't be cleared now stands there
     else
-      if #check.clear == 0 and (#check.crops > 0 or check.plans > 0) then
-        -- Everything else is clear: the crops and plans go now, the last step before the building (D86).
-        -- Tilled soil stays until it is down.
+      if #check.clear == 0 and not check.actor and (#check.crops > 0 or check.plans > 0) then
+        -- Everything else is clear and nobody stands in the way: the crops and plans go now, the last step
+        -- before the building, in the tick it goes up (D86). Waiting for the homesteader to step aside
+        -- first means a cancel in that window still loses nothing (#227). Tilled soil stays until it is down.
         for _, t in ipairs(tiles) do
           Crops.cover(world, t, "placement", true)
         end
-        check = Inventory.check(world, order.object, order.tile, true)
+        check = Inventory.check(world, order.object, order.tile, true, from)
       end
       if check.immediate then
         Crops.hold(world, tiles, false) -- Inventory.place reads a held tile as another order's
-        if Inventory.place(world, order.object, order.tile) then
+        local done
+        if from then
+          done = relocate(world, from, order.tile)
+        else
+          done = Inventory.place(world, order.object, order.tile)
+        end
+        if done then
           table.remove(list, index)
-          world.events:emit("placement.done", { object = order.object, tile = order.tile })
+          world.events:emit("placement.done", { object = order.object, tile = order.tile, from = from })
         else
           Crops.hold(world, tiles, true)
           index = index + 1

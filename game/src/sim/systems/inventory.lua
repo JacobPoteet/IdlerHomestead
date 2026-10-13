@@ -111,7 +111,9 @@ end
 --- (Objects with `placeNear = "water"`, like micro-hydro, must also touch a water tile;
 --- `placeOn = "waterTable"`, like wells and pumps, needs a tile with a high enough water table;
 --- `placeNear = "road"`, the roadside stand, must touch the road without covering it.)
-function Inventory.check(world, id, i, ignoreHeld)
+---
+--- `ignoreAnchor`: an object whose footprint counts as free ground (the object being moved, D98).
+function Inventory.check(world, id, i, ignoreHeld, ignoreAnchor)
   local grid = world.state.grid
   local def = world.registry:get("objects", id)
   local x, y = Grid.coords(grid, i)
@@ -131,7 +133,7 @@ function Inventory.check(world, id, i, ignoreHeld)
       return result
     end
     local anchor = world.occupancy[t]
-    if anchor and not seen[anchor] then
+    if anchor and anchor ~= ignoreAnchor and not seen[anchor] then
       seen[anchor] = true
       local other = Grid.object(world, t)
       if not clearable(other) then
@@ -168,8 +170,7 @@ function Inventory.check(world, id, i, ignoreHeld)
       result.tilled = result.tilled + 1
     end
     if def.blocks then
-      for _, actor in ipairs(Actors.list(world)) do
-        if Grid.index(grid, math.floor(actor.x + 0.5), math.floor(actor.y + 0.5)) == t then
+      for _, actor in ipairs(Actors.list(world)) do        if Grid.index(grid, math.floor(actor.x + 0.5), math.floor(actor.y + 0.5)) == t then
           result.actor = true
         end
       end

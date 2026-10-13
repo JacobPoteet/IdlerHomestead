@@ -73,6 +73,7 @@ return {
     tools = "Tools",
     more = "More",
     place = "Place",
+    moving = "Moving",
     tripReady = "ready", -- added to the truck charge chip while a trip to town is possible
   },
   captions = { -- one line saying what the tool in hand does on the next tap (D72, #168); %s is the seed or object name
@@ -84,6 +85,7 @@ return {
     planClear = "Plan field: tap two corners to clear a plan (double-tap Plan to keep on)",
     planKept = "Plan kept on: tap two corners; tap Plan to stop", -- the Plan latch is on (D94, #205); the caption is the same for a seed or a clear
     place = "Placing %s: tap where it goes",
+    moving = "Moving %s: tap where it goes (tap Moving to cancel)", -- D98, #15
   },
   badges = { -- the routine badge above the toolbar (D72, #168); %d is seconds
     asleep = "Sleeping",
@@ -117,7 +119,28 @@ return {
     done = "Built the %s",
     lostItem = "The %s order was dropped",
     noUntill = "Only tilled soil without a crop can be untilled",
+    moveTitle = "Move %s here?", -- move preview/confirmation card (D98, #15)
+    moveOrderTitle = "Waiting to move: %s",
+    moveSteps = "The homesteader clears the way, then the %s moves. It stays where it is until then.",
+    moveStart = "Tap where the %s should go. It stays put until then",
+    moveOrdered = "Ordered: the homesteader clears the way, then the %s moves",
+    moved = "Moved the %s",
+    pickedUp = "Picked up the %s: place it from the toolbar",
+    pickUp = "Pick up", -- object card buttons
+    move = "Move",
+    pickConfirmTitle = "Pick up the %s?",
+    pickConfirmCharge = "Its %.1f kWh of stored charge is lost.",
+    pickConfirmOutput = "The %d %s waiting in it are thrown away.",
+    pickConfirmLabel = "Pick up",
+    pickReasons = { -- why a pick up or move is refused, by Placement.pickUpCheck reason
+      fixed = "That can't be picked up",
+      asleep = "The homesteader is sleeping there: wait for morning",
+      batch = "Its batch is still running: wait for it to finish",
+      storage = "It holds %s that would not fit without it: use some first",
+      animals = "The %s live there and no other building has room for them",
+    },
     reasons = { -- why a spot is refused, by Inventory.check reason (or rule)
+      here = "It is already there",
       bounds = "Can't place it there",
       terrain = "Roads and water are off limits",
       object = "Something that can't be cleared is in the way",

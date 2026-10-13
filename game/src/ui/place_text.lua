@@ -35,9 +35,35 @@ function PlaceText.reason(world, reason, rule)
   return r[rule or reason] or r[reason] or r.bounds
 end
 
+--- Why the object can't be picked up or moved (a Placement.pickUpCheck / moveCheck result with ok = false).
+function PlaceText.pickUpRefusal(world, check)
+  local r = world.tuning.ui.placement.pickReasons
+  if check.reason == "storage" then
+    local res = world.registry:get("resources", check.resource)
+    if check.animal then
+      return string.format(r.animals, res.name:lower() .. "s")
+    end
+    return string.format(r.storage, res.name:lower())
+  end
+  return r[check.reason] or r.fixed
+end
+
+--- The confirmation for picking up something that holds something (check.warn): { title, text }.
+function PlaceText.pickUpConfirm(world, anchor, warn)
+  local p = world.tuning.ui.placement
+  local name = world.registry:get("objects", world.state.grid.objects[anchor].id).name:lower()
+  local text
+  if warn.kind == "charge" then
+    text = string.format(p.pickConfirmCharge, warn.kwh)
+  else
+    text = string.format(p.pickConfirmOutput, warn.count, world.registry:get("resources", warn.resource).name:lower())
+  end
+  return { title = string.format(p.pickConfirmTitle, name), text = text }
+end
+
 --- The confirmation card for a preview that needs clearing or removing: { title, lines = { { text, color } } }.
---- `colors` = { text, dim, warn } come from the caller's theme.
-function PlaceText.confirm(world, objectId, preview, colors)
+--- `colors` = { text, dim, warn } come from the caller's theme. `moving`: the object is being moved (D98).
+function PlaceText.confirm(world, objectId, preview, colors, moving)
   local p = world.tuning.ui.placement
   local name = world.registry:get("objects", objectId).name:lower()
   local lines = {}
@@ -69,9 +95,9 @@ function PlaceText.confirm(world, objectId, preview, colors)
     lines[#lines + 1] = { text = string.format(p.full, world.registry:get("resources", full).name:lower()), color = colors.warn }
   end
   if #preview.clear > 0 then
-    lines[#lines + 1] = { text = string.format(p.steps, name), color = colors.dim }
+    lines[#lines + 1] = { text = string.format(moving and p.moveSteps or p.steps, name), color = colors.dim }
   end
-  return { title = string.format(p.title, name), lines = lines }
+  return { title = string.format(moving and p.moveTitle or p.title, name), lines = lines }
 end
 
 --- The card for a queued order: { title, lines }.
@@ -79,7 +105,7 @@ function PlaceText.order(world, order, colors)
   local p = world.tuning.ui.placement
   local def = world.registry:get("objects", order.object)
   local lines = {}
-  local check = Inventory.check(world, order.object, order.tile, true)
+  local check = Inventory.check(world, order.object, order.tile, true, order.from)
   if #check.clear > 0 then
     lines[#lines + 1] = { text = string.format(p.orderClearing, countNames(world, check.clear)), color = colors.text }
   else
@@ -97,7 +123,7 @@ function PlaceText.order(world, order, colors)
     end
     lines[#lines + 1] = { text = text, color = colors.warn }
   end
-  return { title = string.format(p.orderTitle, def.name), lines = lines }
+  return { title = string.format(order.from and p.moveOrderTitle or p.orderTitle, def.name), lines = lines }
 end
 
 return PlaceText
