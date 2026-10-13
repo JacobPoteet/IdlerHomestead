@@ -15,6 +15,7 @@ return {
   "spoilage",
   "water",
   "clearing",
+  "placement", -- D79: orders to build over trees, rocks and crops; hands the homesteader its clearing jobs
   "fishing",
   "processing",
   "firewood",

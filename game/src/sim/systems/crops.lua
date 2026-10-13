@@ -30,7 +30,7 @@ end
 function Crops.setPlan(world, i, cropId)
   if cropId then
     world.registry:get("crops", cropId)
-    if not Grid.terrain(world, i).tillable then
+    if not Grid.terrain(world, i).tillable or world.state.fields.held[i] then
       return false
     end
   end
@@ -47,6 +47,49 @@ end
 function Crops.tileInUse(world, i)
   local state = world.state
   return state.fields.tilled[i] == true or state.fields.plan[i] ~= nil or state.crops[i] ~= nil
+end
+
+--- What the farm holds on tile i: { tilled, plan = cropId|nil, crop = cropId|nil, mature, held }.
+--- The placement preview (D79) reads it to say what a building would remove.
+function Crops.tileStatus(world, i)
+  local fields, crop = world.state.fields, world.state.crops[i]
+  return {
+    tilled = fields.tilled[i] == true,
+    plan = fields.plan[i],
+    crop = crop and crop.id or nil,
+    mature = crop ~= nil and Crops.isMature(crop),
+    held = fields.held[i] == true,
+  }
+end
+
+--- Hold (or release) tiles for a queued placement (D79): a held tile takes no new plan, tilling or
+--- planting, so the routine cannot grow something where a building is about to go.
+function Crops.hold(world, tiles, held)
+  for _, i in ipairs(tiles) do
+    world.state.fields.held[i] = held and true or nil
+  end
+end
+
+--- Take tile i out of farming for a building (D79): the crop, the plan and the tilled flag go (no
+--- refund; the seed is not returned). Returns whether the tile was tilled, so a later pick-up (#15) can
+--- give the soil back as it was. Emits "crop.removed" { crop, tile, mature, cause } for a crop lost.
+function Crops.cover(world, i, cause, keepTilled)
+  local fields, crop = world.state.fields, world.state.crops[i]
+  local wasTilled = fields.tilled[i] == true
+  if crop then
+    world.state.crops[i] = nil
+    world.events:emit("crop.removed", { crop = crop.id, tile = i, mature = Crops.isMature(crop), cause = cause })
+  end
+  fields.plan[i] = nil
+  if not keepTilled then
+    fields.tilled[i] = nil
+  end
+  return wasTilled
+end
+
+--- Give tile i back to farming as tilled soil (the reverse of cover, for picking a building up, #15).
+function Crops.restoreTilled(world, i)
+  world.state.fields.tilled[i] = true
 end
 
 --- Is any tile planned, tilled or growing a crop? (A planned layout of any kind means the player
@@ -75,6 +118,7 @@ local function starterTiles(world, count)
       and not world.occupancy[i]
       and not fields.tilled[i]
       and not fields.plan[i]
+      and not fields.held[i]
       and not world.state.crops[i]
     then
       local nearest = #water > 0 and math.huge or 0
@@ -303,7 +347,7 @@ local function registerTasks(world)
       if Weather.isFrozen(w) then
         return false
       end
-      return fields.tilled[i] == true and not w.state.crops[i] and hasSeed(w, cropFor(w, i, order))
+      return fields.tilled[i] == true and not w.state.crops[i] and not fields.held[i] and hasSeed(w, cropFor(w, i, order))
     end,
     workTime = function(w)
       return w.tuning.farming.plantTime
@@ -327,11 +371,11 @@ local function registerTasks(world)
     clickOrder = 50,
     candidates = function(w, _, add)
       eachPlanned(w, add, function(i)
-        return not fields.tilled[i] and not w.occupancy[i]
+        return not fields.tilled[i] and not w.occupancy[i] and not fields.held[i]
       end)
     end,
     canDo = function(w, _, i, order)
-      if fields.tilled[i] or w.occupancy[i] or not Grid.terrain(w, i).tillable then
+      if fields.tilled[i] or w.occupancy[i] or fields.held[i] or not Grid.terrain(w, i).tillable then
         return false
       end
       -- Player taps on open grass till it for the selected seed; the routine only tills planned tiles.
@@ -345,6 +389,43 @@ local function registerTasks(world)
       if not fields.plan[i] and order and order.crop then
         fields.plan[i] = order.crop
       end
+    end,
+  })
+
+  -- Untill (D79): tilled soil goes back to grass. The player's Untill tool orders it on any tilled tile
+  -- without a crop and the tile drops its plan; the idle routine only untills tilled tiles that nobody
+  -- planned (leftovers of a cleared plan), and only when tuning.farming.routineUntill is on.
+  Tasks.register(world, {
+    id = "untill",
+    category = "plant",
+    verb = "Untill",
+    clickOrder = 5, -- ahead of plant and till, so the tool in hand wins on a tilled tile
+    candidates = function(w, _, add)
+      if not w.tuning.farming.routineUntill then
+        return
+      end
+      for i in pairs(fields.tilled) do
+        if not fields.plan[i] and not w.state.crops[i] and not fields.held[i] and not w.occupancy[i] then
+          add(i)
+        end
+      end
+    end,
+    canDo = function(w, _, i, order)
+      if not fields.tilled[i] or w.state.crops[i] or w.occupancy[i] then
+        return false
+      end
+      if order then
+        return order.tool == "untill"
+      end
+      return w.tuning.farming.routineUntill and not fields.plan[i] and not fields.held[i]
+    end,
+    workTime = function(w)
+      return w.tuning.farming.untillTime
+    end,
+    complete = function(w, _, i)
+      fields.tilled[i] = nil
+      fields.plan[i] = nil
+      w.events:emit("field.untilled", { tile = i })
     end,
   })
 end
@@ -417,7 +498,8 @@ end
 
 function Crops.init(world)
   local state = world.state
-  state.fields = state.fields or { tilled = {}, plan = {} }
+  state.fields = state.fields or { tilled = {}, plan = {}, held = {} }
+  state.fields.held = state.fields.held or {} -- tiles a queued placement keeps free of farming (D79)
   state.crops = state.crops or {}
   registerTasks(world)
   world.events:on("weather.froze", function()
