@@ -199,6 +199,8 @@ jobs:
         with:
           fetch-depth: 1
           submodules: recursive
+      - name: Stamp build version
+        run: bash tools/stamp_version.sh "${{ github.ref_type == 'tag' && github.ref_name || '' }}"
       - name: Get product environment variables
         uses: ./.github/actions/get-env
         with:
@@ -249,6 +251,8 @@ jobs:
         with:
           fetch-depth: 1
           submodules: recursive
+      - name: Stamp build version
+        run: bash tools/stamp_version.sh "${{ github.ref_type == 'tag' && github.ref_name || '' }}"
       - name: Get product environment variables
         uses: ./.github/actions/get-env
         with:
@@ -323,6 +327,8 @@ jobs:
         with:
           fetch-depth: 1
           submodules: recursive
+      - name: Stamp build version
+        run: bash tools/stamp_version.sh "${{ github.ref_type == 'tag' && github.ref_name || '' }}"
       - name: Get product environment variables
         uses: ./.github/actions/get-env
         with:
@@ -430,6 +436,8 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Stamp build version
+        run: bash tools/stamp_version.sh "${{ github.ref_type == 'tag' && github.ref_name || '' }}"
       - name: Get product environment variables
         uses: ./.github/actions/get-env
         with:
@@ -482,6 +490,8 @@ jobs:
         with:
           fetch-depth: 1
           submodules: recursive
+      - name: Stamp build version
+        run: bash tools/stamp_version.sh "${{ github.ref_type == 'tag' && github.ref_name || '' }}"
       - name: Get product environment variables
         uses: ./.github/actions/get-env
         with:
@@ -602,6 +612,8 @@ jobs:
         with:
           fetch-depth: 1
           submodules: recursive
+      - name: Stamp build version
+        run: bash tools/stamp_version.sh "${{ github.ref_type == 'tag' && github.ref_name || '' }}"
       - name: Get product environment variables
         uses: ./.github/actions/get-env
         with:
@@ -673,6 +685,8 @@ jobs:
         with:
           fetch-depth: 1
           submodules: recursive
+      - name: Stamp build version
+        run: bash tools/stamp_version.sh "${{ github.ref_type == 'tag' && github.ref_name || '' }}"
       - name: Get product environment variables
         uses: ./.github/actions/get-env
         with:

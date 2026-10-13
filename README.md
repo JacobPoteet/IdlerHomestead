@@ -31,3 +31,7 @@ Run from the repo root. In VS Code: *Tasks: Run Test Task*. Tests live in `tests
 ## Building
 
 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> builds a date-stamped `.love` file into `builds/`. Pushing to GitHub runs the multi-platform CI build; configure targets in [game/product.env](game/product.env).
+
+### Build label
+
+The title screen shows the build tag and short commit hash (D91). Source runs read them from `.git`; packaged builds read `game/src/core/version_stamp.lua`, which the release workflow generates with `tools/stamp_version.sh` (gitignored). Run that script by hand to stamp a local build; `tools/stamp_version.sh --clear` removes it.
