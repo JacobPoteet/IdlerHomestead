@@ -3,22 +3,26 @@
 --   more perishable food comes first.
 -- Shelf lives (how long fresh food keeps) are tuning: data/tuning/food.lua `shelfLife` (D73). value: base sale price in $.
 -- keepsForWinter: fresh food that keeps well enough to count toward the winter stock (potatoes).
--- autoSell: non-food goods that go to the sell crate by default.
+-- Anything with a value can be sold: stock above its keep target (D75, data/tuning/food.lua) is
+-- surplus for the roadside stand and the truck load. Wood and fuel are kept for the winter by default.
 -- heat: warmth per unit when burned (GDD §4.2); seasoned wood burns hotter than green.
 -- capacity: storage limit until storage buildings (woodshed) raise it.
 return {
   { id = "money", name = "Money", category = "currency" },
-  { id = "wood", name = "Wood", category = "material", value = 1 },
-  { id = "stone", name = "Stone", category = "material" },
-  { id = "scrap", name = "Scrap", category = "material", value = 2, autoSell = true },
+  -- D75 (#195): raw materials sell cheap, a lifeline for a broke player rather than an income: a full
+  -- truck of wood (40 units) is $40, about two radish harvests.
+  { id = "wood", name = "Wood", category = "material", value = 1 }, -- $ per log
+  { id = "stone", name = "Stone", category = "material", value = 1 }, -- $ per unit (cleared rocks have no other use yet)
+  { id = "scrap", name = "Scrap", category = "material", value = 2 }, -- $ per unit of junk metal
 
   { id = "seed_radish", name = "Radish seeds", category = "seed" },
   { id = "seed_potato", name = "Seed potatoes", category = "seed" },
   { id = "bait", name = "Bait", category = "supply" },
 
-  -- Fuel (GDD §4.2, §5.3): split wood is green; a woodshed seasons it.
-  { id = "firewood", name = "Green firewood", category = "firewood", heat = 0.5, capacity = 30 },
-  { id = "seasoned_firewood", name = "Seasoned firewood", category = "fuel", heat = 1, capacity = 20 },
+  -- Fuel (GDD §4.2, §5.3): split wood is green; a woodshed seasons it. Sellable (D75) at the price of
+  -- the wood it came from, seasoned at twice that for the time it took; kept for winter by default.
+  { id = "firewood", name = "Green firewood", category = "firewood", heat = 0.5, capacity = 30, value = 1 },
+  { id = "seasoned_firewood", name = "Seasoned firewood", category = "fuel", heat = 1, capacity = 20, value = 2 },
 
   -- Stored water (GDD §5.3): pumped into cisterns, drawn by buckets and drip lines. Capacity comes
   -- only from cisterns (`storage` in objects.lua), so a pump with no cistern has nowhere to put it.

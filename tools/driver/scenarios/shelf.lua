@@ -5,7 +5,6 @@
 -- is added and aged through the sim API.
 local Save = require("src.core.save")
 local serialize = require("src.core.serialize")
-local Food = require("src.sim.systems.food")
 local Ledger = require("src.sim.systems.ledger")
 local Spoilage = require("src.sim.systems.spoilage")
 
@@ -49,7 +48,6 @@ return function(d)
   Spoilage.ageStock(world, "egg", 9)
   Ledger.add(world, "potato", 8)
   Ledger.add(world, "sunfish", 2)
-  Food.sort(world)
   d:frames(5)
   d:shot("hud_no_warning") -- nothing rots tonight: no red chip
   d:press("Pantry")

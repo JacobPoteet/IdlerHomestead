@@ -163,7 +163,7 @@ return {
     pump = { rate = 5 },
   },
   -- Roadside stand (GDD §6.4). `placeNear = "road"`: beside the road, never on it. `stand`: sells
-  -- from the sell crate each day; see tuning.stand and src/sim/systems/stand.lua.
+  -- spare goods (above their keep targets, D75) each day; see tuning.stand and src/sim/systems/stand.lua.
   {
     id = "roadside_stand",
     name = "Roadside stand",

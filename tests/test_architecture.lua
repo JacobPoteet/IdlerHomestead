@@ -41,7 +41,7 @@ end)
 
 -- Systems must not reach into each other's state (CLAUDE.md: "They never reach into another
 -- system's internals"). Each top-level key of `world.state` is owned by one system file; anything
--- else goes through that system's accessor functions (Food.crateOf, Crops.tileInUse, Land.truck ...).
+-- else goes through that system's accessor functions (Food.surplus, Crops.tileInUse, Land.truck ...).
 -- The grid is the one genuinely shared structure (every system reads terrain and objects through
 -- it), as are world.lua's own bookkeeping keys, so those are allow-listed. A key not listed here
 -- (such as a nested field read through a local alias, `local state = world.state.food`) is ignored,

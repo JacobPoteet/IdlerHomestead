@@ -3,14 +3,14 @@
 -- in plain words) is built by src/ui/chip_text.lua from the same accessors the chip reads.
 --   name: card title. unit: what the number counts. about: one line saying what the chip is.
 --   raises / lowers: what pushes the number up or down. panel: the panel the shortcut button opens
---   ("pantry" | "power" | "catalog" | "truck"), panelLabel its button text; both absent = no shortcut.
+--   ("pantry" | "power" | "catalog" | "truck" | "load"), panelLabel its button text; both absent = no shortcut.
 return {
   {
     id = "money",
     name = "Money",
     unit = "dollars ($)",
     about = "Cash for the Catalog and the truck's shop.",
-    raises = "Sell the crate in town, sell junk and roadside stand goods.",
+    raises = "Sell the truck load in town, junk you clear, roadside stand sales.",
     lowers = "Ordering from the Catalog and buying in town.",
     panel = "catalog",
     panelLabel = "Open Catalog",
@@ -46,14 +46,14 @@ return {
     panelLabel = "Open Power",
   },
   {
-    id = "crate",
-    name = "Sell crate",
-    unit = "units of goods set aside to sell",
-    about = "Goods waiting in the truck's crate for the next trip to town.",
-    raises = "Harvest and catch more than you need, junk you clear, goods the pantry sends to the crate.",
-    lowers = "Selling the crate in town, or taking goods back out in the Pantry.",
-    panel = "pantry",
-    panelLabel = "Open Pantry",
+    id = "surplus",
+    name = "Spare goods",
+    unit = "units of goods above what you keep",
+    about = "Stock above its keep target (set in the Pantry): what the roadside stand and the truck can sell.",
+    raises = "Harvest, catch and gather more than you keep, or lower a keep target in the Pantry.",
+    lowers = "Selling at the stand or in town, eating, spoiling, or raising a keep target.",
+    panel = "load",
+    panelLabel = "Load the truck",
   },
   {
     id = "wood",

@@ -67,7 +67,7 @@ function SpoilText.slowing(world)
   if slow.preserves.dairy then
     parts[#parts + 1] = "Press milk into cheese: cheese keeps."
   end
-  parts[#parts + 1] = "Pantry or sell crate makes no difference."
+  parts[#parts + 1] = "Kept, spare or loaded on the truck makes no difference."
   return table.concat(parts, " ")
 end
 

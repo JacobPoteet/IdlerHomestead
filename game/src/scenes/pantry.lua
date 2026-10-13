@@ -1,5 +1,7 @@
--- Pantry & food rules (GDD §6.2): how many days to keep, how much to preserve for winter, and
--- per-item pins. Everything else goes in the sell crate for the next truck trip.
+-- Pantry: keep targets (GDD §6.2, D75). Every good that can be eaten, burned or sold has one keep
+-- number; stock above it is spare, which the roadside stand and the truck load sell. Targets start
+-- automatic (Food.keeps); - and + set your own, Auto goes back. A Stand/Truck toggle keeps a good's
+-- spare away from the stand (D62).
 -- Perishables show how long they keep and when their oldest batch spoils, with a warning when
 -- something will rot tonight (D68, D73); a footer says what slows it.
 
@@ -16,11 +18,28 @@ local theme = require("src.ui.theme")
 local Pantry = { name = "pantry" }
 Pantry.__index = Pantry
 
-local LIST_TOP = 108 -- virtual pixels from the panel top to the first row of goods
-local ROW_H = 22
+local ROW_H = 26 -- a row clears the smallest touch target (tuning.input.minTouchTarget) with a gap
 local NOTE_H = 10 -- extra height under a perishable's row for its spoilage line
-local PIN_LABELS = { [false] = "Auto", keep = "Keep", preserve = "Preserve", sell = "Sell" }
-local PIN_CYCLE = { [false] = "keep", keep = "preserve", preserve = "sell", sell = false }
+-- Columns, measured from the panel's right edge.
+local COL = {
+  stand = 66, -- Stand/Truck toggle (54 wide)
+  plus = 96,
+  minus = 122,
+  auto = 160, -- Auto button (34 wide)
+  keep = 196, -- keep number
+  spare = 228, -- spare number
+}
+
+-- What Auto keeps, in words, from the same tuning Food.keeps reads.
+local function helpText(world)
+  local cfg = world.tuning.food
+  return string.format(
+    "Auto keeps %d days of fresh food, %d days for winter and fuel to the end of winter. "
+      .. "Set your own with - and +; Auto goes back. Spare goods sell at the stand or on the truck.",
+    cfg.defaultPantryDays,
+    cfg.defaultWinterDays
+  )
+end
 
 function Pantry.new(world)
   return setmetatable({ world = world }, Pantry)
@@ -30,12 +49,12 @@ function Pantry:enter()
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
 end
 
--- Goods worth showing: in stock and edible or sellable. Perishables come first so their spoilage
--- lines are never the ones cut off when the panel is short.
+-- Goods worth showing: in stock and edible, burnable or sellable. Perishables come first so their
+-- spoilage lines are never the ones cut off when the panel is short.
 function Pantry:goods()
   local fresh, rest = {}, {}
   for _, res in ipairs(self.world.registry:all("resources")) do
-    if Ledger.get(self.world, res.id) > 0 and (res.calories or res.value) then
+    if Ledger.get(self.world, res.id) > 0 and (res.calories or res.value or res.heat) then
       local list = Spoilage.perishable(self.world, res.id) and fresh or rest
       list[#list + 1] = res
     end
@@ -72,9 +91,6 @@ function Pantry:footer()
   if #tonight.list > 0 then
     lines[#lines + 1] = { text = SpoilText.slowing(world), color = theme.colors.textDim }
   end
-  if Food.pantryAuto(world) then
-    lines[#lines + 1] = { text = "Auto pantry: fresh food stays only as long as it keeps. The rest is for sale.", color = theme.colors.textDim }
-  end
   local h = 0
   for _, line in ipairs(lines) do
     line.h = Text.wrappedHeight(line.text, "small", b.w - 24)
@@ -83,47 +99,19 @@ function Pantry:footer()
   return lines, h
 end
 
+-- Help text under the title, wrapped; the column headings sit under it.
+function Pantry:helpHeight()
+  return Text.wrappedHeight(helpText(self.world), "small", self.box.w - 24)
+end
+
 function Pantry:layout()
   local b, world = self.box, self.world
-  local food = world.state.food
+  local right = b.x + b.w
   self.buttons:clear()
   Panel.closeButton(self.buttons, b, function()
     self.app:pop()
   end)
-  local function stepper(y, get, set)
-    self.buttons:add({ x = b.x + b.w - 70, y = y, w = 26, h = 22, label = "-", onPress = function()
-      set(get() - 1)
-      self:layout()
-    end })
-    self.buttons:add({ x = b.x + b.w - 38, y = y, w = 26, h = 22, label = "+", onPress = function()
-      set(get() + 1)
-      self:layout()
-    end })
-  end
-  self.pantryY, self.winterY = b.y + 40, b.y + 66
-  stepper(self.pantryY, function()
-    return food.pantryDays
-  end, function(v)
-    Food.setDays(world, v, food.winterDays)
-  end)
-  stepper(self.winterY, function()
-    return food.winterDays
-  end, function(v)
-    Food.setDays(world, food.pantryDays, v)
-  end)
-  -- Automatic pantry (D68): perishables kept only as long as they keep. A stepper press turns it off.
-  self.buttons:add({
-    x = b.x + b.w - 70 - 58,
-    y = self.pantryY,
-    w = 54,
-    h = 22,
-    label = "Auto",
-    selected = Food.pantryAuto(world),
-    onPress = function()
-      Food.setPantryAuto(world, not Food.pantryAuto(world))
-      self:layout()
-    end,
-  })
+  self.headY = b.y + 40 + self:helpHeight() + 4
   -- The goods list scrolls (D70, #170): rows are laid out from the top of the list minus the scroll
   -- offset, only the ones in view get buttons, and the footer and hint line keep their places.
   self.rows = {}
@@ -132,11 +120,12 @@ function Pantry:layout()
   self.footerLines, self.footerH = self:footer()
   local ui = self.app.ctx.tuning.ui
   local goods = self:goods()
+  local keeps, autos = Food.keeps(world)
   local contentH = 0
   for _, res in ipairs(goods) do
     contentH = contentH + ROW_H + (Spoilage.info(world, res.id) and NOTE_H or 0)
   end
-  local top = b.y + LIST_TOP
+  local top = self.headY + 14
   local viewH = math.max(ROW_H, b.y + b.h - 6 - self.footerH - top)
   self.overflow = Scroll.overflows(contentH, viewH)
   if self.overflow then
@@ -150,17 +139,42 @@ function Pantry:layout()
     local info = Spoilage.info(world, res.id)
     local h = ROW_H + (info and NOTE_H or 0)
     if y + h > top and y < top + viewH then
-      self.rows[#self.rows + 1] = { res = res, y = y, info = info }
-      local pin = food.pins[res.id] or false
+      local keep, auto = keeps[res.id] or 0, autos[res.id] == true
+      local stock = Ledger.get(world, res.id)
+      local spare = res.value and math.max(0, stock - keep) or nil
+      self.rows[#self.rows + 1] = { res = res, y = y, info = info, keep = keep, auto = auto, spare = spare }
+      local by = y + 1
+      self.rowButtons:add({
+        x = right - COL.auto,
+        y = by,
+        w = 34,
+        h = ROW_H - 4,
+        label = "Auto",
+        size = "small",
+        selected = auto,
+        onPress = function()
+          Food.setKeep(world, res.id, nil)
+          self:layout()
+        end,
+      })
+      self.rowButtons:add({ x = right - COL.minus, y = by, w = 24, h = ROW_H - 4, label = "-", onPress = function()
+        Food.setKeep(world, res.id, keep - 1)
+        self:layout()
+      end })
+      self.rowButtons:add({ x = right - COL.plus, y = by, w = 24, h = ROW_H - 4, label = "+", onPress = function()
+        Food.setKeep(world, res.id, keep + 1)
+        self:layout()
+      end })
       if res.value then
-        -- "Not at the stand" pin (D62): a sellable good marked Truck stays in the crate for the truck.
+        -- "Not at the stand" pin (D62): a good marked Truck keeps its spare for the truck load.
         local truckOnly = Food.truckOnly(world, res.id)
         self.rowButtons:add({
-          x = b.x + b.w - 84 - 62,
-          y = y,
-          w = 58,
-          h = ROW_H - 2,
+          x = right - COL.stand,
+          y = by,
+          w = 54,
+          h = ROW_H - 4,
           label = truckOnly and "Truck" or "Stand",
+          size = "small",
           selected = truckOnly,
           onPress = function()
             Food.setTruckOnly(world, res.id, not truckOnly)
@@ -168,18 +182,6 @@ function Pantry:layout()
           end,
         })
       end
-      self.rowButtons:add({
-        x = b.x + b.w - 84,
-        y = y,
-        w = 72,
-        h = ROW_H - 2,
-        label = PIN_LABELS[pin],
-        selected = pin ~= false,
-        onPress = function()
-          Food.setPin(world, res.id, PIN_CYCLE[pin] or nil)
-          self:layout()
-        end,
-      })
     end
     y = y + h
   end
@@ -228,41 +230,52 @@ end
 
 function Pantry:draw()
   local b, world = self.box, self.world
-  local food = world.state.food
-  Panel.frame(self.app.view, b, "Pantry", "Keep food to eat, preserve for winter, sell the rest.")
-  local keepText = Food.pantryAuto(world) and "Keep up to %d days of food to eat" or "Keep %d days of food to eat"
-  Text.draw(string.format(keepText, food.pantryDays), b.x + 12, self.pantryY + 6, { size = "small" })
-  Text.draw(string.format("Preserve %d days for winter", food.winterDays), b.x + 12, self.winterY + 6, { size = "small" })
-  Text.draw("Stock", b.x + 12, b.y + 94, { size = "small", color = theme.colors.textDim })
-  Text.draw("For sale", b.x + 150, b.y + 94, { size = "small", color = theme.colors.textDim })
-  Text.draw("Sell at", b.x + b.w - 146, b.y + 94, { size = "small", color = theme.colors.textDim })
-  Text.draw("Rule", b.x + b.w - 84, b.y + 94, { size = "small", color = theme.colors.textDim })
+  local right = b.x + b.w
+  local dim = theme.colors.textDim
+  Panel.frame(self.app.view, b, "Pantry", "Keep what you need; the rest is spare to sell.")
+  Text.draw(helpText(world), b.x + 12, b.y + 40, { size = "small", width = b.w - 24, color = dim })
+  local hy = self.headY
+  Text.draw("Stock", b.x + 12, hy, { size = "small", color = dim })
+  Text.draw("Spare", right - COL.spare - 4, hy, { size = "small", color = dim })
+  Text.draw("Keep", right - COL.keep - 2, hy, { size = "small", color = dim })
+  Text.draw("Sell at", right - COL.stand + 8, hy, { size = "small", color = dim })
   -- The goods list is clipped to its window (scissor works in screen pixels, not virtual ones).
   local v, scale = self.view, self.app.view.scale
   love.graphics.setScissor(math.floor(v.x * scale), math.floor(v.y * scale), math.ceil(v.w * scale), math.ceil(v.h * scale))
   for _, row in ipairs(self.rows) do
     local res, info = row.res, row.info
     local warn = info and info.warn
-    Panel.icon(Panel.resourceIcon(res.id), b.x + 12, row.y + 4)
-    Text.draw(string.format("%s  x%d", res.name, Ledger.get(world, res.id)), b.x + 30, row.y + 5, { size = "small" })
-    local crate = food.crate[res.id]
-    if crate then
-      Text.draw(tostring(crate), b.x + 150, row.y + 5, { size = "small", color = theme.colors.accent })
+    local ty = row.y + 7
+    Panel.icon(Panel.resourceIcon(res.id), b.x + 12, row.y + 6)
+    Text.draw(string.format("%s  x%d", res.name, Ledger.get(world, res.id)), b.x + 28, ty, { size = "small" })
+    if row.spare then
+      Text.draw(tostring(row.spare), right - COL.spare, ty, {
+        size = "small",
+        width = 26,
+        align = "center",
+        color = row.spare > 0 and theme.colors.accent or dim,
+      })
     end
+    Text.draw(tostring(row.keep), right - COL.keep, ty, {
+      size = "small",
+      width = 30,
+      align = "center",
+      color = row.auto and theme.colors.text or theme.colors.accent,
+    })
     if info then
       -- The "!" keeps the warning readable without relying on colour.
       Text.draw(
         (warn and "! " or "") .. SpoilText.ageLine(info),
-        b.x + 30,
-        row.y + ROW_H - 2,
-        { size = "small", color = warn and theme.colors.danger or theme.colors.textDim }
+        b.x + 28,
+        row.y + ROW_H - 4,
+        { size = "small", color = warn and theme.colors.danger or dim }
       )
     end
   end
   self.rowButtons:draw()
   love.graphics.setScissor()
   if #self.rows == 0 then
-    Text.draw("Nothing in stock yet.", b.x + 12, b.y + LIST_TOP + 4, { size = "small", color = theme.colors.textDim })
+    Text.draw("Nothing in stock yet.", b.x + 12, self.view.y + 4, { size = "small", color = dim })
   end
   if self.overflow then
     self:drawScrollCue()

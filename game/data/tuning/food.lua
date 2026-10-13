@@ -1,14 +1,14 @@
--- Food rules: pantry, preserving, sell crate (GDD §6.2) and spoilage.
+-- Food: keep targets and surplus (GDD §6.2, D75) and spoilage.
 return {
-  defaultPantryDays = 3, -- days of food kept to eat before anything is preserved or sold
-  defaultWinterDays = 10, -- days of preserved food to aim for before selling preserved goods
-  maxPantryDays = 30, -- upper limit for the pantry slider
-  maxWinterDays = 120, -- upper limit for the winter stock slider
-  rulesInterval = 1, -- in-game hours between automatic pantry/crate sorting passes
+  -- D75 (#196): every sellable or edible good has a keep target; stock above it is surplus, which the
+  -- roadside stand and the truck load sell. These set the automatic (default) targets for food.
+  defaultPantryDays = 3, -- days of eating the automatic keep holds in fresh food
+  defaultWinterDays = 10, -- days of eating the automatic keep holds for winter (preserved food, potatoes, food waiting for the smoker)
+  maxKeep = 999, -- units; the highest keep target the Pantry stepper sets
   loadStationTime = 2, -- seconds of work to load a processing station (smoker)
-  -- D68 (#163): the automatic pantry keeps a perishable only as long as it will be eaten before it
-  -- spoils, so surplus goes to the sell crate instead of rotting in the pantry.
-  autoPantryHorizon = 0.5, -- fraction of a food's shelf life the automatic pantry may hold it (fish 2 d -> 1 d, radish 7 d -> 3.5 d)
+  -- D68 (#163): the automatic keep holds a perishable only as long as it will be eaten before it
+  -- spoils, so the rest is surplus for sale instead of rotting at home.
+  autoPantryHorizon = 0.5, -- fraction of a food's shelf life the automatic keep may hold it (fish 2 d -> 1 d, radish 7 d -> 3.5 d)
   -- D73 (#183): shelf lives. Every harvest, catch or collection is a batch with its own age; nothing
   -- in a batch spoils until it is older than its food's shelf life, then it rots (rotShare a night).
   -- A resource is perishable when it has an entry here (by id first, then by category); preserved

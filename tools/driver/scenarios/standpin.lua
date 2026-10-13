@@ -1,5 +1,5 @@
 -- The roadside stand's "not at the stand" pin (GDD D62, #106): in the Pantry each sellable good has
--- a Stand/Truck toggle; a good set to Truck waits in the crate for the truck.
+-- a Stand/Truck toggle; a good set to Truck keeps its spare for the truck load (D75).
 local Food = require("src.sim.systems.food")
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
@@ -26,8 +26,8 @@ return function(d)
   assert(Inventory.place(world, "roadside_stand", best))
   Ledger.add(world, "sunfish", 10)
   Ledger.add(world, "radish", 8)
-  Food.setPin(world, "sunfish", "sell")
-  Food.setPin(world, "radish", "sell")
+  Food.setKeep(world, "sunfish", 0)
+  Food.setKeep(world, "radish", 0)
 
   d:press("Pantry")
   d:frames(3)
@@ -43,7 +43,7 @@ return function(d)
   end
   assert(rowRadish, "no radish row")
   local box = scene.box
-  d:click(box.x + box.w - 84 - 62 + 29, rowRadish.y + 10)
+  d:click(box.x + box.w - 66 + 27, rowRadish.y + 12)
   d:frames(3)
   assert(Food.truckOnly(world, "radish"), "the pin did not take")
   d:shot("pantry_pinned")

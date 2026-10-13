@@ -61,7 +61,7 @@ return {
     id = "harvest",
     title = "First harvest",
     trigger = "crop.harvested",
-    text = "Food goes to the Pantry first, and the extra to the sell crate. Open the Pantry to see the rules.",
+    text = "The Pantry keeps what you need to eat. Anything above that is spare: the stand and the truck can sell it. Open the Pantry to change what you keep.",
   },
   {
     id = "spoil",
@@ -90,13 +90,13 @@ return {
     title = "The truck can drive",
     trigger = "market.tripReady",
     retire = { "market.trip" },
-    text = "The truck has enough charge for a trip. Tap the truck, choose Drive to town, and sell what is in the crate.",
+    text = "The truck has enough charge for a trip. Tap the truck, choose Load the truck (Auto-load fills it with spare goods), then Drive to town.",
   },
   {
     id = "town",
     title = "Town",
     trigger = "market.trip",
-    text = "Town buys what is in your sell crate. You can also buy animals and pickup-only items here.",
+    text = "Sell the load to turn what you brought into money; anything you did not load stayed home. You can also buy animals and pickup-only items here.",
   },
   {
     id = "autumn",

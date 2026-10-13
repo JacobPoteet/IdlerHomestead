@@ -1,49 +1,38 @@
--- Food rules & the sell crate (GDD §6.2).
+-- Keep targets and surplus (GDD §6.2, D75; replaces the sell crate of D31 and the rules of D38/D68).
 --
--- The crate is a reservation on ledger stock, not a separate store: crate[id] units are marked for
--- sale but stay in the ledger (still edible in a pinch, still spoiling). Selling removes them,
--- oldest batch first like everything else that takes stock (D73: ages live in spoilage.lua and
--- belong to the stock, so moving units between pantry and crate never changes them).
--- Rules, re-applied every tuning.food.rulesInterval in-game hours:
---   1. Preserved food fills the winter stock first: winterDays of eating.
---   2. Fresh food (has a shelf life) fills the pantry: pantryDays of eating.
---   3. Fresh food that keeps for winter (potatoes) tops up the winter stock.
---   4. Fresh food that a placed processor can preserve is held for preserving while the winter
---      stock is short.
---   5. Everything else that has a sale value goes in the crate (plus autoSell goods like scrap).
--- Per-item pins override: "keep" (never sell), "sell" (always sell), "preserve" (hold to preserve).
--- A separate "truck only" flag per item keeps it out of the roadside stand's daily sale (D62).
--- Automatic pantry (D68, #163): a new run's pantry holds a perishable only up to
--- tuning.food.autoPantryHorizon of its shelf life, so surplus goes to the crate instead of rotting.
--- Moving the "keep N days" stepper turns the automatic mode off (the number then means what it
--- always did); saves from before D68 have no flag and keep their manual rule.
+-- Every good that can be eaten or sold has one **keep target**: the units the homestead holds on to.
+-- Stock above it is **surplus**, which is what the roadside stand and the truck load sell. Nothing is
+-- moved or reserved here: keep and surplus are numbers read against the ledger, so ages (D73) and
+-- storage holds (D59) belong to the stock as before.
 --
--- State: world.state.food = { pantryDays, winterDays, pantryAuto, pins = { [id] = pin },
---                             truckOnly = { [id] = true }, crate = { [id] = n }, nextSort,
+-- A target is either set by the player in the Pantry (state.food.keep[id], units) or automatic,
+-- worked out from the stock every time it is asked for:
+--   Food   pantry days of eating (tuning.food.defaultPantryDays) in fresh food, each perishable held
+--          only for autoPantryHorizon of its shelf life (D68); winter days (defaultWinterDays) in
+--          preserved food first, then fresh food that keeps for winter (potatoes), then fresh food a
+--          placed processor can preserve (held for the smoker while the winter stock is short).
+--   Fuel   the warmth from tonight to the end of the coming winter (during a winter, the next one
+--          too), cautious where the forecast is silent (Readiness.warmthAhead), hottest fuel first.
+--   Wood   all of it (tuning.firewood.splitFrom): the woodpile is next year's firewood.
+--   Other  0 (scrap, stone: all surplus).
+-- Food and fuel the player set by hand count first, so automatic targets fill only what is left.
+-- A per-good "truck only" flag keeps a good away from the roadside stand (D62).
+--
+-- State: world.state.food = { keep = { [id] = units }, truckOnly = { [id] = true },
 --                             lastLoss = { day, lost = { { resource, amount }... }, total }?,
 --                             report = (same shape)? -- last night's spoilage until the UI has said it }
 -- Meta: world.meta.spoilExplained once the first-spoil explanation has been shown (D68, #151).
 
 local Calendar = require("src.sim.systems.calendar")
 local Ledger = require("src.sim.systems.ledger")
+local Needs = require("src.sim.systems.needs")
+local Readiness = require("src.sim.systems.readiness")
 local Spoilage = require("src.sim.systems.spoilage")
 
 local Food = {}
 
-Food.PINS = { "keep", "preserve", "sell" }
-
 function Food.init(world)
-  local cfg = world.tuning.food
-  world.state.food = world.state.food
-    or {
-      pantryDays = cfg.defaultPantryDays,
-      winterDays = cfg.defaultWinterDays,
-      pantryAuto = true,
-      pins = {},
-      crate = {},
-      nextSort = 0,
-    }
-  world.state.food.truckOnly = world.state.food.truckOnly or {} -- older saves predate the stand pin
+  world.state.food = world.state.food or { keep = {}, truckOnly = {} }
   -- Last night's spoilage (food.spoilReport): kept for the pantry panel, and held as a pending
   -- report until the UI has shown it (it waits while the homesteader sleeps).
   world.events:on("food.spoilReport", function(e)
@@ -51,31 +40,11 @@ function Food.init(world)
     world.state.food.lastLoss = { day = day, lost = e.lost, total = e.total }
     world.state.food.report = { day = day, lost = e.lost, total = e.total }
   end)
-  world.events:on("ledger.changed", function(e)
-    -- Eating, spoiling or selling can drop stock below what's reserved.
-    local crate = world.state.food.crate
-    if crate[e.id] and crate[e.id] > e.total then
-      crate[e.id] = e.total > 0 and e.total or nil
-    end
-  end)
 end
 
---- Units of a resource not reserved for sale.
-function Food.available(world, id)
-  return Ledger.get(world, id) - (world.state.food.crate[id] or 0)
-end
-
---- Units of a resource reserved in the sell crate.
-function Food.crateOf(world, id)
-  return world.state.food.crate[id] or 0
-end
-
-function Food.crateCount(world)
-  local n = 0
-  for _, count in pairs(world.state.food.crate) do
-    n = n + count
-  end
-  return n
+--- Can this resource be sold (it has a sale value)?
+function Food.sellable(world, id)
+  return world.registry:get("resources", id).value ~= nil
 end
 
 -- Categories that some placed processor can turn into preserved food.
@@ -101,26 +70,173 @@ function Food.canPreserve(world, category)
   return preservableCategories(world)[category] == true
 end
 
---- Is the pantry in its automatic mode (perishables held only as long as they keep)?
-function Food.pantryAuto(world)
-  return world.state.food.pantryAuto == true
-end
-
---- Switch the automatic pantry on or off (the stepper turns it off by itself).
-function Food.setPantryAuto(world, auto)
-  world.state.food.pantryAuto = auto and true or false
-  Food.sort(world)
-end
-
---- Days of eating the pantry will hold of this food: the pantry setting, cut to a share of how long
---- the food keeps while the automatic pantry is on.
+--- Days of eating the automatic keep holds of this fresh food: the pantry days, cut to a share of how
+--- long the food keeps (D68).
 function Food.pantryHoldDays(world, res)
-  local state = world.state.food
+  local cfg = world.tuning.food
   local life = Spoilage.shelfLife(world, res.id)
-  if state.pantryAuto and life then
-    return math.min(state.pantryDays, life * world.tuning.food.autoPantryHorizon)
+  if life then
+    return math.min(cfg.defaultPantryDays, life * cfg.autoPantryHorizon)
   end
-  return state.pantryDays
+  return cfg.defaultPantryDays
+end
+
+-- Fuels, hottest first (content order breaks ties), as Needs burns them.
+local function fuels(world)
+  local list = {}
+  for index, res in ipairs(world.registry:all("resources")) do
+    if res.heat then
+      list[#list + 1] = { res = res, index = index }
+    end
+  end
+  table.sort(list, function(a, b)
+    if a.res.heat ~= b.res.heat then
+      return a.res.heat > b.res.heat
+    end
+    return a.index < b.index
+  end)
+  return list
+end
+
+--- Every keep target at once: keep = { [id] = units }, auto = { [id] = true when automatic }.
+--- Covers every resource that can be eaten, burned or sold (and wood, the fuel source).
+function Food.keeps(world)
+  local cfg = world.tuning.food
+  local state = world.state.food
+  local daily = world.tuning.needs.dailyCalories
+  local pantryLeft = cfg.defaultPantryDays * daily
+  local winterLeft = cfg.defaultWinterDays * daily
+  local resources = world.registry:all("resources")
+  local keep, auto = {}, {}
+
+  -- Targets the player set: their food counts toward the pantry, then the winter stock.
+  for _, res in ipairs(resources) do
+    local set = state.keep[res.id]
+    if set then
+      keep[res.id] = set
+      if res.calories then
+        local cal = math.min(Ledger.get(world, res.id), set) * res.calories
+        local fromPantry = math.min(math.max(0, pantryLeft), cal)
+        pantryLeft = pantryLeft - fromPantry
+        winterLeft = winterLeft - (cal - fromPantry)
+      end
+    end
+  end
+
+  -- Preserved food fills the winter stock.
+  for _, res in ipairs(resources) do
+    if not keep[res.id] and res.calories and not Spoilage.perishable(world, res.id) then
+      local n = math.min(Ledger.get(world, res.id), math.ceil(math.max(0, winterLeft) / res.calories))
+      winterLeft = winterLeft - n * res.calories
+      keep[res.id], auto[res.id] = n, true
+    end
+  end
+  -- Fresh food fills the pantry for as long as it keeps, then tops up the winter stock if it keeps
+  -- for winter, then waits for a processor that can preserve it while winter is short.
+  local preservable = preservableCategories(world)
+  for _, res in ipairs(resources) do
+    if not keep[res.id] and res.calories and Spoilage.perishable(world, res.id) then
+      local stock = Ledger.get(world, res.id)
+      local room = math.min(math.max(0, pantryLeft), Food.pantryHoldDays(world, res) * daily)
+      local n = math.min(stock, math.ceil(room / res.calories))
+      pantryLeft = pantryLeft - n * res.calories
+      if n < stock and res.keepsForWinter and winterLeft > 0 then
+        local store = math.min(stock - n, math.ceil(winterLeft / res.calories))
+        winterLeft = winterLeft - store * res.calories
+        n = n + store
+      end
+      if n < stock and preservable[res.category] and winterLeft > 0 then
+        n = stock -- held for the processor
+      end
+      keep[res.id], auto[res.id] = n, true
+    end
+  end
+
+  -- Fuel for the nights to the end of winter (cautious where the forecast is silent), hottest first.
+  local efficiency = Needs.heatEfficiency(world)
+  local need = Readiness.warmthAhead(world) / (efficiency > 0 and efficiency or 1)
+  for _, entry in ipairs(fuels(world)) do
+    local res = entry.res
+    local stock = Ledger.get(world, res.id)
+    if keep[res.id] then
+      need = need - math.min(stock, keep[res.id]) * res.heat
+    else
+      local n = math.min(stock, math.ceil(math.max(0, need) / res.heat))
+      need = need - n * res.heat
+      keep[res.id], auto[res.id] = n, true
+    end
+  end
+  -- The woodpile is next year's fuel (and the smoker's): all of it is kept unless the player says
+  -- otherwise. Selling the fuel the coming winter needs only would leave the winter after short (the
+  -- balance harness lost two scripted runs that way, D75).
+  local source = world.tuning.firewood.splitFrom
+  if not keep[source] then
+    keep[source], auto[source] = Ledger.get(world, source), true
+  end
+
+  -- Everything else that sells is all surplus unless the player keeps some.
+  for _, res in ipairs(resources) do
+    if not keep[res.id] and res.value then
+      keep[res.id], auto[res.id] = 0, true
+    end
+  end
+  return keep, auto
+end
+
+--- The keep target of one good (units) and whether it is automatic.
+function Food.keep(world, id)
+  local keep, auto = Food.keeps(world)
+  return keep[id] or 0, auto[id] == true
+end
+
+--- Units above the keep target: what the stand and the truck may sell (0 for goods with no value).
+function Food.surplus(world, id)
+  if not Food.sellable(world, id) then
+    return 0
+  end
+  return math.max(0, Ledger.get(world, id) - (Food.keep(world, id)))
+end
+
+--- Surplus of every sellable good: { [id] = units } (goods with none left out), and the total.
+function Food.surpluses(world)
+  local keep = Food.keeps(world)
+  local out, total = {}, 0
+  for _, res in ipairs(world.registry:all("resources")) do
+    if res.value then
+      local n = math.max(0, Ledger.get(world, res.id) - (keep[res.id] or 0))
+      if n > 0 then
+        out[res.id] = n
+        total = total + n
+      end
+    end
+  end
+  return out, total
+end
+
+--- Units of the stock inside the keep target (what the homestead holds on to; processors draw on it).
+function Food.held(world, id)
+  return math.min(Ledger.get(world, id), (Food.keep(world, id)))
+end
+
+--- Set a keep target in units (clamped to 0..tuning.food.maxKeep), or nil to go back to automatic.
+function Food.setKeep(world, id, units)
+  world.registry:get("resources", id)
+  if units ~= nil then
+    units = math.max(0, math.min(world.tuning.food.maxKeep, math.floor(units)))
+  end
+  world.state.food.keep[id] = units
+end
+
+--- Is this resource kept away from the roadside stand (truck trips only)? (D62, #106)
+function Food.truckOnly(world, id)
+  return world.state.food.truckOnly[id] == true
+end
+
+--- "Not at the stand" pin: a truck-only good's surplus waits for the truck instead of being sold by
+--- the stand. Independent of the keep target.
+function Food.setTruckOnly(world, id, truckOnly)
+  world.registry:get("resources", id)
+  world.state.food.truckOnly[id] = truckOnly and true or nil
 end
 
 --- Last night's spoilage ({ day, lost = { { resource, amount }... }, total }) or nil.
@@ -146,108 +262,6 @@ end
 --- Is a spoilage report waiting to be shown?
 function Food.hasReport(world)
   return world.state.food.report ~= nil
-end
-
---- Re-sort stock into pantry / preserve / crate according to the rules.
-function Food.sort(world)
-  local state = world.state.food
-  local daily = world.tuning.needs.dailyCalories
-  local pantryLeft = state.pantryDays * daily
-  local winterLeft = state.winterDays * daily
-  local preservable = preservableCategories(world)
-  local crate = {}
-  local resources = world.registry:all("resources")
-
-  -- Preserved goods count toward the winter stock.
-  for _, res in ipairs(resources) do
-    local amount = Ledger.get(world, res.id)
-    if amount > 0 and res.calories and not Spoilage.perishable(world, res.id) then
-      local keep = math.min(amount, math.ceil(math.max(0, winterLeft) / res.calories))
-      winterLeft = winterLeft - keep * res.calories
-      crate[res.id] = amount - keep
-    end
-  end
-  -- Fresh food fills the pantry, then waits to be preserved, then is sold.
-  for _, res in ipairs(resources) do
-    local amount = Ledger.get(world, res.id)
-    if amount > 0 and res.calories and Spoilage.perishable(world, res.id) then
-      -- The automatic pantry holds a perishable only as long as it is eaten before it spoils.
-      local room = math.max(0, pantryLeft)
-      if state.pantryAuto then
-        room = math.min(room, Food.pantryHoldDays(world, res) * daily)
-      end
-      local keep = math.min(amount, math.ceil(room / res.calories))
-      pantryLeft = pantryLeft - keep * res.calories
-      local rest = amount - keep
-      if rest > 0 and res.keepsForWinter and winterLeft > 0 then
-        local store = math.min(rest, math.ceil(winterLeft / res.calories))
-        winterLeft = winterLeft - store * res.calories
-        rest = rest - store
-      end
-      if rest > 0 and preservable[res.category] and winterLeft > 0 then
-        rest = 0 -- hold it for the processor
-      end
-      crate[res.id] = rest
-    end
-  end
-  -- Non-food goods marked autoSell.
-  for _, res in ipairs(resources) do
-    if res.autoSell then
-      crate[res.id] = Ledger.get(world, res.id)
-    end
-  end
-  -- Pins, and drop anything that can't actually be sold.
-  for _, res in ipairs(resources) do
-    local pin = state.pins[res.id]
-    if pin == "keep" or pin == "preserve" then
-      crate[res.id] = nil
-    elseif pin == "sell" then
-      crate[res.id] = Ledger.get(world, res.id)
-    end
-    if not res.value or (crate[res.id] or 0) <= 0 then
-      crate[res.id] = nil
-    end
-  end
-  state.crate = crate
-end
-
-function Food.setPin(world, id, pin)
-  world.registry:get("resources", id)
-  assert(pin == nil or pin == "keep" or pin == "sell" or pin == "preserve", "bad pin " .. tostring(pin))
-  world.state.food.pins[id] = pin
-  Food.sort(world)
-end
-
---- Is this resource kept away from the roadside stand (truck trips only)? (D62, #106)
-function Food.truckOnly(world, id)
-  return world.state.food.truckOnly[id] == true
-end
-
---- "Not at the stand" pin: a truck-only good stays in the crate for the next trip instead of being
---- sold by the stand. Independent of the keep/sell/preserve pins.
-function Food.setTruckOnly(world, id, truckOnly)
-  world.registry:get("resources", id)
-  world.state.food.truckOnly[id] = truckOnly and true or nil
-end
-
-function Food.setDays(world, pantryDays, winterDays)
-  local cfg, state = world.tuning.food, world.state.food
-  local days = math.max(0, math.min(cfg.maxPantryDays, pantryDays))
-  if days ~= state.pantryDays then
-    state.pantryAuto = false -- the player chose a number: it means what it says
-  end
-  state.pantryDays = days
-  state.winterDays = math.max(0, math.min(cfg.maxWinterDays, winterDays))
-  Food.sort(world)
-end
-
-function Food.tick(world, dt)
-  local state = world.state.food
-  state.nextSort = state.nextSort - dt
-  if state.nextSort <= 0 then
-    state.nextSort = world.tuning.food.rulesInterval * world.tuning.time.dayLength / 24
-    Food.sort(world)
-  end
 end
 
 return Food
