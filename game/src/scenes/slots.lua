@@ -69,6 +69,7 @@ end
 --- deletes by itself (D74, #183).
 function Slots:outdated(index, name, compat)
   local title, message = Slots.outdatedText(name, compat)
+  message = message .. "\n\n" .. self.app.ctx.tuning.ui.version.promptPrefix .. require("src.core.version").get().label
   self.app:push(require("src.scenes.confirm").new({
     title = title,
     message = message,

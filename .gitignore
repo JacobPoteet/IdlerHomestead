@@ -1,3 +1,4 @@
 .direnv/
 .vscode/settings.json
 game/log.txt
+game/src/core/version_stamp.lua

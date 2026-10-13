@@ -164,5 +164,11 @@ return {
       continued = " ...", -- suffix on the continuation columns of a split chapter
     },
   },
+  version = { -- the build label (tag and commit hash, D91) on the title screen and the out-of-date save prompt
+    size = "small", -- theme text size key for the title screen label
+    color = "textDim", -- theme colour key: quiet, it is for playtesters and bug reports
+    margin = 6, -- virtual pixels between the label and the left/bottom screen edges
+    promptPrefix = "This build: ", -- line added under the out-of-date save message
+  },
   startRoutineHint ="Starts the routine now. It waters, plants, harvests and chops for you; any tap ends it.", -- toast when the routine starts
 }

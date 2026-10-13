@@ -3,6 +3,7 @@
 local Buttons = require("src.ui.buttons")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
+local Version = require("src.core.version")
 
 local Title = { name = "title", opaque = true }
 Title.__index = Title
@@ -66,6 +67,13 @@ function Title:draw()
     color = theme.colors.textDim,
   })
   self.buttons:draw()
+  local vt = self.app.ctx.tuning.ui.version
+  Text.draw(Version.get().label, vt.margin, view.h - 14, {
+    size = vt.size,
+    width = view.w - vt.margin,
+    align = "left",
+    color = theme.colors[vt.color],
+  })
   Text.draw("prototype", 0, view.h - 14, {
     size = "small",
     width = view.w - 6,
