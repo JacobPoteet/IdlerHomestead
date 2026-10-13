@@ -170,6 +170,7 @@ return {
     delay = "number?", -- game seconds from trigger to due (default tuning.ftue.defaultDelay)
     after = "table?", -- { step, seconds }: also due this long after that step was dismissed
     retire = "table?", -- event names after which the step is marked seen without a card
+    highlight = "string?", -- screen target the scene outlines while the card is up (D89): "button:<id>", "seeds", "chip:<id>", "tile:truck"
     doneFlag = "string?", -- meta flag that means another card already told it
     card = "boolean?", -- false: never queues a card
     replay = "string?", -- "spoil": Tips shows the live spoilage explanation

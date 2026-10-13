@@ -7,5 +7,10 @@ return {
   cardMargin = 8, -- virtual pixels kept free at the left and right of the card
   cardPadding = 8, -- virtual pixels between the card edge and its text and buttons
   cardBottomGap = 44, -- virtual pixels between the bottom bar and the card: room for the toast and the routine badge
-  tipsColumns = 2, -- columns of step buttons in the Menu's Tips list
+  highlightPad = 3, -- virtual pixels the pulsing outline sits outside the target a tip card points at (D89)
+  highlightThickness = 2, -- virtual pixels, line width of the pulsing outline
+  highlightPulseSeconds = 1.2, -- seconds for one pulse of the outline (a ring grows outward and fades)
+  highlightGrow = 4, -- virtual pixels the fading ring grows outward at the end of a pulse
+  highlightArrow = 7, -- virtual pixels, half-width of the arrow head that points at the target
+  tipsColumns = 2,-- columns of step buttons in the Menu's Tips list
 }

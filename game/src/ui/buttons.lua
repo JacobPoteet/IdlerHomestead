@@ -115,7 +115,7 @@ function Buttons:draw()
       size = b.size or "body",
       width = textW,
       align = b.icon and "left" or "center",
-      color = b.enabled and colors.text or colors.textDim,
+      color = (b.enabled and not b.dim) and colors.text or colors.textDim, -- dim: a muted label on a live button (a seen tip)
     })
   end
 end
