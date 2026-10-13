@@ -1497,7 +1497,9 @@ end
 --- Seconds without input before the routine takes over (shortened by habits perks).
 function Homestead:takeoverDelay()
   local idle = self.app.ctx.tuning.idle
-  return math.max(idle.minTakeoverDelay, idle.takeoverDelay - Stats.modifier(self.world, "idleTakeover"))
+  local delay = math.max(idle.minTakeoverDelay, idle.takeoverDelay - Stats.modifier(self.world, "idleTakeover"))
+  -- The player's idle delay setting (D96) scales it, never below the floor.
+  return math.max(idle.minTakeoverDelay, delay * self.app.ctx.settings:get("idleDelay"))
 end
 
 function Homestead:update(dt)

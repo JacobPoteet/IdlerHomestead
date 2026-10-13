@@ -20,6 +20,7 @@ local Lighting = require("src.render.lighting")
 local WeatherFx = require("src.render.weather_fx")
 local Lights = require("src.render.lights")
 local Ambient = require("src.render.ambient")
+local Settings = require("src.core.settings")
 
 local Renderer = {}
 Renderer.__index = Renderer
@@ -229,6 +230,9 @@ end
 
 --- Falling rain over the graded world (call after drawGraded; `view` is the virtual screen).
 function Renderer:drawRain(view, grid)
+  if not Settings.read("ambientFx", true) then
+    return
+  end
   self.fx:drawRain(view, grid)
 end
 
@@ -581,7 +585,7 @@ function Renderer:swayShader()
   local clock, wind = self.fx:windSway()
   Shaders.send(shader, {
     swayTime = clock,
-    amplitude = cfg.amplitude * wind,
+    amplitude = Settings.read("reduceMotion", false) and 0 or cfg.amplitude * wind, -- reduce motion stills the sway (D96)
     lean = cfg.lean,
     gust = cfg.gust,
     thirsty = cfg.thirsty,
@@ -655,7 +659,7 @@ function Renderer:drawMist(visible, ice)
   local shader = Shaders.get("mist")
   local cfg = self.world.tuning.visuals.mist
   local strength = self:mistStrength(ice)
-  if not shader or strength <= 0.01 then
+  if not shader or strength <= 0.01 or not Settings.read("ambientFx", true) then
     return
   end
   local grid, tile = self.world.state.grid, self.tile
@@ -756,7 +760,7 @@ function Renderer:drawCloudShadows(visible, daylight)
   local shader = Shaders.get("clouds")
   local cfg = self.world.tuning.visuals.weather.clouds
   local strength = cfg.strength * daylight
-  if not shader or strength <= 0.001 then
+  if not shader or strength <= 0.001 or not Settings.read("ambientFx", true) then
     return
   end
   local grid, tile = self.world.state.grid, self.tile
@@ -969,6 +973,9 @@ end
 
 --- Fireflies and dust motes over the graded world (world space, camera transform on).
 function Renderer:drawAmbient(visible, daylight)
+  if not Settings.read("ambientFx", true) then
+    return
+  end
   local snow = self:winterAmounts()
   Ambient.draw(self, visible, daylight, snow)
 end
@@ -977,7 +984,16 @@ end
 function Renderer:drawGraded(canvas, tint, light, pixelSize, haze)
   local v = self.world.tuning.visuals
   local shader = Shaders.get("grade")
+  if Settings.read("reduceMotion", false) then
+    haze = nil -- no heat shimmer (D96)
+  end
+  -- Player-set grade strength (D96): 1 = as designed, 0 = no tint, saturation shift or vignette.
+  local g = Settings.read("gradeStrength", 1)
+  local function toward(neutral, value)
+    return neutral + (value - neutral) * g
+  end
   if shader then
+    tint = { toward(1, tint[1]), toward(1, tint[2]), toward(1, tint[3]) }
     -- Heat shimmer rides in the grade pass (D85): `haze` = { amount, sources, origin, world } or nil.
     local sources = haze and haze.sources or {}
     Shaders.send(shader, {
@@ -998,9 +1014,9 @@ function Renderer:drawGraded(canvas, tint, light, pixelSize, haze)
     Shaders.send(shader, {
       tint = tint,
       light = light,
-      saturation = v.saturation * v.seasonGrade[Calendar.now(self.world).season].saturation,
-      vignette = v.vignette,
-      grain = v.grain,
+      saturation = toward(1, v.saturation * v.seasonGrade[Calendar.now(self.world).season].saturation),
+      vignette = v.vignette * g,
+      grain = Settings.read("filmGrain", true) and v.grain or 0,
       time = self.time,
       pixelSize = pixelSize,
     })

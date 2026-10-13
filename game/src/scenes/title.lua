@@ -32,10 +32,20 @@ function Title:resize(view)
       self.app:switch(require("src.scenes.slots").new())
     end,
   })
+  self.buttons:add({
+    x = x,
+    y = y + h + 8,
+    w = w,
+    h = h,
+    label = "Settings",
+    onPress = function()
+      self.app:push(require("src.scenes.settings").new())
+    end,
+  })
   if ctx.platform.has("quitButton") then
     self.buttons:add({
       x = x,
-      y = y + h + 8,
+      y = y + 2 * (h + 8),
       w = w,
       h = h,
       label = "Quit",

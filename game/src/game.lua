@@ -4,6 +4,7 @@ local App = require("src.core.app")
 local Input = require("src.core.input")
 local Registry = require("src.core.registry")
 local Save = require("src.core.save")
+local Settings = require("src.core.settings")
 local platform = require("src.core.platform")
 local tuningLoader = require("src.core.tuning")
 local Debug = require("src.ui.debug_overlay")
@@ -30,7 +31,16 @@ function Game.new(opts)
     tips = not (opts and opts.tips == false), -- first-time tip cards for new slots (tools/driver turns them off)
     session = nil, -- set by the homestead scene while a slot is being played
   }
+  -- Player settings (D96): a file apart from the save slots. Tests and the driver pass a memory backend
+  -- (`opts.settingsBackend`) and then never touch the real settings file or the real window.
+  local live = not (opts and opts.settingsBackend)
+  ctx.settings = Settings.new((opts and opts.settingsBackend) or Save.loveBackend(), tuning):activate()
+  ctx.settings:load()
   local app = App.new(ctx)
+  ctx.liveWindow = live
+  ctx.settingsEnv = function()
+    return ctx.game:settingsEnv()
+  end
   local input = Input.new(app, tuning)
   ctx.input = input
 
@@ -43,9 +53,60 @@ function Game.new(opts)
 
   Assets.load()
   local self = setmetatable({ app = app, input = input, debug = Debug.new(app, input) }, Game)
+  ctx.game = self
+  if live then
+    self:restoreWindow()
+  end
   self:resize(love.graphics.getDimensions())
+  ctx.settings:applyAll(platform, self:settingsEnv())
+  ctx.settings:onChange(function(id)
+    ctx.settings:apply(id, self:settingsEnv())
+    ctx.settings:save()
+  end)
   app:switch(TitleScene.new())
   return self
+end
+
+--- What option apply hooks get (src/core/settings_options.lua).
+function Game:settingsEnv()
+  local app = self.app
+  return {
+    app = app,
+    live = app.ctx.liveWindow,
+    pixelW = app.pixelW,
+    pixelH = app.pixelH,
+    touchPrimary = platform.has("touchPrimary"),
+    minTouchTarget = app.ctx.tuning.input.minTouchTarget,
+    relayout = function()
+      self:resize(app.pixelW, app.pixelH)
+    end,
+  }
+end
+
+--- Reopen at the remembered window size and position (settings override conf.lua's first-boot window).
+function Game:restoreWindow()
+  local s = self.app.ctx.settings
+  local win = s.window
+  if not (platform.has("resizableWindow") and s:get("rememberWindow") and win) or s:get("fullscreen") then
+    return
+  end
+  local flags = {}
+  local dw, dh = love.window.getDesktopDimensions()
+  if win.x >= 0 and win.y >= 0 and win.x + 64 <= dw and win.y + 64 <= dh then
+    flags.x, flags.y = win.x, win.y
+  end
+  pcall(love.window.updateMode, math.min(win.w, dw), math.min(win.h, dh), flags)
+end
+
+--- Remember the window rectangle for the next launch (windowed desktop only).
+function Game:rememberWindow()
+  local s = self.app.ctx.settings
+  if self.app.ctx.liveWindow and platform.has("resizableWindow") and s:get("rememberWindow") and not love.window.getFullscreen() then
+    local w, h = love.window.getMode()
+    local x, y = love.window.getPosition()
+    s:setWindow(w, h, x, y)
+  end
+  s:save()
 end
 
 function Game:resize(w, h)
@@ -90,6 +151,7 @@ function Game:focus(hasFocus)
 end
 
 function Game:quit()
+  self:rememberWindow()
   self.app:broadcast("quit")
 end
 
