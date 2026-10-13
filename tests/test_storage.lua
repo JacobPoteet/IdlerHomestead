@@ -369,7 +369,7 @@ T.test("market: a held order can be cancelled for a full refund", function()
   T.eq(#Market.heldOrders(world), 0)
 end)
 
-T.test("market: held and paid state survives a save round-trip; old orders without paid still refund", function()
+T.test("market: held and paid state survives a save round-trip", function()
   local world = newWorld(3)
   Ledger.add(world, "money", 50)
   Market.order(world, "radish_seeds")
@@ -379,8 +379,7 @@ T.test("market: held and paid state survives a save round-trip; old orders witho
   local restored = World.new({ registry = reg, tuning = tun }, serialize.decode(serialize.encode(world.state)))
   T.eq(#Market.heldOrders(restored), 1)
   local money = Ledger.get(restored, "money")
-  restored.state.market.orders[1].paid = nil -- an order saved before the price was recorded
-  local expected = Market.itemPrice(restored, "radish_seeds") + tun.economy.deliveryFee
+  local expected = restored.state.market.orders[1].paid
   T.eq(Market.cancelHeld(restored, 1), expected)
   T.eq(Ledger.get(restored, "money"), money + expected)
 end)

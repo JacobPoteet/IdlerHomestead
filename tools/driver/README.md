@@ -5,9 +5,14 @@ for docs. It needs a window and a GPU context (it renders for real), so it is no
 `lovec tests`.
 
 ```
-lovec tools/driver <scenario|all> [size=desktop|phone|landscape|both] [out=dir]
+lovec tools/driver <scenario|all> [size=desktop|phone|landscape|both] [out=dir] [seed=N]
 lovec tools/driver help=1            # lists scenarios
 ```
+
+- `seed`: run seed for every scenario. By default each scenario gets a fixed seed (a hash of its
+  name), so two runs play the same world and give the same outcomes (#188). `d:newGame({ seed = N })`
+  overrides it for one game. Pick tiles with `d:freeTileNear(dx, dy)` or `d:nearestObject`, not
+  fixed offsets from the homesteader, which may land on a building.
 
 - `size`: `desktop` is 1280x720, `phone` is 390x844, `landscape` is 844x390 (phone on its side).
   Default (`both`) runs all three, so every scenario is also a phone-size run.
@@ -34,7 +39,7 @@ Also `shelter` (D82: the camp preview with its heater slot, a stove placed besid
 
 Also `weatherworld` (D80: rain at three zooms, snow after a pan) and `shaderpass` (D83: cloud shadows with a pan pair proving they are world-anchored, a clear sky, rain with wet ground, puddles and creek rings, the ground drying, early frost on the creek bank, and a snowy yard with caps on the roofs). `shaderpass2` (D84: wind sway of crops, trees and brush as frame pairs in a breeze and a gale, morning mist at three zooms burning off by mid-morning and blown away on a windy day, and night lights from a campfire, lamp, wood stove and the shack window at dusk and at night).
 
-Also `scroll` (D87: the Tools palette with 42 seeds scrolled by wheel and drag on narrow views, and the Catalog, Fish guide and town menu laid out for a short view so their lists clip and scroll; extra crops are cloned into the registry, and the short view is the open scene's own `resize`, because `d:resize` rebuilds the window and drops the sprites).
+Also `scroll` (D87: the Tools palette with 42 seeds scrolled by wheel and drag on narrow views, and the Catalog, Fish guide and town menu laid out for a short view so their lists clip and scroll; extra crops are cloned into the registry, and the short view is a real `d:resize` of the window, restored afterwards).
 
 Also `shelf` (D73, D74: an out-of-date save planted in the in-memory store, listed as "can't be loaded", its Keep it / Delete save prompt and the second confirmation; then a Pantry with batches of different ages, "Oldest batch spoils in N days", no red chip while nothing rots, then the chip and the Pantry warning two nights later).
 
@@ -82,7 +87,8 @@ Helper API (`tools/driver/driver.lua`):
 | `d:drag(x1, y1, x2, y2 [, steps])` | Swipe from one virtual position to another through the mouse handler (scrolls a list, never counts as a tap). |
 | `d:wheel(notches, vx, vy)` | Turn the mouse wheel (positive = up) with the pointer at a virtual position. |
 | `d:key(name)` | Press a key (`escape`, `space`, `r`, ...). |
-| `d:resize(w, h)` | Change window size mid-scenario. |
+| `d:resize(w, h)` | Change window size mid-scenario (sprites are rebuilt, so they keep drawing). |
+| `d:freeTileNear(dx, dy)` | A walkable, object-free tile nearest the homesteader offset by (dx, dy), for safe clicks. |
 | `d:shot(name)` | Capture the frame. |
 | `d:world()`, `d:scene()`, `d:nearestObject(ids)`, `d:homesteaderTile()` | Read sim state to pick targets. |
 

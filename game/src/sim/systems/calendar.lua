@@ -12,7 +12,7 @@ function Calendar.init(world)
     return
   end
   -- A save written with another day length keeps its date and time of day (D56).
-  local written = cal.dayLength or time.legacyDayLength
+  local written = cal.dayLength
   if written ~= time.dayLength then
     cal.elapsed = cal.elapsed * time.dayLength / written
   end

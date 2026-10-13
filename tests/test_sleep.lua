@@ -158,8 +158,8 @@ T.test("calendar: a save written with the old day length keeps its date and time
   world.state.calendar.elapsed = (3.4 - tun.time.startHour / 24) * tun.time.dayLength
   local before = Calendar.now(world)
   local old = serialize.decode(serialize.encode(world.state))
-  old.calendar.dayLength = nil -- saves before D56 did not record it
-  old.calendar.elapsed = old.calendar.elapsed * tun.time.legacyDayLength / tun.time.dayLength
+  old.calendar.dayLength = 128 -- written by a build whose day was 128 s long
+  old.calendar.elapsed = old.calendar.elapsed * old.calendar.dayLength / tun.time.dayLength
   local loaded = World.new({ registry = reg, tuning = tun }, old)
   local after = Calendar.now(loaded)
   T.eq(after.day, before.day)

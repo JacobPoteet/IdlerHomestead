@@ -354,8 +354,7 @@ end
 function Threats.init(world)
   local s = world.state.threats or {}
   world.state.threats = s
-  -- Fields are filled in so saves from before threats keep loading (this year's schedule is rolled
-  -- now; anything already past is skipped).
+  -- A fresh run starts empty; this year's schedule is rolled now.
   s.years = s.years or {}
   s.dry = s.dry or {}
   s.history = s.history or {}

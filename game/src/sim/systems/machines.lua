@@ -87,7 +87,7 @@ end
 function Machines.init(world)
   local s = world.state.machines or {}
   world.state.machines = s
-  -- Saves from before machines existed have no table; fill in the fields.
+  -- A fresh run has no table yet: fill in the fields.
   s.units = s.units or {}
   s.done = s.done or 0
   sync(world)
