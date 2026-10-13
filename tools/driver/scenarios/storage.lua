@@ -1,4 +1,4 @@
--- Full stores (D59, D60): the red firewood chip and "Full" pill, a tap refused because a store is
+-- Full stores (D59, D60): the red wood chip and "Full" pill, a tap refused because a store is
 -- full (names the store), and a paid order held at the gate with its refund button in the Catalog.
 -- The scenario tightens the stores directly (storage buildings are not built yet), then plays through
 -- the real HUD and input.
@@ -11,8 +11,8 @@ return function(d)
   local world = d:world()
   d:advance(1)
 
-  -- 1. A full firewood store: the chip turns red and a pill names it.
-  Ledger.add(world, "firewood", Ledger.capacity(world, "firewood"))
+  -- 1. A full wood store: the chip turns red and a pill names it.
+  Ledger.add(world, "wood", Ledger.capacity(world, "wood"))
   d:frames(3)
   d:shot("full_chip")
 

@@ -24,7 +24,7 @@ return function(d)
   d:frames(2)
 
   -- 2. A smoker holding finished fish for room: the card offers Discard, only that store is "Full".
-  Ledger.add(world, "firewood", Ledger.capacity(world, "firewood")) -- full, but nothing waits on it
+  Ledger.add(world, "wood", Ledger.capacity(world, "wood")) -- full, but nothing waits on it
   Inventory.addObject(world, "smoker")
   local tx, ty = d:freeTileNear(2, 2)
   local i = Grid.index(world.state.grid, tx, ty)

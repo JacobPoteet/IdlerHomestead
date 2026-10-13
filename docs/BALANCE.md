@@ -17,7 +17,7 @@ lovec tools/balance help=1                    # option list
 | `runs=N` | career length: a failed run is followed by recovery (the policy picks the free study) and a new run on new land with knowledge kept | 1 |
 | `features=all\|none\|a,b` | optional policy behaviours, see "Policy features" below; `none` plays the harness as it was before they existed | all |
 | `out=file.csv` / `out=file.json` | CSV: one row per seed per morning (money, food, warmth, notes, known...). JSON: summaries plus one record per run | none |
-| `set=domain.key=value` | override a tuning number for what-if runs, repeatable, e.g. `set=needs.dailyWarmth.winter=6` | none |
+| `set=domain.key=value` | override a tuning number for what-if runs, repeatable, e.g. `set=needs.warmthPeak=6` | none |
 | `jobs=N` | worker threads that play (policy, seed) pairs in parallel; `jobs=1` plays them one after another in the main thread. The report and `out=` files are byte-identical either way | CPU count, at most 16 |
 | `profile=1` / `profile=N` | sample the run with LuaJIT's profiler (forces `jobs=1`) and print the top 25 (or N) lines and functions | off |
 | `trace=1` | print the first seed of each policy day by day | off |
@@ -63,9 +63,9 @@ The issue's "about 17 s" single seed-year was measured before D57; at the merge 
 
 - **idle**: the player never acts. The idle routine runs from the first second. Since D61 the routine plans a starter field when nothing is planned, so it plants (before D61 it never did).
 - **scripted**: day 1 plans one field tile per starting seed near the creek, then the routine runs. Keep targets stay automatic. Each morning, when the truck is charged, it presses Auto-load and makes the trip if the load is worth selling (else it empties the truck again), orders the next item from a fixed buy list (woodshed, wood stove, axe, smoker, big bucket, sturdy rod, used panel), places delivered objects near the truck, and fills the study queue from a fixed list. It never gives a direct order.
-- **active**: everything `scripted` does, plus a keep target on wood (what its worst-case winter plan still needs as firewood, D75) and direct orders like an engaged player: harvest, water (bucket hauling), plant, till, load the smoker/woodshed, split wood, fell trees for the winter's fuel (worst-case severity plus the longest snap), clear junk for cash, hand-fish with the rod, grow the field as seeds come in, buy seeds and bait. It sleeps at night (no orders at bedtime) so study progresses, and hands control to the routine after the takeover delay when it has nothing to order. The fishing mini-game is a dice roll (75 percent landed) plus plausible game time. This is a diligent player with perfect execution, so treat it as an upper bound on what a human achieves.
+- **active**: everything `scripted` does, plus a keep target on wood (what its worst-case winter plan still needs, D75, D104) and direct orders like an engaged player: harvest, water (bucket hauling), plant, till, load the smoker, fell trees for the winter's fuel (worst-case severity plus the longest snap), clear junk for cash, hand-fish with the rod, grow the field as seeds come in, buy seeds and bait. It sleeps at night (no orders at bedtime) so study progresses, and hands control to the routine after the takeover delay when it has nothing to order. The fishing mini-game is a dice roll (75 percent landed) plus plausible game time. This is a diligent player with perfect execution, so treat it as an upper bound on what a human achieves.
 
-Metrics are sampled at the start of each morning. "Alive at season end" means the run reached the first morning after that season. "Fuel (winter nights covered)" is warmth in stock divided by the base winter need per night (4), before severity and cold snap.
+Metrics are sampled at the start of each morning. "Alive at season end" means the run reached the first morning after that season. "Fuel (winter nights covered)" is warmth in stock divided by the full winter night (`needs.warmthPeak`, 8 since D104), before severity and cold snap.
 
 ## Findings (baseline tuning)
 
@@ -346,3 +346,17 @@ Recommendation (not applied, the user decides): leave $6 and $2-$6 alone. If the
 | Truck income | $502 | $555 | $755 | $983 |
 
 Read: the older potatoes are eaten instead of rotting (scripted potato spoilage 5.0 to 0.2) and the big active radish surplus is slightly smaller; scripted radishes rot a little more because fresh radishes now wait behind fish and milk. Six seeds is noisy (the per-seed spread is wide); treat the direction, not the decimals, as the finding.
+
+## One wood and the seasonal curve: smoke test (#247, D104)
+
+`lovec tools/balance policy=scripted,active seeds=5 years=2`, before (main at D103) and after. A **smoke test only** (D95: balance is deferred): nothing was tuned beyond making it sane. The changes: wood is the one fuel (heat 0.75, base cap 60, woodshed +60), the stove and campfire keep their 1.6 and 1 efficiency, and the nightly warmth is a curve over the year (`needs.warmthPeak` 8, `warmthCurve`) instead of 1 / 0 / 4 / 8 by season, so spring and autumn nights now cost wood and an uncovered one costs health.
+
+| | scripted before | scripted after | active before | active after |
+|---|---|---|---|---|
+| Alive at the end of winter 2 | 5/5 | 5/5 | 5/5 | 5/5 |
+| Wood/fuel coverage of the winter need, first day of winter 1 | 1.07 | 1.41 | 0.69 | 1.36 |
+| same, first day of winter 2 | 0.55 | 0.63 | 1.10 | 0.97 |
+| Winter need (warmth), winter 1 / 2 | 68 / 94 | 60 / 81 | 68 / 94 | 60 / 81 |
+| Wood sold per run (units) | firewood 10, seasoned 3 | 0 | wood 7, seasoned 2 | wood 11 |
+
+Read: survival is unchanged. The winter need is about 12 percent lower because the curve ramps in and out (the first and last winter nights are below the peak). One fix came out of the first smoke run: with the automatic keep covering one winter only, the scripted player sold wood the second winter needed and 2 of 5 runs died of cold in winter 2 (the D75 lesson again), so the keep now covers `tuning.food.keepWinters` = 2 winters. The scripted player is still thin in winter 2 (coverage 0.63, as it was at 0.55: the routine only clears brush and logs, never trees), which is the existing finding below under "Recommended tuning changes", not a new one.

@@ -1,10 +1,11 @@
--- Plain words for the warnings of D70: low food, fuel and health (#157), a crop that will not ripen
+-- Plain words for the warnings of D70: low food, wood and health (#157), a crop that will not ripen
 -- before winter (#165), and winter readiness (#166). The sim knows numbers; this file only turns
 -- them into sentences and colours. Thresholds are not decided here: they come from Alerts.level.
 
 local Alerts = require("src.sim.systems.alerts")
 local Crops = require("src.sim.systems.crops")
 local Ledger = require("src.sim.systems.ledger")
+local Needs = require("src.sim.systems.needs")
 local Readiness = require("src.sim.systems.readiness")
 local Weather = require("src.sim.systems.weather")
 local theme = require("src.ui.theme")
@@ -39,11 +40,11 @@ function AlertText.toast(e)
     return string.format("Food is low: %.1f days left. Harvest, fish or buy canned food", e.value)
   elseif e.kind == "fuel" then
     if e.noFire then
-      return "No fire to burn firewood in. Place a campfire or stove"
+      return "No fire to burn wood in. Place a campfire or stove"
     elseif e.value < 1 then
-      return string.format("Not enough firewood for tonight (%.1f nights). Chop wood or buy firewood", e.value)
+      return string.format("Not enough wood for tonight (%.1f nights). Fell trees or buy wood", e.value)
     end
-    return string.format("Firewood is low: %.1f nights left. Chop wood or buy firewood", e.value)
+    return string.format("Wood is low: %.1f nights left. Fell trees or buy wood", e.value)
   elseif e.kind == "animals" then
     if e.value < 0.05 then
       return "The animals are out of feed. Buy chicken feed or hay"
@@ -93,9 +94,9 @@ end
 
 local VERDICT_WORDS = {
   ready = "ready",
-  fuel = "short on firewood",
+  fuel = "short on wood",
   food = "short on food",
-  both = "short on firewood and food",
+  both = "short on wood and food",
 }
 
 --- The pill text and colour for the HUD, or nil when the indicator is not due.
@@ -124,17 +125,18 @@ function AlertText.readinessCard(world)
     lines[#lines + 1] = string.format("The ground freezes in %s.", plural(r.daysAway, "day"))
   end
   lines[#lines + 1] = string.format(
-    "Fuel: your stock carries %d of the next %d nights (warmth %.0f of %.0f).",
+    "Wood: %d in stock; a winter night burns about %d. It carries %d of the next %d nights (%d wood in all).",
+    r.fuel.wood,
+    r.fuel.perNight,
     r.fuel.covered,
     r.fuel.nights,
-    r.fuel.have,
-    r.fuel.need
+    r.fuel.woodNeed
   )
   if r.electric.total > 0 then
-    lines[#lines + 1] = string.format("Electric: your heaters should make about %.0f warmth a night, so fuel covers the rest.", r.electric.perNight)
+    lines[#lines + 1] = string.format("Electric: your heaters should make about %.0f warmth a night, so wood covers the rest.", r.electric.perNight)
   end
   if r.noFire then
-    lines[#lines + 1] = "No fire is placed, so fuel does nothing yet. Place a campfire or stove."
+    lines[#lines + 1] = "No fire is placed, so wood does nothing yet. Place a campfire or stove."
   end
   lines[#lines + 1] = string.format("Food: %.1f days in stock; winter needs %d.", r.food.days, r.food.need)
   if not r.exact then
@@ -142,10 +144,10 @@ function AlertText.readinessCard(world)
   end
   local advice = {}
   if not r.fuel.ok then
-    if Ledger.isFull(world, "firewood") or Ledger.isFull(world, "seasoned_firewood") then
-      advice[#advice + 1] = "firewood storage is full: a woodshed holds more"
+    if Ledger.isFull(world, Needs.fuelId(world)) then
+      advice[#advice + 1] = "the wood store is full: a woodshed holds more"
     else
-      advice[#advice + 1] = "chop wood or buy firewood"
+      advice[#advice + 1] = "fell trees or buy wood"
     end
   end
   if not r.food.ok then
@@ -164,7 +166,7 @@ function AlertText.autumnToast(world)
     return nil
   end
   return string.format(
-    "Autumn: winter in %s. Fuel carries %d of %d nights, food %.0f days (need %d)",
+    "Autumn: winter in %s. Wood carries %d of %d nights, food %.0f days (need %d)",
     plural(r.daysAway, "day"),
     r.fuel.covered,
     r.fuel.nights,

@@ -429,7 +429,7 @@ function Power.effect(world, name)
 end
 
 --- Warmth made by electric heating since it was last taken, then reset. The night's warmth need
---- calls this, so heaters stand in for firewood (GDD §4.2).
+--- calls this, so heaters stand in for wood (GDD §4.2).
 function Power.takeWarmth(world)
   local s = state(world)
   local warmth = s.warmth

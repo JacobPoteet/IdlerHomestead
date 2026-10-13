@@ -35,13 +35,13 @@ function Load.warningText(world, warning)
   if warning.kind == "fuel" then
     local text
     if ready then
-      text = string.format("Your fuel covers %d of the %d nights to the end of winter.", ready.fuel.covered, ready.fuel.nights)
+      text = string.format("Your wood covers %d of the %d nights to the end of winter.", ready.fuel.covered, ready.fuel.nights)
     else
       local nights = Needs.fuelNights(world)
-      text = nights == math.huge and "No fire is needed tonight, but winter will need fuel."
-        or string.format("Your fuel lasts about %.1f nights at tonight's need.", nights)
+      text = nights == math.huge and "No fire is needed tonight, but winter will need wood."
+        or string.format("Your wood lasts about %.1f nights at tonight's need.", nights)
     end
-    return "Sell fuel you keep?", what .. " " .. text .. " Load it anyway?"
+    return "Sell wood you keep?", what .. " " .. text .. " Load it anyway?"
   elseif warning.kind == "food" then
     local text
     if ready then

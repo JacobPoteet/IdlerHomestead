@@ -73,17 +73,15 @@ function headlines.surplus(world)
   return text
 end
 
+--- The wood chip's own text (D104): the HUD chip and this card read the same Needs.woodOutlook.
 function headlines.wood(world)
-  return string.format("You have %s of wood.", plural(Ledger.get(world, "wood"), "log"))
-end
-
-function headlines.firewood(world)
-  local warmth, need = Needs.warmthInStock(world), Needs.warmthNeeded(world)
-  if need <= 0 then
-    return "No fire is needed right now."
+  local o = Needs.woodOutlook(world)
+  local text = string.format("You have %s of wood (room for %d).", plural(o.stock, "log"), Ledger.capacity(world, Needs.fuelId(world)))
+  if o.nights == math.huge then
+    return text .. " No fire is needed tonight."
   end
-  local text = string.format("Enough for about %.1f nights at this season's need.", warmth / need)
-  if Needs.heatEfficiency(world) <= 0 then
+  text = text .. string.format(" Tonight's fire burns about %d: enough for %.1f nights.", o.perNight, o.nights)
+  if o.noFire then
     text = text .. " No fire is placed to burn it in: place a campfire or stove."
   end
   return text

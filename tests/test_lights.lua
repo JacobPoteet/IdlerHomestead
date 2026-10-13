@@ -44,11 +44,11 @@ end
 T.test("lights: a campfire glows only while the night needs warmth and there is fuel", function()
   local world = newWorld()
   place(world, "campfire", 3, 3)
-  for _, id in ipairs({ "firewood", "seasoned_firewood" }) do
+  for _, id in ipairs({ "wood" }) do
     Ledger.remove(world, id, Ledger.get(world, id), "test") -- an empty woodpile
   end
   T.falsy(litIds(world).campfire, "no fuel: no glow")
-  Ledger.add(world, "seasoned_firewood", 5, "test")
+  Ledger.add(world, "wood", 5, "test")
   T.truthy(litIds(world).campfire, "fuel and a cold night: glows")
 end)
 

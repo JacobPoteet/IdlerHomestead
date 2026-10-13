@@ -24,12 +24,12 @@ M.buses = { "sfx", "ambience", "music" }
 
 M.cues = {
   -- Chores and farm work ----------------------------------------------------------------------
-  clear = { bus = "sfx", gen = "thud", args = { dur = 0.22, freq = 90, lp = 0.28, decay = 0.07, body = 0.6 }, volume = 0.5, pitchVar = 0.1, cooldown = 0.08, world = true, where = "A clearing job finishes (brush, tree, rock, log, junk)", desc = "soft chop thud" },
+  clear = { bus = "sfx", gen = "thud", args = { dur = 0.22, freq = 90, lp = 0.28, decay = 0.07, body = 0.6 }, volume = 0.5, pitchVar = 0.1, cooldown = 0.08, world = true, where = "A clearing job finishes (brush, rock, junk; trees and logs use chop_wood)", desc = "soft chop thud" },
   till = { bus = "sfx", gen = "thud", args = { dur = 0.2, freq = 70, lp = 0.12, decay = 0.08, body = 0.3 }, volume = 0.5, pitchVar = 0.12, cooldown = 0.08, world = true, where = "A tile is tilled or untilled", desc = "dull earthy dig" },
   plant = { bus = "sfx", gen = "thud", args = { dur = 0.12, freq = 140, lp = 0.08, decay = 0.04, body = 0.2 }, volume = 0.4, pitchVar = 0.15, cooldown = 0.08, world = true, where = "A seed is planted", desc = "tiny soft pat" },
   harvest = { bus = "sfx", gen = "blip", args = { dur = 0.13, freq = 520, freqEnd = 700, decay = 0.05, harm = 0.2 }, volume = 0.4, pitchVar = 0.12, cooldown = 0.08, world = true, where = "A crop is picked", desc = "short bright pluck" },
   water = { bus = "sfx", gen = "thud", args = { dur = 0.28, freq = 200, lp = 0.5, decay = 0.1, body = 0.15 }, volume = 0.4, pitchVar = 0.1, cooldown = 0.1, world = true, where = "A crop is watered or a bucket is filled", desc = "airy splash" },
-  chop_wood = { bus = "sfx", gen = "thud", args = { dur = 0.25, freq = 120, lp = 0.35, decay = 0.06, body = 0.7 }, volume = 0.55, pitchVar = 0.08, cooldown = 0.1, world = true, where = "Firewood is split", desc = "woody knock" },
+  chop_wood = { bus = "sfx", gen = "thud", args = { dur = 0.25, freq = 120, lp = 0.35, decay = 0.06, body = 0.7 }, volume = 0.55, pitchVar = 0.08, cooldown = 0.1, world = true, where = "A tree or log is felled", desc = "woody knock" },
   place = { bus = "sfx", gen = "thud", args = { dur = 0.2, freq = 100, lp = 0.15, decay = 0.07, body = 0.5 }, volume = 0.5, pitchVar = 0.05, cooldown = 0.1, world = true, where = "An object is set down or a machine loaded", desc = "solid set-down thump" },
   stove_lit = { bus = "sfx", gen = "chime", args = { notes = { 330, 440 }, step = 0.07, ring = 0.35, decay = 0.12 }, volume = 0.35, cooldown = 0.5, world = true, where = "A campfire or wood stove is placed", desc = "two warm soft notes" },
   eat = { bus = "sfx", gen = "thud", args = { dur = 0.1, freq = 260, lp = 0.4, decay = 0.03, body = 0.1 }, volume = 0.3, pitchVar = 0.15, cooldown = 0.3, world = true, where = "The homesteader eats", desc = "small munch" },
@@ -77,7 +77,8 @@ M.cues = {
 -- Event -> cue (src/audio/cues.lua). A string plays that cue. A table picks one by a field of the event
 -- payload: { field = "task", map = { clear = "clear" }, default = "cueIfNoMatch" }.
 M.events = {
-  ["task.completed"] = { field = "task", map = { clear = "clear", till = "till", untill = "till", plant = "plant", harvest = "harvest", water_crop = "water", fetch_water = "water", split_wood = "chop_wood", load_station = "place" } },
+  ["task.completed"] = { field = "task", map = { till = "till", untill = "till", plant = "plant", harvest = "harvest", water_crop = "water", fetch_water = "water", load_station = "place" } },
+  ["object.cleared"] = { field = "object", map = { tree = "chop_wood", log = "chop_wood" }, default = "clear" },
   ["object.placed"] = { field = "object", map = { campfire = "stove_lit", wood_stove = "stove_lit" }, default = "place" },
   ["fishing.ready"] = "fish_bite",
   ["fish.caught"] = "fish_caught",

@@ -509,13 +509,13 @@ end)
 
 -- Effects: heat, study, spoilage ---------------------------------------------------------------
 
-T.test("power: an electric heater makes warmth that replaces firewood", function()
+T.test("power: an electric heater makes warmth that replaces wood", function()
   local world = newWorld(4)
   local bank = place(world, "battery_bank")
   place(world, "electric_heater")
   Power.add(world, bank, 20)
   setTime(world, WINTER, 18)
-  Ledger.add(world, "seasoned_firewood", 10)
+  Ledger.add(world, "wood", 40)
   local need = Needs.warmthNeeded(world)
   T.truthy(need > 0)
   run(world, HOUR * 5) -- stay before midnight, when the night is accounted
@@ -523,11 +523,14 @@ T.test("power: an electric heater makes warmth that replaces firewood", function
   local expected = sink("electric_heater").draw * sink("electric_heater").effects.warmthPerKwh * 5
   T.near(warmthMade, expected, expected * 0.02, "warmth follows the energy delivered")
   local warmed = collect(world, "needs.warmed")
-  local before = Ledger.get(world, "seasoned_firewood")
+  local before = Ledger.get(world, "wood")
   Needs.warm(world)
   T.near(warmed[1].electric, math.min(warmthMade, need), 1e-9)
-  T.eq(before - Ledger.get(world, "seasoned_firewood"), math.ceil(need - warmthMade), "the heater saves wood")
-  T.truthy(math.ceil(need - warmthMade) < math.ceil(need))
+  local perWood = Needs.warmthPerWood(world)
+  local burned = before - Ledger.get(world, "wood")
+  T.eq(burned, math.ceil((need - warmthMade) / perWood - 1e-9), "the heater saves wood")
+  T.truthy(burned < math.ceil(need / perWood - 1e-9), "less wood than without the heater")
+  T.truthy(Needs.woodOutlook(world).perNight < math.ceil(need / perWood - 1e-9), "the outlook counts the heater too")
   T.eq(world.state.power.warmth, 0, "the warmth was taken")
 end)
 
@@ -539,7 +542,7 @@ T.test("power: the heater's thermostat stops once the night's warmth is made", f
     Power.add(world, bank, 20)
     setTime(world, WINTER, 18)
     local need = Needs.warmthNeeded(world)
-    run(world, HOUR * 12)
+    run(world, HOUR * 5.4) -- stay before midnight: the next night has its own (larger) need
     T.truthy(world.state.power.warmth >= need - 0.01 and world.state.power.warmth < need + 0.05)
     T.eq(Power.sinkState(world, heater), "idle")
     T.eq(Needs.warm(world), 0, "no cold, no wood")

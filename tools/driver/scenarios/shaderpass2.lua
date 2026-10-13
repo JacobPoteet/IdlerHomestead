@@ -124,7 +124,7 @@ return function(d)
   -- Night: the campfire and stove burn (there is fuel and the night is cold), the lamp is on, the shack is home.
   local _, sunset = Calendar.daylight(world)
   world.state.power.charge[world.state.land.truck] = 50
-  for _, id in ipairs({ "firewood", "seasoned_firewood" }) do
+  for _, id in ipairs({ "wood" }) do
     Ledger.add(world, id, 20, "scenario")
   end
   look(yard)

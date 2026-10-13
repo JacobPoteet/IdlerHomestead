@@ -96,7 +96,7 @@ return function(d)
     world.state.ledger.amounts[id] = nil
   end
   jumpTo(world, 2 * DPS + 3, 10) -- a cold autumn day
-  world.state.ledger.amounts.seasoned_firewood = 5
+  world.state.ledger.amounts.wood = 4
   world.state.needs.condition = 35
   d:frames(30) -- the first look (once a second) raises the warnings
   dismissFinds(d)
@@ -109,7 +109,7 @@ return function(d)
   -- Winter readiness (#166): the pill, and the card behind it.
   jumpTo(world, 2 * DPS + 1, 10)
   world.state.ledger.amounts.canned_food = 6
-  world.state.ledger.amounts.seasoned_firewood = 12
+  world.state.ledger.amounts.wood = 16
   world.state.needs.condition = 90
   d:frames(60)
   dismissFinds(d)
@@ -123,8 +123,8 @@ return function(d)
   d:press("Got it")
   d:frames(3)
   -- Stocked up: the pill says ready.
-  Ledger.setCapacity(world, "seasoned_firewood", 999) -- (what a woodshed does)
-  world.state.ledger.amounts.seasoned_firewood = 999
+  Ledger.setCapacity(world, "wood", 999) -- (what a woodshed does)
+  world.state.ledger.amounts.wood = 999
   world.state.ledger.amounts.smoked_fish = 40
   d:frames(3)
   d:shot("readiness_ready")

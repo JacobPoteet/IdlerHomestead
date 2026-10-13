@@ -47,14 +47,14 @@ return {
     startingResources = { canned_food = 4 },
   },
   {
-    id = "firewood_bundle",
-    name = "Firewood bundle",
+    id = "wood_bundle",
+    name = "Wood bundle",
     page = "shelter",
-    icon = "icon_seasoned_firewood",
-    line = "Start with a bundle of dry firewood.",
-    needs = { "cold_night", "green_wood" },
+    icon = "icon_wood",
+    line = "Start with a bundle of dry wood.",
+    needs = { "cold_night", "first_fire" },
     studyNights = 1,
-    startingResources = { seasoned_firewood = 8 },
+    startingResources = { wood = 11 }, -- about 8 warmth, as the old bundle of 8 seasoned firewood
   },
   {
     id = "charge_before_leaving",

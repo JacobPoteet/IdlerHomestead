@@ -51,10 +51,9 @@ return {
     recovery = "number?", -- shelter: multiplier on the daily Condition recovery of a fed, warm day
     heaterRadius = "number?", -- shelter: tiles within which a heat source delivers its warmth in full (beyond it: tuning.shelter.farHeat)
     studySpeed = "number?", -- shelter: study speed added while resting there (a desk)
-    heatSource = "number?", -- burns fuel for warmth; warmth per unit of fuel heat (efficiency)
+    heatSource = "table?", -- burns wood for warmth (D104): { efficiency = share of the wood's heat that reaches the night; the best placed fire counts }
     light = "table?", -- night light (D84, shaders/light.glsl): { on = "heat" | "power" | "shelter", radius = art pixels, color, flicker = 0..1, at = { x, y } pixel on the sprite, windows? = { { x, y, w, h } } sprite pixels that glow }
     sway = "table?", -- wind sway (D84, shaders/sway.glsl): { weight = multiplier on the wind amplitude, root = 0..1 share of the sprite height from the bottom that stays still }
-    splitter = "boolean?", -- wood is split into firewood here
     chop = "boolean?", -- an axe (chopSpeed) speeds up clearing it
     storage = "table?", -- resource -> extra storage capacity while placed
     pen = "table?", -- goat pen (D71): { pail = milk held, manger = hay units held, trough = water units held, guard = 0..1 chance a night raid is turned back }; see src/sim/systems/animals.lua

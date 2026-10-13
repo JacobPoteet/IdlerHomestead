@@ -100,9 +100,35 @@ function Weather.warmthMultiplier(world)
   return mult
 end
 
---- Warmth needed tonight: the season's base, scaled by the winter's severity and any cold snap.
+--- The year's seasonal warmth curve (D104) at the night of `dayOfSeason` in `season`: warmth needed at
+--- severity 1 with no cold snap and no shelter insulation. 0 in summer, partial in spring and autumn,
+--- tuning.needs.warmthPeak in deep winter. Read at the middle of the day, piecewise linear between the
+--- points of tuning.needs.warmthCurve.
+function Weather.baseWarmth(world, season, dayOfSeason)
+  local cfg, time = world.tuning.needs, world.tuning.time
+  local index = 1
+  for i, id in ipairs(time.seasons) do
+    if id == season then
+      index = i
+    end
+  end
+  local t = ((index - 1) * time.daysPerSeason + dayOfSeason - 0.5) / (#time.seasons * time.daysPerSeason)
+  local points = cfg.warmthCurve
+  local share = points[#points][2]
+  for i = 2, #points do
+    local a, b = points[i - 1], points[i]
+    if t <= b[1] then
+      share = a[2] + (b[2] - a[2]) * (t - a[1]) / (b[1] - a[1])
+      break
+    end
+  end
+  return cfg.warmthPeak * share
+end
+
+--- Warmth needed tonight: the seasonal curve, scaled by the winter's severity and any cold snap.
 function Weather.warmthNeed(world)
-  return world.tuning.needs.dailyWarmth[Calendar.now(world).season] * Weather.warmthMultiplier(world)
+  local now = Calendar.now(world)
+  return Weather.baseWarmth(world, now.season, now.dayOfSeason) * Weather.warmthMultiplier(world)
 end
 
 --- Warmth the night of `dayOfSeason` in `season` should need, going only on what the forecast has
@@ -110,7 +136,7 @@ end
 --- unrevealed severity counts as the lowest this year can roll and an unrevealed cold snap as none, so
 --- the figure is a floor until the forecast is complete.
 function Weather.expectedWarmthNeed(world, season, dayOfSeason)
-  local base = world.tuning.needs.dailyWarmth[season]
+  local base = Weather.baseWarmth(world, season, dayOfSeason)
   if not Weather.isFrozenSeason(world, season) then
     return base, true
   end

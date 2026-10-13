@@ -384,7 +384,7 @@ function Market.loadWarning(world, id, units)
   end
   local res = world.registry:get("resources", id)
   local kind = "stock"
-  if res.heat or id == world.tuning.firewood.splitFrom then
+  if res.heat then
     kind = "fuel"
   elseif res.calories then
     kind = "food"

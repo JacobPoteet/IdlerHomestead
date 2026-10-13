@@ -20,7 +20,6 @@ end
 return function(d)
   d:newGame()
   local world = d:world()
-  Tasks.setCondition(world, "fuel", "firewood_below")
   Tasks.setCondition(world, "harvest", "hour_after")
   Tasks.setCondition(world, "clear", "wood_below")
   d:advance(0.5)

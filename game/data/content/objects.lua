@@ -61,15 +61,13 @@ return {
     recovery = 1.6, -- 60% more Condition on a fed, warm day
     heaterRadius = 5, -- tiles: room for the wood stove inside
     studySpeed = 0.2, -- the desk by the window: study goes 20% faster in bed here
-    storage = { firewood = 20, seasoned_firewood = 30 }, -- a stack of wood under the roof
     light = { on = "shelter", radius = 26, color = { 1.00, 0.76, 0.40 }, flicker = 0.04, at = { 12, 22 }, windows = { { 8, 18, 7, 5 } } }, -- the window glows at night while this is the homesteader's bed
   },
   -- Placeable equipment (bought from the catalog or part of the starting kit)
   { id = "folding_panel", name = "Folding solar panel", blocks = false, clearable = false, placeable = true, source = { curve = "solar", peak = 0.8 } },
   { id = "smoker", name = "Smoker", blocks = true, clearable = false, placeable = true, station = "smoker" },
-  -- Heat & firewood (GDD §4.2, §5.3)
-  { id = "campfire", name = "Campfire", blocks = true, clearable = false, placeable = true, heatSource = 1, light = { on = "heat", radius = 44, color = { 1.00, 0.58, 0.24 }, flicker = 0.2, at = { 8, 8 } } }, -- light: glows in the dark while it burns (shaders/light.glsl, D84)
-  { id = "chopping_block", name = "Chopping block", blocks = true, clearable = false, placeable = true, splitter = true },
+  -- Heat & wood (GDD §4.2, §5.3, D104). heatSource.efficiency: how much of a log's heat reaches the night (an open fire wastes the most).
+  { id = "campfire", name = "Campfire", blocks = true, clearable = false, placeable = true, heatSource = { efficiency = 1 }, light = { on = "heat", radius = 44, color = { 1.00, 0.58, 0.24 }, flicker = 0.2, at = { 8, 8 } } }, -- light: glows in the dark while it burns (shaders/light.glsl, D84)
   {
     id = "woodshed",
     name = "Woodshed",
@@ -77,10 +75,9 @@ return {
     clearable = false,
     placeable = true,
     footprintW = 2,
-    station = "woodshed",
-    storage = { firewood = 30, seasoned_firewood = 60 },
+    storage = { wood = 60 }, -- dry storage: each shed raises the wood limit by this many (D104)
   },
-  { id = "wood_stove", name = "Wood stove", blocks = true, clearable = false, placeable = true, heatSource = 1.6, light = { on = "heat", radius = 30, color = { 1.00, 0.55, 0.22 }, flicker = 0.12, at = { 8, 15 }, windows = { { 6, 14, 4, 2 } } } },
+  { id = "wood_stove", name = "Wood stove", blocks = true, clearable = false, placeable = true, heatSource = { efficiency = 1.6 }, light = { on = "heat", radius = 30, color = { 1.00, 0.55, 0.22 }, flicker = 0.12, at = { 8, 15 }, windows = { { 6, 14, 4, 2 } } } },
 
   -- Power network (GDD §7.5). Sources: `source` { curve, peak kW }. Batteries: `battery` kWh.
   -- Sinks: `sink` { tier, draw kW, schedule, inertia, effects }; see data/tuning/power.lua.

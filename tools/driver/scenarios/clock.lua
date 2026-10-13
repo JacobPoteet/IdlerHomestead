@@ -64,7 +64,7 @@ return function(d)
     end
   end
   world.state.power.charge[world.state.land.truck] = 50
-  for _, id in ipairs({ "firewood", "seasoned_firewood" }) do
+  for _, id in ipairs({ "wood" }) do
     Ledger.add(world, id, 20, "scenario")
   end
   cam:centerOn((tx + 1.5 - 0.5) * tile, (ty + 1.5 - 0.5) * tile, view)

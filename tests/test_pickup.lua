@@ -160,15 +160,15 @@ T.test("pick up: storage holding more than would be left refuses until used", fu
   local world = newWorld(1)
   local i = openBlock(world, 2, 1)
   build(world, "woodshed", i)
-  local base = reg:get("resources", "firewood").capacity
-  Ledger.add(world, "firewood", base + 5)
+  local base = reg:get("resources", "wood").capacity
+  Ledger.add(world, "wood", base + 5)
   local ok, check = Placement.pickUp(world, i)
   T.falsy(ok)
   T.eq(check.reason, "storage")
-  T.eq(check.resource, "firewood")
-  Ledger.remove(world, "firewood", 10)
+  T.eq(check.resource, "wood")
+  Ledger.remove(world, "wood", 10)
   T.truthy(Placement.pickUp(world, i))
-  T.eq(Ledger.capacity(world, "firewood"), base, "capacity is back to the base")
+  T.eq(Ledger.capacity(world, "wood"), base, "capacity is back to the base")
 end)
 
 T.test("pick up: the bed the homesteader sleeps in stays put", function()

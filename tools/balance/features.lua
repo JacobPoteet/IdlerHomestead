@@ -380,8 +380,8 @@ local FIND_SCORE = {
   stray_cat = function(world)
     return Inventory.hasEquipment(world, "shelter_cat") and 0 or 6
   end,
-  split_stack = function(world, h)
-    return h.warmthDeficit(world, false) > 0 and nearWinter(world, 1) and 6 or 1
+  dry_stack = function(world, h)
+    return h.warmthDeficit(world) > 0 and nearWinter(world, 1) and 6 or 1
   end,
   heirloom_seeds = function(world)
     local season = Calendar.now(world).season

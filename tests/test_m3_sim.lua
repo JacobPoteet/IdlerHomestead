@@ -14,6 +14,7 @@ local Sleep = require("src.sim.systems.sleep")
 local Actors = require("src.sim.systems.actors")
 local Grid = require("src.sim.grid")
 local Needs = require("src.sim.systems.needs")
+local Shelter = require("src.sim.systems.shelter")
 local Inventory = require("src.sim.systems.inventory")
 local Processing = require("src.sim.systems.processing")
 local Tasks = require("src.sim.systems.tasks")
@@ -293,13 +294,7 @@ T.test("sleep: winter means a longer night in bed", function()
   T.truthy(wwake + 24 - wbed > wake + 24 - bed + 3)
 end)
 
--- Firewood & warmth -----------------------------------------------------------------------
-
-local function onlyCategory(world, category)
-  for _, e in ipairs(world.state.priorities) do
-    e.enabled = e.category == category
-  end
-end
+-- Wood & warmth -----------------------------------------------------------------------
 
 local function objectAnchor(world, id)
   for anchor, obj in pairs(world.state.grid.objects) do
@@ -328,58 +323,185 @@ local function dayIn(season)
   end
 end
 
-T.test("firewood: the starting kit has a campfire and a chopping block", function()
+T.test("wood: the starting kit has a campfire, and wood is the one fuel (D104)", function()
   local world = newWorld(2)
   T.truthy(objectAnchor(world, "campfire"))
-  T.truthy(objectAnchor(world, "chopping_block"))
-  T.truthy(reg:has("resources", tun.firewood.splitFrom))
-  T.truthy(reg:has("resources", tun.firewood.splitInto))
+  T.falsy(objectAnchor(world, "chopping_block"), "no chopping block any more")
+  T.falsy(reg:has("resources", "firewood"))
+  T.falsy(reg:has("resources", "seasoned_firewood"))
+  T.eq(Needs.fuelId(world), "wood")
+  local fuels = 0
+  for _, res in ipairs(reg:all("resources")) do
+    if res.heat then
+      fuels = fuels + 1
+    end
+  end
+  T.eq(fuels, 1)
+  for _, cat in ipairs(reg:all("task_categories")) do
+    T.truthy(cat.id ~= "fuel", "the split category is gone")
+  end
+  T.falsy((pcall(Tasks.get, world, "split_wood")), "and so is the split task")
 end)
 
-T.test("firewood: the routine splits wood, keeping a little for the smoker", function()
-  local world = newWorld(2)
-  world.control = "idle"
-  onlyCategory(world, "fuel")
-  setTime(world, 1, 8)
-  Ledger.add(world, "wood", 10)
-  run(world, HOUR * 4)
-  T.eq(Ledger.get(world, "wood"), tun.firewood.keepWood)
-  T.eq(Ledger.get(world, "firewood"), 10 - tun.firewood.keepWood)
-end)
-
-T.test("warmth: cold nights burn the best fuel; nothing to burn costs condition", function()
+T.test("warmth: cold nights burn wood; nothing to burn costs condition", function()
   local world = noFuelWorld(2)
   local warmed = collect(world, "needs.warmed")
-  setTime(world, dayIn("autumn"), 12)
+  setTime(world, dayIn("autumn") + 4, 12) -- late autumn
   local need = Needs.warmthNeeded(world)
   T.truthy(need > 0, "autumn nights need a fire")
-  Ledger.add(world, "seasoned_firewood", need)
-  Ledger.add(world, "firewood", 10)
+  local perWood = Needs.warmthPerWood(world)
+  T.near(perWood, reg:get("resources", "wood").heat * reg:get("objects", "campfire").heatSource.efficiency, 1e-9)
+  local logs = math.ceil(need / perWood - 1e-9)
+  Ledger.add(world, "wood", logs + 5)
   T.eq(Needs.warm(world), 0)
-  T.eq(Ledger.get(world, "seasoned_firewood"), 0, "seasoned wood burns first")
-  T.eq(Ledger.get(world, "firewood"), 10)
-  -- Green wood gives half the heat: twice as many logs.
-  T.eq(Needs.warm(world), 0)
-  T.eq(Ledger.get(world, "firewood"), 10 - need * 2)
-  T.eq(warmed[2].green, need * 2)
-  T.truthy(Journal.hasNote(world, "green_wood"))
-  Ledger.remove(world, "firewood", Ledger.get(world, "firewood"))
+  T.eq(Ledger.get(world, "wood"), 5, "just enough logs burn")
+  T.eq(warmed[1].burned, logs)
+  T.truthy(Journal.hasNote(world, "first_fire"))
+  Ledger.remove(world, "wood", Ledger.get(world, "wood"))
   local before = world.state.needs.condition
   T.eq(Needs.warm(world), 1)
   T.eq(world.state.needs.condition, before - tun.needs.coldDamage)
   T.truthy(Journal.hasNote(world, "cold_night"))
 end)
 
-T.test("warmth: summer needs no fire; without a heat source fuel doesn't help", function()
+T.test("warmth: summer needs no fire; without a heat source wood doesn't help", function()
   local world = newWorld(2)
   setTime(world, dayIn("summer"), 12)
   T.eq(Needs.warmthNeeded(world), 0)
   T.eq(Needs.warm(world), 0)
   setTime(world, dayIn("winter"), 12)
   Grid.removeObject(world, objectAnchor(world, "campfire"))
-  Ledger.add(world, "seasoned_firewood", 20)
+  Ledger.add(world, "wood", 20)
   T.eq(Needs.warm(world), 1, "no fire to burn it in")
-  T.eq(Ledger.get(world, "seasoned_firewood"), 20)
+  T.eq(Ledger.get(world, "wood"), 24, "the wood is not burned (4 from the kit)")
+end)
+
+-- D104: the seasonal curve --------------------------------------------------------------------
+
+--- The warmth a night needs at severity 1: the curve, before severity, snap and insulation.
+local function curve(season, day)
+  return Weather.baseWarmth(newWorld(2), season, day)
+end
+
+T.test("warmth curve: summer is zero, spring and autumn partial, winter large (D104)", function()
+  local peak = tun.needs.warmthPeak
+  for d = 1, tun.time.daysPerSeason do
+    T.eq(curve("summer", d), 0, "summer day " .. d)
+  end
+  local function mean(season)
+    local sum = 0
+    for d = 1, tun.time.daysPerSeason do
+      sum = sum + curve(season, d)
+    end
+    return sum / tun.time.daysPerSeason
+  end
+  T.truthy(mean("spring") > 0 and mean("spring") < peak * 0.5, "spring is partial")
+  T.truthy(mean("autumn") > 0 and mean("autumn") < peak * 0.5, "autumn is partial")
+  T.truthy(mean("winter") > peak * 0.7, "winter is large")
+  T.near(curve("winter", 3), peak, 1e-9, "deep winter is the full peak")
+  T.truthy(mean("autumn") < mean("winter") and mean("spring") < mean("winter"))
+  -- Smooth: no night differs from the next by more than half the peak, across the year wrap too.
+  local previous = curve("winter", tun.time.daysPerSeason)
+  for _, season in ipairs(tun.time.seasons) do
+    for d = 1, tun.time.daysPerSeason do
+      local now = curve(season, d)
+      T.truthy(math.abs(now - previous) <= peak / 2 + 1e-9, season .. d .. " jumps")
+      previous = now
+    end
+  end
+end)
+
+T.test("warmth curve: severity, cold snap and shelter insulation scale the curve (D37, D82)", function()
+  local world = newWorld(9)
+  local w = Weather.winter(world)
+  local first = dayIn("winter") - 1
+  setTime(world, first + 3, 12) -- winter day 4, outside any snap unless the roll puts one there
+  local day = Calendar.now(world).dayOfSeason
+  local snap = Weather.isColdSnap(world)
+  local expected = Weather.baseWarmth(world, "winter", day) * w.severity * (snap and tun.weather.snapMultiplier or 1)
+  T.near(Needs.warmthNeeded(world), expected * Shelter.insulation(world), 1e-9)
+  -- Spring and autumn ignore severity (the winter's roll is a winter thing).
+  setTime(world, dayIn("autumn") + 3, 12)
+  T.near(Weather.warmthNeed(world), Weather.baseWarmth(world, "autumn", Calendar.now(world).dayOfSeason), 1e-9)
+end)
+
+T.test("warmth: an uncovered spring night costs health through the fed-and-warm rules (D104)", function()
+  local world = noFuelWorld(2)
+  setTime(world, 1, 12) -- the first spring day: the thaw still bites
+  T.truthy(Needs.warmthNeeded(world) > 0, "spring has a real need")
+  Ledger.add(world, "canned_food", 10)
+  world.state.needs.condition = 50
+  Needs.daily(world)
+  T.truthy(world.state.needs.condition < 50, "no wood, a cold night, a fed day: health falls")
+  -- With wood the same night costs nothing and the fed, warm day restores condition.
+  local warm = noFuelWorld(2)
+  setTime(warm, 1, 12)
+  Ledger.add(warm, "canned_food", 10)
+  Ledger.add(warm, "wood", 10)
+  warm.state.needs.condition = 50
+  Needs.daily(warm)
+  T.truthy(warm.state.needs.condition > 50, "covered, fed: recovery")
+end)
+
+T.test("wood: the base cap holds without a woodshed and each shed raises it (D104)", function()
+  local world = noFuelWorld(2)
+  local base = reg:get("resources", "wood").capacity
+  T.eq(Ledger.capacity(world, "wood"), base, "no shed: the base cap (the shack no longer stores wood)")
+  Ledger.add(world, "wood", base + 20)
+  T.eq(Ledger.get(world, "wood"), base, "added wood stops at the cap")
+  T.truthy(Ledger.isFull(world, "wood"))
+  Inventory.addObject(world, "woodshed")
+  local spot
+  for i = 1, #world.state.grid.terrain do
+    if Inventory.canPlace(world, "woodshed", i) then
+      spot = i
+      break
+    end
+  end
+  T.truthy(Inventory.place(world, "woodshed", spot))
+  local shed = reg:get("objects", "woodshed").storage.wood
+  T.eq(Ledger.capacity(world, "wood"), base + shed, "one shed")
+  Ledger.add(world, "wood", shed)
+  T.eq(Ledger.get(world, "wood"), base + shed)
+  T.falsy(reg:get("objects", "woodshed").station, "it is dry storage, not a station")
+end)
+
+T.test("wood outlook: stock, tonight's burn and nights left, one accessor (D104)", function()
+  local world = noFuelWorld(2)
+  setTime(world, dayIn("summer"), 12)
+  Ledger.add(world, "wood", 10)
+  local o = Needs.woodOutlook(world)
+  T.eq(o.stock, 10)
+  T.eq(o.perNight, 0)
+  T.eq(o.nights, math.huge, "no fire in summer")
+  T.eq(Needs.fuelNights(world), math.huge)
+  setTime(world, dayIn("winter"), 12)
+  o = Needs.woodOutlook(world)
+  local need = Needs.warmthNeeded(world)
+  T.truthy(need > 0)
+  T.eq(o.perNight, math.ceil(need / Needs.warmthPerWood(world) - 1e-9))
+  T.near(o.nights, 10 * Needs.warmthPerWood(world) / need, 1e-9)
+  T.eq(Needs.fuelNights(world), o.nights)
+  local stove = reg:get("objects", "wood_stove").heatSource.efficiency
+  T.truthy(stove > reg:get("objects", "campfire").heatSource.efficiency)
+  -- Readiness reports the same stock and a per-night figure for the winter.
+  local Readiness = require("src.sim.systems.readiness")
+  local r = Readiness.winter(world)
+  T.eq(r.fuel.wood, 10)
+  T.truthy(r.fuel.perNight >= 1)
+  T.truthy(r.fuel.woodNeed >= r.fuel.perNight * 3)
+end)
+
+T.test("wood outlook: the same seed gives the same figures (determinism)", function()
+  local a, b = noFuelWorld(5), noFuelWorld(5)
+  setTime(a, dayIn("winter"), 12)
+  setTime(b, dayIn("winter"), 12)
+  Ledger.add(a, "wood", 17)
+  Ledger.add(b, "wood", 17)
+  T.eq(serialize.encode(Needs.woodOutlook(a)), serialize.encode(Needs.woodOutlook(b)))
+  run(a, HOUR * 30)
+  run(b, HOUR * 30)
+  T.eq(serialize.encode(a.state.ledger), serialize.encode(b.state.ledger))
 end)
 
 T.test("warmth: a fed but cold day doesn't restore condition", function()
@@ -391,28 +513,7 @@ T.test("warmth: a fed but cold day doesn't restore condition", function()
   T.eq(world.state.needs.condition, 50 - tun.needs.coldDamage)
 end)
 
-T.test("firewood: the woodshed stores more and seasons green wood", function()
-  local world = noFuelWorld(2)
-  local base = Ledger.capacity(world, "seasoned_firewood")
-  Inventory.addObject(world, "woodshed")
-  local spot
-  for i = 1, #world.state.grid.terrain do
-    if Inventory.canPlace(world, "woodshed", i) then
-      spot = i
-      break
-    end
-  end
-  T.truthy(Inventory.place(world, "woodshed", spot))
-  T.truthy(Ledger.capacity(world, "seasoned_firewood") > base)
-  Ledger.add(world, "firewood", 20)
-  local recipe = reg:get("recipes", "season_wood")
-  Tasks.get(world, "load_station").complete(world, Actors.homesteader(world), spot)
-  T.eq(Processing.batch(world, spot).count, recipe.batch)
-  run(world, HOUR * recipe.hours + 1)
-  T.eq(Ledger.get(world, "seasoned_firewood"), recipe.batch)
-end)
-
-T.test("firewood: an axe halves felling and splitting time", function()
+T.test("wood: an axe halves felling time", function()
   local world = newWorld(2)
   local clear = Tasks.get(world, "clear")
   local tree = objectAnchor(world, "tree")
@@ -492,7 +593,7 @@ T.test("winter: the cold snap multiplies the warmth need", function()
   local first = dayIn("winter") - 1
   setTime(world, first + w.snapStart - 2, 12)
   local normal = Needs.warmthNeeded(world)
-  T.near(normal, tun.needs.dailyWarmth.winter * w.severity, 1e-9)
+  T.near(normal, Weather.baseWarmth(world, "winter", w.snapStart - 1) * w.severity * Shelter.insulation(world), 1e-9)
   T.falsy(Weather.isColdSnap(world))
   setTime(world, first + w.snapStart - 1, 12)
   T.truthy(Weather.isColdSnap(world))

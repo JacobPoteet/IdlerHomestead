@@ -128,7 +128,7 @@ return function(d)
   d:frames(10, 0.05)
   sky("clear")
   at(17, 120)
-  for _, id in ipairs({ "firewood", "seasoned_firewood" }) do
+  for _, id in ipairs({ "wood" }) do
     Ledger.add(world, id, 20, "scenario")
   end
   look({ tx + 5, ty })

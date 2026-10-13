@@ -22,13 +22,4 @@ return {
     output = "cheese",
     hours = 12,
   },
-  {
-    id = "season_wood",
-    name = "Season firewood",
-    station = "woodshed",
-    inputCategory = "firewood",
-    batch = 16,
-    output = "seasoned_firewood",
-    hours = 48,
-  },
 }
