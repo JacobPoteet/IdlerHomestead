@@ -34,7 +34,16 @@ function Driver.new(opts)
     shots = {},
     backend = Save.memoryBackend(), -- never the real save directory
   }, Driver)
-  self.game = Game.new({ backend = self.backend, settingsBackend = Save.memoryBackend(), tips = false })
+  -- Audio is silent (a recording null backend, `self.audioLog`) unless the run asked for `audio=1`.
+  local AudioBackend = require("src.audio.backend")
+  self.audioBackend = opts.audio and AudioBackend.love() or AudioBackend.null()
+  self.audioLog = self.audioBackend.log
+  self.game = Game.new({
+    backend = self.backend,
+    settingsBackend = Save.memoryBackend(),
+    tips = false,
+    audioBackend = self.audioBackend,
+  })
   self:frames(2)
   return self
 end

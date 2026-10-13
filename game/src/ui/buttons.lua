@@ -73,6 +73,9 @@ function Buttons:action(name, data)
     local b = self:hit(data.x, data.y)
     if b then
       if b.enabled and b.onPress then
+        if Buttons.onActivate then
+          Buttons.onActivate(b) -- the audio service's tap sound (D100); nil in tests
+        end
         b.onPress(b)
       end
       return true

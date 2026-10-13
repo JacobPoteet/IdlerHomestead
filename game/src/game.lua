@@ -9,6 +9,9 @@ local platform = require("src.core.platform")
 local tuningLoader = require("src.core.tuning")
 local Debug = require("src.ui.debug_overlay")
 local Assets = require("src.render.assets")
+local Audio = require("src.audio.service")
+local AudioBackend = require("src.audio.backend")
+local Buttons = require("src.ui.buttons")
 local Shaders = require("src.render.shaders")
 local ScrollList = require("src.ui.scroll_list")
 local Text = require("src.ui.text")
@@ -36,6 +39,17 @@ function Game.new(opts)
   local live = not (opts and opts.settingsBackend)
   ctx.settings = Settings.new((opts and opts.settingsBackend) or Save.loveBackend(), tuning):activate()
   ctx.settings:load()
+  -- Audio (D100): outside the sim. Tests and the driver (settingsBackend) get the silent backend unless
+  -- they pass `audioBackend`, so no audio device is ever needed.
+  ctx.audio = Audio.new({
+    tuning = tuning,
+    settings = ctx.settings,
+    backend = (opts and opts.audioBackend) or (not live and AudioBackend.null()) or nil,
+    fs = opts and opts.audioFs,
+  })
+  Buttons.onActivate = function()
+    ctx.audio:play("ui_tap")
+  end
   local app = App.new(ctx)
   ctx.liveWindow = live
   ctx.settingsEnv = function()
@@ -73,6 +87,7 @@ function Game:settingsEnv()
   return {
     app = app,
     live = app.ctx.liveWindow,
+    audio = app.ctx.audio,
     pixelW = app.pixelW,
     pixelH = app.pixelH,
     touchPrimary = platform.has("touchPrimary"),
@@ -117,6 +132,7 @@ end
 function Game:update(dt)
   self.input:update(dt)
   self.app:update(dt)
+  self.app.ctx.audio:update(dt)
   ScrollList.tick(dt, self.app.ctx.tuning.ui) -- panel lists coast after a drag (D94)
 end
 
@@ -137,6 +153,13 @@ function Game:keypressed(key)
     print("Reloaded tuning and shaders")
     return
   end
+  if key == "f7" then
+    -- Sound test: audition every cue (D100).
+    if self.app:top().name ~= "soundtest" then
+      self.app:push(require("src.scenes.sound_test").new())
+    end
+    return
+  end
   self.input:keypressed(key)
   self.app:keypressed(key)
 end
@@ -147,6 +170,7 @@ function Game:textinput(text)
 end
 
 function Game:focus(hasFocus)
+  self.app.ctx.audio:setFocus(hasFocus)
   self.app:broadcast("focus", hasFocus)
 end
 

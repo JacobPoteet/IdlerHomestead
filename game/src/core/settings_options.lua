@@ -29,6 +29,14 @@ local function multiplier(v)
   return string.format("x%g", v)
 end
 
+-- A volume slider moved: play a short sound at the new level so it can be judged (live only; the
+-- audio service reads the slider values itself every frame).
+local function preview(_, env)
+  if env.live and env.audio then
+    env.audio:preview()
+  end
+end
+
 --- Build the option list for a loaded tuning root.
 function M.build(tuning)
   local cfg = tuning.settings
@@ -140,6 +148,58 @@ function M.build(tuning)
       note = function()
         return "Fireflies, dust, mist, cloud shadows and rain streaks."
       end,
+    },
+    {
+      id = "volumeMaster",
+      label = "Master volume",
+      kind = "slider",
+      group = "Sound",
+      min = cfg.volume.min,
+      max = cfg.volume.max,
+      step = cfg.volume.step,
+      format = percent,
+      apply = preview,
+    },
+    {
+      id = "volumeEffects",
+      label = "Effects",
+      kind = "slider",
+      group = "Sound",
+      min = cfg.volume.min,
+      max = cfg.volume.max,
+      step = cfg.volume.step,
+      format = percent,
+      apply = preview,
+    },
+    {
+      id = "volumeAmbience",
+      label = "Ambience",
+      kind = "slider",
+      group = "Sound",
+      min = cfg.volume.min,
+      max = cfg.volume.max,
+      step = cfg.volume.step,
+      format = percent,
+      note = function()
+        return "Birds, creek, wind, rain and fire."
+      end,
+    },
+    {
+      id = "volumeMusic",
+      label = "Music",
+      kind = "slider",
+      group = "Sound",
+      min = cfg.volume.min,
+      max = cfg.volume.max,
+      step = cfg.volume.step,
+      format = percent,
+    },
+    {
+      id = "muteUnfocused",
+      label = "Mute when unfocused",
+      kind = "toggle",
+      group = "Sound",
+      requires = "resizableWindow",
     },
     {
       id = "idleDelay",

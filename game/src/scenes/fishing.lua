@@ -54,6 +54,7 @@ function FishingScene:cast()
       activity = Fishing.activity(world),
     })
     self.usedBait = bait
+    self.app.ctx.audio:play("fish_hooked")
   end
   if self.box then
     self:layout()

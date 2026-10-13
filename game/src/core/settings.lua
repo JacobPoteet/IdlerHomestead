@@ -75,7 +75,9 @@ function Settings:validate(opt, value)
   elseif opt.kind == "slider" then
     if type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge then
       local steps = math.floor((value - opt.min) / opt.step + 0.5)
-      return math.min(opt.max, math.max(opt.min, opt.min + steps * opt.step))
+      -- Tidied to 9 significant digits so 7 x 0.1 is 0.7, not 0.7000000000000001.
+      local snapped = tonumber(string.format("%.9g", opt.min + steps * opt.step))
+      return math.min(opt.max, math.max(opt.min, snapped))
     end
   end
   return nil
