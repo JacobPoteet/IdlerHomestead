@@ -25,6 +25,43 @@ return {
     vehicle = true, -- charged in the truck priority tier; lends power to the homestead only above a trip reserve (tuning.power.truckReserveKwh)
     maxRate = 11, -- kW it can charge or discharge at (onboard charger)
     shelter = true, -- you sleep in the truck at first
+    shelterRank = 0, -- the bottom rung of the shelter ladder (D82)
+    insulation = 1, -- no help against the cold: a cold snap hurts here most
+    recovery = 1, -- Condition recovery of a fed, warm day, as is
+    heaterRadius = 8, -- tiles; the cab is small, so a fire anywhere near the truck is close enough
+  },
+  -- Shelter ladder (D82, GDD §5.3). Insulation multiplies the night's warmth need, recovery the daily
+  -- Condition recovery; a heat source within heaterRadius tiles of the shelter counts in full, farther
+  -- ones at tuning.shelter.farHeat.
+  {
+    id = "camp",
+    name = "Camp",
+    blocks = true,
+    clearable = false,
+    placeable = true,
+    footprintW = 2,
+    footprintH = 2,
+    shelter = true,
+    shelterRank = 1,
+    insulation = 0.85, -- 15% less warmth needed
+    recovery = 1.3, -- 30% more Condition on a fed, warm day
+    heaterRadius = 4, -- tiles
+  },
+  {
+    id = "shack",
+    name = "Shack",
+    blocks = true,
+    clearable = false,
+    placeable = true,
+    footprintW = 3,
+    footprintH = 2,
+    shelter = true,
+    shelterRank = 2,
+    insulation = 0.6, -- 40% less warmth needed
+    recovery = 1.6, -- 60% more Condition on a fed, warm day
+    heaterRadius = 5, -- tiles: room for the wood stove inside
+    studySpeed = 0.2, -- the desk by the window: study goes 20% faster in bed here
+    storage = { firewood = 20, seasoned_firewood = 30 }, -- a stack of wood under the roof
   },
   -- Placeable equipment (bought from the catalog or part of the starting kit)
   { id = "folding_panel", name = "Folding solar panel", blocks = false, clearable = false, placeable = true, source = { curve = "solar", peak = 0.8 } },

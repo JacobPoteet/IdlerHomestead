@@ -83,6 +83,29 @@ return {
     studyNights = 3,
     object = "wood_stove",
   },
+  -- Shelter ladder (D82). The truck is the first rung; each night spent on a rung writes the note that
+  -- makes the next one an idea. Prices are tuned so the harness can afford the camp by the first
+  -- autumn and the shack before the first winter (docs/BALANCE.md).
+  {
+    id = "camp",
+    name = "Camp",
+    line = "A lean-to: better sleep, a little warmer.",
+    page = "shelter",
+    price = 40,
+    needs = { "truck_cold" },
+    studyNights = 2,
+    object = "camp",
+  },
+  {
+    id = "shack",
+    name = "Shack",
+    line = "Real walls: much warmer, with a desk.",
+    page = "shelter",
+    price = 110,
+    needs = { "camp_cold" },
+    studyNights = 3,
+    object = "shack",
+  },
   {
     id = "used_panel",
     name = "Used solar panel",

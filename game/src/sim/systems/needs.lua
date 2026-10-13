@@ -9,6 +9,7 @@
 local Calendar = require("src.sim.systems.calendar")
 local Ledger = require("src.sim.systems.ledger")
 local Power = require("src.sim.systems.power")
+local Shelter = require("src.sim.systems.shelter")
 local Weather = require("src.sim.systems.weather")
 
 local Needs = {}
@@ -56,11 +57,15 @@ function Needs.foodDays(world)
   return Needs.calories(world) / world.tuning.needs.dailyCalories
 end
 
---- Efficiency of the best placed heat source (0 = nothing to burn fuel in).
+--- Efficiency of the best placed heat source (0 = nothing to burn fuel in). A source beyond the
+--- sleeping shelter's heater slot delivers only part of its warmth (D82, Shelter.heatReach).
 function Needs.heatEfficiency(world)
   local best = 0
-  for _, obj in pairs(world.state.grid.objects) do
-    best = math.max(best, world.registry:get("objects", obj.id).heatSource or 0)
+  for anchor, obj in pairs(world.state.grid.objects) do
+    local heat = world.registry:get("objects", obj.id).heatSource
+    if heat then
+      best = math.max(best, heat * Shelter.heatReach(world, anchor))
+    end
   end
   return best
 end
@@ -74,9 +79,10 @@ function Needs.warmthInStock(world)
   return total * Needs.heatEfficiency(world)
 end
 
---- Warmth needed tonight: the season's base, scaled by the winter's severity and any cold snap.
+--- Warmth needed tonight: the season's base, scaled by the winter's severity and any cold snap, then
+--- by the best shelter's insulation (D82).
 function Needs.warmthNeeded(world)
-  return Weather.warmthNeed(world)
+  return Weather.warmthNeed(world) * Shelter.insulation(world)
 end
 
 --- Nights of fuel in stock at tonight's need (math.huge when no fire is needed, D70, #157).
@@ -140,6 +146,7 @@ function Needs.warm(world)
     burned = burned,
     green = green,
     shortfall = shortfall,
+    shelter = Shelter.id(world), -- where the night was spent (notes: truck_cold, camp_cold)
   })
   return shortfall
 end
@@ -150,7 +157,7 @@ function Needs.daily(world)
   local cold = Needs.warm(world)
   local cfg, state = world.tuning.needs, world.state.needs
   if hungry == 0 and cold == 0 then
-    state.condition = math.min(cfg.conditionMax, state.condition + cfg.dailyRecovery)
+    state.condition = math.min(cfg.conditionMax, state.condition + cfg.dailyRecovery * Shelter.recovery(world))
   end
   if state.condition <= 0 then
     world.events:emit("needs.depleted", {})

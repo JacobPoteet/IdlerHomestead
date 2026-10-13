@@ -36,6 +36,7 @@ local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Needs = require("src.sim.systems.needs")
 local Rng = require("src.core.rng")
+local Shelter = require("src.sim.systems.shelter")
 local Sleep = require("src.sim.systems.sleep")
 local Stats = require("src.sim.stats")
 local Weather = require("src.sim.systems.weather")
@@ -45,9 +46,9 @@ local Policies = {}
 -- Player behaviour knobs (not game balance).
 local POLICY = {
   -- Catalog items to buy, in order of preference.
-  buyList = { "woodshed", "wood_stove", "axe", "smoker", "big_bucket", "sturdy_rod", "used_panel" },
+  buyList = { "woodshed", "wood_stove", "camp", "axe", "smoker", "big_bucket", "sturdy_rod", "shack", "used_panel" },
   -- Ideas to study first, in order; anything else available follows.
-  studyList = { "woodshed", "wood_stove", "axe", "smoker", "big_bucket", "sturdy_rod", "used_panel" },
+  studyList = { "woodshed", "wood_stove", "camp", "axe", "smoker", "big_bucket", "sturdy_rod", "shack", "used_panel" },
   minTripValue = 5, -- $ the auto-loaded truck must be worth before a trip is worth the charge
   placeFromRing = 2, -- tiles from the truck at which delivered objects are placed (leaves a walkway)
   placeToRing = 10, -- farthest ring tried when placing
@@ -114,9 +115,15 @@ local function ownsOrPending(world, id)
 end
 
 --- Place `id` from the inventory on the nearest free tile in the rings around the truck.
+--- (Heat sources go around the best shelter instead, so they sit in its heater slot, D82.)
 local function placeNearTruck(world, id)
   local grid = world.state.grid
-  local tx, ty = Grid.coords(grid, world.state.land.truck)
+  local def = world.registry:get("objects", id)
+  local center = world.state.land.truck
+  if def.heatSource or (def.sink and def.sink.effects and def.sink.effects.warmthPerKwh) then
+    center = Shelter.best(world) or center
+  end
+  local tx, ty = Grid.coords(grid, center)
   for r = POLICY.placeFromRing, POLICY.placeToRing do
     for dy = -r, r do
       for dx = -r, r do

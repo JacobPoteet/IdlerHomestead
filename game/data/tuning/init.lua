@@ -14,6 +14,7 @@ return {
   "farming",
   "water",
   "needs",
+  "shelter",
   "firewood",
   "food",
   "fishing",

@@ -13,6 +13,7 @@ local Session = require("src.session")
 local Grid = require("src.sim.grid")
 local Calendar = require("src.sim.systems.calendar")
 local Sleep = require("src.sim.systems.sleep")
+local Shelter = require("src.sim.systems.shelter")
 local Ledger = require("src.sim.systems.ledger")
 local Actors = require("src.sim.systems.actors")
 local Crops = require("src.sim.systems.crops")
@@ -1587,6 +1588,33 @@ function Homestead:drawOverlays()
       end
     end
   end
+  -- Heater slot (D82): a shelter's own slot when it is selected or being placed, and the sleeping
+  -- shelter's slot while a heat source is being placed, so the player sees where a fire counts in full.
+  if not reach then
+    local slotDef, sx, sy
+    if self.selected then
+      local obj, anchor = Grid.object(world, self.selected)
+      if obj and obj.shelter then
+        slotDef = obj
+        sx, sy = Grid.coords(grid, anchor)
+      end
+    elseif self.mode == "place" and self.hover then
+      local def = world.registry:get("objects", self.placing)
+      if def.shelter then
+        slotDef = def
+        sx, sy = Grid.coords(grid, self.hover)
+      elseif def.heatSource or (def.sink and def.sink.effects and def.sink.effects.warmthPerKwh) then
+        local anchor, bed = Shelter.best(world)
+        if anchor then
+          slotDef = bed
+          sx, sy = Grid.coords(grid, anchor)
+        end
+      end
+    end
+    if slotDef then
+      reach, reachColor = Shelter.slotTiles(world, slotDef, sx, sy), visuals.shelter.zone
+    end
+  end
   if reach and #reach > 0 then
     love.graphics.setColor(reachColor)
     local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
@@ -2079,6 +2107,18 @@ function Homestead:tileInfo(i)
     end
     if obj.heatSource then
       lines[#lines + 1] = string.format("Heat x%.1f · needs %d a night", obj.heatSource, Needs.warmthNeeded(world))
+    end
+    if obj.heatSource or (obj.sink and obj.sink.effects and obj.sink.effects.warmthPerKwh) then
+      local reach = Shelter.heatReach(world, anchor)
+      lines[#lines + 1] = reach >= 1 and "Beside the bed: full heat" or string.format("Too far from bed: %d%%", math.floor(reach * 100 + 0.5))
+    end
+    if obj.shelter then -- the shelter ladder (D82)
+      lines[#lines + 1] = obj.insulation < 1 and string.format("Keeps heat: %d%% less fuel", math.floor((1 - obj.insulation) * 100 + 0.5)) or "Keeps no heat"
+      lines[#lines + 1] = string.format("Rest: %+d%% condition", math.floor((obj.recovery - 1) * 100 + 0.5))
+      lines[#lines + 1] = string.format("Heater slot: %d tiles", obj.heaterRadius or 0)
+      if (obj.studySpeed or 0) > 0 then
+        lines[#lines + 1] = string.format("Desk: study +%d%%", math.floor(obj.studySpeed * 100 + 0.5))
+      end
     end
   end
   local crop = world.state.crops[i]

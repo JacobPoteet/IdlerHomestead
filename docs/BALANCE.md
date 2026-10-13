@@ -295,6 +295,21 @@ Changes: the sell crate is gone. Every good has a keep target (automatic: 3 days
 
 Reading: survival is unchanged. **Big shift: active truck income almost doubles** (Y2 median $284 to $735, $565 to $1068 a run, 13 to 20 trips). The old crate quote filled the 40 units in content order, so $1 radishes crowded out potatoes, eggs and fish; Auto-load takes the best price first, so each trip is worth more, the money buys power items sooner and the truck drives more often (#124 already tracks truck income growing with power). Potatoes no longer rot in the active run (131 to 2 a run): they now sell. Radish spoilage is about the same (the truck prefers dearer goods, so radishes still wait, #169). The scripted policy earns more in year 1 from stone it clears (72 units a run) and the same in year 2. One finding shaped the design: an earlier version kept only the wood the coming winter's fuel lacked; the scripted policy then sold about 9 wood a run in its first autumn and failed 5/10 instead of 3/10, because the leftover woodpile was its winter-2 fuel. The automatic keep now holds the whole woodpile (selling wood asks first), and a fuel keep made in winter also covers the next winter (#202 to revisit).
 
+### Shelter ladder: camp and shack (#198, D82)
+
+Changes: the camp (insulation 0.85, recovery 1.3, 40 $) and the shack (0.6, 1.6, desk, 110 $) join the harness shopping lists (`buyList`, `studyList`: camp after the wood stove, shack after the sturdy rod); heat sources are placed around the best shelter (the heater slot) instead of by the truck. `policy=scripted,active seeds=10 years=2`, before and after (same seeds, 56 days):
+
+| | scripted before | scripted after | active before | active after |
+| --- | --- | --- | --- | --- |
+| failed in 2 years | 3/10 (winter Y2 1, spring Y3 2; all cold) | 0/10 | 0/10 | 0/10 |
+| fuel nights covered, winter 1 / winter 2 end of season (median) | 6.7 / 0.0 | 8.1 / 0.1 | 5.2 / 6.3 | 6.1 / 10.4 |
+| winter 1 fuel / raw need on its first day (median, share fully covered) | 1.16 (60%) | 1.14 (80%) | 0.67 (10%) | 0.69 (10%) |
+| winter 2 fuel / raw need on its first day (median, share fully covered) | 0.40 (0%) | 0.54 (0%) | 0.92 (30%) | 1.05 (70%) |
+| condition at winter 2 end (median) | (3 runs lost) | 100 | 100 | 100 |
+| owned at the end | | camp 100%, shack 90% | | camp 100%, shack 100% |
+
+Reading: every seed buys the camp in its first year and nearly every seed the shack by its first or second winter, so **the scripted policy's three cold deaths disappear** (a 40% cut in the night's warmth need through the shack is worth more than any wood the policy can gather); the active player was already surviving, and its fuel margin grows (winter 2 fully covered 30% to 70%). Note the harness readiness lines divide by the *raw* winter need (`needs.dailyWarmth.winter` x severity), not the insulated one, so a shack run reads about 1/0.6 lower than it feels: scripted winter 2 at 0.54 is about 0.9 of the insulated need. Fuel use per night falls by the insulation factor (15% in a camp, 40% in a shack), so the first-winter pressure to chop, season and buy a stove is lower once the shack stands; the first winter is still not skippable (the shack needs the camp's note and 110 $, bought on the first trips of summer to autumn). **Tuning to watch**: if the ladder makes winter too soft, raise `shack.insulation` toward 0.7 or its price, rather than weakening the heater slot. The policies' own fuel targets (`urgentFuelNights`, `warmthDeficit`) still use the raw need and so stockpile a little more wood than a shack run needs; left alone.
+
 ### Follow-up issues
 
 - #202 revisit the automatic wood keep (whole woodpile vs next winter's fuel)

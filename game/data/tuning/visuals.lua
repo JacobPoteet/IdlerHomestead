@@ -77,6 +77,9 @@ return {
   },
   waterSpots = { 0.35, 0.62, 0.80, 0.28 }, -- tint over tiles where a well or pump can be sunk, while placing one
   frostPlan = { 0.95, 0.55, 0.15, 0.40 }, -- amber tint over a planned tile whose crop cannot ripen before winter (D70, #165)
+  shelter = { -- shelter ladder (D82)
+    zone = { 1.00, 0.62, 0.22, 0.20 }, -- warm tint over the heater slot of a shelter (selected, being placed, or while placing a heat source)
+  },
   machine = { -- machines (D65): status light, reach zone and the picking arm
     lamp = { -- status light colours by Machines status (same size as powerLamp)
       working = { 0.45, 0.90, 0.42 }, -- working at full power
