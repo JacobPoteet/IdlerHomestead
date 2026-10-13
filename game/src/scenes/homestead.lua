@@ -1527,7 +1527,7 @@ function Homestead:update(dt)
     self.app:switch(require("src.scenes.rescue").new(), slot, data)
     return
   end
-  self.renderer:update(dt)
+  self.renderer:update(dt, self.session:effectiveSpeed()) -- effects follow game speed and pause (D97)
   -- A find waits for a free screen (not behind the fishing mini-game or a panel), also after a load.
   if Finds.pending(self.world) and self.app:top() == self then
     self.app:push(require("src.scenes.finds").new(self.world))

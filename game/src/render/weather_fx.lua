@@ -18,6 +18,9 @@ local function cfg_wind(world)
 end
 
 local function lerp(a, b, t)
+  if math.abs(b - a) < 1e-4 then
+    return b -- arrived: an easing look settles exactly, so a paused frame stops changing (D97)
+  end
   return a + (b - a) * t
 end
 
@@ -51,7 +54,10 @@ function Fx.new(world)
 end
 
 --- Ease the look toward today's weather so a new day fades in rather than snapping.
-function Fx:update(dt)
+--- `dt` = real seconds (easing toward the weather); `step` = effect-clock seconds (D97: game time, 0 while
+--- paused), which drives everything that moves: rain, clouds, sway, mist and dust. nil = `dt`.
+function Fx:update(dt, step)
+  step = step or dt
   local cfg = self.world.tuning.visuals.weather
   local look, rain = target(self.world)
   local k = math.min(1, dt / cfg.blendSeconds)
@@ -60,7 +66,7 @@ function Fx:update(dt)
   end
   self.light = lerp(self.light, look.light, k)
   self.rain = lerp(self.rain, rain, k)
-  self.time = (self.time + dt) % 3600
+  self.time = (self.time + step) % 3600
 
   -- Wet ground soaks in quickly and dries slowly.
   local wetWant = wetTarget(cfg, rain)
@@ -74,25 +80,25 @@ function Fx:update(dt)
   local clouds = cfg.clouds
   self.wind = lerp(self.wind, Weather.windStrength(self.world), math.min(1, dt / clouds.windBlendSeconds))
   local dx, dy = clouds.direction[1], clouds.direction[2]
-  local step = clouds.speed * self.wind * dt / math.sqrt(dx * dx + dy * dy)
+  local step = clouds.speed * self.wind * step / math.sqrt(dx * dx + dy * dy)
   self.drift[1] = (self.drift[1] + dx * step) % DRIFT_WRAP
   self.drift[2] = (self.drift[2] + dy * step) % DRIFT_WRAP
 
   -- Wind sway: a clock in radians that speeds up with the (eased) wind, so a gust never jumps the pose.
   -- The wrap is a whole number of turns, so the sine carries on unbroken.
-  self.swayClock = (self.swayClock + cfg_wind(self.world).speed * self.wind * dt) % SWAY_WRAP
+  self.swayClock = (self.swayClock + cfg_wind(self.world).speed * self.wind * step) % SWAY_WRAP
 
   -- Mist banks drift slowly downwind.
   local mist = self.world.tuning.visuals.mist
   local mx, my = mist.direction[1], mist.direction[2]
-  local mstep = mist.drift * self.wind * dt / math.sqrt(mx * mx + my * my)
+  local mstep = mist.drift * self.wind * step / math.sqrt(mx * mx + my * my)
   self.mistDrift[1] = (self.mistDrift[1] + mx * mstep) % DRIFT_WRAP
   self.mistDrift[2] = (self.mistDrift[2] + my * mstep) % DRIFT_WRAP
 
   -- Dust motes drift downwind the same way (D85).
   local dust = self.world.tuning.visuals.dust
   local ux, uy = dust.direction[1], dust.direction[2]
-  local dstep = dust.speed * self.wind * dt / math.sqrt(ux * ux + uy * uy)
+  local dstep = dust.speed * self.wind * step / math.sqrt(ux * ux + uy * uy)
   self.dustDrift[1] = (self.dustDrift[1] + ux * dstep) % DRIFT_WRAP
   self.dustDrift[2] = (self.dustDrift[2] + uy * dstep) % DRIFT_WRAP
 end
