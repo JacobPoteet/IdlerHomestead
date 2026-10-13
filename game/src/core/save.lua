@@ -11,6 +11,7 @@
 -- Storage goes through a backend so tests can run in memory. Each write first copies the
 -- previous file to a .bak, and reads fall back to the backup if the main file is unreadable.
 
+local Gridpack = require("src.core.gridpack")
 local serialize = require("src.core.serialize")
 
 local Save = {}
@@ -28,8 +29,8 @@ local migrations = {}
 --- the shape of the saved run or meta changes in a way older code or data cannot read, and update the
 --- fingerprint in tests/test_save_compat.lua (that test fails until both are done).
 --- History: 1 = before the stamp existed (unstamped saves), 2 = shelf-life batches (D73), 3 = keep
---- targets and the truck load replace the sell crate (D75), 4 = placement orders and held field tiles (D79), 5 = condition at the last dawns in the alert state (D90), 6 = `skipped` flag in the slot's tip state (meta.ftue, D99).
-Save.SAVE_COMPAT = 6
+--- targets and the truck load replace the sell crate (D75), 4 = placement orders and held field tiles (D79), 5 = condition at the last dawns in the alert state (D90), 6 = `skipped` flag in the slot's tip state (meta.ftue, D99), 7 = the run's grid arrays (terrain, soil, waterTable) are written as compact strings (D103, #21).
+Save.SAVE_COMPAT = 7
 
 --- How a slot's data relates to this build: "ok", "older" (no stamp or a lower one) or "newer".
 function Save.compatibility(data)
@@ -116,7 +117,29 @@ local function headerPath(index)
   return "slot" .. index .. ".hdr"
 end
 
-local function decodeSlot(contents)
+-- The slot as it is written: the run's grid arrays in their compact string form (D103). A copy; the
+-- live data keeps its plain arrays.
+local function forDisk(data)
+  local run = data.run
+  if type(run) ~= "table" or type(run.grid) ~= "table" then
+    return data
+  end
+  local copy, runCopy = {}, {}
+  for k, v in pairs(data) do
+    copy[k] = v
+  end
+  for k, v in pairs(run) do
+    runCopy[k] = v
+  end
+  runCopy.grid = Gridpack.pack(run.grid)
+  copy.run = runCopy
+  return copy
+end
+
+Save.forDisk = forDisk
+
+-- `keepPacked` skips restoring the grid arrays, for a check that only needs to know the file reads.
+local function decodeSlot(contents, keepPacked)
   if not contents then
     return nil, "missing"
   end
@@ -143,6 +166,12 @@ local function decodeSlot(contents)
     data = migrated
     version = version + 1
     data.version = version
+  end
+  if not keepPacked and type(data.run) == "table" and type(data.run.grid) == "table" then
+    local ok, err = pcall(Gridpack.unpack, data.run.grid)
+    if not ok then
+      return nil, "save has a damaged map: " .. tostring(err)
+    end
   end
   return data
 end
@@ -173,10 +202,10 @@ function Save:write(index, data)
   assert(data.compat == nil or data.compat == Save.SAVE_COMPAT, "refusing to re-stamp a save from another version")
   data.version = Save.FORMAT_VERSION
   data.compat = Save.SAVE_COMPAT
-  local contents = serialize.encode(data)
+  local contents = serialize.encode(forDisk(data))
   -- Only rotate a readable file into the backup; a corrupt main must never replace a good .bak.
   local previous = self.backend.read(mainPath(index))
-  if previous and decodeSlot(previous) then
+  if previous and decodeSlot(previous, true) then
     self.backend.write(backupPath(index), previous)
   end
   local ok, err = self.backend.write(mainPath(index), contents)

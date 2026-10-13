@@ -258,10 +258,18 @@ end
 
 -- One search over every task type `wanted` accepts: the doable, unreserved candidate nearest by walking
 -- distance becomes a job (one Dijkstra search over all candidates), or nil.
-local function nearestJob(world, actor, wanted)
+local scratchTargets, scratchTaskAt = {}, {} -- reused by every search (cleared on entry), never kept
+
+local function nearestJob(world, actor, wanted, search)
   local grid = world.state.grid
   local here = Grid.index(grid, math.floor(actor.x + 0.5), math.floor(actor.y + 0.5))
-  local targets, taskAt, any = {}, {}, false
+  local targets, taskAt, any = scratchTargets, scratchTaskAt, false
+  for k in pairs(targets) do
+    targets[k] = nil
+  end
+  for k in pairs(taskAt) do
+    taskAt[k] = nil
+  end
   for _, t in ipairs(world.taskTypes.list) do
     if wanted(t) and t.candidates and Tasks.allows(actor.caps, t) then
       local canDoCandidate = t.canDoCandidate
@@ -285,7 +293,15 @@ local function nearestJob(world, actor, wanted)
     end
   end
   if any then
-    local path, target = Pathfind.nearest(world, here, targets)
+    -- The flood is shared by every query of one decision (`search`), see Pathfind.flood.
+    local flood = search and search.flood
+    if not flood then
+      flood = Pathfind.flood(world, here)
+      if search then
+        search.flood = flood
+      end
+    end
+    local path, target = flood:nearest(targets)
     if path then
       return newJob(taskAt[target], target, path, nil)
     end
@@ -295,12 +311,15 @@ end
 
 --- The idle routine: the highest-priority category with a reachable task; within it, the
 --- target nearest by walking distance (one Dijkstra search over all candidates).
-function Tasks.chooseIdleJob(world, actor)
+--- `search` (optional table) lets one decision share its walking-distance flood with
+--- `chooseStandingJob`; leave it out for a search of its own.
+function Tasks.chooseIdleJob(world, actor, search)
+  search = search or {}
   for _, entry in ipairs(world.state.priorities) do
     if entry.enabled and Rules.met(world, entry.cond) then
       local job = nearestJob(world, actor, function(t)
         return t.category == entry.category
-      end)
+      end, search)
       if job then
         return job
       end
@@ -313,10 +332,10 @@ end
 --- the player's own instruction, so they run whatever the control mode, ahead of the routine's
 --- priority list and ignoring its conditions (D66). A category the player switched off in the Routine
 --- panel stays off, so a standing order never works against that toggle. Nearest target first.
-function Tasks.chooseStandingJob(world, actor)
+function Tasks.chooseStandingJob(world, actor, search)
   return nearestJob(world, actor, function(t)
     return t.standing == true and entryFor(world, t.category).enabled
-  end)
+  end, search)
 end
 
 --- Resource ids whose full store is holding back some target on the map right now (D93, #135):

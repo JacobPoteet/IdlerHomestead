@@ -34,4 +34,5 @@ return {
   "ui",
   "settings",
   "audio",
+  "perf",
 }

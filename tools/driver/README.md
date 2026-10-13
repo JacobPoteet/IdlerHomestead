@@ -107,4 +107,6 @@ Also `fixbatch` (D93: Pantry rows with clear buttons, a station's waiting output
 
 Also `crops` (D102: a field with every growth stage, thirsty and ripe crops, bare and tilled plans and ground sprites at zoom 1 and 2 in day, night, rain and snow).
 
+Also `perf` (D103: no screenshots; prints the CPU milliseconds of a busy frame, update and draw submit, at each zoom in clear weather and rain, from the F3 overlay's probes; compare `size=desktop|phone|landscape`).
+
 Also `money` (D88: the first-junk money card and the Catalog line when money is under the cheapest order); the `starter` scenario now also shoots the starter-field toast.

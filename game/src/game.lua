@@ -7,6 +7,7 @@ local Save = require("src.core.save")
 local Settings = require("src.core.settings")
 local platform = require("src.core.platform")
 local tuningLoader = require("src.core.tuning")
+local Perf = require("src.core.perf")
 local Debug = require("src.ui.debug_overlay")
 local Assets = require("src.render.assets")
 local Audio = require("src.audio.service")
@@ -130,16 +131,24 @@ function Game:resize(w, h)
 end
 
 function Game:update(dt)
+  local started = Perf.enabled and Perf.now()
   self.input:update(dt)
   self.app:update(dt)
   self.app.ctx.audio:update(dt)
   ScrollList.tick(dt, self.app.ctx.tuning.ui) -- panel lists coast after a drag (D94)
+  if started then
+    Perf.add("update", Perf.now() - started)
+  end
 end
 
 function Game:draw()
+  local started = Perf.enabled and Perf.now()
   love.graphics.clear(theme.colors.background)
   self.app:draw()
   self.debug:draw()
+  if started then
+    Perf.add("draw", Perf.now() - started) -- CPU time to submit the frame; the GPU runs on after this
+  end
 end
 
 function Game:keypressed(key)

@@ -195,9 +195,10 @@ function Actors.tick(world, dt)
       if actor.wait <= 0 then
         -- Standing orders (planned tiles to till and plant, D92) come first in either control mode;
         -- the routine's own priorities only apply while it is in charge.
-        local job = Tasks.chooseStandingJob(world, actor)
+        local search = {} -- one walking-distance flood serves both searches
+        local job = Tasks.chooseStandingJob(world, actor, search)
         if not job and world.control == "idle" then
-          job = Tasks.chooseIdleJob(world, actor)
+          job = Tasks.chooseIdleJob(world, actor, search)
         end
         if job then
           actor.job = job
