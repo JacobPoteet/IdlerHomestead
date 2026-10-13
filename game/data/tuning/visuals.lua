@@ -196,6 +196,66 @@ return {
     margin = 4, -- tiles past the screen edge whose lights still count (at least the biggest radius in tiles)
     heatNeedMin = 0.01, -- a heat source glows when the night's warmth need is at least this (warmth units; it burns fuel for it)
   },
+  selection = { -- outline round the selected object or tile (drawn on the art-pixel grid, over the graded world, so it reads at every zoom and at night; D85)
+    color = { 0.89, 0.71, 0.36 }, -- ring colour (the UI accent)
+    cornerColor = { 1.00, 0.93, 0.70 }, -- brighter corner brackets, so the footprint reads at a glance
+    shadow = { 0.04, 0.05, 0.05, 0.6 }, -- dark ring just outside, so the outline reads on snow and bright ground (r, g, b, alpha)
+    thickness = 1, -- art pixels, the ring is at least this thick
+    minScreen = 3, -- physical screen pixels, the ring is never thinner than this (so it stays readable when zoomed out on a phone)
+    cornerLength = 3, -- art pixels along each edge that the corner brackets run
+    pulseSeconds = 1.6, -- seconds for one slow breath of the ring's alpha
+    pulseDepth = 0.25, -- 0..1 how far the ring's alpha dips at the bottom of the breath
+  },
+  fireflies = { -- warm-evening fireflies, drawn additively over the graded world in world cells (src/render/ambient.lua; D85)
+    seasons = { spring = 0.35, summer = 1.0, autumn = 0.3, winter = 0 }, -- season -> 0..1 how many are out
+    inStart = -0.3, -- hours relative to sunset at which the first appear
+    inEnd = 0.5, -- hours relative to sunset at which they are all out
+    outStart = 3.0, -- hours after sunset at which they start to fade away
+    outEnd = 4.5, -- hours after sunset at which they are gone
+    calmUntil = 1.0, -- wind strength up to which they fly freely
+    windKill = 1.6, -- wind strength at which none are out
+    cell = 40, -- art pixels per world cell (each holds up to `perCell` flies)
+    perCell = 2, -- most flies per cell, where the odds below allow
+    nearCreek = 1.0, -- 0..1 odds that a fly is out on grass right beside the creek
+    farGrass = 0.25, -- 0..1 odds on grass far from the creek
+    reach = 9, -- tiles from the creek over which the odds fall from nearCreek to farGrass
+    wander = 6, -- art pixels each way a fly drifts from its spot
+    wanderSpeed = 0.5, -- radians per second of the drift
+    pulseSeconds = 2.6, -- seconds for one glow (each fly is a little faster or slower)
+    color = { 1.00, 0.90, 0.35 }, -- glow colour (added to the picture)
+    glow = 0.9, -- 0..1 brightness of the centre pixel at the top of the glow
+    halo = 0.35, -- 0..1 brightness of the four pixels round it, as a share of the centre
+  },
+  dust = { -- dust motes in dry daylight, drifting with the wind (src/render/ambient.lua; D85)
+    seasons = { spring = 0.6, summer = 1.0, autumn = 0.9, winter = 0.25 }, -- season -> 0..1 how dusty the air is
+    daylightFrom = 0.6, -- daylight level (0 night .. 1 day) at which the motes start to show
+    daylightFull = 0.9, -- daylight level at which they show fully
+    calm = 0.25, -- 0..1 share of the motes that float on a still dry day (the rest need wind)
+    windMin = 0.9, -- wind strength above which more motes are raised
+    windFull = 1.6, -- wind strength at which the air is full of them
+    cell = 64, -- art pixels per world cell (a power of two, so the wrapped drift stays exact)
+    perCell = 6, -- most motes per cell
+    speed = 10, -- art pixels per second that the motes drift at wind strength 1
+    direction = { 1.0, 0.3 }, -- drift direction (x east, y south)
+    bob = 2, -- art pixels each way a mote bobs up and down
+    streak = 2, -- extra art pixels of length a mote gets in a full gale
+    color = { 0.95, 0.88, 0.72 }, -- mote colour
+    alpha = 0.7, -- 0..1 brightness of a mote at the middle of its path
+  },
+  heat = { -- heat shimmer: whole-pixel wobble in the grade pass (shaders/grade.glsl; D85)
+    seasons = { spring = 0.05, summer = 1.0, autumn = 0.2, winter = 0 }, -- season -> 0..1 how hot the day gets
+    sky = { clear = 1.0, cloudy = 0.3, rain = 0, windy = 0.6, storm = 0 }, -- weather kind -> 0..1 share of the sun that gets through
+    noonHours = 3.5, -- hours either side of solar noon over which the heat fades out
+    cover = 0.35, -- 0..1 share of the land that wobbles at full heat
+    patchW = 14, -- art pixels wide of one shimmering patch
+    patchH = 3, -- art pixels tall of one patch
+    rise = 5, -- art pixels per second that the patches climb
+    speed = 5, -- radians per second of the wobble
+    sourceWidth = 7, -- art pixels, half-width of the shimmer column over a burning stove or campfire
+    sourceHeight = 22, -- art pixels the column climbs, fading out toward the top
+    sourceSpeed = 7, -- radians per second of the column's wobble
+    maxSources = 4, -- most shimmering fires drawn at once (the shader's array size)
+  },
   hens = { -- the flock around the coop (D63): drawn only by day, a pure function of the render clock
     wander = 1.8, -- tiles each way from the coop's middle that a hen drifts
     runDepth = 0.5, -- tiles in front of the coop the run reaches

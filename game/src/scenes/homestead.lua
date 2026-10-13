@@ -1673,9 +1673,7 @@ function Homestead:drawOverlays()
   if self.hover then
     outlineTile(camera, self.hover, grid, { 1, 1, 1, 0.35 })
   end
-  if self.selected then
-    outlineTile(camera, self.selected, grid, theme.colors.accent)
-  end
+  -- The selection outline is drawn over the graded world (Renderer:drawSelection, D85).
 end
 
 function Homestead:drawTopBar(view)
@@ -2189,12 +2187,17 @@ function Homestead:draw()
   love.graphics.pop()
   love.graphics.setCanvas()
   love.graphics.origin()
-  self.renderer:drawGraded(self.canvas, tint, light, view.scale * self.camera:zoom())
+  local haze = self.renderer:heatHaze(self.camera, view, { x1, y1, x2, y2 }, daylight)
+  self.renderer:drawGraded(self.canvas, tint, light, view.scale * self.camera:zoom(), haze)
   love.graphics.pop()
-  -- Night lights glow over the graded world (additive), in world space again.
+  -- Night lights, fireflies, dust and the selection outline sit over the graded world, in world space again.
   love.graphics.push("all")
   self.camera:attach(view)
   self.renderer:drawLights({ x1, y1, x2, y2 }, daylight)
+  self.renderer:drawAmbient({ x1, y1, x2, y2 }, daylight)
+  if self.selected then
+    self.renderer:drawSelection(self.selected, view.scale * self.camera:zoom())
+  end
   love.graphics.pop() -- the camera transform
   love.graphics.pop() -- the saved graphics state
   local z = self.camera:zoom() -- rain is built on the world's art-pixel grid, so it scales with the zoom (#193)

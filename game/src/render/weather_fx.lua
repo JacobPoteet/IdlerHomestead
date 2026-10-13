@@ -44,6 +44,7 @@ function Fx.new(world)
     wind = Weather.windStrength(world),
     drift = { 0, 0 }, -- art pixels the cloud shadows have drifted
     mistDrift = { 0, 0 }, -- art pixels the mist banks have drifted
+    dustDrift = { 0, 0 }, -- art pixels the dust motes have drifted
     swayClock = 0, -- radians of wind sway so far
     time = 0,
   }, Fx)
@@ -87,6 +88,13 @@ function Fx:update(dt)
   local mstep = mist.drift * self.wind * dt / math.sqrt(mx * mx + my * my)
   self.mistDrift[1] = (self.mistDrift[1] + mx * mstep) % DRIFT_WRAP
   self.mistDrift[2] = (self.mistDrift[2] + my * mstep) % DRIFT_WRAP
+
+  -- Dust motes drift downwind the same way (D85).
+  local dust = self.world.tuning.visuals.dust
+  local ux, uy = dust.direction[1], dust.direction[2]
+  local dstep = dust.speed * self.wind * dt / math.sqrt(ux * ux + uy * uy)
+  self.dustDrift[1] = (self.dustDrift[1] + ux * dstep) % DRIFT_WRAP
+  self.dustDrift[2] = (self.dustDrift[2] + uy * dstep) % DRIFT_WRAP
 end
 
 --- Wind for the sway shader: the clock (radians) and the eased wind strength (1 = ordinary).
