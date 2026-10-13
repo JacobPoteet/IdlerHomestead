@@ -1,0 +1,34 @@
+# Tasks GitView shows for this repository (only `name` and `command` are read).
+# LÖVE (love / lovec) is on PATH on the dev machine. See CLAUDE.md for what each command does.
+
+[[task]]
+name = "play"
+command = "love game"
+
+[[task]]
+name = "play (console)"
+command = "lovec game"
+
+[[task]]
+name = "test"
+command = "lovec tests"
+
+[[task]]
+name = "test: sim and save"
+command = "lovec tests sim"
+
+[[task]]
+name = "balance: quick (3 seeds, 1 year)"
+command = "lovec tools/balance policy=all seeds=3 years=1"
+
+[[task]]
+name = "balance: scripted+active (10 seeds, 2 years)"
+command = "lovec tools/balance policy=scripted,active seeds=10 years=2"
+
+[[task]]
+name = "screenshots: all scenarios (desktop+phone)"
+command = "lovec tools/driver all size=both out=builds/screens"
+
+[[task]]
+name = "screenshots: homestead overview"
+command = "lovec tools/driver overview size=both out=builds/screens"
