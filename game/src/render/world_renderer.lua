@@ -19,6 +19,7 @@ local Shaders = require("src.render.shaders")
 local Lighting = require("src.render.lighting")
 local WeatherFx = require("src.render.weather_fx")
 local Lights = require("src.render.lights")
+local Ambient = require("src.render.ambient")
 
 local Renderer = {}
 Renderer.__index = Renderer
@@ -192,6 +193,7 @@ function Renderer:buildWater()
       end
     end
   end
+  self.reach = reach -- tiles from the creek per tile, kept for the fireflies and dust (render/ambient.lua)
   local mistData = love.image.newImageData(grid.w, grid.h)
   for i = 1, grid.w * grid.h do
     local x, y = Grid.coords(grid, i)
@@ -432,6 +434,8 @@ function Renderer:draw(alpha, visible, daylight)
   local sway = self:swayShader()
 
   -- Y-sorted sprites: { sortY, draw function }
+  -- Mist is a low layer: it hazes the ground and the creek but sits under crops, objects and tree canopies (#219).
+  self:drawMist(visible, ice)
   local items = {}
   for i, crop in pairs(crops) do
     if onScreen(i) then
@@ -565,7 +569,6 @@ function Renderer:draw(alpha, visible, daylight)
   end
   love.graphics.setColor(1, 1, 1, 1)
   self:drawCloudShadows(visible, daylight)
-  self:drawMist(visible, ice)
 end
 
 --- The sway shader with this frame's wind sent, or nil when it is unavailable.
@@ -891,11 +894,107 @@ function Renderer:drawSleep(x, y)
   end
 end
 
+--- Heat shimmer inputs for the grade pass: how hot the day is (hot clear summer noon) and the lit fires
+--- (stove, campfire) in view as shimmer columns, all in canvas pixels. nil when there is nothing to show.
+function Renderer:heatHaze(camera, view, visible, daylight)
+  local world, tile = self.world, self.tile
+  local cfg = world.tuning.visuals.heat
+  local snow = self:winterAmounts()
+  local amount = Ambient.heatAmount(world, daylight, snow)
+  local s = view.scale * camera:zoom()
+  local ox = math.floor(view.w * view.scale / 2 - camera.x * s + 0.5)
+  local oy = math.floor(view.h * view.scale / 2 - camera.y * s + 0.5)
+  local sources = {}
+  for _, item in ipairs(Lights.visible(world, visible, 1)) do
+    if item.light.on == "heat" and #sources < cfg.maxSources then
+      local sprite = Assets.sprite(item.id)
+      local wx = (item.tileX - 1) * tile + item.light.at[1]
+      local wy = item.bottom - sprite.h + item.light.at[2] - 4
+      -- x, y: the base of the column in canvas pixels; z: half-width, w: height, both in art pixels.
+      sources[#sources + 1] = { ox + wx * s, oy + wy * s, cfg.sourceWidth, cfg.sourceHeight }
+    end
+  end
+  if amount <= 0.01 and #sources == 0 then
+    return nil
+  end
+  return {
+    amount = amount,
+    sources = sources,
+    origin = { ox, oy },
+    world = { math.floor(camera.x - view.w / 2 / camera:zoom()), math.floor(camera.y - view.h / 2 / camera:zoom()) },
+  }
+end
+
+--- Outline round the selected object (its whole footprint) or tile, drawn on the art-pixel grid over the
+--- graded world, with the camera transform on. `pixelSize` = physical pixels per art pixel.
+function Renderer:drawSelection(i, pixelSize)
+  local world, grid, tile = self.world, self.world.state.grid, self.tile
+  local cfg = world.tuning.visuals.selection
+  local def, anchor = Grid.object(world, i)
+  local tiles = { i }
+  if def then
+    local ax, ay = Grid.coords(grid, anchor)
+    tiles = Grid.footprintTiles(grid, def, ax, ay) or tiles
+  end
+  local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
+  for _, t in ipairs(tiles) do
+    local x, y = Grid.coords(grid, t)
+    minX, minY, maxX, maxY = math.min(minX, x), math.min(minY, y), math.max(maxX, x), math.max(maxY, y)
+  end
+  local l, t, r, b = (minX - 1) * tile, (minY - 1) * tile, maxX * tile, maxY * tile
+  local th = math.max(cfg.thickness, math.ceil(cfg.minScreen / pixelSize))
+  local breath = 0.5 + 0.5 * math.sin(self.time / cfg.pulseSeconds * 2 * math.pi)
+  local alpha = 1 - cfg.pulseDepth * breath
+
+  local function ring(rl, rt, rr, rb, w, color, a)
+    love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * a)
+    love.graphics.rectangle("fill", rl, rt, rr - rl, w)
+    love.graphics.rectangle("fill", rl, rb - w, rr - rl, w)
+    love.graphics.rectangle("fill", rl, rt + w, w, rb - rt - 2 * w)
+    love.graphics.rectangle("fill", rr - w, rt + w, w, rb - rt - 2 * w)
+  end
+  ring(l - th, t - th, r + th, b + th, th, cfg.shadow, 1)
+  ring(l, t, r, b, th, cfg.color, alpha)
+  -- Corner brackets: an extra pixel of thickness and a brighter colour along the first few pixels of each edge.
+  local cl, cw = math.min(cfg.cornerLength + th, math.floor((r - l) / 2)), th + 1
+  local cc = cfg.cornerColor
+  love.graphics.setColor(cc[1], cc[2], cc[3], 1)
+  for _, corner in ipairs({ { l, t, 1, 1 }, { r, t, -1, 1 }, { l, b, 1, -1 }, { r, b, -1, -1 } }) do
+    local cx, cy, sx, sy = corner[1], corner[2], corner[3], corner[4]
+    love.graphics.rectangle("fill", sx > 0 and cx or cx - cl, sy > 0 and cy or cy - cw, cl, cw)
+    love.graphics.rectangle("fill", sx > 0 and cx or cx - cw, sy > 0 and cy or cy - cl, cw, cl)
+  end
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
+--- Fireflies and dust motes over the graded world (world space, camera transform on).
+function Renderer:drawAmbient(visible, daylight)
+  local snow = self:winterAmounts()
+  Ambient.draw(self, visible, daylight, snow)
+end
+
 --- Apply the colour grade while drawing `canvas` (the rendered world) to the screen.
-function Renderer:drawGraded(canvas, tint, light, pixelSize)
+function Renderer:drawGraded(canvas, tint, light, pixelSize, haze)
   local v = self.world.tuning.visuals
   local shader = Shaders.get("grade")
   if shader then
+    -- Heat shimmer rides in the grade pass (D85): `haze` = { amount, sources, origin, world } or nil.
+    local sources = haze and haze.sources or {}
+    Shaders.send(shader, {
+      canvasSize = { canvas:getWidth(), canvas:getHeight() },
+      hazeAmount = haze and haze.amount or 0,
+      hazeCover = v.heat.cover,
+      hazePatch = { v.heat.patchW, v.heat.patchH },
+      hazeRise = v.heat.rise,
+      hazeSpeed = v.heat.speed,
+      sourceSpeed = v.heat.sourceSpeed,
+      heatCount = #sources,
+      gridOrigin = haze and haze.origin or { 0, 0 },
+      worldCell = haze and haze.world or { 0, 0 },
+    })
+    if #sources > 0 and shader:hasUniform("heatSources") then
+      shader:send("heatSources", unpack(sources))
+    end
     Shaders.send(shader, {
       tint = tint,
       light = light,
