@@ -1366,7 +1366,7 @@ function Homestead:layoutControls(view)
   end
   addCol(speedLabel, {
     style = self.session:effectiveSpeed() == 0 and "accent" or nil,
-    enabled = not self.session:inTown(), -- the speed waits for the drive home (D78)
+    enabled = not self.session:timeHeld(), -- the speed waits for the drive home (D78) or the tip card (D92)
     onPress = function()
       self:cycleSpeed()
     end,
@@ -1434,13 +1434,17 @@ end
 
 function Homestead:update(dt)
   local ctx = self.app.ctx
+  -- A first-time tip card on screen holds game time and the takeover countdown while it is read (D92, #230).
+  self.session:setTipUp(self.cardKind == "tip" and self.card ~= nil)
   self.session:update(dt) -- (also ends a hand-started routine at bedtime)
   local idle = self.session:routineForced() or ctx.input:idleSeconds() >= self:takeoverDelay()
   self.session:setControl(idle and "idle" or "active")
-  if self.session:inTown() then
-    -- Time stands still in town (D78): the takeover countdown waits too, so the routine does not
-    -- grab the homesteader the moment the truck is back.
+  if self.session:timeHeld() then
+    -- Time stands still in town (D78) and under a tip card (D92): the takeover countdown waits too, so
+    -- the routine does not grab the homesteader the moment the truck is back or the card is closed.
     ctx.input:holdIdle(dt)
+  end
+  if self.session:inTown() then
     if self.app:top() == self and not Finds.pending(self.world) then
       -- A save written in town loads paused in town: the town menu comes back (it is the only way home).
       self:openPanel("truck")
@@ -1533,7 +1537,7 @@ function Homestead:applyPlan(a, b)
     end
   end
   if self.seed then
-    self:showToast(string.format("Planned %d tiles of %s", count, self.world.registry:get("crops", self.seed).name))
+    self:showToast(string.format("Planned %d tiles of %s. Tilling and planting start now", count,self.world.registry:get("crops", self.seed).name))
     local late = count > 0 and AlertText.frost(self.world, self.seed)
     if late then
       self:queueToast(late) -- planned anyway; the tiles are tinted amber on the map (#165)

@@ -430,6 +430,7 @@ local function registerTasks(world)
     category = "plant",
     verb = "Plant",
     clickOrder = 40,
+    standing = true, -- a planned tile is a standing order (D92)
     candidates = function(w, _, add)
       eachPlanned(w, add, function(i)
         return fields.tilled[i] and not w.state.crops[i]
@@ -461,6 +462,7 @@ local function registerTasks(world)
     category = "plant",
     verb = "Till",
     clickOrder = 50,
+    standing = true, -- a planned tile is tilled whatever the seed stock (D92)
     candidates = function(w, _, add)
       eachPlanned(w, add, function(i)
         return not fields.tilled[i] and not w.occupancy[i] and not fields.held[i]

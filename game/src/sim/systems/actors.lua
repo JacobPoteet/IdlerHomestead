@@ -190,10 +190,15 @@ function Actors.tick(world, dt)
     if bedtime and not actor.asleep then
       goToBed(world, actor)
     end
-    if not actor.job and not bedtime and world.control == "idle" then
+    if not actor.job and not bedtime then
       actor.wait = (actor.wait or 0) - dt
       if actor.wait <= 0 then
-        local job = Tasks.chooseIdleJob(world, actor)
+        -- Standing orders (planned tiles to till and plant, D92) come first in either control mode;
+        -- the routine's own priorities only apply while it is in charge.
+        local job = Tasks.chooseStandingJob(world, actor)
+        if not job and world.control == "idle" then
+          job = Tasks.chooseIdleJob(world, actor)
+        end
         if job then
           actor.job = job
           Tasks.reserve(world, actor, job)

@@ -95,4 +95,6 @@ Helper API (`tools/driver/driver.lua`):
 Scenario code may read sim state (it is not part of `game/src/sim`), but should drive the game
 through input rather than mutate it, so the screenshots show what a player could reach.
 
+Also `plan` (D92: a field planned with the Routine off is tilled and planted at once, tilled bare with no seeds, left by a far tap and finished on return) and `plantip` (a tip card holds game time: Paused button and badge).
+
 Also `money` (D88: the first-junk money card and the Catalog line when money is under the cheapest order); the `starter` scenario now also shoots the starter-field toast.
