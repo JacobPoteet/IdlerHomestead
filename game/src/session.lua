@@ -2,6 +2,7 @@
 -- playtime, and autosaving. Sits between the app/scenes and the sim; no rendering here.
 
 local Clock = require("src.core.clock")
+local Perf = require("src.core.perf")
 local Rng = require("src.core.rng")
 local World = require("src.sim.world")
 local Actors = require("src.sim.systems.actors")
@@ -31,7 +32,13 @@ function Session.new(opts)
   }, Session)
   self.clock.timeScale = tuning.time.defaultSpeed
   self.tick = function(dt)
-    self.world:tick(dt)
+    if Perf.enabled then
+      local started = Perf.now()
+      self.world:tick(dt)
+      Perf.add("tick", Perf.now() - started)
+    else
+      self.world:tick(dt)
+    end
   end
   return self
 end

@@ -1,0 +1,136 @@
+# Performance and save size (#19, #77, #132, #21; D103)
+
+What is measured, the numbers before and after the first optimisation pass, the budget, and what still has to
+be measured on a phone. Source of truth for the budget numbers is `game/data/tuning/perf.lua`.
+
+## How to measure
+
+| Tool | What it gives |
+|---|---|
+| `lovec tools/perf [policy=active] [warm=84] [ticks=2000] [set=world.mapWidth=192 set=world.mapHeight=128]` | Plays a harness policy to a mid-game state, then reports the sim's wall ms per tick (mean, p50, p95, p99, max, ticks over 1 and 4 ms), the per-system split, allocation per tick (GC stopped, per system), object counts, and the save file's size and write/read time. Headless. Timing is wall-clock: compare only runs from one machine. Allocation and size are deterministic. |
+| `lovec tools/driver perf size=both` | CPU time of a busy homestead frame (update, and draw = submit time, not GPU) at each zoom, clear and rainy, for desktop, phone and landscape views. Needs a window. |
+| F3 overlay (in the game) | Three lines under FPS: `Sim` ms per tick and ticks per frame, `Worst tick`, `Update` and `Draw` ms. A figure over the budget below gets "OVER". The probes only run while the overlay is open (`src/core/perf.lua`). |
+| `lovec tools/balance ... profile=1` | LuaJIT sampling profile of whole runs (see BALANCE.md). |
+| `lovec tests perf_budget` | Allocation budget and the equivalence tests for everything below. |
+
+The warm-up state of `tools/perf` (default `warm=84`, three years of the `active` policy, seed 1) has 1099 objects
+(954 trees, a coop, pump, cistern, two drip lines, solar, wind turbine, battery, freezer, smoker, lamp). The big
+map is 192x128 (9 times the tiles, 9275 objects) from `set=world.mapWidth=192 set=world.mapHeight=128 warm=42`.
+Goats and the auto-harvester are not bought by any harness policy yet, so they are not in the measured state.
+
+## Baseline and result (desktop, Windows, one thread)
+
+Sim, 12000 ticks (about 10 in-game minutes) of the typical state; 6000 ticks of the big map:
+
+| | typical before | typical after | big map before | big map after |
+|---|---|---|---|---|
+| mean ms per tick | 0.037 | 0.023 | 0.027 | 0.015 |
+| p95 ms per tick | 0.072 | 0.032 | 0.158 | 0.022 |
+| ticks over 1 ms | 62 | 41 | 4 | 3 |
+| worst tick ms | 7.0 | 4.2 | 12.9 | 8.6 |
+| mean allocation KB per tick | 6.5 | 0.58 | 5.9 | 0.47 |
+| worst tick allocation KB | 329 | 190 | 1226 | 33 |
+
+Timing varies run to run (the worst tick moves by several ms between identical runs: it is the idle job search
+on a recheck tick and the new-day work, not a steady cost), so read the means, p95 and allocation, which are
+stable. The sim was never the bottleneck at 20 ticks a second: even 60x skip-night is 1200 ticks a second at
+about 0.03 ms. The mean is about 1 percent of a 60 fps frame at 1x.
+
+Balance harness, `policy=scripted,active seeds=5 years=1 jobs=1`: 52.8 s before, 28.9 s after (1.8x), results
+byte-identical (below).
+
+Frame, desktop window 1280x720, CPU milliseconds per frame (150 frames after a warm-up, busy homestead, day 1
+afternoon): update 0.15 to 0.2; draw at zoom 1 (the widest view, about 1000 trees on screen) 1.9 clear and 2.5 in
+rain, at zoom 2 about 0.9 to 1.1, at zoom 3 about 0.75 to 0.85. Phone and landscape views are the same within
+noise at zoom 1 (1.8 to 2.9); the one 100+ ms "worst" is the first rainy frame compiling the weather shader.
+Before the pass, zoom 1 draw was 2.65 clear, 3.65 rain; the gain is `Needs.heatEfficiency` (the HUD asked it every
+frame by scanning all objects, now the cached index) and a per-frame definition cache in the renderer.
+
+Save file, `Save:write` and `Save:read` of the typical state (mean of 5):
+
+| | before | after |
+|---|---|---|
+| typical map 64x48, bytes | 297,992 | 101,758 (-66 percent) |
+| typical write / read ms | 9.2 / 6.6 | 5.4 / 2.1 |
+| big map 192x128, bytes | 2,217,178 | 655,491 (-70 percent) |
+| big write / read ms | 55.8 / 25.1 | 32.7 / 12.5 |
+
+The grid arrays were 74 percent of the file (terrain 34 KB, soil 62 KB, water table 62 KB at 64x48). What is
+left is mostly `grid.objects` (37 KB at 64x48, 330 KB at 192x128, mostly trees): see follow-ups.
+
+## What changed (no behaviour change)
+
+1. **Shared walking flood for the idle job search** (#77): `Pathfind.flood(world, start)`. A goal-free Dijkstra
+   pops tiles in an order that depends only on the grid and the start tile, so the standing-order search and
+   every routine category's search (one flood each before) are now answered by one lazily extended flood:
+   a query first scans tiles already popped, in pop order, then keeps expanding until a goal pops. The result is
+   exactly what a fresh search would give (proved by `tests/test_perf_budget.lua` against `Pathfind.find` on random
+   maps and target sets). The flood uses reused per-tile scratch arrays validated by a stamp, so a search
+   allocates next to nothing; the per-search `targets` and `taskAt` tables in `Tasks` are reused too. `Pathfind.nearest`
+   keeps its signature.
+2. **Power flow reused** (#132): `Power.tick` no longer builds a new `flow` table with sub-tables every tick; it
+   refills the saved one in place (entries for picked-up sinks and unknown tiers are dropped). Per-tick scratch
+   (`demanded`, generators, thermostat) is reused.
+3. **`Calendar.now` cached** (#132) per calendar state while the clock stands still. The table is shared: read
+   it, do not write to it. `Calendar.compute` is the uncached version.
+4. **`Stats.modifier` allocation-free** (#132): reused sorted equipment id list (`Inventory.fillEquipmentIds`)
+   and a per-registry list of perks that carry modifiers; the sum is taken in the same order, so floats are identical.
+   A revision-cached version was not built: tests and the harness write `journal.known` directly.
+5. **HUD scan**: `Needs.heatEfficiency` uses `Grid.anchorsWith(world, "heatSource")`.
+6. **Renderer**: objects' definitions looked up once per frame. The per-frame sort and closure per visible
+   sprite are measured (about 1 to 2.5 ms at the widest zoom on desktop) and left alone; see follow-ups.
+7. **Save** (#21): `src/core/gridpack.lua`. In memory the grid stays plain arrays; in the file `terrain` is a
+   palette plus run-lengths (`"ids:grass,water;a12b3..."`), and `soil` and `waterTable` are runs of whole
+   hundredths (`"hundredths:45*3,46,47*12"`). Exact by construction: a numeric array is packed only when every
+   value divides back to the same double (`n / 100 == v`), a terrain array only when dense strings fit the
+   52-letter palette; anything else is written as the plain array and read back as it was. `SAVE_COMPAT`
+   is 7 (D74: no migration; older saves get the "can't be loaded" prompt). Round trips are tested on random maps
+   up to 512x400 and on a real run; a damaged map string makes the slot unreadable (the backup is tried).
+8. **Probes**: `src/core/perf.lua`, the F3 lines, `tools/perf`, driver scenario `perf`.
+
+Determinism: `lovec tools/balance` old code versus new, report text and `out=` CSV byte-identical on six
+commands (`policy=all seeds=3`, `policy=scripted,active seeds=5`, `features=none seeds=4 seed0=4`,
+`runs=3 years=0.5 set=needs.coldDamage=30 seeds=6`, `policy=scripted,active years=2 seeds=2 seed0=20`,
+`features=water,power seeds=3 seed0=30`), all years=1 unless shown, default threads.
+
+## Budget
+
+Targets for a mid-range phone (about 3 to 4 times slower per thread than the desktop above):
+
+| | target | desktop now | note |
+|---|---|---|---|
+| sim per tick, mean | 0.5 ms | 0.02 | `tuning.perf.simMsPerTick` |
+| worst single tick | 8 ms | 4 to 9 | `worstTickMs`; idle search on a big map, new-day work |
+| draw (CPU submit), per frame | 8 ms | 0.8 to 2.5 | `drawMs`; leaves the rest of 16.6 ms for update and the GPU |
+| frame | 16.6 ms (60 fps), floor 33 ms | | `frameMs` |
+| allocation per tick, mean | 4 KB | 0.6 | enforced by `tests/test_perf_budget.lua` (`testAllocKbPerTick`) |
+| worst tick allocation | 512 KB | about 150 KB in the test | `testAllocKbWorstTick` |
+
+The headless test counts allocation, not time, so it cannot flake on a slow CI machine; time is checked by
+looking at the F3 overlay and `tools/perf` on a real device.
+
+## Measure on a phone (not possible here)
+
+1. Install a build on a mid-range Android phone, open F3 (double tap, see the overlay hint), start a new game and
+   let the Routine run. Read, at zoom 1, 2 and 3 and at speeds 1x, 4x and during skip-night (60x): FPS, the
+   `Sim`, `Worst tick`, `Update` and `Draw` lines. Report any "OVER".
+2. Note the same with rain and with winter snow (the ground and weather shaders), at night (lights), and with the
+   Pantry/Journal open.
+3. The GPU is not in the `Draw` number (submit time only). Judge it by FPS at zoom 1 in rain: if FPS drops
+   while `Draw` stays small, the shader passes (ground, water, mist, lights, clouds, grade) are the cost; see the
+   "phone GPU profile" shader follow-ups.
+4. Load time and autosave hitch: time from tapping a slot to the homestead, and note a stutter every 60 s when
+   the autosave writes (about 5 ms on desktop for a 64x48 map; a 20 to 30 ms hitch on a phone would show).
+5. Memory (RAM and VRAM lines) after an hour of play, and whether the OS kills the app in the background.
+6. A longer run: 3 in-game years at 4x, watching the `Worst tick` line.
+
+## Follow-ups
+
+- `grid.objects` is now the largest part of a save (every tree is a table). A packed form for objects that hold
+  only an id would take the file down by another third to a half.
+- Renderer per-frame work: a closure and a table per visible sprite plus a sort, a shader switch per swaying
+  sprite (batched sway is in the shader follow-ups), and the remaining all-object scans in `food.lua`,
+  `inventory.lua` (`owns`, `refreshStorage`), `finds.lua`, `clearing.lua`, `firewood.lua` and `processing.lua`.
+- The idle search is still one flood per decision per actor every `idle.recheckInterval` when nothing is
+  reachable; a cache keyed on a grid/plan revision would make it free, at the cost of a revision counter every
+  writer must bump.

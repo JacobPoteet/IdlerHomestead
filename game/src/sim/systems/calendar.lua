@@ -30,8 +30,38 @@ function Calendar.elapsed(world)
   return world.state.calendar.elapsed
 end
 
+-- The last snapshot per calendar state table, reused while nothing it depends on has changed (#132):
+-- several systems ask for the date on every tick. Weak-keyed, runtime only, never saved.
+local nowCache = setmetatable({}, { __mode = "k" })
+
 --- Snapshot of the date: { day, dayOfSeason, season, seasonIndex, year, hour, timeOfDay }.
+--- The table is shared by every caller until the clock moves: read it, never write to it.
 function Calendar.now(world)
+  local time = world.tuning.time
+  local cal = world.state.calendar
+  local hit = nowCache[cal]
+  if
+    hit
+    and hit.elapsed == cal.elapsed
+    and hit.time == time
+    and hit.dayLength == time.dayLength
+    and hit.startHour == time.startHour
+    and hit.daysPerSeason == time.daysPerSeason
+  then
+    return hit.now
+  end
+  if not hit then
+    hit = {}
+    nowCache[cal] = hit
+  end
+  hit.elapsed, hit.time, hit.dayLength, hit.startHour, hit.daysPerSeason =
+    cal.elapsed, time, time.dayLength, time.startHour, time.daysPerSeason
+  hit.now = Calendar.compute(world)
+  return hit.now
+end
+
+--- Calendar.now without the cache: a fresh table.
+function Calendar.compute(world)
   local time = world.tuning.time
   local d = dayFloat(world)
   local dayIndex = math.floor(d) -- 0-based

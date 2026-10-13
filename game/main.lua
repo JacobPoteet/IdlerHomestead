@@ -2,6 +2,7 @@ https = nil
 local overlayStats = require("lib.overlayStats")
 local runtimeLoader = require("runtime.loader")
 local Game = require("src.game")
+local Perf = require("src.core.perf")
 
 local game
 
@@ -9,10 +10,18 @@ function love.load()
   https = runtimeLoader.loadHTTPS()
   love.graphics.setDefaultFilter("nearest", "nearest")
   game = Game.new()
+  -- The F3 overlay shows the sim/update/draw probes (#19); they only run while it is open.
+  overlayStats.extraLines = function()
+    return Perf.lines(game.app.ctx.tuning.perf)
+  end
   overlayStats.load() -- Should always be called last
 end
 
 function love.update(dt)
+  if Perf.enabled ~= overlayStats.isActive then
+    Perf.enabled = overlayStats.isActive == true
+    Perf.reset()
+  end
   game:update(dt)
   overlayStats.update(dt) -- Should always be called last
 end
@@ -20,6 +29,9 @@ end
 function love.draw()
   game:draw()
   overlayStats.draw() -- Should always be called last
+  if Perf.enabled then
+    Perf.endFrame()
+  end
 end
 
 function love.resize(w, h)

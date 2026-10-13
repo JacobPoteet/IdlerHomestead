@@ -555,6 +555,29 @@ local function runGenerators(world, gens, left, need, hours, flow, commit, spent
 end
 
 local scratchTiers = {}
+-- More per-tick scratch (never saved, never read after the solve): reused so a tick allocates nothing
+-- for the network but the numbers themselves (#132).
+local scratchDemanded, scratchGens, scratchLeft, scratchSpent = {}, {}, {}, { fuel = 0 }
+local scratchThermostat = { need = 0 }
+
+local function clear(t)
+  for k in pairs(t) do
+    t[k] = nil
+  end
+  return t
+end
+
+-- Make last tick's flow (saved state the UI reads) ready to be filled again: numbers zeroed, per-key
+-- tables emptied. The tables `tiers` and `sinks` keep their entry tables, which solve updates in place.
+local function resetFlow(flow)
+  flow.generation, flow.demand, flow.served, flow.charging, flow.discharging, flow.wasted = 0, 0, 0, 0, 0, 0
+  flow.tiers = flow.tiers or {}
+  flow.sinks = flow.sinks or {}
+  flow.sources = clear(flow.sources or {})
+  flow.rates = clear(flow.rates or {})
+  flow.effects = clear(flow.effects or {})
+  return flow
+end
 
 -- One solve of the network over `hours`. With `commit` it is the real tick (batteries, fuel, wind,
 -- held satisfaction, warmth and announcements all change); without, it only rebuilds state.flow, so
@@ -568,12 +591,13 @@ local function solve(world, hours, commit)
   end
   local sources, sinks, banks = scan(world)
 
-  local flow = emptyFlow()
+  local flow = resetFlow(s.flow or emptyFlow())
   s.flow = flow
-  local spent = { fuel = 0 }
+  local spent = scratchSpent
+  spent.fuel = 0
 
   -- Generation from the weather-driven sources; generators wait until they are needed.
-  local gens, left = {}, {}
+  local gens, left = clear(scratchGens), clear(scratchLeft)
   local generation = 0
   for _, anchor in ipairs(sources) do
     local src = defAt(world, anchor).source
@@ -589,7 +613,8 @@ local function solve(world, hours, commit)
   end
 
   -- Demand per tier.
-  local thermostat = { need = 0 }
+  local thermostat = scratchThermostat
+  thermostat.need = 0
   for _, anchor in ipairs(sinks) do
     if defAt(world, anchor).sink.schedule == "heat" then
       thermostat.need = Weather.warmthNeed(world) * Shelter.insulation(world)
@@ -606,7 +631,7 @@ local function solve(world, hours, commit)
     end
     tier.demand, tier.served, tier.direct, tier.charging = 0, 0, 0, 0
   end
-  local demanded = {}
+  local demanded = clear(scratchDemanded)
   for _, anchor in ipairs(sinks) do
     local sink = defAt(world, anchor).sink
     local want = Power.isEnabled(world, anchor) and wantsPower(world, sink, now, thermostat, anchor) and sink.draw or 0
@@ -642,7 +667,12 @@ local function solve(world, hours, commit)
       generated = generated + fromGenerator
       tier.served = tier.direct + fromBattery + fromGenerator
     end
-    flow.tiers[id] = { demand = tier.demand, served = tier.served, charging = tier.charging }
+    local entry = flow.tiers[id]
+    if not entry then
+      entry = {}
+      flow.tiers[id] = entry
+    end
+    entry.demand, entry.served, entry.charging = tier.demand, tier.served, tier.charging
     flow.demand = flow.demand + tier.demand
     flow.served = flow.served + tier.served
   end
@@ -657,21 +687,44 @@ local function solve(world, hours, commit)
     local tier = tiers[sink.tier]
     local want = demanded[anchor]
     local ratio = tier.demand > 0 and tier.served / tier.demand or 1
-    flow.sinks[anchor] = { demand = want, ratio = ratio }
+    local entry = flow.sinks[anchor]
+    if not entry then
+      entry = {}
+      flow.sinks[anchor] = entry
+    end
+    entry.demand, entry.ratio = want, ratio
     local target = want > 0 and ratio or 0
     local held = s.held[anchor] or 0
     if commit then
       held = sink.inertia and (held + (target - held) * math.min(1, hours / sink.inertia)) or target
       s.held[anchor] = held
     end
-    for name, amount in pairs(sink.effects or {}) do
-      if name == "warmthPerKwh" then
-        if commit then
-          s.warmth = s.warmth + want * ratio * hours * amount * Shelter.heatReach(world, anchor) -- a heater outside the shelter's heater slot warms less (D82)
+    local effects = sink.effects
+    if effects then
+      for name, amount in pairs(effects) do
+        if name == "warmthPerKwh" then
+          if commit then
+            s.warmth = s.warmth + want * ratio * hours * amount * Shelter.heatReach(world, anchor) -- a heater outside the shelter's heater slot warms less (D82)
+          end
+        else
+          flow.effects[name] = (flow.effects[name] or 0) + amount * held
         end
-      else
-        flow.effects[name] = (flow.effects[name] or 0) + amount * held
       end
+    end
+  end
+  -- Drop entries of sinks that are gone (picked up or moved) or tiers no longer in the order.
+  for anchor in pairs(flow.sinks) do
+    if demanded[anchor] == nil then
+      flow.sinks[anchor] = nil
+    end
+  end
+  for id in pairs(flow.tiers) do
+    local known = false
+    for _, orderId in ipairs(s.order) do
+      known = known or orderId == id
+    end
+    if not known then
+      flow.tiers[id] = nil
     end
   end
   if not commit then
