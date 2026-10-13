@@ -1,7 +1,7 @@
 -- Weather presentation (GDD §7.1, D51, D83): the grey-blue cast of cloud, the falling rain, the wet
 -- ground and the drifting cloud shadows. It reads the sim's weather and never changes it. Look values
 -- live in tuning.visuals.weather, keyed by weather kind. Wetness and cloud drift are eased here and
--- handed to ground.glsl, water.glsl and clouds.glsl by the renderer. Wind sway is still to come (#193).
+-- handed to ground.glsl, water.glsl and clouds.glsl by the renderer. It also keeps the clocks the wind sway and the mist drift run on (D84).
 
 local Grid = require("src.sim.grid")
 local Weather = require("src.sim.systems.weather")
@@ -10,6 +10,12 @@ local Fx = {}
 Fx.__index = Fx
 
 local DRIFT_WRAP = 1048576 -- art pixels (2^20): keeps the drift exact in a float, wraps after ~60 hours of play
+
+local SWAY_WRAP = 2 * math.pi * 1000 -- radians: a whole number of turns, so the wrap is invisible
+
+local function cfg_wind(world)
+  return world.tuning.visuals.wind
+end
 
 local function lerp(a, b, t)
   return a + (b - a) * t
@@ -37,6 +43,8 @@ function Fx.new(world)
     wet = wetTarget(world.tuning.visuals.weather, rain),
     wind = Weather.windStrength(world),
     drift = { 0, 0 }, -- art pixels the cloud shadows have drifted
+    mistDrift = { 0, 0 }, -- art pixels the mist banks have drifted
+    swayClock = 0, -- radians of wind sway so far
     time = 0,
   }, Fx)
 end
@@ -68,6 +76,27 @@ function Fx:update(dt)
   local step = clouds.speed * self.wind * dt / math.sqrt(dx * dx + dy * dy)
   self.drift[1] = (self.drift[1] + dx * step) % DRIFT_WRAP
   self.drift[2] = (self.drift[2] + dy * step) % DRIFT_WRAP
+
+  -- Wind sway: a clock in radians that speeds up with the (eased) wind, so a gust never jumps the pose.
+  -- The wrap is a whole number of turns, so the sine carries on unbroken.
+  self.swayClock = (self.swayClock + cfg_wind(self.world).speed * self.wind * dt) % SWAY_WRAP
+
+  -- Mist banks drift slowly downwind.
+  local mist = self.world.tuning.visuals.mist
+  local mx, my = mist.direction[1], mist.direction[2]
+  local mstep = mist.drift * self.wind * dt / math.sqrt(mx * mx + my * my)
+  self.mistDrift[1] = (self.mistDrift[1] + mx * mstep) % DRIFT_WRAP
+  self.mistDrift[2] = (self.mistDrift[2] + my * mstep) % DRIFT_WRAP
+end
+
+--- Wind for the sway shader: the clock (radians) and the eased wind strength (1 = ordinary).
+function Fx:windSway()
+  return self.swayClock, self.wind
+end
+
+--- Mist banks' drift in art pixels.
+function Fx:mistOffset()
+  return self.mistDrift
 end
 
 --- Multipliers for the colour grade: tint {r, g, b} and light level.
