@@ -5,7 +5,8 @@
 -- State: world.state.processing = { [anchor] = { recipe, count, remaining } } for running batches.
 -- Emits "processing.started" { recipe, tile, count }, "processing.done" { recipe, tile, output, count }
 -- (count = units that went into stock; a batch that doesn't fit is delivered in parts) and
--- "processing.blocked" { recipe, tile, output, count } once when finished output is waiting for room.
+-- "processing.blocked" { recipe, tile, output, count } once when finished output is waiting for room,
+-- and "processing.discarded" { recipe, tile, output, count } when the player throws that output away (D93).
 
 local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
@@ -86,6 +87,21 @@ function Processing.blockedBatches(world)
     return a.tile < b.tile
   end)
   return list
+end
+
+--- Throw away the finished output waiting in a station for room (D93, #135), freeing the station.
+--- Whatever fits already went into stock each tick, so this is only the remainder. Returns the number
+--- of units discarded, or nil when the station holds no blocked batch.
+--- Emits "processing.discarded" { recipe, tile, output, count }.
+function Processing.discard(world, anchor)
+  local batch = world.state.processing[anchor]
+  if not batch or not batch.blocked then
+    return nil
+  end
+  local recipe = world.registry:get("recipes", batch.recipe)
+  world.state.processing[anchor] = nil
+  world.events:emit("processing.discarded", { recipe = recipe.id, tile = anchor, output = recipe.output, count = batch.count })
+  return batch.count
 end
 
 function Processing.init(world)
