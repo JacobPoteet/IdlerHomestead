@@ -32,26 +32,13 @@ return {
     short = "food >= %s d",
   },
   {
-    id = "firewood_below",
-    name = "Firewood below",
-    measure = "stock",
-    resources = { "firewood", "seasoned_firewood" },
-    cmp = "below",
-    min = 10,
-    max = 200,
-    step = 10,
-    default = 80, -- split firewood (green and seasoned) in stock; a first winter wants roughly 70 to 140 pieces
-    unit = "pieces",
-    short = "firewood < %s",
-  },
-  {
     id = "wood_below",
     name = "Wood below",
     measure = "stock",
     resources = { "wood" },
     cmp = "below",
     min = 5,
-    max = 100,
+    max = 200, -- a base store holds 60; each woodshed adds 60 more
     step = 5,
     default = 30, -- wood in stock
     unit = "wood",

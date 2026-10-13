@@ -35,18 +35,17 @@ end
 
 -- Values (#195) --------------------------------------------------------------------------------------
 
-T.test("values: wood, stone, firewood and seasoned firewood can be sold", function()
-  for _, id in ipairs({ "wood", "stone", "firewood", "seasoned_firewood", "scrap" }) do
+T.test("values: wood, stone and scrap can be sold", function()
+  for _, id in ipairs({ "wood", "stone", "scrap" }) do
     T.truthy(Food.sellable(newWorld(), id), id)
     T.truthy(reg:get("resources", id).value > 0, id)
   end
-  T.truthy(reg:get("resources", "seasoned_firewood").value >= reg:get("resources", "firewood").value, "seasoned is worth at least green")
 end)
 
 T.test("values: a broke player can fill the truck with wood and sell it", function()
   local world = newWorld()
   Ledger.add(world, "wood", 60)
-  T.eq(Food.surplus(world, "wood"), 0, "the automatic keep holds wood for the winter's firewood")
+  T.eq(Food.surplus(world, "wood"), 0, "the automatic keep holds the wood the winter will burn")
   local loaded, reason = Market.setLoad(world, "wood", CARGO)
   T.eq(reason, "reserve", "loading kept wood asks first")
   T.eq(loaded, 0)
@@ -171,20 +170,20 @@ end)
 
 T.test("reserve guard: loading into a keep target asks, and says what winter would lack", function()
   local world = newWorld()
-  Ledger.add(world, "seasoned_firewood", 10)
-  T.eq(Food.surplus(world, "seasoned_firewood"), 0)
-  local w = Market.loadWarning(world, "seasoned_firewood", 4)
+  Ledger.add(world, "wood", 10) -- 14 with the starting kit
+  T.eq(Food.surplus(world, "wood"), 0)
+  local w = Market.loadWarning(world, "wood", 4)
   T.truthy(w)
   T.eq(w.kind, "fuel")
   T.eq(w.below, 4)
-  local n, reason = Market.setLoad(world, "seasoned_firewood", 4)
+  local n, reason = Market.setLoad(world, "wood", 4)
   T.eq(reason, "reserve")
   T.eq(n, 0, "nothing changes without confirmation")
-  T.eq(Market.setLoad(world, "seasoned_firewood", 4, true), 4)
-  T.eq(Market.loadWarning(world, "seasoned_firewood", 2), nil, "unloading never asks")
+  T.eq(Market.setLoad(world, "wood", 4, true), 4)
+  T.eq(Market.loadWarning(world, "wood", 2), nil, "unloading never asks")
   local title, message = Load.warningText(world, w)
-  T.truthy(title:find("fuel", 1, true), title)
-  T.truthy(message:find("4 Seasoned firewood", 1, true), message)
+  T.truthy(title:find("wood", 1, true), title)
+  T.truthy(message:find("4 Wood", 1, true), message)
   -- Food: the warning names the days of food in stock.
   Ledger.add(world, "potato", 10)
   local food = Market.loadWarning(world, "potato", 10)

@@ -30,7 +30,8 @@ local calm = { speed = 1, night = false, season = "summer", kind = "clear", wind
 T.test("audio: events map to cues by name, by payload field, and by default", function()
   local ev = sounds.events
   T.eq(Cues.forEvent(ev, "fish.caught", {}), "fish_caught")
-  T.eq(Cues.forEvent(ev, "task.completed", { task = "split_wood" }), "chop_wood")
+  T.eq(Cues.forEvent(ev, "object.cleared", { object = "tree" }), "chop_wood")
+  T.eq(Cues.forEvent(ev, "object.cleared", { object = "brush" }), "clear")
   T.eq(Cues.forEvent(ev, "task.completed", { task = "move" }), nil)
   T.eq(Cues.forEvent(ev, "object.placed", { object = "wood_stove" }), "stove_lit")
   T.eq(Cues.forEvent(ev, "object.placed", { object = "chest" }), "place")

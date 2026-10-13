@@ -24,7 +24,7 @@ Idler Homestead balance harness. Usage:  lovec tools/balance [key=value ...]
   trace=1                               also print the first seed of each policy day by day
   out=path.csv|path.json                write per-day rows (csv) or summaries + runs (json)
   set=domain.key=value                  override a tuning number for what-if runs (repeatable),
-                                        e.g. set=needs.coldDamage=15 set=needs.dailyWarmth.winter=3
+                                        e.g. set=needs.coldDamage=15 set=needs.warmthPeak=3
   quiet=1                               no progress lines
   help=1                                this text]]
 

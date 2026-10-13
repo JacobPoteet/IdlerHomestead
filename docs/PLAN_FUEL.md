@@ -1,6 +1,6 @@
 # Plan: one wood currency, heat as the winter bill (Frostpunk-style)
 
-Status: PROPOSAL for review (not decided, no GDD decision yet). Post-MVP unless the user pulls it in; see "Where it fits".
+Status: **Phase 1 built** (D104, #247). Phases 2 and 3 are dropped by the user's answers in section 9 (heated spaces, stoke levels, woodlot, dismantle-for-fuel). Sections 1 to 8 are the original proposal and kept for the reasoning; where they differ from D104, D104 wins (for example campfire efficiency stays 1 and the stove 1.6, wood heat is 0.75, and the nightly need is read from the curve in tuning/needs.lua).
 
 ## 1. Why
 Today wood has three forms and three jobs (GDD D36, `tuning/firewood.lua`, `content/resources.lua`):

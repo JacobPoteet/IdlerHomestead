@@ -6,8 +6,8 @@ return {
     canned_food = 6, -- D68 (#161): two more cans than before, so the first days are less of a countdown
     money = 6, -- D68 (#161): starting $; buys bait ($3 + $3 delivery), or radish seeds once the first junk is sold
     bait = 4,
-    seasoned_firewood = 3,
+    wood = 4, -- 3 warmth at heat 0.75 (was 3 seasoned firewood)
   },
   startingEquipment = { "basic_rod" }, -- catalog equipment ids owned at the start
-  startingObjects = { "folding_panel", "campfire", "chopping_block" }, -- placed next to the truck at the start of a run
+  startingObjects = { "folding_panel", "campfire" }, -- placed next to the truck at the start of a run
 }

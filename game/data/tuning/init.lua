@@ -15,7 +15,6 @@ return {
   "water",
   "needs",
   "shelter",
-  "firewood",
   "food",
   "fishing",
   "power",

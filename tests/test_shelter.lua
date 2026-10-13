@@ -124,11 +124,11 @@ T.test("shelter: a heat source inside the heater slot counts fully, farther ones
   end
   T.truthy(Inventory.place(world, "wood_stove", near))
   T.truthy(Shelter.inHeaterSlot(world, near))
-  T.eq(Needs.heatEfficiency(world), reg:get("objects", "wood_stove").heatSource)
+  T.eq(Needs.heatEfficiency(world), reg:get("objects", "wood_stove").heatSource.efficiency)
   Grid.removeObject(world, near)
   local far = placeFar(world, "wood_stove", camp, radius)
   T.truthy(far and not Shelter.inHeaterSlot(world, far))
-  T.near(Needs.heatEfficiency(world), reg:get("objects", "wood_stove").heatSource * tun.shelter.farHeat, 1e-9)
+  T.near(Needs.heatEfficiency(world), reg:get("objects", "wood_stove").heatSource.efficiency * tun.shelter.farHeat, 1e-9)
 end)
 
 T.test("shelter: an electric heater outside the slot makes less warmth", function()

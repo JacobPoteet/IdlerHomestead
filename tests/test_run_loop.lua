@@ -125,7 +125,7 @@ T.test("run cause: the text names the failure, the shelter and the next rung", f
   local camp = Run.failureText(reg, tun, { kind = "cold", shelter = "camp" })
   T.truthy(camp.hint:find("shack", 1, true))
   local top = Run.failureText(reg, tun, { kind = "cold", shelter = "shack" })
-  T.truthy(top.hint:find("firewood", 1, true), "nothing above the shack")
+  T.truthy(top.hint:find("wood", 1, true), "nothing above the shack")
   local hungry = Run.failureText(reg, tun, { kind = "hunger", shelter = "truck" })
   T.truthy(hungry.line:find("food", 1, true))
   T.falsy(hungry.page)

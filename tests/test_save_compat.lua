@@ -122,7 +122,7 @@ end
 -- When this fails: the saved state changed shape. If old saves can no longer be read correctly,
 -- bump Save.SAVE_COMPAT in game/src/core/save.lua (no migrations before launch, D74), then update
 -- EXPECTED below to the new stamp and fingerprint the failure prints.
-local EXPECTED = { compat = 7, fingerprint = "a3568c08" }
+local EXPECTED = { compat = 8, fingerprint = "a3568c08" }
 
 T.test("compat: the saved-state shape matches the SAVE_COMPAT it was stamped with", function()
   local list = newGameShape()

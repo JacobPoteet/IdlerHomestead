@@ -11,9 +11,8 @@
 --          only for autoPantryHorizon of its shelf life (D68); winter days (defaultWinterDays) in
 --          preserved food first, then fresh food that keeps for winter (potatoes), then fresh food a
 --          placed processor can preserve (held for the smoker while the winter stock is short).
---   Fuel   the warmth from tonight to the end of the coming winter (during a winter, the next one
---          too), cautious where the forecast is silent (Readiness.warmthAhead), hottest fuel first.
---   Wood   all of it (tuning.firewood.splitFrom): the woodpile is next year's firewood.
+--   Wood   the wood that gives the warmth from tonight to the end of the coming winter (during a
+--          winter, the next one too), cautious where the forecast is silent (Readiness.warmthAhead, D104).
 --   Other  0 (scrap, stone: all surplus).
 -- Food and fuel the player set by hand count first, so automatic targets fill only what is left.
 -- A per-good "truck only" flag keeps a good away from the roadside stand (D62).
@@ -81,23 +80,6 @@ function Food.pantryHoldDays(world, res)
   return cfg.defaultPantryDays
 end
 
--- Fuels, hottest first (content order breaks ties), as Needs burns them.
-local function fuels(world)
-  local list = {}
-  for index, res in ipairs(world.registry:all("resources")) do
-    if res.heat then
-      list[#list + 1] = { res = res, index = index }
-    end
-  end
-  table.sort(list, function(a, b)
-    if a.res.heat ~= b.res.heat then
-      return a.res.heat > b.res.heat
-    end
-    return a.index < b.index
-  end)
-  return list
-end
-
 --- Every keep target at once: keep = { [id] = units }, auto = { [id] = true when automatic }.
 --- Covers every resource that can be eaten, burned or sold (and wood, the fuel source).
 function Food.keeps(world)
@@ -152,26 +134,15 @@ function Food.keeps(world)
     end
   end
 
-  -- Fuel for the nights to the end of winter (cautious where the forecast is silent), hottest first.
-  local efficiency = Needs.heatEfficiency(world)
-  local need = Readiness.warmthAhead(world) / (efficiency > 0 and efficiency or 1)
-  for _, entry in ipairs(fuels(world)) do
-    local res = entry.res
-    local stock = Ledger.get(world, res.id)
-    if keep[res.id] then
-      need = need - math.min(stock, keep[res.id]) * res.heat
-    else
-      local n = math.min(stock, math.ceil(math.max(0, need) / res.heat))
-      need = need - n * res.heat
-      keep[res.id], auto[res.id] = n, true
-    end
-  end
-  -- The woodpile is next year's fuel (and the smoker's): all of it is kept unless the player says
-  -- otherwise. Selling the fuel the coming winter needs only would leave the winter after short (the
-  -- balance harness lost two scripted runs that way, D75).
-  local source = world.tuning.firewood.splitFrom
-  if not keep[source] then
-    keep[source], auto[source] = Ledger.get(world, source), true
+  -- Wood for the nights to the end of winter (D104; cautious where the forecast is silent, and through
+  -- the next winter too once this one has begun, so a thaw never turns the woodpile into surplus, D75).
+  -- Counted at the best placed fire's efficiency, or at 1 while none is placed.
+  local fuelId = Needs.fuelId(world)
+  if not keep[fuelId] then
+    local res = world.registry:get("resources", fuelId)
+    local efficiency = Needs.heatEfficiency(world)
+    local n = math.ceil(Readiness.warmthAhead(world) / (res.heat * (efficiency > 0 and efficiency or 1)) - 1e-9)
+    keep[fuelId], auto[fuelId] = math.min(Ledger.get(world, fuelId), n), true
   end
 
   -- Everything else that sells is all surplus unless the player keeps some.

@@ -49,7 +49,7 @@ return function(d)
   end
   jumpTo(world, 2 * DPS + 1, 10)
   world.state.ledger.amounts.canned_food = 6
-  world.state.ledger.amounts.seasoned_firewood = 12
+  world.state.ledger.amounts.wood = 16
   world.state.needs.condition = 90
   d:frames(60)
   for _ = 1, 3 do

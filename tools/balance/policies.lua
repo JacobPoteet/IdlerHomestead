@@ -4,7 +4,7 @@
 -- orders via Actors.order, catalog orders via Market, study via Journal, ...). Nothing is mocked.
 --
 --   idle      The player never acts. The idle routine runs from the first second: it clears the
---             easy clutter, fishes, splits wood, and harvests/waters/plants only what was planned
+--             easy clutter, fishes, and harvests/waters/plants only what was planned
 --             (nothing, since the player plans nothing). The "install it and walk away" floor.
 --   scripted  A fixed opening and then the routine, no direct orders. On day 1 it plans one field
 --             tile per starting seed near the creek. Keep targets stay automatic. Every morning
@@ -12,7 +12,7 @@
 --             delivered objects near the truck, and fills the study queue from a fixed study list.
 --   active    A reasonable engaged player on top of everything `scripted` does. It keeps the wood
 --             its winter plan needs (a keep target, D75) and issues orders
---             itself (harvest, water, plant, till, load the smoker/woodshed, split wood, fell
+--             itself (harvest, water, plant, till, load the smoker, fell
 --             trees for the winter, clear junk for cash, fish by hand with the rod), grows the field
 --             as seeds come in, buys seeds, and hands control to the routine after the takeover
 --             delay when it has nothing to order. It sleeps at night (no orders at bedtime), so
@@ -58,7 +58,7 @@ local POLICY = {
   fightPadding = 3, -- active: seconds of reeling on top of the fish's stamina
   seedMoneyReserve = 6, -- active: $ kept back when buying seeds
   junkMoneyGoal = 60, -- active: stop clearing junk for cash once money passes this
-  urgentFuelNights = 3, -- active: nights of the coming season's warmth in stock below which firewood jumps the queue
+  urgentFuelNights = 3, -- active: nights of the coming season's warmth in stock below which felling wood jumps the queue
   frostMargin = 1, -- active: days of slack when judging whether a crop can mature before the freeze
   holdTripsUntilDay = 14, -- power feature: last day of the run on which trips wait for the truck battery to fill once (the "Full battery" note unlocks the power items)
   featureReserve = 8, -- $ kept back when buying feature items (power, water, stand, cat) so seeds and bait stay affordable
@@ -172,25 +172,23 @@ local function warmthPlan(world)
   for s = now.seasonIndex, #t.time.seasons do
     local season = t.time.seasons[s]
     local left = s == now.seasonIndex and (t.time.daysPerSeason - now.dayOfSeason + 1) or t.time.daysPerSeason
-    local base = t.needs.dailyWarmth[season]
+    local peak, sum = 0, 0
+    for d = t.time.daysPerSeason - left + 1, t.time.daysPerSeason do
+      local base = Weather.baseWarmth(world, season, d)
+      peak, sum = math.max(peak, base), sum + base
+    end
     if Weather.isFrozenSeason(world, season) then
-      total = total + base * severity * (left + cfg.snapDaysMax * (cfg.snapMultiplier - 1))
+      total = total + sum * severity + peak * severity * cfg.snapDaysMax * (cfg.snapMultiplier - 1)
     else
-      total = total + base * left
+      total = total + sum
     end
   end
   return total
 end
 
---- Warmth still missing for the plan, counting unsplit wood as green firewood.
-local function warmthDeficit(world, includeWood)
-  local cfg = world.tuning.firewood
-  local eff = math.max(Needs.heatEfficiency(world), 1)
-  local stock = Needs.warmthInStock(world)
-  if includeWood then
-    stock = stock + Ledger.get(world, cfg.splitFrom) * world.registry:get("resources", cfg.splitInto).heat * eff
-  end
-  return warmthPlan(world) - stock
+--- Warmth still missing for the plan (D104: wood is the one fuel, so the stock is all of it).
+local function warmthDeficit(world)
+  return warmthPlan(world) - Needs.warmthInStock(world)
 end
 
 -- Base policy: the daily "manager" chores shared by scripted and active ----------------------------
@@ -461,11 +459,10 @@ function Active:attach(world)
 end
 
 --- Keep targets an engaged player sets (D75), before the morning trip: the wood its own worst-case
---- winter plan still needs as firewood, so Auto-load and the stand never sell it.
+--- winter plan still needs, so Auto-load and the stand never sell it.
 function Active:keeps(world)
-  local fw = world.tuning.firewood
-  local heat = world.registry:get("resources", fw.splitInto).heat * math.max(Needs.heatEfficiency(world), 1)
-  Food.setKeep(world, fw.splitFrom, fw.keepWood + math.max(0, math.ceil(warmthDeficit(world, false) / heat)))
+  local perWood = world.registry:get("resources", Needs.fuelId(world)).heat * math.max(Needs.heatEfficiency(world), 1)
+  Food.setKeep(world, Needs.fuelId(world), math.ceil(warmthPlan(world) / perWood))
 end
 
 function Active:daily(world)
@@ -562,7 +559,7 @@ local function plannedTiles(world, filter)
   return list
 end
 
--- Stations (smoker, woodshed) and splitters placed on the land.
+-- Stations (the smoker) placed on the land.
 local function objectAnchors(world, filter)
   local list = {}
   for anchor, obj in pairs(world.state.grid.objects) do
@@ -590,18 +587,9 @@ local function clearTargets(world, wantWood, wantJunk)
   return list
 end
 
---- Split chopped wood, then fell more. Returns true once an order sticks.
+--- Fell wood while the winter plan is short of it. Returns true once an order sticks.
 function Active:fuel(world, actor)
-  local fuelCfg = world.tuning.firewood
-  if warmthDeficit(world, false) > 0 and Ledger.get(world, fuelCfg.splitFrom) > 0 then
-    local blocks = objectAnchors(world, function(def)
-      return def.splitter == true
-    end)
-    if #blocks > 0 and tryOrder(self, world, actor, blocks) then
-      return true
-    end
-  end
-  if warmthDeficit(world, true) > 0 then
+  if warmthDeficit(world) > 0 and Ledger.room(world, Needs.fuelId(world)) > 0 then
     local trees = clearTargets(world, true, false)
     if #trees > 0 and tryOrder(self, world, actor, trees) then
       return true
@@ -615,11 +603,11 @@ local function fuelUrgent(world)
   local t = world.tuning
   local now = Calendar.now(world)
   local upcoming = t.time.seasons[now.seasonIndex % #t.time.seasons + 1]
-  local night = math.max(t.needs.dailyWarmth[now.season], t.needs.dailyWarmth[upcoming])
+  local night = math.max(Weather.baseWarmth(world, now.season, now.dayOfSeason), Weather.baseWarmth(world, upcoming, now.dayOfSeason))
   if Weather.isFrozenSeason(world, upcoming) or Weather.isFrozenSeason(world, now.season) then
     night = night * (t.weather.severityMax + t.weather.severityPerYear * (now.year - 1))
   end
-  return warmthDeficit(world, false) > 0 and Needs.warmthInStock(world) < night * POLICY.urgentFuelNights
+  return warmthDeficit(world) > 0 and Needs.warmthInStock(world) < night * POLICY.urgentFuelNights
 end
 
 function Active:choose(world, actor)
@@ -678,7 +666,7 @@ function Active:choose(world, actor)
       return true
     end
   end
-  -- Heading into the cold, firewood comes before new planting.
+  -- Heading into the cold, wood comes before new planting.
   if daysToFreeze(world) <= world.tuning.time.daysPerSeason and self:fuel(world, actor) then
     return true
   end
@@ -701,7 +689,7 @@ function Active:choose(world, actor)
       return true
     end
   end
-  -- Load the smoker / woodshed.
+  -- Load the smoker.
   local stations = objectAnchors(world, function(def)
     return def.station ~= nil
   end)

@@ -121,14 +121,15 @@ T.test("alerts: fuel is judged in nights against tonight's need and is quiet whe
   local world = newWorld(1)
   settleAt(world, SUMMER, 12)
   T.eq((Alerts.level(world, "fuel")), 0, "summer needs no fire")
-  settleAt(world, AUTUMN, 12)
+  settleAt(world, WINTER + 2, 12)
   local need = Needs.warmthNeeded(world)
   T.truthy(need > 0)
-  setStock(world, "seasoned_firewood", math.ceil(need * (tun.alerts.fuelAmberNights + 1)))
+  local perWood = Needs.warmthPerWood(world)
+  setStock(world, "wood", math.ceil(need * (tun.alerts.fuelAmberNights + 1) / perWood))
   T.eq((Alerts.level(world, "fuel")), 0)
-  setStock(world, "seasoned_firewood", math.ceil(need * (tun.alerts.fuelAmberNights - 0.5)))
+  setStock(world, "wood", math.ceil(need * (tun.alerts.fuelAmberNights - 0.5) / perWood))
   T.eq((Alerts.level(world, "fuel")), 1)
-  setStock(world, "seasoned_firewood", math.floor(need * (tun.alerts.fuelRedNights - 0.5)))
+  setStock(world, "wood", math.floor(need * (tun.alerts.fuelRedNights - 0.5) / perWood))
   T.eq((Alerts.level(world, "fuel")), 2)
   T.near(Needs.fuelNights(world), Needs.warmthInStock(world) / need, 1e-9)
 end)
@@ -176,7 +177,7 @@ end)
 T.test("alerts: a fire-less home says so instead of counting nights", function()
   local world = newWorld(1)
   settleAt(world, AUTUMN, 12)
-  setStock(world, "seasoned_firewood", 40)
+  setStock(world, "wood", 40)
   run(world, 2)
   for anchor, obj in pairs(world.state.grid.objects) do
     if reg:get("objects", obj.id).heatSource then
@@ -235,7 +236,7 @@ end)
 T.test("alert text: toasts name the problem and what to do", function()
   T.truthy(AlertText.toast({ kind = "food", level = 1, value = 1.4 }):find("Food is low", 1, true))
   T.truthy(AlertText.toast({ kind = "food", level = 2, value = 0 }):find("Out of food", 1, true))
-  T.truthy(AlertText.toast({ kind = "fuel", level = 1, value = 1.5 }):find("Firewood is low", 1, true))
+  T.truthy(AlertText.toast({ kind = "fuel", level = 1, value = 1.5 }):find("Wood is low", 1, true))
   T.truthy(AlertText.toast({ kind = "fuel", level = 2, value = 0.5 }):find("tonight", 1, true))
   T.truthy(AlertText.toast({ kind = "condition", level = 2, value = 30 }):find("Health is low", 1, true))
 end)
@@ -314,10 +315,10 @@ T.test("readiness: the verdict names what is short, from the stock and the forec
   local world = newWorld(1)
   settleAt(world, AUTUMN, 12)
   clearFood(world)
-  setStock(world, "seasoned_firewood", 0)
+  setStock(world, "wood", 0)
   local r = Readiness.winter(world)
   T.eq(r.verdict, "both")
-  setStock(world, "seasoned_firewood", 1000)
+  setStock(world, "wood", 1000)
   setStock(world, "smoked_fish", 1000)
   setStock(world, "canned_food", 0)
   r = Readiness.winter(world)
@@ -326,33 +327,40 @@ T.test("readiness: the verdict names what is short, from the stock and the forec
   setStock(world, "smoked_fish", 0)
   T.eq(Readiness.winter(world).verdict, "food")
   setStock(world, "smoked_fish", 1000)
-  setStock(world, "seasoned_firewood", 5)
+  setStock(world, "wood", math.ceil(Needs.warmthNeeded(world) / Needs.warmthPerWood(world)))
   r = Readiness.winter(world)
   T.eq(r.verdict, "fuel")
-  T.eq(r.fuel.covered, 1, "5 warmth pays one autumn night (4) and not the next")
+  T.truthy(r.fuel.covered >= 1 and r.fuel.covered < r.fuel.nights, "the wood of one night pays the first nights and not the whole winter")
 end)
 
 T.test("readiness: the need is exact only once the forecast is, and uses what is revealed", function()
   local world = newWorld(3)
   settleAt(world, AUTUMN, 12)
-  setStock(world, "seasoned_firewood", 1000)
+  setStock(world, "wood", 1000)
   local r = Readiness.winter(world)
   T.falsy(r.exact, "nothing revealed yet")
   local floor = tun.weather.severityMin
-  local base = tun.needs.dailyWarmth
-  T.near(r.fuel.need, base.autumn * DPS + base.winter * floor * DPS, 1e-6, "the floor of what winter can be")
+  local function base(season, d)
+    return Weather.baseWarmth(world, season, d)
+  end
+  local autumn, winterSum = 0, 0
+  for d = 1, DPS do
+    autumn = autumn + base("autumn", d)
+    winterSum = winterSum + base("winter", d)
+  end
+  T.near(r.fuel.need, autumn + winterSum * floor, 1e-6, "the floor of what winter can be")
   -- Reveal the whole forecast.
   world.state.weather.revealed[1] = 3
   r = Readiness.winter(world)
   T.truthy(r.exact)
   local winter = Weather.winter(world)
-  local expected = base.autumn * DPS
+  local expected = autumn
   for d = 1, DPS do
     local mult = winter.severity
     if d >= winter.snapStart and d < winter.snapStart + winter.snapDays then
       mult = mult * tun.weather.snapMultiplier
     end
-    expected = expected + base.winter * mult
+    expected = expected + base("winter", d) * mult
   end
   T.near(r.fuel.need, expected, 1e-6, "severity and the cold snap are counted")
 end)
@@ -360,7 +368,7 @@ end)
 T.test("readiness: no fire placed means nothing is covered", function()
   local world = newWorld(1)
   settleAt(world, AUTUMN, 12)
-  setStock(world, "seasoned_firewood", 1000)
+  setStock(world, "wood", 1000)
   for anchor, obj in pairs(world.state.grid.objects) do
     if reg:get("objects", obj.id).heatSource then
       Grid.removeObject(world, anchor)
@@ -379,8 +387,8 @@ T.test("readiness: pill and card words, deterministic", function()
   T.truthy(text:find("Winter: short on", 1, true))
   T.eq(r.verdict, "both")
   local headline, message = AlertText.readinessCard(world)
-  T.truthy(headline:find("short on firewood and food", 1, true))
-  T.truthy(message:find("Fuel:", 1, true) and message:find("Food:", 1, true))
+  T.truthy(headline:find("short on wood and food", 1, true))
+  T.truthy(message:find("Wood:", 1, true) and message:find("Food:", 1, true))
   T.truthy(message:find("forecast", 1, true), "says the forecast is still coming in")
   T.truthy(AlertText.autumnToast(world):find("Autumn: winter in", 1, true))
   settleAt(world, SPRING, 12)
@@ -396,11 +404,11 @@ T.test("expected warmth need: base outside the cold, forecast inside it", functi
   local world = newWorld(1)
   settleAt(world, AUTUMN, 12)
   local need, exact = Weather.expectedWarmthNeed(world, "autumn", 3)
-  T.eq(need, tun.needs.dailyWarmth.autumn)
+  T.eq(need, Weather.baseWarmth(world, "autumn", 3))
   T.truthy(exact)
   need, exact = Weather.expectedWarmthNeed(world, "winter", 3)
   T.falsy(exact)
-  T.near(need, tun.needs.dailyWarmth.winter * tun.weather.severityMin, 1e-9)
+  T.near(need, Weather.baseWarmth(world, "winter", 3) * tun.weather.severityMin, 1e-9)
 end)
 
 -- Bedtime and the morning report (#159) ------------------------------------------------------------
@@ -571,8 +579,7 @@ end
 T.test("readiness: electric heaters and a battery pay part of each night, never twice", function()
   local world = newWorld(1)
   settleAt(world, AUTUMN, 12)
-  setStock(world, "seasoned_firewood", 0)
-  setStock(world, "firewood", 0)
+  setStock(world, "wood", 0)
   local bare = Readiness.winter(world)
   T.eq(bare.electric.total, 0)
   placeAnywhere(world, "electric_heater")

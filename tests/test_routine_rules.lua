@@ -86,42 +86,49 @@ end)
 T.test("thresholds: the routine skips a category until its condition holds again", function()
   local world = newWorld()
   world.control = "idle"
-  onlyCategory(world, "fuel")
+  onlyCategory(world, "clear")
   setTime(world, 1, 8)
-  Ledger.add(world, "wood", 20)
-  Ledger.add(world, "firewood", 5)
-  entry(world.state, "fuel").cond = { kind = "firewood_below", value = 5 }
-  T.falsy(Tasks.conditionMet(world, "fuel"))
+  local wood = Ledger.get(world, "wood")
+  local function objects()
+    local n = 0
+    for _ in pairs(world.state.grid.objects) do
+      n = n + 1
+    end
+    return n
+  end
+  local before = objects()
+  entry(world.state, "clear").cond = { kind = "wood_below", value = wood }
+  T.falsy(Tasks.conditionMet(world, "clear"))
   local hs = Actors.homesteader(world)
   T.eq(Tasks.chooseIdleJob(world, hs), nil, "stock at the threshold: nothing to do")
   run(world, HOUR * 2)
-  T.eq(Ledger.get(world, "wood"), 20, "no wood was split while waiting")
-  Tasks.stepCondition(world, "fuel", 1) -- raise the threshold: stock is now below it
-  T.truthy(Tasks.conditionMet(world, "fuel"))
+  T.eq(objects(), before, "nothing was cleared while waiting")
+  Tasks.stepCondition(world, "clear", 1) -- raise the threshold: stock is now below it
+  T.truthy(Tasks.conditionMet(world, "clear"))
   run(world, HOUR * 3)
-  T.truthy(Ledger.get(world, "wood") < 20, "work resumes once below the threshold")
+  T.truthy(objects() < before, "work resumes once below the threshold")
 end)
 
 T.test("thresholds: a waiting category is skipped for the next one, and orders still work", function()
   local world = newWorld()
-  onlyCategory(world, "fuel")
-  entry(world.state, "fuel").cond = { kind = "wood_below", value = 5 }
+  onlyCategory(world, "clear")
+  entry(world.state, "clear").cond = { kind = "wood_below", value = 5 }
   Ledger.add(world, "wood", 20)
   local hs = Actors.homesteader(world)
   T.eq(Tasks.chooseIdleJob(world, hs), nil)
-  local block
+  local tree
   for anchor, obj in pairs(world.state.grid.objects) do
-    if obj.id == "chopping_block" then
-      block = anchor
+    if obj.id == "tree" then
+      tree = anchor
     end
   end
-  local job = Tasks.jobForOrder(world, hs, block, {})
-  T.truthy(job and job.task == "split_wood", "a player order is not held back by the condition")
+  local job = Tasks.jobForOrder(world, hs, tree, {})
+  T.truthy(job and job.task == "clear", "a player order is not held back by the condition")
   for _, e in ipairs(world.state.priorities) do
     e.enabled = true
   end
   local other = Tasks.chooseIdleJob(world, hs)
-  T.truthy(other == nil or other.task ~= "split_wood", "the routine falls through to other categories")
+  T.truthy(other == nil or other.task ~= "clear", "the routine falls through to other categories")
 end)
 
 T.test("thresholds: each condition kind reads its measure", function()
@@ -142,10 +149,7 @@ T.test("thresholds: each condition kind reads its measure", function()
   Ledger.add(world, "potato", 20) -- plenty of food
   T.truthy(Needs.foodDays(world) > days)
   T.truthy(met("food_days_atleast", math.floor(days) + 1))
-  local f0 = Ledger.get(world, "firewood") + Ledger.get(world, "seasoned_firewood")
-  Ledger.add(world, "firewood", 4)
-  Ledger.add(world, "seasoned_firewood", 3)
-  T.truthy(met("firewood_below", f0 + 8) and not met("firewood_below", f0 + 7), "green and seasoned count together")
+  T.falsy(reg:has("routine_conditions", "firewood_below"), "the old firewood condition is gone (D104)")
   T.truthy(Rules.met(world, nil), "no condition is always met")
 end)
 
@@ -197,7 +201,7 @@ T.test("thresholds: a save from before thresholds keeps no conditions", function
   for _, e in ipairs(old.state.priorities) do
     T.eq(e.cond, nil, e.category .. " stays unconditional")
   end
-  T.truthy(Tasks.conditionMet(old, "fuel"))
+  T.truthy(Tasks.conditionMet(old, "clear"))
   -- It plays exactly like a world that never had the field: same seed, same run.
   local function play(w)
     w.control = "idle"
@@ -224,7 +228,7 @@ T.test("thresholds: the same seed and conditions give the same run", function()
   local function play()
     local world = newWorld(5)
     world.control = "idle"
-    entry(world.state, "fuel").cond = { kind = "firewood_below", value = 10 }
+    entry(world.state, "clear").cond = { kind = "wood_below", value = 10 }
     entry(world.state, "harvest").cond = { kind = "hour_before", value = 14 }
     entry(world.state, "water").cond = { kind = "food_days_atleast", value = 3 }
     Ledger.add(world, "wood", 30)

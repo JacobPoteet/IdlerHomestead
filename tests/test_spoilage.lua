@@ -8,6 +8,7 @@ local World = require("src.sim.world")
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Needs = require("src.sim.systems.needs")
+local Weather = require("src.sim.systems.weather")
 local Readiness = require("src.sim.systems.readiness")
 local Spoilage = require("src.sim.systems.spoilage")
 local Food = require("src.sim.systems.food")
@@ -397,37 +398,52 @@ T.test("automatic keep: a small stock is all kept, and potatoes keep up to the p
   T.truthy(Food.pantryHoldDays(world, reg:get("resources", "creek_chub")) < tun.food.defaultPantryDays)
 end)
 
-T.test("automatic keep: fuel is kept for the nights to the end of winter, the woodpile whole", function()
+T.test("automatic keep: wood is kept for the nights to the end of winter, whatever the store holds (D104)", function()
   local world = newWorld(4)
   local need = Readiness.warmthAhead(world)
   T.truthy(need > 0, "a winter is coming")
-  Ledger.add(world, "seasoned_firewood", 5)
-  T.eq(Food.surplus(world, "seasoned_firewood"), 0, "far less fuel than winter needs: all kept")
-  Ledger.setCapacity(world, "seasoned_firewood", math.huge)
-  Ledger.add(world, "seasoned_firewood", math.ceil(need) + 7 - Ledger.get(world, "seasoned_firewood"))
-  T.truthy(Food.surplus(world, "seasoned_firewood") > 0, "more than the cautious need: some to spare")
-  T.eq(Food.surplus(world, "firewood"), 0, "the hottest fuel covers the need first")
-  Ledger.add(world, "wood", 1000)
-  T.eq(Food.surplus(world, "wood"), 0, "the woodpile is next year's fuel")
+  local perWood = Needs.warmthPerWood(world)
+  local logs = math.ceil(need / perWood - 1e-9)
+  Ledger.add(world, "wood", 5)
+  T.eq(Food.surplus(world, "wood"), 0, "far less wood than winter needs: all kept")
+  Ledger.setCapacity(world, "wood", math.huge) -- (what woodsheds do)
+  Ledger.add(world, "wood", logs + 7 - Ledger.get(world, "wood"))
+  T.eq(Food.surplus(world, "wood"), 7, "exactly the wood beyond the cautious need is spare")
   Food.setKeep(world, "wood", 0)
   T.eq(Food.surplus(world, "wood"), Ledger.get(world, "wood"), "the player can sell it all")
 end)
 
-T.test("readiness: the fuel to keep is cautious until the forecast is known, and spans two winters in winter", function()
+T.test("readiness: the wood to keep is cautious until the forecast is known, and spans two winters in winter", function()
   local world = newWorld(4)
-  local t, w, warmth = tun.time, tun.weather, tun.needs.dailyWarmth
+  local t, w = tun.time, tun.weather
+  local function nightSum(season, from)
+    local sum = 0
+    for d = from or 1, t.daysPerSeason do
+      sum = sum + Weather.baseWarmth(world, season, d)
+    end
+    return sum
+  end
   -- Day 1 of year 1, nothing forecast: every season to the end of winter at the worst severity, plus
-  -- the longest cold snap.
+  -- the longest cold snap on the hardest winter night.
   local worst = w.severityMax
-  local expected = (t.daysPerSeason - 1 + 1) * warmth.spring + t.daysPerSeason * (warmth.summer + warmth.autumn)
-    + t.daysPerSeason * warmth.winter * worst + warmth.winter * worst * w.snapDaysMax * (w.snapMultiplier - 1)
+  local peak = tun.needs.warmthPeak
+  local expected = nightSum("spring") + nightSum("summer") + nightSum("autumn") + nightSum("winter") * worst
+    + peak * worst * w.snapDaysMax * (w.snapMultiplier - 1)
+  local winters = tun.food.keepWinters
+  tun.food.keepWinters = 1 -- one winter ahead: exactly the nights to the end of this winter
   T.near(Readiness.warmthAhead(world), expected, 1e-6)
+  tun.food.keepWinters = winters
+  T.truthy(Readiness.warmthAhead(world) > expected, "the tuned horizon (keepWinters = " .. winters .. ") reaches into the winter after")
+  tun.food.keepWinters = 1
   -- A frozen day counts the rest of this winter and all of the next year.
   local day = 3 * t.daysPerSeason + 2
   world.state.calendar.elapsed = ((day - 1 + 12 / 24) - t.startHour / 24) * t.dayLength
   world.state.calendar.day = day
-  local thisWinter = (t.daysPerSeason - 1) * warmth.winter * (w.severityMax + w.severityPerYear) * w.snapMultiplier
-  T.truthy(Readiness.warmthAhead(world) > thisWinter, "in winter the keep still covers the next winter")
+  local thisWinter = nightSum("winter", 2) * (w.severityMax + w.severityPerYear) * w.snapMultiplier
+  local frozen = Readiness.warmthAhead(world)
+  tun.food.keepWinters = winters
+  T.truthy(frozen > thisWinter, "in winter the keep still covers the next winter")
+  T.truthy(Readiness.warmthAhead(world) > frozen, "and a longer tuned horizon keeps more")
 end)
 
 -- The gentler start (#161) ------------------------------------------------------

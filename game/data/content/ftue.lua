@@ -67,7 +67,7 @@ return {
     id = "routine",
     title = "The Routine",
     trigger = "routine.idleHint",
-    text = "Stop tapping for {idle.takeoverDelay} seconds and the Routine takes over: watering, harvesting, planting, chopping, fishing. Tap anywhere to take over again. It will not sell, buy, drive or choose what to study.",
+    text = "Stop tapping for {idle.takeoverDelay} seconds and the Routine takes over: watering, harvesting, planting, clearing, fishing. Tap anywhere to take over again. It will not sell, buy, drive or choose what to study.",
   },
   {
     id = "bedtime",
@@ -131,7 +131,7 @@ return {
     title = "Autumn",
     trigger = "calendar.newSeason",
     match = { season = "autumn" },
-    text = "Winter is coming: store firewood (the firewood chip counts nights), keep food, and watch the forecast under the top bar. Crops still in the ground die when winter starts.",
+    text = "Winter is coming: store wood (the wood chip counts nights), keep food, and watch the forecast under the top bar. Crops still in the ground die when winter starts.",
   },
   {
     id = "winter",

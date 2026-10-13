@@ -1,6 +1,6 @@
 -- Inventory: equipment owned this run and placeable objects waiting to be placed.
 -- Also sets up the starting gear (tuning.run) once per run, and keeps storage capacities in step
--- with placed objects that have `storage` (e.g. the woodshed raises the firewood limits).
+-- with placed objects that have `storage` (e.g. the woodshed raises the wood limit).
 --
 -- State: world.state.inventory = { equipment = { [catalogId] = true }, objects = { [objectId] = count } }
 -- Emits "object.placed" { object, tile }.

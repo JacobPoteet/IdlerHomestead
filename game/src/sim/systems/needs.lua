@@ -1,11 +1,12 @@
--- Survival needs (GDD §4.2). Each day the homesteader eats (the food that would spoil first, D94; food
--- that never spoils last) and, in the cold months, burns fuel in the best placed heat source to stay warm
--- through the night (hottest fuel first). Shortfalls cost Condition; a fed, warm day restores some.
+-- Survival needs (GDD §4.2, D104). Each day the homesteader eats (the food that would spoil first, D94; food
+-- that never spoils last) and, on cold nights (none in summer, partial in spring and autumn, the most in
+-- winter: Weather.baseWarmth), burns wood in the best placed heat source to stay warm through the night.
+-- Shortfalls cost Condition; a fed, warm day restores some.
 --
 -- State: world.state.needs = { condition }
--- Emits "needs.ate" { calories, shortfall }, "needs.warmed" { warmth, electric, needed, burned, green,
--- shortfall } (green = units of poor fuel, heat below 1) and "needs.depleted" { hunger, cold, shelter }
--- when Condition hits 0 (the day's shortfalls and the shelter, so the rescue can say what failed).
+-- Emits "needs.ate" { calories, shortfall }, "needs.warmed" { warmth, electric, needed, burned, shortfall,
+-- shelter } and "needs.depleted" { hunger, cold, shelter } when Condition hits 0 (the day's shortfalls
+-- and the shelter, so the rescue can say what failed).
 
 local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
@@ -27,18 +28,14 @@ local function foods(world)
   return list
 end
 
--- Fuels, hottest first (content order breaks ties).
-local function fuels(world)
-  local list = {}
+-- The one fuel: the resource with a `heat` (wood, D104).
+local function fuel(world)
   for _, res in ipairs(world.registry:all("resources")) do
     if res.heat then
-      list[#list + 1] = res
+      return res
     end
   end
-  table.sort(list, function(a, b)
-    return a.heat > b.heat
-  end)
-  return list
+  error("no resource has a heat value")
 end
 
 local function hurt(world, amount)
@@ -86,18 +83,24 @@ function Needs.heatEfficiency(world)
   local objects = world.state.grid.objects
   -- The cached index of heat sources (D58), not a scan of every placed object: the HUD asks every frame.
   for _, anchor in ipairs(Grid.anchorsWith(world, "heatSource")) do
-    best = math.max(best, world.registry:get("objects", objects[anchor].id).heatSource * Shelter.heatReach(world, anchor))
+    best = math.max(best, world.registry:get("objects", objects[anchor].id).heatSource.efficiency * Shelter.heatReach(world, anchor))
   end
   return best
 end
 
---- Warmth the fuel in stock would give in the best heat source.
+--- The id of the fuel resource (wood).
+function Needs.fuelId(world)
+  return fuel(world).id
+end
+
+--- Warmth one unit of wood gives in the best placed heat source (0 with no fire placed).
+function Needs.warmthPerWood(world)
+  return fuel(world).heat * Needs.heatEfficiency(world)
+end
+
+--- Warmth the wood in stock would give in the best heat source.
 function Needs.warmthInStock(world)
-  local total = 0
-  for _, res in ipairs(fuels(world)) do
-    total = total + Ledger.get(world, res.id) * res.heat
-  end
-  return total * Needs.heatEfficiency(world)
+  return Ledger.get(world, fuel(world).id) * Needs.warmthPerWood(world)
 end
 
 --- Warmth needed tonight: the season's base, scaled by the winter's severity and any cold snap, then
@@ -106,13 +109,27 @@ function Needs.warmthNeeded(world)
   return Weather.warmthNeed(world) * Shelter.insulation(world)
 end
 
---- Nights of fuel in stock at tonight's need (math.huge when no fire is needed, D70, #157).
-function Needs.fuelNights(world)
+--- The wood outlook (D104), the one accessor behind the HUD wood chip, the Pantry row and the alerts:
+---   { stock (wood in the ledger), perNight (wood tonight's fire burns, after the electric heaters'
+---     forecast share, D101), nights (stock / that need; math.huge when no fire is needed, D70),
+---     noFire (a fire is needed but none is placed), perWood (warmth one wood gives) }
+function Needs.woodOutlook(world)
   local need = Needs.warmthNeeded(world)
-  if need <= 0 then
-    return math.huge
+  local electric = math.min(need, Power.heatPerNight(world, Calendar.now(world).season))
+  local fireNeed = need - electric
+  local perWood = Needs.warmthPerWood(world)
+  local stock = Ledger.get(world, fuel(world).id)
+  local out = { stock = stock, perNight = 0, nights = math.huge, noFire = need > 0 and perWood <= 0, perWood = perWood }
+  if fireNeed > 0 then
+    out.nights = stock * perWood / fireNeed
+    out.perNight = perWood > 0 and math.ceil(fireNeed / perWood - 1e-9) or 0
   end
-  return Needs.warmthInStock(world) / need
+  return out
+end
+
+--- Nights of wood in stock at tonight's need (math.huge when no fire is needed, D70, #157).
+function Needs.fuelNights(world)
+  return Needs.woodOutlook(world).nights
 end
 
 --- The homesteader's Condition (health).
@@ -138,22 +155,17 @@ function Needs.eat(world)
   return shortfall
 end
 
---- Burn fuel for the night's warmth. Returns the shortfall (0..1).
+--- Burn wood for the night's warmth. Returns the shortfall (0..1).
 function Needs.warm(world)
   local cfg = world.tuning.needs
   local need = Needs.warmthNeeded(world)
-  local efficiency = Needs.heatEfficiency(world)
+  local perWood = Needs.warmthPerWood(world)
   local electric = Power.takeWarmth(world) -- warmth the electric heaters made since the last night (GDD §7.5)
-  local warmth, burned, green = 0, 0, 0
-  if need > electric and efficiency > 0 then
-    for _, res in ipairs(fuels(world)) do
-      while warmth + electric < need and Ledger.remove(world, res.id, 1, "burn") do
-        warmth = warmth + res.heat * efficiency
-        burned = burned + 1
-        if res.heat < 1 then
-          green = green + 1
-        end
-      end
+  local warmth, burned = 0, 0
+  if need > electric and perWood > 0 then
+    while warmth + electric < need and Ledger.remove(world, fuel(world).id, 1, "burn") do
+      warmth = warmth + perWood
+      burned = burned + 1
     end
   end
   local shortfall = need > 0 and math.max(0, need - warmth - electric) / need or 0
@@ -165,7 +177,6 @@ function Needs.warm(world)
     electric = math.min(electric, need),
     needed = need,
     burned = burned,
-    green = green,
     shortfall = shortfall,
     shelter = Shelter.id(world), -- where the night was spent (notes: truck_cold, camp_cold)
   })

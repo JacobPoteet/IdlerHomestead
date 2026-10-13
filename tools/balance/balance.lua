@@ -96,7 +96,7 @@ local function snapshot(world)
     money = Ledger.get(world, "money"),
     foodDays = Needs.foodDays(world),
     warmth = warmth,
-    warmthNights = warmth / needs.dailyWarmth.winter, -- winter nights (severity 1) the fuel covers
+    warmthNights = warmth / needs.warmthPeak, -- full winter nights (severity 1) the wood covers
     notes = countKeys(j.notes),
     known = countKeys(j.known),
     ideas = #Journal.ideas(world),
@@ -109,10 +109,15 @@ local function winterNeed(world, year)
   if not winter then
     return nil
   end
-  local needs, weather = world.tuning.needs, world.tuning.weather
-  return needs.dailyWarmth.winter
-    * winter.severity
-    * (world.tuning.time.daysPerSeason + winter.snapDays * (weather.snapMultiplier - 1))
+  local weather = world.tuning.weather
+  local sum = 0
+  for d = 1, world.tuning.time.daysPerSeason do
+    sum = sum + Weather.baseWarmth(world, "winter", d)
+    if d >= winter.snapStart and d < winter.snapStart + winter.snapDays then
+      sum = sum + Weather.baseWarmth(world, "winter", d) * (weather.snapMultiplier - 1)
+    end
+  end
+  return sum * winter.severity
 end
 
 --- Simulate one run to its end or `years` years. Returns a result table:

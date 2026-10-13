@@ -55,7 +55,7 @@ return {
   {
     id = "axe",
     name = "Axe",
-    line = "Fell trees and split wood faster.",
+    line = "Fell trees and cut logs faster.",
     page = "shelter",
     price = 15,
     needs = { "felled_tree" },
@@ -66,10 +66,10 @@ return {
   {
     id = "woodshed",
     name = "Woodshed",
-    line = "Seasons firewood and stores much more.",
+    line = "Keeps a lot more wood dry and stored.",
     page = "shelter",
     price = 35,
-    needs = { "green_wood" },
+    needs = { "first_fire" },
     studyNights = 2,
     object = "woodshed",
   },

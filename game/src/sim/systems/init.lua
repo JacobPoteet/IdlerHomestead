@@ -18,7 +18,6 @@ return {
   "placement", -- D79: orders to build over trees, rocks and crops; hands the homesteader its clearing jobs
   "fishing",
   "processing",
-  "firewood",
   "market",
   "stand",
   "finds",

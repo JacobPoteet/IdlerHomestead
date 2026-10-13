@@ -85,7 +85,7 @@ end)
 
 -- Chip cards (#158) ---------------------------------------------------------------------------
 
-local CHIP_IDS = { "money", "food", "condition", "battery", "surplus", "wood", "firewood", "spoiled", "water", "hens", "eggs", "goats", "milk" }
+local CHIP_IDS = { "money", "food", "condition", "battery", "surplus", "wood", "spoiled", "water", "hens", "eggs", "goats", "milk" }
 
 T.test("chips: every top-bar chip has a card with a unit, a value in words and what moves it", function()
   local world = newWorld()
@@ -126,7 +126,7 @@ T.test("chips: the truck chip shortcut opens Power and the food chip opens the P
   local world = newWorld()
   T.eq(ChipText.card(world, "battery").shortcut.panel, "power")
   T.eq(ChipText.card(world, "food").shortcut.panel, "pantry")
-  T.eq(ChipText.card(world, "wood").shortcut, nil)
+  T.eq(ChipText.card(world, "wood").shortcut.panel, "pantry")
 end)
 
 -- Truck numbers (#162) ------------------------------------------------------------------------

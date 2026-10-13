@@ -592,15 +592,15 @@ end
 function Homestead:stats()
   local world = self.world
   local truck = world.state.land.truck
-  -- Warmth in stock, in nights of this season's need (or the raw amount when no fire is needed).
-  local warmth, need = Needs.warmthInStock(world), Needs.warmthNeeded(world)
+  -- Wood in stock and, when a fire is needed, the nights it lasts at tonight's need.
+  local woodOutlook = Needs.woodOutlook(world)
   -- The truck chip says "go" once a trip is possible (D72, #162), in the accent colour.
   local battery = string.format("%d%%", math.floor(Power.charge(world, truck) / Power.capacity(world, truck) * 100))
   local tripReady = Market.canTrip(world) and not world.state.market.inTown
   -- Each entry is { icon, text, colour, id = chip id } (the id keys the tap-to-explain card, #158).
   local stats = {
     { "icon_money", "$" .. count(Ledger.get(world, "money")), id = "money" },
-    -- Food, firewood and health turn amber, then red, as they run low (D70, #157; thresholds in tuning.alerts).
+    -- Food, wood and health turn amber, then red, as they run low (D70, #157; thresholds in tuning.alerts).
     { "icon_food", string.format("%.1fd", Needs.foodDays(world)), AlertText.chipColor(world, "food"), id = "food" },
     { "icon_heart", tostring(math.floor(Needs.condition(world) + 0.5)), AlertText.chipColor(world, "condition"), id = "condition" },
     {
@@ -611,15 +611,14 @@ function Homestead:stats()
     },
     -- Spare goods (D75): units above their keep targets, what the stand and the truck can sell.
     { "icon_crate", count(select(2, Food.surpluses(world))), id = "surplus" },
-    { "icon_wood", count(Ledger.get(world, "wood")), id = "wood" },
     {
-      "icon_firewood",
-      need > 0 and string.format("%.1fn", warmth / need) or string.format("%.0f", warmth),
-      -- The firewood chip turns red when either firewood store is full (D59), and amber then red as the
-      -- stock falls short of the coming nights (D70).
-      (Ledger.isFull(world, "firewood") or Ledger.isFull(world, "seasoned_firewood")) and theme.colors.danger
-        or AlertText.chipColor(world, "fuel"),
-      id = "firewood",
+      "icon_wood",
+      -- D104: the logs held, then the nights they last at tonight's need once a fire is needed (one accessor, Needs.woodOutlook).
+      woodOutlook.nights == math.huge and count(woodOutlook.stock)
+        or string.format(woodOutlook.nights >= 10 and "%s · %.0fn" or "%s · %.1fn", count(woodOutlook.stock), woodOutlook.nights),
+      -- The wood chip turns red when the store is full (D59), and amber then red as the stock falls short of the coming nights (D70).
+      Ledger.isFull(world, "wood") and theme.colors.danger or AlertText.chipColor(world, "fuel"),
+      id = "wood",
     },
   }
   local tonight = Spoilage.tonight(world)
@@ -2253,7 +2252,7 @@ function Homestead:storageNotes()
   local world = self.world
   local notes, full = {}, {}
   -- Only stores that are actually holding something back are listed (D93, #135): a finished batch's
-  -- output, or a harvest/pick/catch that has no room. A merely full store (spare firewood) is quiet.
+  -- output, or a harvest/pick/catch that has no room. A merely full store (spare wood) is quiet.
   local now = world.state.calendar.elapsed
   if not self.blockingAt or math.abs(now - self.blockingAt) >= self.app.ctx.tuning.ui.storageNoteRefresh then
     self.blockingAt = now
@@ -2571,7 +2570,14 @@ function Homestead:tileInfo(i)
       lines[#lines + 1] = string.format("Coyote guard %d%%", math.floor(herd.guard * 100 + 0.5))
     end
     if obj.heatSource then
-      lines[#lines + 1] = string.format("Heat x%.1f · needs %d a night", obj.heatSource, Needs.warmthNeeded(world))
+      -- D104: wood burned tonight in this fire, from the shared outlook's warmth need.
+      local fuelHeat = world.registry:get("resources", Needs.fuelId(world)).heat
+      local wood = math.ceil(Needs.warmthNeeded(world) / (fuelHeat * obj.heatSource.efficiency) - 1e-9)
+      lines[#lines + 1] = string.format("Efficiency x%.1f · burns %d wood tonight", obj.heatSource.efficiency, wood)
+    end
+    if obj.storage and obj.storage.wood then
+      local id = Needs.fuelId(world)
+      lines[#lines + 1] = string.format("Dry store: +%d wood (holds %d / %d)", obj.storage.wood, Ledger.get(world, id), Ledger.capacity(world, id))
     end
     if obj.heatSource or (obj.sink and obj.sink.effects and obj.sink.effects.warmthPerKwh) then
       local reach = Shelter.heatReach(world, anchor)

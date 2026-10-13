@@ -7,6 +7,7 @@
 
 local Ledger = require("src.sim.systems.ledger")
 local Food = require("src.sim.systems.food")
+local Needs = require("src.sim.systems.needs")
 local Spoilage = require("src.sim.systems.spoilage")
 local Buttons = require("src.ui.buttons")
 local Panel = require("src.ui.panel")
@@ -28,7 +29,7 @@ local COL = PantryLayout.COL
 local function helpText(world)
   local cfg = world.tuning.food
   return string.format(
-    "Auto keeps %d days of fresh food, %d days for winter and fuel to the end of winter. "
+    "Auto keeps %d days of fresh food, %d days for winter and wood to the end of winter. "
       .. "Set your own with - and +; Auto goes back. Spare goods sell at the stand or on the truck.",
     cfg.defaultPantryDays,
     cfg.defaultWinterDays
@@ -51,7 +52,8 @@ end
 function Pantry:goods()
   local fresh, rest = {}, {}
   for _, res in ipairs(self.world.registry:all("resources")) do
-    if Ledger.get(self.world, res.id) > 0 and (res.calories or res.value or res.heat) then
+    -- Wood always has its row (D104): the keep target and the nights-left line matter at zero stock too.
+    if (Ledger.get(self.world, res.id) > 0 or res.heat) and (res.calories or res.value or res.heat) then
       local list = Spoilage.perishable(self.world, res.id) and fresh or rest
       list[#list + 1] = res
     end
@@ -60,6 +62,18 @@ function Pantry:goods()
     fresh[#fresh + 1] = res
   end
   return fresh
+end
+
+-- The wood row's note: the nightly burn and the nights left (Needs.woodOutlook), then the store's room.
+function Pantry:woodLine()
+  local world = self.world
+  local o = Needs.woodOutlook(world)
+  local room = string.format("room for %d", Ledger.capacity(world, Needs.fuelId(world)))
+  if o.nights == math.huge then
+    return "No fire needed tonight · " .. room
+  end
+  local burn = o.noFire and "No fire placed" or string.format("Burns %d tonight · %.1f nights left", o.perNight, o.nights)
+  return burn .. " · " .. room
 end
 
 function Pantry:resize(view)
@@ -120,7 +134,7 @@ function Pantry:layout()
   local keeps, autos = Food.keeps(world)
   local contentH = 0
   for _, res in ipairs(goods) do
-    contentH = contentH + ROW_H + (Spoilage.info(world, res.id) and NOTE_H or 0)
+    contentH = contentH + ROW_H + ((Spoilage.info(world, res.id) or res.heat) and NOTE_H or 0)
   end
   local top = self.headY + 14
   local viewH = math.max(ROW_H, b.y + b.h - 6 - self.footerH - top)
@@ -129,7 +143,7 @@ function Pantry:layout()
   local y = self.list:origin()
   for _, res in ipairs(goods) do
     local info = Spoilage.info(world, res.id)
-    local h = ROW_H + (info and NOTE_H or 0)
+    local h = ROW_H + ((info or res.heat) and NOTE_H or 0)
     if y + h > top and y < top + viewH then
       local keep, auto = keeps[res.id] or 0, autos[res.id] == true
       local stock = Ledger.get(world, res.id)
@@ -244,6 +258,10 @@ function Pantry:draw()
       align = "center",
       color = row.auto and theme.colors.text or theme.colors.accent,
     })
+    if res.heat then
+      -- The wood row's second line (D104): the same outlook as the HUD chip and the readiness card.
+      Text.draw(self:woodLine(), b.x + 28, row.y + ROW_H - 4, { size = "small", color = dim })
+    end
     if info then
       -- The "!" keeps the warning readable without relying on colour.
       Text.draw(
