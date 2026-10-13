@@ -6,6 +6,6 @@ return {
   cardMaxWidth = 340, -- widest tip card, in virtual pixels (narrower views use the view width less the margin)
   cardMargin = 8, -- virtual pixels kept free at the left and right of the card
   cardPadding = 8, -- virtual pixels between the card edge and its text and buttons
-  cardBottomGap = 34, -- virtual pixels between the bottom bar and the card: room for the toast and the routine badge
+  cardBottomGap = 44, -- virtual pixels between the bottom bar and the card: room for the toast and the routine badge
   tipsColumns = 2, -- columns of step buttons in the Menu's Tips list
 }

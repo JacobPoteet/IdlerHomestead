@@ -20,6 +20,10 @@ journal, power, guide, town/truck), `clear` (order a clear and capture the progr
 
 Also `goats` (D71: a goat pen with goats browsing its yard and the object card, milk waiting in the pail, a tap sending the homesteader to milk with its toast, a cheese press loaded with milk, the animal-feed warning toast, the Animals chapter of the journal), and `uxbatch` (D70: the Pantry scrolled by drag and wheel, the amber and red chips with their warning toasts, the winter-readiness pill and card, the won't-ripen warning on a plan and on the tile card, the bedtime toast and the morning report card).
 
+Also `clarity` (D72: the tap-to-explain chip cards and their shortcut, the Tools and More palettes on narrow views, the tool caption, the Journal unlock hint on a ??? idea and on a blank stamp, the truck panel charging and ready with the "ready" chip and toast).
+
+On narrow views some toolbar buttons live in the Tools or More palette: `d:pick(label)` presses a toolbar button wherever it is (it opens the palette when needed), `d:press` only sees what is on screen.
+
 First-time tip cards (D69) are off in every scenario by default so they never cover a screenshot; `d:newGame({ tips = true })` starts the slot with them on.
 
 ## Safety and how it finds the game
@@ -56,6 +60,7 @@ Helper API (`tools/driver/driver.lua`):
 | `d:setSpeed(scale)` | Set game speed, 0 pauses. |
 | `d:press(label)`, `d:tryPress(label)` | Click a button on the top scene by label (case-insensitive). |
 | `d:labels()` | Labels on the top scene, handy while writing a scenario. |
+| `d:pick(label)` | Press a toolbar button on the bar or inside the Tools / More palette (narrow views). |
 | `d:click(vx, vy)`, `d:clickPixel(px, py)` | Click at a virtual or window position, through the real mouse handler. |
 | `d:clickTile(tx, ty)` | Click a homestead tile, centring the camera on it if off screen. |
 | `d:drag(x1, y1, x2, y2 [, steps])` | Swipe from one virtual position to another through the mouse handler (scrolls a list, never counts as a tap). |

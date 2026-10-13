@@ -32,6 +32,7 @@ return function(d)
   d:shot("morning")
 
   -- Take control (a tap hands it back), then stand idle: the hint appears.
+  d:tryPress("Got it") -- the morning report card is solid and can sit over the homesteader's tile
   d:clickTile(d:homesteaderTile())
   d:setSpeed(4)
   local guard2 = 0

@@ -267,6 +267,25 @@ function Market.canTrip(world)
   return Market.truckCharge(world) >= world.tuning.economy.tripCost
 end
 
+--- The truck's readiness for a trip, for the home panel and the HUD (D72, #162): { ready, charge, cost,
+--- capacity (kWh), hours (in-game hours to a full trip's charge at the current net rate: 0 when ready,
+--- nil when the truck is not charging), units, value ($) and cargo (units) of the sell crate }.
+function Market.tripStatus(world)
+  local econ = world.tuning.economy
+  local truck = Land.truck(world)
+  local _, value, units = Market.crateQuote(world)
+  return {
+    ready = Market.canTrip(world),
+    charge = Power.charge(world, truck),
+    cost = econ.tripCost,
+    capacity = Power.capacity(world, truck),
+    hours = Power.hoursToCharge(world, truck, econ.tripCost),
+    units = units,
+    value = value,
+    cargo = econ.cargoCapacity,
+  }
+end
+
 --- Drive to town. Uses truck charge. Returns true if the trip started.
 function Market.startTrip(world)
   if world.state.market.inTown or not Market.canTrip(world) then

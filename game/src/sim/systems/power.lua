@@ -52,6 +52,7 @@ local function emptyFlow()
     tiers = {}, -- tier id -> { demand, served, charging } (charging: kW a charge tier put into batteries)
     sinks = {}, -- anchor -> { demand, ratio }
     sources = {}, -- anchor -> kW now
+    rates = {}, -- battery anchor -> net kW stored this tick (charging after efficiency, less what was drawn)
     effects = {}, -- effect name -> strength (sum over sinks of effect * held satisfaction)
   }
 end
@@ -181,6 +182,27 @@ end
 function Power.capacity(world, anchor)
   local obj = world.state.grid.objects[anchor]
   return obj and world.registry:get("objects", obj.id).battery or 0
+end
+
+--- Net kW going into a battery as of the last tick (negative while it lends power). 0 for a save
+--- from before this was tracked, until its next tick.
+function Power.chargeRate(world, anchor)
+  local rates = state(world).flow.rates
+  return rates and rates[anchor] or 0
+end
+
+--- In-game hours until a battery holds `target` kWh at its current net rate: 0 when it already does,
+--- nil when it is not charging (or `target` is more than it can hold).
+function Power.hoursToCharge(world, anchor, target)
+  local charge = Power.charge(world, anchor)
+  if charge >= target then
+    return 0
+  end
+  local rate = Power.chargeRate(world, anchor)
+  if rate <= 0 or target > Power.capacity(world, anchor) then
+    return nil
+  end
+  return (target - charge) / rate
 end
 
 --- Remove `amount` kWh from a battery. Returns true if it had enough.
@@ -412,6 +434,7 @@ local function chargeBatteries(world, banks, vehicle, avail, hours)
       local power = math.min(avail - used, room / (hours * eff), def.maxRate or math.huge)
       if power > 0 then
         s.charge[anchor] = (s.charge[anchor] or 0) + power * hours * eff
+        s.flow.rates[anchor] = (s.flow.rates[anchor] or 0) + power * eff
         used = used + power
       end
     end
@@ -444,6 +467,7 @@ local function dischargeBatteries(world, banks, need, hours)
         local power = math.min(need - got, dischargeLimit(world, anchor, hours))
         if power > 0 then
           s.charge[anchor] = s.charge[anchor] - power * hours
+          s.flow.rates[anchor] = (s.flow.rates[anchor] or 0) - power
           got = got + power
         end
       end

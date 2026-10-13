@@ -135,6 +135,19 @@ local function needsMet(world, def)
 end
 
 --- An item you could study: all its notes are written but it isn't known yet.
+--- The notes an item still needs, in `needs` order: list of { id, name, hint } for each note not yet
+--- written (empty once it is an idea or known). The hint says what to do, never what the item is (D72, #160).
+function Journal.missingNotes(world, id)
+  local list = {}
+  for _, noteId in ipairs(item(world, id).needs or {}) do
+    if not journal(world).notes[noteId] then
+      local note = world.registry:get("notes", noteId)
+      list[#list + 1] = { id = noteId, name = note.name, hint = note.hint }
+    end
+  end
+  return list
+end
+
 function Journal.isIdea(world, id)
   local def = item(world, id)
   return not Journal.isKnown(world, id) and needsMet(world, def)

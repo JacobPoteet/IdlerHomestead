@@ -14,6 +14,39 @@ local Truck = { name = "truck" }
 Truck.__index = Truck
 
 local ROW_H = 22
+local HOME_H = 176 -- panel height at home: status, bar, crate line, power line, button
+
+--- "about 5 hours", "under an hour", "about 2 days" for in-game hours (the truck charges by the sun).
+function Truck.duration(hours)
+  if hours < 1 then
+    return "under an hour"
+  elseif hours < 24 then
+    local n = math.ceil(hours)
+    return n == 1 and "about 1 hour" or string.format("about %d hours", n)
+  end
+  local n = math.ceil(hours / 24)
+  return n == 1 and "about 1 day" or string.format("about %d days", n)
+end
+
+--- The headline of the home panel from Market.tripStatus: "Trip ready" or what is missing.
+function Truck.statusText(trip)
+  if trip.ready then
+    return "Trip ready: drive to town"
+  end
+  local missing = trip.cost - trip.charge
+  if trip.hours then
+    return string.format("%.1f kWh to go: %s at this rate", missing, Truck.duration(trip.hours))
+  end
+  return string.format("%.1f kWh to go: not charging now", missing)
+end
+
+--- What the crate holds and is worth, from Market.tripStatus.
+function Truck.crateText(trip)
+  if trip.units == 0 then
+    return "Sell crate: empty"
+  end
+  return string.format("Sell crate: %d / %d cargo, worth $%d in town", trip.units, trip.cargo, trip.value)
+end
 
 function Truck.new(world, onToast)
   return setmetatable({ world = world, onToast = onToast }, Truck)
@@ -31,7 +64,7 @@ function Truck:resize(view)
   if self:inTown() then
     self.box = Panel.box(view, 600, view.h - 16)
   else
-    self.box = Panel.box(view, 300, 150)
+    self.box = Panel.box(view, 300, HOME_H)
   end
   self:layout()
 end
@@ -172,18 +205,27 @@ function Truck:draw()
   local b, world = self.box, self.world
   local truck = world.state.land.truck
   if not self:inTown() then
-    local charge, cap = Power.charge(world, truck), Power.capacity(world, truck)
-    local cost = world.tuning.economy.tripCost
+    local trip = Market.tripStatus(world)
+    local charge, cap, cost = trip.charge, trip.capacity, trip.cost
+    local dim, w = theme.colors.textDim, b.w - 24
     Panel.frame(self.app.view, b, "Electric truck", "Charged from spare power, after the homestead.")
-    bar(b.x + 12, b.y + 46, b.w - 24, 12, charge / cap, { 0.45, 0.82, 0.42 })
+    -- Ready or not, in words (D72, #162).
+    Text.draw(Truck.statusText(trip), b.x + 12, b.y + 36, {
+      size = "body",
+      width = w,
+      color = trip.ready and theme.colors.accent or theme.colors.text,
+    })
+    bar(b.x + 12, b.y + 56, b.w - 24, 12, charge / cap, { 0.45, 0.82, 0.42 })
     -- Mark how much a trip needs.
     local mx = b.x + 12 + (b.w - 24) * cost / cap
     love.graphics.setColor(theme.colors.accent)
-    love.graphics.rectangle("fill", mx, b.y + 43, 1, 18)
-    Text.draw(string.format("%.1f / %d kWh · a trip uses %d", charge, cap, cost), b.x + 12, b.y + 64, { size = "small" })
-    Text.draw(string.format("Making %.2f kW, homestead using %.2f kW", Power.output(world), Power.flow(world).served), b.x + 12, b.y + 78, {
+    love.graphics.rectangle("fill", mx, b.y + 53, 1, 18)
+    Text.draw(string.format("%.1f / %d kWh · a trip uses %d", charge, cap, cost), b.x + 12, b.y + 74, { size = "small" })
+    Text.draw(Truck.crateText(trip), b.x + 12, b.y + 88, { size = "small", width = w })
+    Text.draw(string.format("Making %.2f kW, homestead using %.2f kW", Power.output(world), Power.flow(world).served), b.x + 12, b.y + 102, {
       size = "small",
-      color = theme.colors.textDim,
+      color = dim,
+      width = w,
     })
   else
     Panel.frame(self.app.view, b, "Town", string.format("You have $%d", Ledger.get(world, "money")))

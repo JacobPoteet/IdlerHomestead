@@ -25,7 +25,7 @@ return {
     trigger = "object.cleared",
     after = { step = "welcome", seconds = 60 },
     retire = { "crop.planted" },
-    text = "Cleared! Pick a seed in the bottom bar, then tap open ground to till and plant it.",
+    text = "Cleared! Pick a seed in the bottom bar (under Tools on a narrow screen), then tap open ground to till and plant it.",
   },
   {
     id = "water",

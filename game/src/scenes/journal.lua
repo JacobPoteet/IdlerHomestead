@@ -24,7 +24,10 @@ local MAX_W = 720 -- panel width on wide windows
 local MARGIN = 6 -- empty space around the map's content
 local CHIP_H = 34 -- height of a study queue chip
 local CHIP_GAP = 4 -- space between queue chips
-local CARD_H = 64 -- node card height
+local CARD_H = 64 -- node card height (taller when an unknown node lists what it needs)
+local CARD_TEXT_X = 38 -- card text left edge, from the card's left
+local CARD_TEXT_TOP = 21 -- card description top, from the card's top
+local CARD_STAMP_ROOM = 30 -- space kept under the description for the needed-note stamps
 local NOTE_STAMP = 24 -- note stamp edge in the notes strip (touch-sized)
 local NOTE_GAP = 2 -- space between note stamps
 local WHEEL_STEP = 24 -- pixels the map moves per mouse-wheel notch
@@ -96,7 +99,7 @@ function JournalScene:resize(view)
 
   local mapTop = self.queueRect.y + CHIP_H + 4
   self.mapRect = { x = b.x + 6, y = mapTop, w = inner, h = self.notesRect.y - 4 - mapTop }
-  self.cardRect = { x = self.mapRect.x + 4, y = self.mapRect.y + self.mapRect.h - CARD_H - 4, w = self.mapRect.w - 8, h = CARD_H }
+  self:placeCard()
 
   self.map = JournalMap.build(Journal.chapters(world), self.mapRect.h - 2 * MARGIN)
   if self.pendingFocus then
@@ -118,11 +121,42 @@ function JournalScene:resize(view)
   self:layoutButtons()
 end
 
+--- What to do to learn a node that is still unknown (D72, #160): "Needs: Fell a tree; Catch a fish", from
+--- the hints of the notes it is missing. Nil when it is not unknown. The node's name stays hidden.
+function JournalScene:unlockText(id)
+  if not id or Journal.status(self.world, id) ~= "unknown" then
+    return nil
+  end
+  local parts = {}
+  for _, note in ipairs(Journal.missingNotes(self.world, id)) do
+    parts[#parts + 1] = note.hint
+  end
+  if #parts == 0 then
+    return nil
+  end
+  return "Needs: " .. table.concat(parts, "; ")
+end
+
+--- The open card's height: tall enough for the unlock text, which wraps under the title.
+function JournalScene:cardHeight()
+  local text = self:unlockText(self.selected)
+  if not text then
+    return CARD_H
+  end
+  return math.max(CARD_H, CARD_TEXT_TOP + Text.wrappedHeight(text, "small", self.mapRect.w - 8 - CARD_TEXT_X - 8) + CARD_STAMP_ROOM)
+end
+
+function JournalScene:placeCard()
+  local r, h = self.mapRect, self:cardHeight()
+  self.cardH = h
+  self.cardRect = { x = r.x + 4, y = r.y + r.h - h - 4, w = r.w - 8, h = h }
+end
+
 -- Keep the map's content inside the viewport (centred horizontally when it fits).
 function JournalScene:clampPan()
   local m, r = self.map, self.mapRect
   local contentW, contentH = m.w + 2 * MARGIN, m.h + 2 * MARGIN
-  local viewH = r.h - (self.selected and (CARD_H + 4) or 0)
+  local viewH = r.h - (self.selected and (self.cardH + 4) or 0)
   if contentW <= r.w then
     self.offX = math.floor((r.w - contentW) / 2)
   else
@@ -142,7 +176,7 @@ function JournalScene:reveal(id)
     return
   end
   local r = self.mapRect
-  local viewH = r.h - (self.selected and (CARD_H + 4) or 0)
+  local viewH = r.h - (self.selected and (self.cardH + 4) or 0)
   local pad = 6
   local left, top = node.x + MARGIN + self.offX, node.y + MARGIN + self.offY
   if left < pad then
@@ -165,6 +199,7 @@ end
 
 function JournalScene:select(id)
   self.selected, self.selectedNote = id, nil
+  self:placeCard()
   if id then
     self:reveal(id)
   end
@@ -181,6 +216,7 @@ end
 -- the Close button and the card's buttons use the shared Buttons widget.
 function JournalScene:layoutButtons()
   local world, b = self.world, self.box
+  self:placeCard()
   self.buttons:clear()
   self.cardButtons:clear()
   self.hits = {}
@@ -558,7 +594,7 @@ function JournalScene:drawMap()
 
   -- Scroll bars, only where the content overflows.
   local contentW, contentH = self.map.w + 2 * MARGIN, self.map.h + 2 * MARGIN
-  local viewH = r.h - (self.selected and (CARD_H + 4) or 0)
+  local viewH = r.h - (self.selected and (self.cardH + 4) or 0)
   love.graphics.setColor(1, 1, 1, 0.25)
   if contentW > r.w then
     local barW = math.max(12, r.w * r.w / contentW)
@@ -587,7 +623,7 @@ function JournalScene:drawQueue()
     local ideas = #Journal.ideas(world) > 0
     love.graphics.setColor(ideas and colors.accent or colors.panelBorder)
     NodeView.dashedRect(q.x, q.y, q.w, q.h, 4, 3)
-    local prompt = ideas and "Nothing queued. Tap an idea on the map to study it tonight." or "Nothing to study yet. New notes spark ideas."
+    local prompt = ideas and "Nothing queued. Tap an idea on the map to study it tonight." or "Nothing to study yet. Tap a ??? on the map to see what to do."
     local th = Text.wrappedHeight(prompt, "small", q.w - 16)
     Text.draw(prompt, q.x + 8, q.y + (q.h - th) / 2, { size = "small", width = q.w - 16, color = ideas and colors.accent or dim })
     return
@@ -638,7 +674,7 @@ function JournalScene:drawNotes()
     if info then
       text = string.format("%s: %s (%s day %d, run %d)", note.name, note.line, capitalize(info.season), info.day, info.run or 1)
     else
-      text = note.name .. ": not written yet."
+      text = note.name .. ": not written yet. " .. note.hint .. "."
     end
     Text.draw(text, n.x, infoY, { size = "small", width = n.w })
   else
@@ -686,8 +722,9 @@ function JournalScene:drawCard()
     color = (status == "idea" or status == "studying") and colors.accent or dim,
   })
   Text.draw(status == "unknown" and "???" or def.name, textX, c.y + 7, { size = "body", width = c.w - 38 - statusW - 12 })
-  local line = status == "unknown" and "Write the missing notes to learn this." or def.line
-  Text.draw(line, textX, c.y + 21, { size = "small", width = c.w - 38 - 8, color = dim })
+  -- An unknown node keeps its name hidden but says what to do (D72, #160).
+  local line = status == "unknown" and (self:unlockText(id) or "Write the missing notes to learn this.") or def.line
+  Text.draw(line, textX, c.y + CARD_TEXT_TOP, { size = "small", width = c.w - CARD_TEXT_X - 8, color = status == "unknown" and colors.accent or dim })
 
   -- Needed note stamps (filled once written), then study time and price.
   for _, stamp in ipairs(self.cardStamps) do
