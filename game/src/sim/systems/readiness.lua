@@ -10,6 +10,7 @@
 
 local Calendar = require("src.sim.systems.calendar")
 local Needs = require("src.sim.systems.needs")
+local Power = require("src.sim.systems.power")
 local Shelter = require("src.sim.systems.shelter")
 local Weather = require("src.sim.systems.weather")
 
@@ -39,7 +40,10 @@ local function nightsAhead(world)
     end
     for d = day, time.daysPerSeason do
       local need, sure = Weather.expectedWarmthNeed(world, season, d)
-      nights[#nights + 1] = { need = need * insulation, winter = frozen }
+      need = need * insulation
+      -- D101 (#175): electric heaters pay a night first (never more than the night needs); fuel pays the rest.
+      local electric = math.min(need, Power.heatPerNight(world, season))
+      nights[#nights + 1] = { need = need - electric, electric = electric, winter = frozen }
       if frozen and not sure then
         exact = false
       end
@@ -111,7 +115,8 @@ end
 --- Winter readiness, or nil when it is not due yet. Returns
 ---   { frozen, daysAway (days to the freeze, 0 once frozen), verdict = "ready" | "fuel" | "food" | "both",
 ---     exact (the whole forecast is known), noFire,
----     fuel = { have (warmth in stock), need (warmth through winter's end), covered (nights), nights, ok },
+---     fuel = { have (warmth in stock), need (warmth through winter's end that fuel must make, after electric), covered (nights), nights, ok },
+---     electric = { total (warmth the heaters should make to winter's end), perNight (a winter night) },
 ---     food = { days (in stock), need (winter nights still to come), ok } }
 function Readiness.winter(world)
   if not Readiness.active(world) then
@@ -123,9 +128,11 @@ function Readiness.winter(world)
   end
   local have = Needs.warmthInStock(world)
   local total, covered, left, winterNights = 0, 0, have, 0
+  local electricTotal = 0
   local counting = true
   for _, night in ipairs(nights) do
     total = total + night.need
+    electricTotal = electricTotal + night.electric
     if night.winter then
       winterNights = winterNights + 1
     end
@@ -151,7 +158,8 @@ function Readiness.winter(world)
     daysAway = Weather.isFrozen(world) and 0 or Weather.daysToFreeze(world),
     verdict = verdict,
     exact = exact,
-    noFire = Needs.heatEfficiency(world) == 0,
+    noFire = Needs.heatEfficiency(world) == 0 and total > 0,
+    electric = { total = electricTotal, perNight = nights[#nights].electric }, -- warmth heaters should make on a winter night (D101), already taken off fuel.need
     fuel = { have = have, need = total, covered = covered, nights = #nights, ok = fuelOk },
     food = { days = foodDays, need = winterNights, ok = foodOk },
   }

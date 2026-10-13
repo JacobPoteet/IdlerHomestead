@@ -44,6 +44,7 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 | `junk` | 16×16 | M1 | Crate, tire, sheet metal. Gives scrap + a few dollars. |
 | `tree` | 16×32 | M1 | Needs 2–3 species and seasonal variants (bare in winter). |
 | `truck` | 32×24 | M1 | Electric pickup, 2×1 footprint. Later: charging cable, cargo states, trailer. |
+| `trip_marker` | 11×12 | D101 | Gold down-arrow bobbing over the truck cab while a trip is ready and the player is home; static under reduce motion. |
 | `folding_panel` | 16×16 | M2 | Starting gear, placed beside the truck. |
 | `smoker` | 16×24 | M2 | Smoke puffs are drawn by the renderer while a batch runs. |
 | `campfire`, `chopping_block` | 16×16 | M3 | Starting kit, placed beside the truck. |

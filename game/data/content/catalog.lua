@@ -412,7 +412,7 @@ return {
   {
     id = "stand_cooler",
     name = "Stand cooler",
-    line = "Fish and greens keep on the table: +4 a day.",
+    line = "A cooler table holds more for sale: +4 items a day.",
     page = "supplies",
     price = 45,
     needs = { "stand_sale", "fish_spoil" },

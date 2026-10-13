@@ -10,6 +10,8 @@ local Calendar = require("src.sim.systems.calendar")
 local Cat = require("src.sim.systems.cat")
 local Crops = require("src.sim.systems.crops")
 local Machines = require("src.sim.systems.machines")
+local Market = require("src.sim.systems.market")
+local TripMarker = require("src.render.trip_marker")
 local Water = require("src.sim.systems.water")
 local Power = require("src.sim.systems.power")
 local Processing = require("src.sim.systems.processing")
@@ -493,6 +495,17 @@ function Renderer:draw(alpha, visible, daylight)
           end
           if capShader then
             love.graphics.setShader()
+          end
+          if obj.id == "truck" and TripMarker.visible(Market.canTrip(world), world.state.market.inTown) then
+            local cfg = world.tuning.visuals.tripMarker
+            local arrow = Assets.sprite("trip_marker")
+            local dy = TripMarker.offset(self.uiTime, cfg, Settings.read("reduceMotion", false))
+            love.graphics.draw(
+              arrow.image,
+              arrow.quad,
+              (x - 1) * tile + sprite.w - 18, -- over the cab
+              bottom - sprite.h - arrow.h - cfg.gap + dy
+            )
           end
           if smoking then
             self:drawSmoke((x - 1) * tile + 8, bottom - sprite.h + 2)
