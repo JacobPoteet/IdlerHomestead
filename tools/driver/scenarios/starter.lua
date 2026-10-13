@@ -23,7 +23,8 @@ return function(d)
   assert(next(world.state.fields.plan) == nil, "a new run starts with nothing planned")
   d:advance(0.1)
   d:press("Start routine")
-  d:frames(3)
+  d:frames(60) -- the "routine starts" toast runs its 2.6 s first, then the starter field's
+  d:shot("toast") -- D88: the routine says it planned a field and how to change it
   centreOnPlan(d)
   d:shot("planned")
   d:advance(2)

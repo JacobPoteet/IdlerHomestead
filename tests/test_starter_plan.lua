@@ -92,6 +92,76 @@ T.test("starter plan: takeover plans the tuned field near the truck on tillable 
   end
 end)
 
+-- Number of 8-connected groups among the tiles.
+local function components(grid, tiles)
+  local left, n = {}, 0
+  for _, i in ipairs(tiles) do
+    left[i] = true
+  end
+  for _, i in ipairs(tiles) do
+    if left[i] then
+      n = n + 1
+      local stack = { i }
+      left[i] = nil
+      while #stack > 0 do
+        local x, y = Grid.coords(grid, table.remove(stack))
+        for dy = -1, 1 do
+          for dx = -1, 1 do
+            local j = Grid.inBounds(grid, x + dx, y + dy) and Grid.index(grid, x + dx, y + dy)
+            if j and left[j] then
+              left[j] = nil
+              stack[#stack + 1] = j
+            end
+          end
+        end
+      end
+    end
+  end
+  return n
+end
+
+local function sortedPlan(world)
+  local tiles = {}
+  for i in pairs(world.state.fields.plan) do
+    tiles[#tiles + 1] = i
+  end
+  table.sort(tiles)
+  return tiles
+end
+
+T.test("starter plan: one compact block the homesteader can reach, on every seed (D88, #137)", function()
+  local Pathfind = require("src.sim.pathfind")
+  local Actors = require("src.sim.systems.actors")
+  for seed = 1, 60 do
+    local world = newWorld(seed)
+    takeOver(world)
+    local tiles = sortedPlan(world)
+    local grid = world.state.grid
+    T.truthy(#tiles > 0, "seed " .. seed .. " planned a field")
+    T.eq(components(grid, tiles), 1, "seed " .. seed .. " is one connected block")
+    local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+    for _, i in ipairs(tiles) do
+      local x, y = Grid.coords(grid, i)
+      x0, y0, x1, y1 = math.min(x0, x), math.min(y0, y), math.max(x1, x), math.max(y1, y)
+    end
+    T.truthy((x1 - x0 + 1) * (y1 - y0 + 1) <= 2 * #tiles, "seed " .. seed .. " bounding box stays tight")
+    T.truthy(math.min(x1 - x0, y1 - y0) >= 1, "seed " .. seed .. " is not a one-tile strip")
+    local start = Grid.index(grid, math.floor(Actors.homesteader(world).x + 0.5), math.floor(Actors.homesteader(world).y + 0.5))
+    for _, i in ipairs(tiles) do
+      T.truthy(Pathfind.toWorkSpot(world, start, i), "seed " .. seed .. " tile " .. i .. " is reachable")
+    end
+  end
+end)
+
+T.test("starter plan: the same seed always lays out the same block", function()
+  for seed = 1, 6 do
+    local a, b = newWorld(seed), newWorld(seed)
+    takeOver(a)
+    takeOver(b)
+    T.eq(plannedTiles(a), plannedTiles(b), "seed " .. seed)
+  end
+end)
+
 T.test("starter plan: planned once, then left alone on later days", function()
   local world = newWorld()
   takeOver(world)

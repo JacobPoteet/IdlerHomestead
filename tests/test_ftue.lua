@@ -369,3 +369,25 @@ T.test("ftue: is deterministic and never changes the simulation", function()
   local stateOff = play(false)
   T.eq(stateA, stateOff, "tips on or off, the world is the same")
 end)
+
+T.test("market: the cheapest order is the least price plus delivery fee among items waiting on money (D88)", function()
+  local world = newWorld()
+  local cheapest = Market.cheapestOrder(world)
+  T.truthy(cheapest and cheapest > tun.economy.deliveryFee, "a catalog item is orderable")
+  for _, item in ipairs(world.registry:all("catalog")) do
+    if Market.cannotBuy(world, item.id, false) == nil or Market.cannotBuy(world, item.id, false) == "not enough money" then
+      T.truthy(Market.itemPrice(world, item.id) + tun.economy.deliveryFee >= cheapest, item.id)
+    end
+  end
+end)
+
+T.test("ftue: the money card comes on the first junk cleared, once, and not for other clutter (D88, #161)", function()
+  local world = newWorld()
+  Ftue.dismiss(world, "welcome")
+  world.events:emit("object.cleared", { object = "brush", tile = 1, yields = {} })
+  T.falsy(contains(drain(world), "junk_money"), "brush pays no money")
+  world.events:emit("object.cleared", { object = "junk", tile = 2, yields = { money = 3 } })
+  T.truthy(contains(drain(world), "junk_money"))
+  world.events:emit("object.cleared", { object = "junk", tile = 3, yields = { money = 4 } })
+  T.falsy(contains(drain(world), "junk_money"), "told once")
+end)

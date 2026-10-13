@@ -88,3 +88,5 @@ Helper API (`tools/driver/driver.lua`):
 
 Scenario code may read sim state (it is not part of `game/src/sim`), but should drive the game
 through input rather than mutate it, so the screenshots show what a player could reach.
+
+Also `money` (D88: the first-junk money card and the Catalog line when money is under the cheapest order); the `starter` scenario now also shoots the starter-field toast.

@@ -189,6 +189,13 @@ function Homestead:subscribe()
         self:showToast("Homesteader is idle: press R or tap Start routine")
       end
     end),
+    -- The routine laid out the starter field (D61, D88): say so, and how to change it.
+    events:on("crop.starterPlanned", function(e)
+      self:heldToast(
+        "starterPlanned",
+        string.format("Routine planned a starter field (%d tiles). Plan field changes it", e.tiles)
+      )
+    end),
     events:on("stand.sold", function(e)
       self:showToast(string.format("Roadside stand sold %d items for $%d", e.units, e.earned))
     end),

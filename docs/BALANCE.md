@@ -324,3 +324,11 @@ Reading: every seed buys the camp in its first year and nearly every seed the sh
 - #129 first truck trip median 5 days
 - #130 harness counts a death on the span's last rollover as a failure of the span
 - #131 feature policies are shallow (switching, rain use, find scoring)
+
+## Early money (#161, D88)
+
+Run starts with $6 (D68; bait is $3 + $3 delivery, so the first order is possible at once). The first junk pays $2 to $6. 20 seeds, 1 year, money median at the end of spring: idle $24.5, scripted $17.5, active $7.0 (p25-p75 3.8-9.0; the active player spends it on seeds and bait). Truck income year 1: scripted $239, active $284.
+
+D88 changes only what the player is told (tip card, Catalog line) and the starter field's layout; starting cash and junk pay are unchanged. The compact starter field moves idle from 17 to 19 failures of 20 (a seed or two, within noise); scripted and active are identical.
+
+Recommendation (not applied, the user decides): leave $6 and $2-$6 alone. If the first Catalog order still feels out of reach, the cheapest lever is 	uning.run.money 6 to 9 (one extra seed or bait order before any junk sells, no effect on the year-1 income of the truck, which is $240 to $280). Raising junk pay would also lift the early curve but changes how fast the first truck trip (#129, median day 5) is reached, so test it with the harness first.
