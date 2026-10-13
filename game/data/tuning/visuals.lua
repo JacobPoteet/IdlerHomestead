@@ -274,6 +274,10 @@ return {
     milkMarker = { 0.96, 0.96, 0.94 }, -- colour of the milk dots drawn on the pen while milk waits in the pail
     maxDrawn = 3, -- most goats drawn
   },
-  vignette = 0.28, -- 0..1 darkening toward the screen edges
+  effectClock = { -- the render layer's own time (D97): world effects run on game time, UI pulses on real time
+    maxSpeed = 4, -- game-speed multiplier above which effects stop speeding up, so a night skip (8x, 60x) cannot strobe flames or shimmer
+    wrap = 3600, -- seconds after which the effect clocks wrap (keeps shader floats small)
+  },
+  vignette = 0.28,-- 0..1 darkening toward the screen edges
   grain = 0.035, -- 0..1 film grain strength
 }

@@ -19,6 +19,7 @@ local Shaders = require("src.render.shaders")
 local Lighting = require("src.render.lighting")
 local WeatherFx = require("src.render.weather_fx")
 local Lights = require("src.render.lights")
+local EffectClock = require("src.render.effect_clock")
 local Ambient = require("src.render.ambient")
 local Settings = require("src.core.settings")
 
@@ -39,7 +40,9 @@ function Renderer.new(world)
   local self = setmetatable({
     world = world,
     tile = world.tuning.display.tileSize,
-    time = 0,
+    time = 0, -- effect clock, game time (D97)
+    uiTime = 0, -- effect clock, real time
+    clock = EffectClock.new(world.tuning.visuals.effectClock),
     fx = WeatherFx.new(world),
   }, Renderer)
   self:buildGround()
@@ -236,9 +239,13 @@ function Renderer:drawRain(view, grid)
   self.fx:drawRain(view, grid)
 end
 
-function Renderer:update(dt)
-  self.time = (self.time + dt) % 3600
-  self.fx:update(dt)
+--- `speed` = the session's effective game speed (0 paused, held by a tip card or in town; nil = 1).
+--- World effects run on `self.time` (game time, capped, D97); UI pulses on `self.uiTime` (real time).
+function Renderer:update(dt, speed)
+  self.clock.cfg = self.world.tuning.visuals.effectClock -- F6 swaps the tuning tables
+  local step = self.clock:advance(dt, speed)
+  self.time, self.uiTime = self.clock.world, self.clock.real
+  self.fx:update(dt, step)
 end
 
 --- Lighting for the current in-game hour: tint, light, daylight. The authored keyframes are
@@ -947,7 +954,7 @@ function Renderer:drawSelection(i, pixelSize)
   end
   local l, t, r, b = (minX - 1) * tile, (minY - 1) * tile, maxX * tile, maxY * tile
   local th = math.max(cfg.thickness, math.ceil(cfg.minScreen / pixelSize))
-  local breath = 0.5 + 0.5 * math.sin(self.time / cfg.pulseSeconds * 2 * math.pi)
+  local breath = 0.5 + 0.5 * math.sin(self.uiTime / cfg.pulseSeconds * 2 * math.pi) -- UI: real time on purpose (D97)
   local alpha = 1 - cfg.pulseDepth * breath
 
   local function ring(rl, rt, rr, rb, w, color, a)

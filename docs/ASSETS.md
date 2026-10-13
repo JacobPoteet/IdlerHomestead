@@ -143,3 +143,28 @@ Performance (desktop, zoom 2, uncapped, 150 draws of the whole scene incl. the H
 only runs when snow, wet or frost is non-zero; while the creek is frozen the frost searches four directions up to `frostReach` pixels (at most 16 taps per ground pixel, only when frost is
 non-zero); the snow cap shader is set per object only while it snows.
 Not yet profiled on a phone GPU: the tight loops are fixed-bound for GLSL ES, but check F3 on a real device (#193).
+
+### Effect clock (#236, D97)
+
+`src/render/effect_clock.lua` gives the renderer two clocks, both fed in `Renderer:update(dt, speed)` with the session's
+`effectiveSpeed()`. **World time** (`renderer.time`, `fx.time`) advances by `dt * min(speed, effectClock.maxSpeed)`: it
+stands still while paused (player pause, tip card D92, town D78), runs 2x/4x with the speed button and is capped during
+sleep or skip-night fast-forward (8x, 60x) so nothing strobes. **Real time** (`renderer.uiTime`) always runs. Only the
+rate changes, never the value, so pausing and speed changes cause no jump. Tuning: `visuals.effectClock` (`maxSpeed`,
+`wrap`); `Renderer:update` re-reads it every frame, so F6 applies at once.
+
+| Effect | Clock | Why |
+|---|---|---|
+| Flame, stove, lamp flicker (`light.glsl` flicker step) | World | A fire in a frozen world must freeze |
+| Heat shimmer, film grain (`grade.glsl` `time`) | World | Grain refreshes with game time, so a paused frame is perfectly still |
+| Water ripples, foam, rain rings (`water.glsl` `time`) | World | |
+| Cloud shadows, wind sway, mist drift, dust drift (`weather_fx`) | World (drift and sway integrate `dt * speed`) | Also scaled by the eased wind |
+| Rain streaks and splashes (`fx.time`) | World | Rain hangs in the air while paused |
+| Fireflies and dust glow (`ambient.lua`, `fx.time`) | World | |
+| Smoke puffs, sleep Zs, machine arm wobble, hens and goats | World | |
+| Weather look easing (tint, light, wind, wet) | Real | A state blend toward the sim's weather, not an animation; it settles exactly (snaps within 1e-4), so a held frame stops changing |
+| Selection ring breath (`drawSelection`) | Real | UI: shows the ring is live and selectable while paused. Kept running rather than frozen: a frozen ring reads as a drawn border and loses the "this is selected" cue |
+| Highlight rings (FTUE), button pulses (Routine nudge), toasts | Real | UI, stays alive while the game is held |
+
+Reduce motion and ambient effects (D96) still gate the effects as before; they only change whether an effect draws.
+Screenshots `docs/screens/clock-*` (scenario `clock`: paused frames are asserted byte-identical at all three sizes).
