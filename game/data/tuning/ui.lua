@@ -81,9 +81,10 @@ return {
     countdown = "Routine starts in %ds if you stop tapping",
   },
   placement = { -- placement preview, confirmation and order card (D79, #197); %s / %d are filled in by src/ui/place_text.lua
+    cardGap = 10, -- view px kept clear between the placement card and the target footprint (D86); the camera pans to keep it
     title = "Build %s here?",
     clears = "Clears first: %s",
-    removes = "Removes: %s. Nothing is refunded.",
+    removes = "Removed just before it goes up: %s. Nothing is refunded. Cancelling keeps them.",
     cropsPart = "%d crop%s",
     ripePart = "%d ripe, its harvest is lost",
     plansPart = "%d planned tile%s",

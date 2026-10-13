@@ -117,4 +117,31 @@ return function(d)
   d:press("Cancel")
   d:frames(2)
   d:shot("cancelled")
+  assert(world.state.crops[at(6, 0)], "cancelling keeps the ripe crop (D86)")
+
+  -- A target near the bottom of the view (#206): the camera pans so the card never covers the footprint.
+  scene:setHand(nil, nil)
+  d:pick("Place campfire") -- the campfire from above is still in the inventory
+  local lowTree = at(0, 5)
+  Grid.placeObject(world, "tree", bx, by + 5)
+  local wx, wy = scene.camera:tileToWorld(bx, by + 5)
+  local z = scene.camera:zoom()
+  scene.camera.x = wx + 8
+  scene.camera.y = wy + 8 - (view.h - scene.bottomH - 30 - view.h / 2) / z -- the tile sits just above the toolbar
+  scene.camera:clamp(view)
+  d:frames(2)
+  d:clickTile(bx, by + 5)
+  d:frames(3)
+  d:shot("confirm_bottom")
+  assert(
+    world.state.grid.objects[lowTree] and scene.card and scene.placeCard,
+    "the card is open over a target near the bottom"
+  )
+  d:press("Go ahead")
+  d:frames(3)
+  d:clickTile(bx, by + 5)
+  d:frames(3)
+  d:shot("order_bottom")
+  d:press("Close")
+  d:frames(2)
 end

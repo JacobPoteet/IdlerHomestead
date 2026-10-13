@@ -3,9 +3,11 @@
 -- The player can place an object on any buildable tile (grass or tilled soil) its own rules allow. When
 -- trees, rocks, logs, brush or junk stand on the footprint, the request becomes an *order*: the
 -- homesteader clears them (the ordinary "clear" task: yields go to the ledger, a full store holds the
--- job, D59) and the object is placed the moment the footprint is clear. Crops and planned tiles under
--- the footprint are removed when the order is made (no refund, the player confirmed first) and the
--- tiles are held so nothing is planted there meanwhile. Orders run in the order they were made.
+-- job, D59) and the object is placed the moment the footprint is clear. The tiles are held at once so
+-- nothing new is planted there. Crops and planned tiles under the footprint stay (a crop keeps growing
+-- and can be harvested) until everything else is clear; they are removed then, just before the object
+-- goes up (no refund; D86), so cancelling an order never destroys anything. Orders run in the order
+-- they were made.
 --
 -- State: world.state.placement = { orders = { { object = objectId, tile = anchorIndex, why? } ... } }
 --   why: nil, or { kind = "full", resource = id } (a store has no room for the clearing),
@@ -35,6 +37,11 @@ end
 --- Queued orders, oldest first. Callers must not modify them.
 function Placement.orders(world)
   return orders(world)
+end
+
+--- The tile indices an order's object covers.
+function Placement.footprintOf(world, order)
+  return footprint(world, order)
 end
 
 --- The queued order whose footprint covers tile i, or nil.
@@ -84,7 +91,7 @@ function Placement.shortage(world, preview)
 end
 
 --- Take the item to tile i: place it at once when the footprint is clear, else queue an order (crops and
---- plans under it go now). Returns "placed", "queued", or nil plus the reason it was refused
+--- plans under it go later, when the rest is clear). Returns "placed", "queued", or nil plus the reason it was refused
 --- ("none" when no such item is free, else the Inventory.check reason).
 function Placement.request(world, id, i)
   if Placement.available(world, id) <= 0 then
@@ -100,9 +107,8 @@ function Placement.request(world, id, i)
     end
     return nil, "blocked"
   end
-  for _, t in ipairs(result.tiles) do
-    Crops.cover(world, t, "placement", true) -- the crop and its plan go; tilled soil stays until the building is down
-  end
+  -- Crops and plans stay for now (D86): they are removed by `tick` only once everything else is clear, just
+  -- before the building goes up, so cancelling an order never destroys anything.
   Crops.hold(world, result.tiles, true)
   orders(world)[#orders(world) + 1] = { object = id, tile = i }
   world.events:emit("placement.queued", { object = id, tile = i })
@@ -118,8 +124,8 @@ local function drop(world, index, reason)
   return order
 end
 
---- Cancel the queued order covering tile i. Returns true if there was one. (Whatever was already cleared or
---- removed stays that way.)
+--- Cancel the queued order covering tile i. Returns true if there was one. (Whatever was already cleared
+--- stays cleared; crops and plans are never touched before the last step, so nothing is lost.)
 function Placement.cancel(world, i)
   for index, order in ipairs(orders(world)) do
     for _, t in ipairs(footprint(world, order)) do
@@ -214,25 +220,30 @@ function Placement.tick(world)
       drop(world, index, "item")
     elseif not check.ok then
       drop(world, index, check.reason) -- something that can't be cleared now stands there
-    elseif #check.crops > 0 or check.plans > 0 then
-      for _, t in ipairs(tiles) do
-        Crops.cover(world, t, "placement", true) -- a crop that crept in is removed like the rest
+    else
+      if #check.clear == 0 and (#check.crops > 0 or check.plans > 0) then
+        -- Everything else is clear: the crops and plans go now, the last step before the building (D86).
+        -- Tilled soil stays until it is down.
+        for _, t in ipairs(tiles) do
+          Crops.cover(world, t, "placement", true)
+        end
+        check = Inventory.check(world, order.object, order.tile, true)
       end
-      index = index + 1
-    elseif check.immediate then
-      Crops.hold(world, tiles, false) -- Inventory.place reads a held tile as another order's
-      if Inventory.place(world, order.object, order.tile) then
-        table.remove(list, index)
-        world.events:emit("placement.done", { object = order.object, tile = order.tile })
+      if check.immediate then
+        Crops.hold(world, tiles, false) -- Inventory.place reads a held tile as another order's
+        if Inventory.place(world, order.object, order.tile) then
+          table.remove(list, index)
+          world.events:emit("placement.done", { object = order.object, tile = order.tile })
+        else
+          Crops.hold(world, tiles, true)
+          index = index + 1
+        end
       else
-        Crops.hold(world, tiles, true)
+        if free and assign(world, hs, order, check) then
+          free = false
+        end
         index = index + 1
       end
-    else
-      if free and assign(world, hs, order, check) then
-        free = false
-      end
-      index = index + 1
     end
   end
 end
