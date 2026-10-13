@@ -267,9 +267,9 @@ T.test("placement: a growing and a ripe crop are removed with no refund, the pla
   T.truthy(preview.crops[1].mature, "the preview says the crop is ripe")
   local removed = collect(world, "crop.removed")
   T.eq(Placement.request(world, "smoker", i + 1), "queued")
-  T.falsy(world.state.crops[i + 1], "the crop went at once")
-  T.falsy(world.state.fields.plan[i + 1], "and its plan")
-  T.eq(removed[1].mature, true)
+  T.truthy(world.state.crops[i + 1], "the crop stays until the building is about to go up (D86)")
+  T.truthy(world.state.fields.plan[i + 1], "and its plan")
+  T.eq(#removed, 0)
   T.eq(Ledger.get(world, "radish"), radish, "no refund of the harvest")
   T.eq(Ledger.get(world, reg:get("crops", "radish").seed), seed, "no refund of the seed")
   T.truthy(world.state.crops[i], "the neighbour is untouched")
@@ -277,6 +277,8 @@ T.test("placement: a growing and a ripe crop are removed with no refund, the pla
   T.falsy(Crops.setPlan(world, i + 1, "radish"), "held tiles take no plan")
   run(world, 5)
   T.eq(Grid.object(world, i + 1) and Grid.object(world, i + 1).id, "smoker", "no clutter: placed the next tick")
+  T.falsy(world.state.crops[i + 1], "the crop went just before")
+  T.eq(removed[1] and removed[1].mature, true)
   T.truthy(world.state.grid.objects[i + 1].tilled[i + 1], "the soil was tilled")
   T.truthy(world.state.crops[i], "the neighbour still grows")
 end)
@@ -292,6 +294,53 @@ T.test("placement: a planned tile with no crop yet loses its plan", function()
   run(world, 3)
   T.falsy(world.state.fields.plan[i])
   T.eq(Grid.object(world, i).id, "smoker")
+end)
+
+T.test("placement: cancelling an order never destroys a crop or a plan (D86)", function()
+  local world = newWorld(1)
+  local i = openBlock(world, 2, 1)
+  plant(world, i, 0.4)
+  world.state.fields.plan[i + 1] = "radish"
+  stock(world, "smoker")
+  local removed = collect(world, "crop.removed")
+  T.eq(Placement.request(world, "smoker", i), "queued")
+  T.truthy(world.state.crops[i], "the crop is still there after the request")
+  T.truthy(Placement.cancel(world, i))
+  run(world, 5)
+  T.eq(#removed, 0)
+  T.truthy(world.state.crops[i], "and after the cancel")
+  T.falsy(world.state.fields.held[i], "the tile is free for farming again")
+  T.eq(Grid.object(world, i), nil, "nothing was built")
+  -- a plan alone survives a cancel too
+  T.eq(Placement.request(world, "smoker", i + 1), "queued")
+  T.truthy(Placement.cancel(world, i + 1))
+  T.eq(world.state.fields.plan[i + 1], "radish")
+end)
+
+T.test("placement: crops under a footprint with clutter are removed only after the clutter is gone", function()
+  local world = newWorld(1)
+  local wide
+  for _, o in ipairs(reg:all("objects")) do
+    if o.placeable and (o.footprintW or 1) == 2 and (o.footprintH or 1) == 1 and not o.placeNear and not o.placeOn then
+      wide = o
+      break
+    end
+  end
+  if not wide then
+    return
+  end
+  local i, x, y = openBlock(world, 2, 1)
+  put(world, "tree", x, y)
+  plant(world, i + 1, 0.5)
+  stock(world, wide.id)
+  T.eq(Placement.request(world, wide.id, i), "queued")
+  T.truthy(world.state.crops[i + 1], "the crop waits while the tree stands")
+  local removed = collect(world, "crop.removed")
+  local cleared = collect(world, "object.cleared")
+  run(world, 90)
+  T.eq(#cleared, 1)
+  T.eq(#removed, 1, "the crop went once the tree was down")
+  T.eq(Grid.object(world, i).id, wide.id)
 end)
 
 T.test("placement: a full store holds the order, says why, and it goes on when there is room", function()

@@ -23,6 +23,7 @@ local Ftue = require("src.sim.systems.ftue")
 local Spoilage = require("src.sim.systems.spoilage")
 local Inventory = require("src.sim.systems.inventory")
 local Placement = require("src.sim.systems.placement")
+local PlaceCard = require("src.ui.place_card")
 local PlaceText = require("src.ui.place_text")
 local Journal = require("src.sim.systems.journal")
 local Weather = require("src.sim.systems.weather")
@@ -834,6 +835,70 @@ function Homestead:cardIdNow()
   return nil
 end
 
+-- The target footprint of the open placement card as a rect in view pixels, or nil (D86, #206).
+function Homestead:placeCardRect()
+  local pc, world = self.placeCard, self.world
+  if not pc then
+    return nil
+  end
+  local tiles
+  if pc.kind == "confirm" then
+    tiles = Placement.preview(world, self.placing, pc.tile).tiles
+  else
+    local order = Placement.orderAt(world, pc.tile)
+    tiles = order and Placement.footprintOf(world, order)
+  end
+  if not tiles or #tiles == 0 then
+    return nil
+  end
+  local grid, camera, view = world.state.grid, self.camera, self.app.view
+  local list = {}
+  for _, t in ipairs(tiles) do
+    local tx, ty = Grid.coords(grid, t)
+    list[#list + 1] = { x = tx, y = ty }
+  end
+  local size = camera.tileSize * camera:zoom()
+  return PlaceCard.bounds(list, function(tx, ty)
+    local wx, wy = camera:tileToWorld(tx, ty)
+    local vx, vy = camera:worldToView(wx, wy, view)
+    return vx, vy, size, size
+  end)
+end
+
+--- Where a placement card of height h goes so it never covers the tile it describes: the camera pans so the
+--- footprint sits above the card; when the map edge stops that, the card hangs under the top bar instead.
+--- Returns the card's y (`y` is the usual slot above the toolbar).
+function Homestead:keepTargetClear(y, h)
+  local rect = self:placeCardRect()
+  local gap = self.app.ctx.tuning.ui.placement.cardGap
+  if not rect or not PlaceCard.overlaps(rect, y, h, gap) then
+    return y
+  end
+  local view = self.app.view
+  local dy = PlaceCard.panFor(rect, y, gap, self.topH)
+  if dy and dy ~= 0 then
+    self.camera:pan(0, dy, view)
+    rect = self:placeCardRect()
+    if not PlaceCard.overlaps(rect, y, h, gap) then
+      return y
+    end
+  end
+  local top = PlaceCard.topY(self.topH, gap)
+  if not PlaceCard.overlaps(rect, top, h, gap) then
+    return top
+  end
+  -- Neither slot clears it as it stands: pan the footprint below a top card if it fits there.
+  local below = top + h + gap
+  if rect.y + rect.h <= view.h - self.bottomH and rect.y < below then
+    self.camera:pan(0, below - rect.y, view)
+    rect = self:placeCardRect()
+    if not PlaceCard.overlaps(rect, top, h, gap) then
+      return top
+    end
+  end
+  return y
+end
+
 --- Build the card's rectangle and buttons: a panel above the toast line with the text and two buttons.
 function Homestead:layoutCard()
   local ctx = self.app.ctx
@@ -858,6 +923,9 @@ function Homestead:layoutCard()
   local h = pad + titleH + 3 + textH + pad + btnH + pad
   local x = math.floor((view.w - w) / 2)
   local y = math.floor(view.h - self.bottomH - cfg.cardBottomGap - h)
+  if spec.kind == "place" then
+    y = self:keepTargetClear(y, h)
+  end
   self.card = { x = x, y = y, w = w, h = h, title = spec.title, lines = spec.lines, lineGap = spec.lineGap or 0, titleH = titleH, pad = pad }
   self.cardId = spec.id
   self.cardKind = spec.kind
