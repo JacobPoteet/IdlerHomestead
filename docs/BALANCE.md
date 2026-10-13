@@ -60,8 +60,8 @@ The issue's "about 17 s" single seed-year was measured before D57; at the merge 
 ### Policies
 
 - **idle**: the player never acts. The idle routine runs from the first second. Since D61 the routine plans a starter field when nothing is planned, so it plants (before D61 it never did).
-- **scripted**: day 1 plans one field tile per starting seed near the creek, then the routine runs. Each morning it makes a truck trip when the truck is charged and the crate is worth selling, orders the next item from a fixed buy list (woodshed, wood stove, axe, smoker, big bucket, sturdy rod, used panel), places delivered objects near the truck, and fills the study queue from a fixed list. It never gives a direct order.
-- **active**: everything `scripted` does, plus direct orders like an engaged player: harvest, water (bucket hauling), plant, till, load the smoker/woodshed, split wood, fell trees for the winter's fuel (worst-case severity plus the longest snap), clear junk for cash, hand-fish with the rod, grow the field as seeds come in, buy seeds and bait. It sleeps at night (no orders at bedtime) so study progresses, and hands control to the routine after the takeover delay when it has nothing to order. The fishing mini-game is a dice roll (75 percent landed) plus plausible game time. This is a diligent player with perfect execution, so treat it as an upper bound on what a human achieves.
+- **scripted**: day 1 plans one field tile per starting seed near the creek, then the routine runs. Keep targets stay automatic. Each morning, when the truck is charged, it presses Auto-load and makes the trip if the load is worth selling (else it empties the truck again), orders the next item from a fixed buy list (woodshed, wood stove, axe, smoker, big bucket, sturdy rod, used panel), places delivered objects near the truck, and fills the study queue from a fixed list. It never gives a direct order.
+- **active**: everything `scripted` does, plus a keep target on wood (what its worst-case winter plan still needs as firewood, D75) and direct orders like an engaged player: harvest, water (bucket hauling), plant, till, load the smoker/woodshed, split wood, fell trees for the winter's fuel (worst-case severity plus the longest snap), clear junk for cash, hand-fish with the rod, grow the field as seeds come in, buy seeds and bait. It sleeps at night (no orders at bedtime) so study progresses, and hands control to the routine after the takeover delay when it has nothing to order. The fishing mini-game is a dice roll (75 percent landed) plus plausible game time. This is a diligent player with perfect execution, so treat it as an upper bound on what a human achieves.
 
 Metrics are sampled at the start of each morning. "Alive at season end" means the run reached the first morning after that season. "Fuel (winter nights covered)" is warmth in stock divided by the base winter need per night (4), before severity and cold snap.
 
@@ -277,8 +277,28 @@ Changes: spoilage is per batch with a shelf life (fish 2 days, milk 2, radish 7,
 
 Reading: the playtest complaint is gone (`tests/test_spoilage.lua`, "the playtest complaint": 40 radishes picked at 20:00 lose nothing by morning, where the old rate took about 10). The scripted policy keeps almost all of its food: it goes into the winter stock and the truck (Y2 truck income four times higher), and four of the five winter-2 deaths become survivors. The active policy still loses about 670 units, almost all surplus radishes waiting in the crate longer than a week: it harvests 1780 units a run and the truck (40 cargo a trip) and the stand cannot sell them in time (#169). Stand income fell a little: with less produce rotting, the "Produce rots" note that gates the stand, the freezer and the cheese press comes later (#164). The game is now easier for a food-focused player; winter fuel, not food, decides the scripted failures.
 
+### Keep targets and the truck load (#196, #195, D75)
+
+Changes: the sell crate is gone. Every good has a keep target (automatic: 3 days of fresh food, 10 days for winter, fuel to the end of winter at the cautious forecast, the whole woodpile; or set by hand); stock above it is spare. The truck sells only what is loaded, up to 40 units: the policies call `Market.autoLoad` (best price per unit first, then what spoils soonest, never below a keep) before deciding on a trip, sell the load in town, and empty the truck again when the trip is not worth it so the stand can sell. The stand sells spare goods not on the truck, cheapest first, equal prices spoil-soonest first. Wood, stone, green and seasoned firewood can now be sold ($1, $1, $1, $2; scrap stays $2). The active policy sets one keep target: the wood its own worst-case winter plan still needs as firewood. The report gained "Sold per run by good, truck and stand".
+
+`policy=scripted,active seeds=10 years=2`, before and after (same seeds, 56 days):
+
+| | scripted before | scripted after | active before | active after |
+| --- | --- | --- | --- | --- |
+| failed in 2 years | 3/10 (winter Y2 1, spring Y3 2; all cold) | 3/10 (winter Y2 1, spring Y3 2; all cold) | 0/10 | 0/10 |
+| fuel on the first day of winter 1 / 2 (warmth / need, median) | 1.03 / 0.52 | 1.16 / 0.40 | 0.67 / 0.94 | 0.67 / 0.92 |
+| truck income Y1 / Y2 (median $) | 178 / 312 | 244 / 287 | 207 / 284 | 308 / 735 |
+| stand income Y1 / Y2 (median $) | 0 / 12 | 0 / 27 | 5 / 94 | 15 / 134 |
+| truck $ per run (mean), trips per run | 503, 16.5 | 545, 15.6 | 565, 13.0 | 1068, 19.8 |
+| fresh food spoiled per run (units) | 5.0 | 8.4 | 737.9 (radish 577, potato 131, egg 29) | 621.6 (radish 619, potato 2) |
+| sold per run, truck and stand (units) | (not counted) | radish 172, egg 91, potato 87, stone 72, scrap 14, firewood 1 | (not counted) | radish 579, potato 238, egg 88, wood 41, scrap 19, stone 1 |
+
+Reading: survival is unchanged. **Big shift: active truck income almost doubles** (Y2 median $284 to $735, $565 to $1068 a run, 13 to 20 trips). The old crate quote filled the 40 units in content order, so $1 radishes crowded out potatoes, eggs and fish; Auto-load takes the best price first, so each trip is worth more, the money buys power items sooner and the truck drives more often (#124 already tracks truck income growing with power). Potatoes no longer rot in the active run (131 to 2 a run): they now sell. Radish spoilage is about the same (the truck prefers dearer goods, so radishes still wait, #169). The scripted policy earns more in year 1 from stone it clears (72 units a run) and the same in year 2. One finding shaped the design: an earlier version kept only the wood the coming winter's fuel lacked; the scripted policy then sold about 9 wood a run in its first autumn and failed 5/10 instead of 3/10, because the leftover woodpile was its winter-2 fuel. The automatic keep now holds the whole woodpile (selling wood asks first), and a fuel keep made in winter also covers the next winter (#202 to revisit).
+
 ### Follow-up issues
 
+- #202 revisit the automatic wood keep (whole woodpile vs next winter's fuel)
+- #199 a bed rack upgrade for the truck's cargo
 - #153 harness policies do not prepare for threats
 - #144 harness policies never reach the auto-harvester
 - #124 power items make truck income unbounded

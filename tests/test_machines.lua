@@ -380,13 +380,12 @@ T.test("storage: a full store holds the crops in the ground and the machine repo
   T.eq(ripeCount(world, tiles), 0, "picked once there is room")
 end)
 
-T.test("storage: produce goes the same way as a hand harvest (pantry, then the sell crate)", function()
+T.test("storage: produce goes the same way as a hand harvest (kept, then surplus)", function()
   local world = harvestWorld(3, 8)
-  Food.setPin(world, "radish", "sell")
+  Food.setKeep(world, "radish", 0)
   run(world, HOUR * 2)
-  Food.sort(world)
   T.truthy(Ledger.get(world, "radish") > 0)
-  T.eq(Food.crateOf(world, "radish"), Ledger.get(world, "radish"), "pinned Sell: all in the crate")
+  T.eq(Food.surplus(world, "radish"), Ledger.get(world, "radish"), "keep 0: all of it is surplus")
 end)
 
 -- Determinism and saves ---------------------------------------------------------------------------------

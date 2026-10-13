@@ -51,6 +51,61 @@ local function nightsAhead(world)
   return nights, exact
 end
 
+--- Warmth to hold on to (D75: the automatic keep target for fuel): every night from tonight to the
+--- end of the coming winter, and during a winter to the end of the next one as well, so a thaw never
+--- turns the woodpile into surplus. Cautious where the forecast is silent: an unrevealed severity counts
+--- as the highest that year can roll, and an unrevealed cold snap as the longest one. 0 when winters
+--- never freeze.
+function Readiness.warmthAhead(world)
+  local time, cfg = world.tuning.time, world.tuning.weather
+  local now = Calendar.now(world)
+  local forecast = Weather.forecast(world)
+  local winters = Weather.isFrozen(world) and 2 or 1
+  local idx, day, year = now.seasonIndex, now.dayOfSeason, now.year
+  local total, inWinter, done = 0, false, 0
+  for _ = 1, 2 * #time.seasons + 1 do
+    local season = time.seasons[idx]
+    local frozen = Weather.isFrozenSeason(world, season)
+    if inWinter and not frozen then
+      done = done + 1
+      if done >= winters then
+        break
+      end
+    end
+    inWinter = frozen
+    local base = world.tuning.needs.dailyWarmth[season]
+    local known = year == now.year
+    local severity = cfg.severityMax + cfg.severityPerYear * (year - 1)
+    if frozen and known and forecast.severity then
+      severity = forecast.severity
+    end
+    for d = day, time.daysPerSeason do
+      local need = base
+      if frozen then
+        need = base * severity
+        if known and forecast.snapStart and forecast.snapDays and d >= forecast.snapStart and d < forecast.snapStart + forecast.snapDays then
+          need = need * cfg.snapMultiplier
+        end
+      end
+      total = total + need
+    end
+    if frozen and not (known and forecast.snapDays) then
+      -- The longest snap the year can roll (later years add nights, D67), somewhere in the season.
+      local grow = world.tuning.threats.winter
+      local snap = cfg.snapDaysMax + math.min(grow.maxExtraSnapDays, math.floor(grow.snapDaysPerYear * (year - 1)))
+      total = total + base * severity * snap * (cfg.snapMultiplier - 1)
+    end
+    if idx == #time.seasons then
+      year = year + 1
+    end
+    idx, day = idx % #time.seasons + 1, 1
+  end
+  if done == 0 and not inWinter then
+    return 0 -- no season ever froze
+  end
+  return total
+end
+
 --- Winter readiness, or nil when it is not due yet. Returns
 ---   { frozen, daysAway (days to the freeze, 0 once frozen), verdict = "ready" | "fuel" | "food" | "both",
 ---     exact (the whole forecast is known), noFire,

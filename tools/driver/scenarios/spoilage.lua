@@ -3,7 +3,6 @@
 -- card, and the one-line loss summary after the next bad night. Stock is added, aged and the night's
 -- spoilage run through the sim API (the scenario cannot wait for midnight with a sleeping
 -- homesteader), the screens are the real ones.
-local Food = require("src.sim.systems.food")
 local Ledger = require("src.sim.systems.ledger")
 local Spoilage = require("src.sim.systems.spoilage")
 
@@ -38,9 +37,8 @@ return function(d)
   Spoilage.daily(world)
   d:frames(3)
   d:shot("loss_summary_toast")
-  -- A bigger harvest: the automatic pantry keeps only what is eaten in time, the rest is "For sale".
+  -- A bigger harvest: the automatic pantry keeps only what is eaten in time, the rest is spare.
   Ledger.add(world, "radish", 25)
-  Food.sort(world)
   d:press("Pantry")
   d:frames(3)
   d:shot("pantry_after_loss")

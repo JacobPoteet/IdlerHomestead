@@ -1,5 +1,6 @@
--- Roadside stand (GDD §6.4, D52): a placed stand sells up to a daily cap of goods from the sell
--- crate on its own, at a fraction of the town price. The truck trip stays the big payday.
+-- Roadside stand (GDD §6.4, D52, D75): a placed stand sells up to a daily cap of surplus goods (stock
+-- above its keep target, Food.surplus) on its own, at a fraction of the town price. Goods loaded on the
+-- truck and goods pinned "not at the stand" (D62) are left alone. The truck trip stays the big payday.
 --
 -- The cap is tuning.stand.baseCap plus the `standCap` modifiers of owned upgrades (catalog
 -- equipment), never above tuning.stand.maxCap, scaled down by season and weather. Cheapest goods
@@ -14,6 +15,7 @@ local Food = require("src.sim.systems.food")
 local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
+local Spoilage = require("src.sim.systems.spoilage")
 local Stats = require("src.sim.stats")
 local Weather = require("src.sim.systems.weather")
 
@@ -58,18 +60,39 @@ function Stand.total(world)
   return world.state.stand.total
 end
 
--- Crate goods in selling order: cheapest town price first, then registry order. Goods pinned
--- "not at the stand" (Food.truckOnly) are skipped and wait for the truck.
+--- Units of a good the stand may sell: its surplus (Food.surplus) less what is loaded on the truck,
+--- or 0 for goods pinned "not at the stand" (D62).
+function Stand.forSale(world, id)
+  if Food.truckOnly(world, id) then
+    return 0
+  end
+  return math.max(0, Food.surplus(world, id) - Market.loaded(world, id))
+end
+
+-- Surplus goods in selling order: cheapest town price first, then the food that spoils soonest, then
+-- registry order (D75). Goods pinned "not at the stand" and units loaded on the truck are skipped.
 local function sellingOrder(world)
+  local surplus = Food.surpluses(world)
   local list = {}
   for index, res in ipairs(world.registry:all("resources")) do
-    if Food.crateOf(world, res.id) > 0 and not Food.truckOnly(world, res.id) then
-      list[#list + 1] = { id = res.id, price = Market.sellPrice(world, res.id), index = index }
+    local n = (surplus[res.id] or 0) - Market.loaded(world, res.id)
+    if n > 0 and not Food.truckOnly(world, res.id) then
+      local info = Spoilage.info(world, res.id)
+      list[#list + 1] = {
+        id = res.id,
+        n = n,
+        price = Market.sellPrice(world, res.id),
+        days = info and info.daysLeft or math.huge,
+        index = index,
+      }
     end
   end
   table.sort(list, function(a, b)
     if a.price ~= b.price then
       return a.price < b.price
+    end
+    if a.days ~= b.days then
+      return a.days < b.days
     end
     return a.index < b.index
   end)
@@ -85,7 +108,7 @@ function Stand.sell(world)
   local units, raw = 0, 0
   local taken = {}
   for _, entry in ipairs(sellingOrder(world)) do
-    local n = math.min(Food.crateOf(world, entry.id), cap - units)
+    local n = math.min(entry.n, cap - units)
     if n > 0 then
       taken[#taken + 1] = { id = entry.id, n = n }
       raw = raw + n * Stand.unitPrice(world, entry.id)
@@ -100,7 +123,6 @@ function Stand.sell(world)
   end
   local earned = math.floor(raw + 0.5)
   Ledger.add(world, "money", earned, "stand")
-  Food.sort(world)
   state.last = { day = now.day, units = units, earned = earned, cap = cap }
   state.total.units = state.total.units + units
   state.total.earned = state.total.earned + earned

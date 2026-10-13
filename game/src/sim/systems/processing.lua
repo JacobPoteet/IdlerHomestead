@@ -10,6 +10,7 @@
 local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
 local Food = require("src.sim.systems.food")
+local Market = require("src.sim.systems.market")
 local Tasks = require("src.sim.systems.tasks")
 
 local Processing = {}
@@ -31,12 +32,17 @@ local function recipeFor(world, anchor)
   return nil
 end
 
--- Units available to process: inputs of the right category not reserved for sale.
+-- Units available to process: inputs of the right category inside their keep target (D75: the
+-- automatic keep holds fresh food for a placed processor while the winter stock is short; surplus
+-- waits for the stand and the truck) and not loaded on the truck.
 local function inputs(world, recipe)
   local list, total = {}, 0
+  local keep
   for _, res in ipairs(world.registry:all("resources")) do
-    if res.category == recipe.inputCategory then
-      local n = Food.available(world, res.id)
+    if res.category == recipe.inputCategory and Ledger.get(world, res.id) > 0 then
+      keep = keep or Food.keeps(world)
+      local stock = Ledger.get(world, res.id)
+      local n = math.min(stock, keep[res.id] or 0, stock - Market.loaded(world, res.id))
       if n > 0 then
         list[#list + 1] = { id = res.id, n = n }
         total = total + n

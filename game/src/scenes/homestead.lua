@@ -458,7 +458,8 @@ function Homestead:stats()
       tripReady and theme.colors.accent or nil,
       id = "battery",
     },
-    { "icon_crate", count(Food.crateCount(world)), id = "crate" },
+    -- Spare goods (D75): units above their keep targets, what the stand and the truck can sell.
+    { "icon_crate", count(select(2, Food.surpluses(world))), id = "surplus" },
     { "icon_wood", count(Ledger.get(world, "wood")), id = "wood" },
     {
       "icon_firewood",
@@ -1573,7 +1574,7 @@ function Homestead:openChip(id)
   }))
 end
 
---- Open a panel by name from a shortcut: "pantry" | "power" | "catalog" | "truck" | "journal".
+--- Open a panel by name from a shortcut: "pantry" | "power" | "catalog" | "truck" | "load" | "journal".
 function Homestead:openPanel(name)
   local world, app = self.world, self.app
   if name == "pantry" then
@@ -1584,6 +1585,8 @@ function Homestead:openPanel(name)
     app:push(require("src.scenes.catalog").new(world, self:toaster()))
   elseif name == "truck" then
     app:push(require("src.scenes.truck").new(world, self:toaster()))
+  elseif name == "load" then
+    app:push(require("src.scenes.load").new(world, self:toaster()))
   elseif name == "journal" then
     app:push(require("src.scenes.journal").new(world, self:toaster()))
   else
@@ -1861,8 +1864,8 @@ function Homestead:tileInfo(i)
       local last = Stand.last(world)
       if last then
         lines[#lines + 1] = string.format("Day %d: %d sold, $%d", last.day, last.units, last.earned)
-      elseif Food.crateCount(world) == 0 then
-        lines[#lines + 1] = "Crate empty: nothing to sell"
+      elseif select(2, Food.surpluses(world)) == 0 then
+        lines[#lines + 1] = "Nothing spare to sell"
       else
         lines[#lines + 1] = "No sales yet"
       end

@@ -530,14 +530,16 @@ end)
 
 T.test("food: potatoes count toward the winter stock instead of being sold", function()
   local world = newWorld(9)
-  Food.setDays(world, 0, 5)
   Ledger.remove(world, "canned_food", Ledger.get(world, "canned_food")) -- no preserved stock
-  Ledger.add(world, "potato", 20)
-  Ledger.add(world, "radish", 20)
-  Food.sort(world)
-  local keepPotatoes = math.ceil(5 * tun.needs.dailyCalories / reg:get("resources", "potato").calories)
-  T.eq(world.state.food.crate.potato, 20 - keepPotatoes)
-  T.eq(world.state.food.crate.radish, 20, "radishes don't keep")
+  Ledger.add(world, "potato", 50)
+  Ledger.add(world, "radish", 50)
+  local daily = tun.needs.dailyCalories
+  local radishes = math.ceil(tun.food.defaultPantryDays * daily / reg:get("resources", "radish").calories)
+  T.eq(Food.keep(world, "radish"), radishes, "radishes fill the pantry")
+  T.eq(Food.surplus(world, "radish"), 50 - radishes, "and don't keep for winter")
+  local potatoes = math.ceil(tun.food.defaultWinterDays * daily / reg:get("resources", "potato").calories)
+  T.eq(Food.keep(world, "potato"), potatoes, "potatoes fill the winter stock")
+  T.eq(Food.surplus(world, "potato"), 50 - potatoes)
 end)
 
 T.test("lighting: the authored day stretches to the season's sunrise and sunset", function()

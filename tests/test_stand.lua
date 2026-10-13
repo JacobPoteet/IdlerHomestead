@@ -1,5 +1,5 @@
--- Roadside stand (GDD §6.4, D52): an unlockable object by the road that sells a capped number of
--- crate goods a day at a fraction of the truck price.
+-- Roadside stand (GDD §6.4, D52, D75): an unlockable object by the road that sells a capped number of
+-- surplus goods a day at a fraction of the truck price.
 local T = require("harness")
 local tuningLoader = require("src.core.tuning")
 local Registry = require("src.core.registry")
@@ -58,10 +58,10 @@ local function standWorld(seed)
   return world, spot
 end
 
---- Put `n` of a resource in the sell crate.
+--- Add `n` of a resource and keep none of it, so all of it is surplus (D75).
 local function stock(world, id, n)
   Ledger.add(world, id, n)
-  Food.setPin(world, id, "sell")
+  Food.setKeep(world, id, 0)
 end
 
 --- Let the stand's hour pass on the current day.
@@ -192,11 +192,13 @@ T.test("stand: cheapest goods go first, so valuable ones wait for the truck", fu
   T.eq(Ledger.get(world, "brook_trout"), 10 - (cfg.baseCap - 4))
 end)
 
-T.test("stand: pays less per item than the truck, and cannot drain the crate like a trip", function()
+T.test("stand: pays less per item than the truck, and cannot drain the surplus like a trip", function()
   local world = standWorld()
   stock(world, "sunfish", 40)
-  local _, truckTotal, truckUnits = Market.crateQuote(world)
+  Market.autoLoad(world)
+  local _, truckTotal, truckUnits = Market.loadQuote(world)
   T.eq(truckUnits, tun.economy.cargoCapacity)
+  Market.clearLoad(world)
   local _, earned = Stand.sell(world)
   T.truthy(earned < truckTotal, "a day at the stand pays less than a trip")
   T.truthy(earned * 3 < truckTotal, "the trip is worth several days of stand income")
@@ -209,11 +211,11 @@ T.test("stand: pays less per item than the truck, and cannot drain the crate lik
   end
 end)
 
-T.test("stand: stock exhaustion, and goods outside the crate are never touched", function()
+T.test("stand: stock exhaustion, and kept goods are never touched", function()
   local world = standWorld()
   stock(world, "sunfish", 2)
   Ledger.add(world, "potato", 3)
-  Food.setPin(world, "potato", "keep")
+  Food.setKeep(world, "potato", 3)
   local sold = collect(world, "stand.sold")
   openUp(world)
   T.eq(sold[1].units, 2)
@@ -406,7 +408,7 @@ T.test("stand pin: a truck-only good is skipped, the rest still sell", function(
   Food.setTruckOnly(world, "radish", true)
   openUp(world)
   T.eq(Ledger.get(world, "radish"), 4, "pinned good stays for the truck")
-  T.eq(Food.crateOf(world, "radish"), 4, "and stays in the crate")
+  T.eq(Food.surplus(world, "radish"), 4, "and stays surplus")
   T.eq(Ledger.get(world, "brook_trout"), 10 - cfg.baseCap)
 end)
 
@@ -431,34 +433,69 @@ T.test("stand pin: the truck still sells a pinned good", function()
   local world = standWorld()
   stock(world, "sunfish", 5)
   Food.setTruckOnly(world, "sunfish", true)
-  local _, _, units = Market.crateQuote(world)
+  Market.autoLoad(world)
+  local _, _, units = Market.loadQuote(world)
   T.eq(units, 5)
 end)
 
-T.test("stand pin: persists in a save, and a save from before the pin loads", function()
+T.test("stand pin: persists in a save", function()
   local world = standWorld()
   stock(world, "sunfish", 8)
   Food.setTruckOnly(world, "sunfish", true)
   local state = serialize.decode(serialize.encode(world.state))
   local restored = World.new({ registry = reg, tuning = tun }, state)
   T.eq(Food.truckOnly(restored, "sunfish"), true)
-  local oldState = serialize.decode(serialize.encode(world.state))
-  oldState.food.truckOnly = nil
   openUp(restored)
   T.eq(Ledger.get(restored, "sunfish"), 8)
-  local old = World.new({ registry = reg, tuning = tun }, oldState)
-  T.eq(Food.truckOnly(old, "sunfish"), false)
-  openUp(old)
-  T.eq(Ledger.get(old, "sunfish"), 8 - cfg.baseCap)
 end)
 
-T.test("stand pin: independent of the keep/sell/preserve pins", function()
+T.test("stand pin: independent of the keep target", function()
   local world = standWorld()
   Ledger.add(world, "sunfish", 5)
-  Food.setPin(world, "sunfish", "sell")
+  Food.setKeep(world, "sunfish", 0)
   Food.setTruckOnly(world, "sunfish", true)
-  Food.setPin(world, "sunfish", nil)
+  Food.setKeep(world, "sunfish", nil)
   T.eq(Food.truckOnly(world, "sunfish"), true)
-  Food.setPin(world, "sunfish", "keep")
+  Food.setKeep(world, "sunfish", 5)
   T.eq(Food.truckOnly(world, "sunfish"), true)
+end)
+
+-- Surplus and the truck load (D75, #196) ---------------------------------------------------------------
+
+T.test("stand: sells surplus only; the automatic keep holds the pantry back", function()
+  local world = standWorld()
+  Ledger.add(world, "radish", 50)
+  local keep, auto = Food.keep(world, "radish")
+  T.truthy(auto and keep > 0 and keep < 50, "the automatic keep holds a few days of radishes")
+  local sold = collect(world, "stand.sold")
+  for day = SUMMER, SUMMER + 6 do
+    setTime(world, day, cfg.sellHour - 1)
+    force(world, "clear")
+    world:tick(STEP)
+    openUp(world)
+  end
+  T.eq(Ledger.get(world, "radish"), keep, "everything above the keep sold, nothing below it")
+  T.truthy(#sold >= 2)
+end)
+
+T.test("stand: goods loaded on the truck are not for sale at the stand", function()
+  local world = standWorld()
+  stock(world, "radish", 10)
+  stock(world, "sunfish", 3)
+  T.eq(Market.setLoad(world, "radish", 8), 8)
+  T.eq(Stand.forSale(world, "radish"), 2)
+  openUp(world)
+  T.eq(Ledger.get(world, "radish"), 8, "the loaded radishes stayed for the truck")
+  T.eq(Ledger.get(world, "sunfish"), 0)
+  T.eq(Market.loaded(world, "radish"), 8)
+end)
+
+T.test("stand: equal prices sell the food that spoils soonest first", function()
+  local world = standWorld()
+  stock(world, "stone", 10)
+  stock(world, "radish", 10)
+  T.eq(Market.sellPrice(world, "stone"), Market.sellPrice(world, "radish"))
+  openUp(world)
+  T.eq(Ledger.get(world, "radish"), 10 - cfg.baseCap, "radishes go before stone, which keeps")
+  T.eq(Ledger.get(world, "stone"), 10)
 end)

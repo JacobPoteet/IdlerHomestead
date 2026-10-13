@@ -7,10 +7,11 @@
 --             easy clutter, fishes, splits wood, and harvests/waters/plants only what was planned
 --             (nothing, since the player plans nothing). The "install it and walk away" floor.
 --   scripted  A fixed opening and then the routine, no direct orders. On day 1 it plans one field
---             tile per starting seed near the creek. Every morning it: sells the crate when the
---             truck can make the trip, orders the next catalog item from a fixed buy list, places
+--             tile per starting seed near the creek. Keep targets stay automatic. Every morning
+--             it: auto-loads the truck and sells the load when the truck can make the trip, orders the next catalog item from a fixed buy list, places
 --             delivered objects near the truck, and fills the study queue from a fixed study list.
---   active    A reasonable engaged player on top of everything `scripted` does. It issues orders
+--   active    A reasonable engaged player on top of everything `scripted` does. It keeps the wood
+--             its winter plan needs (a keep target, D75) and issues orders
 --             itself (harvest, water, plant, till, load the smoker/woodshed, split wood, fell
 --             trees for the winter, clear junk for cash, fish by hand with the rod), grows the field
 --             as seeds come in, buys seeds, and hands control to the routine after the takeover
@@ -27,6 +28,7 @@ local Calendar = require("src.sim.systems.calendar")
 local Crops = require("src.sim.systems.crops")
 local Features = require("features")
 local Fishing = require("src.sim.systems.fishing")
+local Food = require("src.sim.systems.food")
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
@@ -46,7 +48,7 @@ local POLICY = {
   buyList = { "woodshed", "wood_stove", "axe", "smoker", "big_bucket", "sturdy_rod", "used_panel" },
   -- Ideas to study first, in order; anything else available follows.
   studyList = { "woodshed", "wood_stove", "axe", "smoker", "big_bucket", "sturdy_rod", "used_panel" },
-  minTripValue = 5, -- $ the crate must be worth before a truck trip is worth the charge
+  minTripValue = 5, -- $ the auto-loaded truck must be worth before a trip is worth the charge
   placeFromRing = 2, -- tiles from the truck at which delivered objects are placed (leaves a walkway)
   placeToRing = 10, -- farthest ring tried when placing
   maxFieldTiles = 48, -- active: most tiles the player will keep in fields
@@ -287,7 +289,10 @@ function Base:trip(world)
   if self.features.power and Features.holdTrip(world, POLICY.holdTripsUntilDay) then
     return
   end
-  local _, total = Market.crateQuote(world)
+  -- D75: load the truck with Auto-load (spare goods only, never below a keep target) and judge the
+  -- trip by what is loaded. A trip not worth taking empties the truck again, so the stand can sell.
+  Market.autoLoad(world)
+  local _, total = Market.loadQuote(world)
   local wantsPickup = false
   for _, id in ipairs(POLICY.buyList) do
     local item = world.registry:get("catalog", id)
@@ -297,10 +302,11 @@ function Base:trip(world)
   end
   local extra = Features.tripItems(world, self.features)
   if total < POLICY.minTripValue and not wantsPickup and #extra == 0 then
+    Market.clearLoad(world)
     return
   end
   if Market.startTrip(world) then
-    Market.sellCrate(world)
+    Market.sellLoad(world)
     for _, id in ipairs(POLICY.buyList) do
       if not ownsOrPending(world, id) then
         Market.buyInTown(world, id)
@@ -447,7 +453,16 @@ function Active:attach(world)
   end)
 end
 
+--- Keep targets an engaged player sets (D75), before the morning trip: the wood its own worst-case
+--- winter plan still needs as firewood, so Auto-load and the stand never sell it.
+function Active:keeps(world)
+  local fw = world.tuning.firewood
+  local heat = world.registry:get("resources", fw.splitInto).heat * math.max(Needs.heatEfficiency(world), 1)
+  Food.setKeep(world, fw.splitFrom, fw.keepWood + math.max(0, math.ceil(warmthDeficit(world, false) / heat)))
+end
+
 function Active:daily(world)
+  self:keeps(world)
   Base.daily(self, world)
   -- Buy seeds for open field room while there is still time to grow them.
   local fields = world.state.fields

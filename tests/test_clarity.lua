@@ -85,7 +85,7 @@ end)
 
 -- Chip cards (#158) ---------------------------------------------------------------------------
 
-local CHIP_IDS = { "money", "food", "condition", "battery", "crate", "wood", "firewood", "spoiled", "water", "hens", "eggs", "goats", "milk" }
+local CHIP_IDS = { "money", "food", "condition", "battery", "surplus", "wood", "firewood", "spoiled", "water", "hens", "eggs", "goats", "milk" }
 
 T.test("chips: every top-bar chip has a card with a unit, a value in words and what moves it", function()
   local world = newWorld()
@@ -97,7 +97,7 @@ T.test("chips: every top-bar chip has a card with a unit, a value in words and w
     T.truthy(card.message:find("Goes up:", 1, true), id .. " says what raises it")
     T.truthy(card.message:find("Goes down:", 1, true), id .. " says what lowers it")
     if card.shortcut then
-      T.truthy(({ pantry = 1, power = 1, catalog = 1, truck = 1, journal = 1 })[card.shortcut.panel], id .. " shortcut panel")
+      T.truthy(({ pantry = 1, power = 1, catalog = 1, truck = 1, load = 1, journal = 1 })[card.shortcut.panel], id .. " shortcut panel")
       T.truthy(#card.shortcut.label > 0, id .. " shortcut label")
     end
   end
@@ -114,7 +114,12 @@ T.test("chips: the headline reads the same accessors as the chip", function()
   Power.add(world, truck, tun.economy.tripCost + 5)
   local battery = ChipText.card(world, "battery").headline
   T.truthy(battery:find("Enough for a trip", 1, true), battery)
-  T.truthy(ChipText.card(world, "crate").headline:find("empty", 1, true))
+  T.truthy(ChipText.card(world, "surplus").headline:find("truck is empty", 1, true))
+  Ledger.add(world, "scrap", 7, "test")
+  Market.setLoad(world, "scrap", 3)
+  local surplus = ChipText.card(world, "surplus").headline
+  T.truthy(surplus:find("7 units above what you keep", 1, true), surplus)
+  T.truthy(surplus:find("3 loaded on the truck", 1, true), surplus)
 end)
 
 T.test("chips: the truck chip shortcut opens Power and the food chip opens the Pantry", function()
@@ -167,7 +172,7 @@ T.test("power: a save from before flow.rates reads as not charging", function()
   T.truthy(world.state.power.flow.rates)
 end)
 
-T.test("market: tripStatus gathers charge, trip cost, time to ready and the crate's value", function()
+T.test("market: tripStatus gathers charge, trip cost, time to ready and the load's value", function()
   local world = newWorld()
   local truck = Land.truck(world)
   Power.drain(world, truck, Power.charge(world, truck))
@@ -179,10 +184,15 @@ T.test("market: tripStatus gathers charge, trip cost, time to ready and the crat
   Power.add(world, truck, tun.economy.tripCost)
   T.eq(Market.tripStatus(world).ready, true)
   T.eq(Market.tripStatus(world).hours, 0)
-  -- The crate's value matches the quote the town uses.
-  local _, total, units = Market.crateQuote(world)
+  -- The load's value matches the quote the town uses.
+  Ledger.add(world, "scrap", 9, "test")
+  Market.setLoad(world, "scrap", 5)
+  local _, total, units = Market.loadQuote(world)
+  s = Market.tripStatus(world)
   T.eq(s.value, total)
   T.eq(s.units, units)
+  T.eq(units, 5)
+  T.eq(s.spare, 4, "spare surplus not loaded yet")
 end)
 
 T.test("truck panel text: ready, charging with a time, and not charging", function()
@@ -192,8 +202,10 @@ T.test("truck panel text: ready, charging with a time, and not charging", functi
   T.eq(Truck.duration(0.3), "under an hour")
   T.eq(Truck.duration(1), "about 1 hour")
   T.eq(Truck.duration(30), "about 2 days")
-  T.eq(Truck.crateText({ units = 0, cargo = 40, value = 0 }), "Sell crate: empty")
-  T.eq(Truck.crateText({ units = 7, cargo = 40, value = 34 }), "Sell crate: 7 / 40 cargo, worth $34 in town")
+  T.eq(Truck.loadText({ units = 0, cargo = 40, value = 0 }), "Load: empty (0 / 40 cargo)")
+  T.eq(Truck.loadText({ units = 7, cargo = 40, value = 34 }), "Load: 7 / 40 cargo, worth $34 in town")
+  T.eq(Truck.spareText({ spare = 0 }), "Nothing spare left at home to load")
+  T.eq(Truck.spareText({ spare = 12 }), "12 spare units at home not loaded")
 end)
 
 -- Labels (#168) -------------------------------------------------------------------------------

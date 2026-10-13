@@ -27,8 +27,8 @@ What the player sees on arrival (`docs/screens/overview_*`): a top bar of icon-a
 ### First week (days 1 to 7, which is all of spring)
 
 - Player: first harvest (radishes day 3), first fish, first trip planning, first notes and ideas. Notes arrive as toasts (`New note: ...`, `New idea: ... see the Journal`) and the Journal button turns accent-coloured while an idea is waiting and nothing is queued.
-- The first purchases are blocked by money. Income before the first truck trip is only junk ($2 to $6 each). The truck needs 20 kWh (`economy.tripCost`) and a folding panel makes about 2 to 8 kWh a day depending on season and cloud, so the first trip comes on a median of day 5 (BALANCE, #129). The trip sells the whole sell crate (cap 40 units).
-- Systems: journal (notes, ideas, study), market (catalog orders delivered 07:00 next day for $3, truck trip), food (pantry, crate), spoilage, power, weather.
+- The first purchases are blocked by money. Income before the first truck trip is only junk ($2 to $6 each). The truck needs 20 kWh (`economy.tripCost`) and a folding panel makes about 2 to 8 kWh a day depending on season and cloud, so the first trip comes on a median of day 5 (BALANCE, #129). The trip sells the whole sell crate (cap 40 units; since D75 the player loads the truck from spare goods, Auto-load or by hand, and only the load sells).
+- Systems: journal (notes, ideas, study), market (catalog orders delivered 07:00 next day for $3, truck trip), food (pantry, crate; since D75 keep targets, spare and the truck load), spoilage, power, weather.
 - Spring warmth need is 1 firewood a night, so the 3 seasoned logs cover three nights; the chopping block and the routine make more.
 
 ### First season beyond spring (summer and autumn)
@@ -63,13 +63,13 @@ do things --event--> Note (journal.note) --all `needs` met--> Idea (journal.idea
 - What a beginner can reach early depends on accidents. One-note ideas: Axe (fell a tree), Woodshed (burn green wood), Big bucket (12 bucket trips), Well (12 bucket trips), Cat (first mice raid), Smoker (first catch and a fish spoiling), Sturdy rod (first catch and a fish getting away), Used panel (first truck trip). So the player's first idea is usually the Axe or Big bucket and arrives on day 2 to 4, not on night one.
 - Some gates reward the wrong behaviour: Smoker, Chest freezer, Roadside stand and Stand cooler all need a "food spoiled" note (`fish_spoil`, `produce_spoils`); power items need "Full battery" (do not take a trip for a week); the stove, generator, heater need "Cold night" (shiver through a night); see #126.
 
-### Food loop: grow or catch, pantry or crate, eat, sell, preserve, or spoil
+### Food loop: grow or catch, keep or spare, eat, sell, preserve, or spoil
 
 ```
 crop.harvested / fish.caught / eggs --> ledger (one stock per resource)
-  Food.sort (hourly) splits stock by the rules:  pantry (keep N days) > winter stock (preserved, potatoes) > held for smoker > sell crate
+  Food.keeps (on demand, D75) sets a keep per good:  3 days fresh > 10 days winter (preserved, potatoes, held for smoker) > fuel to winter's end > whole woodpile; the rest is spare
   midnight:  Spoilage.daily (fresh stock shrinks)  then  Needs.eat (3000 kcal, freshest first)
-  sell:      truck trip (whole crate, cap 40)  |  roadside stand (6 to 18 a day, 60 percent price)
+  sell:      truck trip (the load: spare goods loaded by hand or Auto-load, cap 40)  |  roadside stand (spare not loaded, 6 to 18 a day, 60 percent price)
   preserve:  smoker (4 fish, 6 h, 2 wood) -> smoked fish (no spoilage, 700 kcal, $10)  |  canned food (bought)
 ```
 
@@ -81,9 +81,9 @@ Exact spoilage rules. Superseded on 2026-10-12 by shelf-life batches (GDD D73, #
 | Batches | every harvest, catch or collection of a perishable is a batch with its own age; same-day additions merge; `world.state.spoilage.batches`, oldest first | the ledger still holds the amounts; batches follow `ledger.changed` |
 | Shelf life | `tuning.food.shelfLife` (by resource id, then category) | fish 2 days, milk 2, radish 7, egg 14, potato 21; nothing spoils before it |
 | After it | `tuning.food.rotShare` of a batch past its shelf life rots each night (rounded up) | half a night: 10 radishes go 5, 3, 1, 1 |
-| Who takes what | eating, truck and stand sales, preserving, the cat, mice | the oldest batch first (FIFO); pantry vs crate does not change ages (D31) |
+| Who takes what | eating, truck and stand sales, preserving, the cat, mice | the oldest batch first (FIFO); keep, spare and the truck load are counts and do not change ages (D75) |
 | Slows it | a powered chest freezer: a night ages food by `1 / keeps`, `keeps = 1 + Power.effect("spoilSlow")`, `spoilSlow = 3` scaled by how well it is powered | up to 4x the shelf life; the effect eases in and out over about 8 hours (`inertia`) |
-| Does not slow it | winter or any season, pantry vs crate, the Stand cooler, cold weather | nothing |
+| Does not slow it | winter or any season, kept vs spare vs loaded, the Stand cooler, cold weather | nothing |
 | Immune | anything without a shelf life: `preserved` (smoked fish, cheese, canned food), non-food goods | never spoils |
 | Randomness | none | deterministic |
 | Event | `food.spoiled { resource, category, amount }` per resource, one `food.spoilReport` per night | toast and first-spoil card, morning report line; first spoil of each category writes a note |
@@ -127,7 +127,7 @@ Severity: **High** loses the run or the player; **Medium** wastes time or hides 
 | F12 | Winter readiness is not shown. The firewood chip is in "nights" with no target, the forecast pill gives severity words but no "you need N more", and no summary says whether food and fuel will last. | `Homestead:stats()`, `Forecast.summary`; GDD 9.3 names "winter readiness" as widget status | Medium | new: winter readiness |
 | F13 | Toasts replace each other and vanish in 2.6 s; there is no message history. During fast sleep, on a phone, or while reading a panel, information is lost (spoilage, stand sales, caught fish, delivery). | `Homestead:showToast` vs `queueToast`, `TOAST_TIME` | Medium | new: message log |
 | F14 | Starter field is planned without telling the player (and may be a thin strip). | D61 | Low | #137 |
-| F15 | Sell crate vs pantry vs stand pin is three concepts introduced in one panel with no explanation. | `pantry.lua` | Medium | #151, #152 |
+| F15 | Sell crate vs pantry vs stand pin is three concepts introduced in one panel with no explanation. | `pantry.lua` | Medium | #151, #152; D75 (#196) made it one keep number per good plus the Stand/Truck toggle |
 | F16 | Fishing: the rod is an icon-only toolbar button, the `Fish` button opens the guide, and the idle routine fishes last in priority, so a beginner sees neither. | `Homestead:layout()`, `task_categories.lua` | Low | new: toolbar labels |
 | F17 | Pace: a season is about 26 minutes and winter is about 80 minutes in; the 4x speed exists but is never mentioned. | D56, #121 | Low | #121 |
 | F18 | The first run is meant to fail (GDD 11), but the first death is usually from starvation on day 4 to 6 (idle) or in winter, with no "what killed you and what to try next" beyond the run summary. | `recovery.lua`, BALANCE | Low | open question |
@@ -158,6 +158,8 @@ Each step shows at most once. Text is short and friendly; draft strings below.
 | 14 | `autumn` | `calendar.newSeason`, `season == "autumn"` | "Autumn. Winter is coming: store firewood (the firewood chip counts nights), keep food, and watch the forecast under the top bar. Crops still in the ground die when winter starts." |
 | 15 | `winter` | `weather.froze` (or `calendar.newSeason` winter) | "Winter. The creek froze: cut a hole to fish or fetch water. Long nights mean fast studying." |
 | 16 | `threat` | `threat.warned` first time | "A threat is coming. The forecast shows when. The Journal learns a counter after the first strike." |
+
+Since D75 (#196) the shipped `harvest`, `truck_ready` and `town` cards talk about keep targets, spare goods and loading the truck instead of the crate (`game/data/content/ftue.lua`).
 
 Open items for the implementer: the three Journal steps assume the first-run player sees a toast and the accent Journal button; steps 4, 8 and 9 reuse the sim's own numbers through accessors, never copies. The same prompts, with different copy, could be replayed in recovery after the first rescue (the rescuer's line already changes after the first rescue).
 

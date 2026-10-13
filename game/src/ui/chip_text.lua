@@ -61,12 +61,16 @@ function headlines.battery(world)
   return text
 end
 
-function headlines.crate(world)
-  local _, total, units = Market.crateQuote(world)
-  if Food.crateCount(world) == 0 then
-    return "The crate is empty."
+function headlines.surplus(world)
+  local _, spare = Food.surpluses(world)
+  local _, value, loaded = Market.loadQuote(world)
+  local text = spare == 0 and "Nothing spare: everything in stock is kept." or (plural(spare, "unit") .. " above what you keep.")
+  if loaded > 0 then
+    text = text .. string.format(" %d loaded on the truck, worth $%d in town.", loaded, value)
+  else
+    text = text .. " The truck is empty."
   end
-  return string.format("%s in the crate, worth $%d in town.", plural(units, "unit"), total)
+  return text
 end
 
 function headlines.wood(world)

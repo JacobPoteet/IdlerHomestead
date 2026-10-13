@@ -9,8 +9,8 @@
 -- an increase becomes today's batch (merged with anything else added since last night) and a
 -- decrease takes units from the oldest batch first. Every way food leaves the ledger (eating,
 -- selling by truck or stand, preserving, the cat, mice) is therefore first in, first out without
--- those systems knowing batches exist. The sell crate (D31) is a count reserved on the same stock,
--- so moving food between pantry and crate never touches its age. If the two ever disagree (stock
+-- those systems knowing batches exist. Keep targets and the truck load (D75) are counts read against
+-- or reserved on the same stock, so they never touch its age. If the two ever disagree (stock
 -- added before this system subscribed, a test writing the ledger), `reconcile` trims the oldest
 -- units or adds the missing ones as fresh.
 --
@@ -199,7 +199,7 @@ end
 
 --- What slows spoilage, as the code really treats it:
 --- { freezer = "none"|"off"|"on", keeps, preserves = { [category] = true } }
---- Only a powered freezer stretches shelf lives (pantry vs crate, season and a "preserve" pin make no
+--- Only a powered freezer stretches shelf lives (kept vs spare vs loaded and the season make no
 --- difference); a placed processor (the smoker) turns a category into preserved food, which never spoils.
 function Spoilage.slowing(world)
   local freezer = "none"

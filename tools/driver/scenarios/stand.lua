@@ -1,6 +1,6 @@
 -- The roadside stand (GDD §6.4): placed beside the road, a day of sales with the toast, and the
 -- object card. The scenario sets the homestead up directly (as if bought and placed), stocks the
--- sell crate, then lets the sim run past the stand's opening hour.
+-- spare goods (keep 0), then lets the sim run past the stand's opening hour.
 local Food = require("src.sim.systems.food")
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
@@ -34,8 +34,8 @@ return function(d)
   assert(Inventory.place(world, "roadside_stand", best))
   Ledger.add(world, "sunfish", 10)
   Ledger.add(world, "radish", 8)
-  Food.setPin(world, "sunfish", "sell")
-  Food.setPin(world, "radish", "sell")
+  Food.setKeep(world, "sunfish", 0)
+  Food.setKeep(world, "radish", 0)
   scene.selected = best
   d:frames(2)
   d:shot("placed_card_before")

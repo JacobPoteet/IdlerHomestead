@@ -1,4 +1,4 @@
--- Roadside stand (GDD §6.4, D52). A placed stand sells a few goods from the sell crate each day.
+-- Roadside stand (GDD §6.4, D52). A placed stand sells a few spare goods (above their keep targets, D75) each day.
 return {
   baseCap = 6, -- items per day a bare stand can sell (before season and weather)
   maxCap = 18, -- items per day, hard ceiling however many upgrades are owned (the stand is always capped)

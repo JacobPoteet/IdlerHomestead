@@ -166,6 +166,7 @@ local function playRun(ctx, session, policyName, seed, years, features)
     },
     finds = {}, -- find id -> times picked
     spoiledBy = {}, -- resource id -> units spoiled (D73)
+    soldBy = {}, -- resource id -> units sold by the truck and the stand (D75)
     daysTotal = daysTotal,
     features = Features.label(features or {}),
   }
@@ -213,6 +214,11 @@ local function playRun(ctx, session, policyName, seed, years, features)
   events:on("food.spoiled", function(e)
     result.counters.spoiled = result.counters.spoiled + e.amount
     result.spoiledBy[e.resource] = (result.spoiledBy[e.resource] or 0) + e.amount
+  end)
+  events:on("ledger.changed", function(e)
+    if (e.reason == "sold" or e.reason == "stand") and e.delta < 0 then
+      result.soldBy[e.id] = (result.soldBy[e.id] or 0) - e.delta
+    end
   end)
   events:on("mice.caught", function()
     result.counters.miceCaught = result.counters.miceCaught + 1
@@ -505,7 +511,7 @@ function Balance.summarize(ctx, results, years)
     keys[#keys + 1] = k
   end
   table.sort(keys)
-  summary.totals, summary.owned, summary.finds, summary.spoiledBy = {}, {}, {}, {}
+  summary.totals, summary.owned, summary.finds, summary.spoiledBy, summary.soldBy = {}, {}, {}, {}, {}
   for _, k in ipairs(keys) do
     local values = {}
     for _, r in ipairs(results) do
@@ -527,6 +533,9 @@ function Balance.summarize(ctx, results, years)
     end
     for id, count in pairs(r.spoiledBy or {}) do
       summary.spoiledBy[id] = (summary.spoiledBy[id] or 0) + count
+    end
+    for id, count in pairs(r.soldBy or {}) do
+      summary.soldBy[id] = (summary.soldBy[id] or 0) + count
     end
   end
   summary.features = results[1] and results[1].features or "none"
@@ -801,6 +810,12 @@ function Balance.printFeatures(summary, years)
   end
   table.sort(spoiled)
   line("Spoiled per run by food (mean units): " .. (#spoiled > 0 and table.concat(spoiled, ", ") or "-"))
+  local sold = {}
+  for id, n in pairs(summary.soldBy) do
+    sold[#sold + 1] = string.format("%s %.1f", id, n / summary.n)
+  end
+  table.sort(sold)
+  line("Sold per run by good, truck and stand (mean units): " .. (#sold > 0 and table.concat(sold, ", ") or "-"))
 end
 
 -- File output -------------------------------------------------------------------------------------

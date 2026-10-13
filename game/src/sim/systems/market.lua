@@ -1,8 +1,16 @@
 -- Market (GDD §6.3–6.5): catalog orders with next-morning delivery, weekly prices and specials,
--- and truck trips to town to sell the crate and buy pickup-only items.
+-- and truck trips to town to sell the truck load and buy pickup-only items.
+--
+-- The truck load (D75, #196; replaces the sell crate of D31): before driving, the player loads the
+-- truck with surplus goods (Food.surplus) up to its cargo capacity (tuning.economy.cargoCapacity plus
+-- `cargo` modifiers of owned equipment, counted in plain units). Like the crate it is a count reserved
+-- on ledger stock, so loaded goods stay at home, edible, aging and spoiling oldest first (D73) until
+-- they are sold; a sale removes them oldest batch first. Loading below a keep target is refused unless
+-- confirmed (the reserve guard). In town, Sell the load sells exactly what is loaded; everything else
+-- stays home. Loaded goods are not offered at the roadside stand.
 --
 -- State: world.state.market = { orders = { { item, arriveDay } }, prices = { [resourceId] = mult },
---                               specials = { [catalogId] = true }, week, inTown }
+--                               specials = { [catalogId] = true }, week, inTown, load = { [id] = n } }
 -- Emits "market.ordered" { item }, "market.delivered" { item }, "market.sold" { earnings, units },
 --       "market.trip" {}, "market.tripReady" {} (the truck's charge reached a full trip's worth),
 --       "market.held" { item } (once per order, when a due delivery is waiting
@@ -18,6 +26,8 @@ local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
 local Land = require("src.sim.systems.land")
 local Power = require("src.sim.systems.power")
+local Spoilage = require("src.sim.systems.spoilage")
+local Stats = require("src.sim.stats")
 
 local Market = {}
 
@@ -56,9 +66,16 @@ end
 function Market.init(world)
   local state = world.state
   if not state.market then
-    state.market = { orders = {}, prices = {}, specials = {}, week = 1, inTown = false }
+    state.market = { orders = {}, prices = {}, specials = {}, week = 1, inTown = false, load = {} }
     Market.rollWeek(world)
   end
+  world.events:on("ledger.changed", function(e)
+    -- Eating, spoiling or the stand can leave less stock than is loaded: the load follows the stock.
+    local load = state.market.load
+    if load[e.id] and load[e.id] > e.total then
+      load[e.id] = e.total > 0 and e.total or nil
+    end
+  end)
   world.events:on("calendar.newDay", function(e)
     local w = weekOf(world, e.day)
     if w ~= state.market.week then
@@ -269,11 +286,12 @@ end
 
 --- The truck's readiness for a trip, for the home panel and the HUD (D72, #162): { ready, charge, cost,
 --- capacity (kWh), hours (in-game hours to a full trip's charge at the current net rate: 0 when ready,
---- nil when the truck is not charging), units, value ($) and cargo (units) of the sell crate }.
+--- nil when the truck is not charging), units and value ($) of the truck load, cargo (units),
+--- spare (surplus units not loaded yet) }.
 function Market.tripStatus(world)
   local econ = world.tuning.economy
   local truck = Land.truck(world)
-  local _, value, units = Market.crateQuote(world)
+  local _, value, units = Market.loadQuote(world)
   return {
     ready = Market.canTrip(world),
     charge = Power.charge(world, truck),
@@ -282,7 +300,8 @@ function Market.tripStatus(world)
     hours = Power.hoursToCharge(world, truck, econ.tripCost),
     units = units,
     value = value,
-    cargo = econ.cargoCapacity,
+    cargo = Market.cargoCapacity(world),
+    spare = Market.spareUnits(world),
   }
 end
 
@@ -301,12 +320,147 @@ function Market.endTrip(world)
   world.state.market.inTown = false
 end
 
---- What selling the crate would do: list of { id, units, price }, total $, units (cargo-limited).
-function Market.crateQuote(world)
-  local cargo = world.tuning.economy.cargoCapacity
+-- The truck load (D75) ------------------------------------------------------------------------------
+
+--- Units of goods the truck carries to town: the tuning base plus `cargo` equipment modifiers.
+function Market.cargoCapacity(world)
+  return world.tuning.economy.cargoCapacity + Stats.modifier(world, "cargo")
+end
+
+--- Units of a resource loaded on the truck.
+function Market.loaded(world, id)
+  return world.state.market.load[id] or 0
+end
+
+--- Units loaded in all.
+function Market.loadUnits(world)
+  local n = 0
+  for _, count in pairs(world.state.market.load) do
+    n = n + count
+  end
+  return n
+end
+
+--- Cargo still free.
+function Market.cargoLeft(world)
+  return math.max(0, Market.cargoCapacity(world) - Market.loadUnits(world))
+end
+
+--- Surplus units of a resource not on the truck yet (what Auto-load and "All" may take).
+function Market.spare(world, id)
+  return math.max(0, Food.surplus(world, id) - Market.loaded(world, id))
+end
+
+--- Surplus units of every good not on the truck yet, in all.
+function Market.spareUnits(world)
+  local surplus = Food.surpluses(world)
+  local n = 0
+  for id, units in pairs(surplus) do
+    n = n + math.max(0, units - Market.loaded(world, id))
+  end
+  return n
+end
+
+--- The reserve guard: would loading `units` of `id` dig into its keep target? Returns nil when the
+--- load stays within surplus (or does not grow), else { id, units, below (units under the keep),
+--- keep, kind = "fuel" | "food" | "stock" } for the confirmation the UI asks.
+function Market.loadWarning(world, id, units)
+  local surplus = Food.surplus(world, id)
+  if units <= surplus or units <= Market.loaded(world, id) then
+    return nil
+  end
+  local res = world.registry:get("resources", id)
+  local kind = "stock"
+  if res.heat or id == world.tuning.firewood.splitFrom then
+    kind = "fuel"
+  elseif res.calories then
+    kind = "food"
+  end
+  return { id = id, units = units, below = units - surplus, keep = (Food.keep(world, id)), kind = kind }
+end
+
+--- Set the units of a resource loaded on the truck. The amount is clamped to the stock and to the cargo
+--- left. Loading into the keep target needs `confirmed` (see Market.loadWarning). Returns the units
+--- now loaded, plus a reason when the request was cut or refused: "in town" (the goods are at home),
+--- "not sellable", "reserve" (unconfirmed, nothing changed), "cargo full", "stock".
+function Market.setLoad(world, id, units, confirmed)
+  local m = world.state.market
+  local before = Market.loaded(world, id)
+  if m.inTown then
+    return before, "in town"
+  end
+  if not Food.sellable(world, id) then
+    return before, "not sellable"
+  end
+  local reason
+  units = math.max(0, math.floor(units))
+  local stock = Ledger.get(world, id)
+  if units > stock then
+    units, reason = stock, "stock"
+  end
+  local most = before + Market.cargoLeft(world)
+  if units > most then
+    units, reason = most, "cargo full"
+  end
+  if not confirmed and Market.loadWarning(world, id, units) then
+    return before, "reserve"
+  end
+  m.load[id] = units > 0 and units or nil
+  return units, reason
+end
+
+--- Empty the truck (the goods stay home).
+function Market.clearLoad(world)
+  world.state.market.load = {}
+end
+
+--- Auto-load: fill the free cargo with spare surplus, highest price per unit first, then the food that
+--- spoils soonest, then content order. Never loads into a keep target. Returns the units added.
+function Market.autoLoad(world)
+  if world.state.market.inTown then
+    return 0
+  end
+  local surplus = Food.surpluses(world)
+  local list = {}
+  for index, res in ipairs(world.registry:all("resources")) do
+    local spare = (surplus[res.id] or 0) - Market.loaded(world, res.id)
+    if spare > 0 then
+      local info = Spoilage.info(world, res.id)
+      list[#list + 1] = {
+        id = res.id,
+        spare = spare,
+        price = Market.sellPrice(world, res.id),
+        days = info and info.daysLeft or math.huge,
+        index = index,
+      }
+    end
+  end
+  table.sort(list, function(a, b)
+    if a.price ~= b.price then
+      return a.price > b.price
+    end
+    if a.days ~= b.days then
+      return a.days < b.days
+    end
+    return a.index < b.index
+  end)
+  local added = 0
+  for _, entry in ipairs(list) do
+    local n = math.min(entry.spare, Market.cargoLeft(world))
+    if n <= 0 then
+      break
+    end
+    world.state.market.load[entry.id] = Market.loaded(world, entry.id) + n
+    added = added + n
+  end
+  return added
+end
+
+--- What selling the load would do: list of { id, units, price } in content order, total $, units.
+function Market.loadQuote(world)
   local lines, total, units = {}, 0, 0
   for _, res in ipairs(world.registry:all("resources")) do
-    local n = math.min(Food.crateOf(world, res.id), cargo - units)
+    local n = math.min(Market.loaded(world, res.id), Ledger.get(world, res.id))
     if n > 0 then
       local price = Market.sellPrice(world, res.id)
       lines[#lines + 1] = { id = res.id, units = n, price = price }
@@ -317,17 +471,20 @@ function Market.crateQuote(world)
   return lines, total, units
 end
 
---- Sell the crate (in town). Returns money earned.
-function Market.sellCrate(world)
+--- Sell the truck load (in town). Returns money earned. Everything not loaded stays home.
+function Market.sellLoad(world)
   if not world.state.market.inTown then
     return 0
   end
-  local lines, total, units = Market.crateQuote(world)
+  local lines, total, units = Market.loadQuote(world)
   for _, line in ipairs(lines) do
     Ledger.remove(world, line.id, line.units, "sold")
   end
+  Market.clearLoad(world)
+  if units == 0 then
+    return 0
+  end
   Ledger.add(world, "money", total, "sold")
-  Food.sort(world)
   world.events:emit("market.sold", { earnings = total, units = units })
   return total
 end

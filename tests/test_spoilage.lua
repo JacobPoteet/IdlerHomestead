@@ -8,6 +8,7 @@ local World = require("src.sim.world")
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Needs = require("src.sim.systems.needs")
+local Readiness = require("src.sim.systems.readiness")
 local Spoilage = require("src.sim.systems.spoilage")
 local Food = require("src.sim.systems.food")
 local SpoilText = require("src.ui.spoil_text")
@@ -84,13 +85,25 @@ T.test("batches: eating and a truck sale take the oldest first (FIFO)", function
   T.eq(shape(world, "radish"), (eaten + 2) .. "@3 10@0")
   Needs.eat(world)
   T.eq(shape(world, "radish"), "2@3 10@0", "eaten from the old batch")
-  -- Everything goes in the crate; a truck sale takes the rest of the old batch and then the new.
-  Food.setPin(world, "radish", "sell")
+  -- Keep none and load it all; a truck sale takes the rest of the old batch and then the new.
+  Food.setKeep(world, "radish", 0)
+  Market.setLoad(world, "radish", 12)
   world.state.market.inTown = true
-  Market.sellCrate(world)
+  Market.sellLoad(world)
   T.eq(Ledger.get(world, "radish"), 0)
   T.eq(shape(world, "radish"), "")
-  -- A partial sale: the newest units are what is left.
+  world.state.market.inTown = false
+  -- A partial truck sale takes the oldest units: what stays home is the newest.
+  Ledger.add(world, "radish", 5)
+  Spoilage.daily(world)
+  Ledger.add(world, "radish", 7)
+  Market.setLoad(world, "radish", 9)
+  world.state.market.inTown = true
+  Market.sellLoad(world)
+  world.state.market.inTown = false
+  T.eq(shape(world, "radish"), "3@0", "the old batch and 4 of the new were sold")
+  -- A partial stand sale: the newest units are what is left.
+  Ledger.remove(world, "radish", Ledger.get(world, "radish"))
   Ledger.add(world, "radish", 6)
   Spoilage.daily(world)
   Ledger.add(world, "radish", 6)
@@ -98,20 +111,22 @@ T.test("batches: eating and a truck sale take the oldest first (FIFO)", function
   T.eq(shape(world, "radish"), "4@0")
 end)
 
-T.test("batches: moving food between pantry and crate keeps its age", function()
+T.test("batches: keep targets and the truck load never change ages", function()
   local world = newWorld(2)
   Ledger.add(world, "radish", 40)
   Spoilage.ageStock(world, "radish", 3)
   Ledger.add(world, "radish", 10)
   local before = shape(world, "radish")
-  Food.sort(world)
-  T.truthy(Food.crateOf(world, "radish") > 0, "the automatic pantry crated some")
-  Food.setPin(world, "radish", "keep")
-  T.eq(Food.crateOf(world, "radish"), 0)
-  Food.setPin(world, "radish", "sell")
-  T.eq(Food.crateOf(world, "radish"), 50)
-  Food.setPin(world, "radish", nil)
-  T.eq(shape(world, "radish"), before, "the crate is a reservation: ages belong to the stock")
+  T.truthy(Food.surplus(world, "radish") > 0, "the automatic keep leaves some surplus")
+  Food.setKeep(world, "radish", 50)
+  T.eq(Food.surplus(world, "radish"), 0)
+  Food.setKeep(world, "radish", 0)
+  T.eq(Food.surplus(world, "radish"), 50)
+  Market.setLoad(world, "radish", 30)
+  Market.autoLoad(world)
+  Market.clearLoad(world)
+  Food.setKeep(world, "radish", nil)
+  T.eq(shape(world, "radish"), before, "keep and load are counts: ages belong to the stock")
 end)
 
 T.test("batches: stock that predates the subscription is reconciled as fresh", function()
@@ -357,57 +372,62 @@ end)
 
 -- The automatic pantry (#163) ---------------------------------------------------
 
-T.test("automatic pantry: a perishable is held only as long as it is eaten before it spoils", function()
+T.test("automatic keep: a perishable is held only as long as it is eaten before it spoils", function()
   local world = newWorld(4)
-  T.truthy(Food.pantryAuto(world), "new runs start automatic")
   Ledger.add(world, "radish", 40)
-  Food.sort(world)
   local radish = reg:get("resources", "radish")
-  local held = 40 - world.state.food.crate.radish
-  T.eq(held, math.ceil(Food.pantryHoldDays(world, radish) * DAILY / radish.calories))
+  local keep, auto = Food.keep(world, "radish")
+  T.truthy(auto, "new runs start automatic")
+  T.eq(keep, math.ceil(Food.pantryHoldDays(world, radish) * DAILY / radish.calories))
   Ledger.add(world, "creek_chub", 30)
-  Food.sort(world)
   local chub = reg:get("resources", "creek_chub")
   local days = Spoilage.shelfLife(world, "creek_chub") * tun.food.autoPantryHorizon
   T.eq(Food.pantryHoldDays(world, chub), days)
-  T.eq(30 - world.state.food.crate.creek_chub, math.ceil(days * DAILY / chub.calories))
+  -- The radishes came first and filled the pantry, so the fish is all surplus; alone it keeps a day.
+  Ledger.remove(world, "radish", 40)
+  T.eq(Food.keep(world, "creek_chub"), math.ceil(days * DAILY / chub.calories))
 end)
 
-T.test("automatic pantry: a small stock is all kept, and potatoes keep up to the pantry setting", function()
+T.test("automatic keep: a small stock is all kept, and potatoes keep up to the pantry days", function()
   local world = newWorld(4)
   Ledger.add(world, "creek_chub", 5)
-  Food.sort(world)
-  T.eq(world.state.food.crate.creek_chub, nil)
+  T.eq(Food.surplus(world, "creek_chub"), 0)
   -- Potatoes: their shelf life * the horizon is more than the 3-day setting, so the setting rules.
   T.eq(Food.pantryHoldDays(world, reg:get("resources", "potato")), tun.food.defaultPantryDays)
   T.truthy(Food.pantryHoldDays(world, reg:get("resources", "creek_chub")) < tun.food.defaultPantryDays)
 end)
 
-T.test("automatic pantry: explicit pins work exactly as before", function()
+T.test("automatic keep: fuel is kept for the nights to the end of winter, the woodpile whole", function()
   local world = newWorld(4)
-  Ledger.add(world, "radish", 40)
-  Food.setPin(world, "radish", "keep")
-  T.eq(world.state.food.crate.radish, nil)
-  Food.setPin(world, "radish", "sell")
-  T.eq(world.state.food.crate.radish, 40)
-  Food.setPin(world, "radish", "preserve")
-  T.eq(world.state.food.crate.radish, nil)
-  Food.setPin(world, "radish", nil)
-  T.truthy(world.state.food.crate.radish > 0)
-  T.truthy(Food.pantryAuto(world), "pins do not touch the mode")
+  local need = Readiness.warmthAhead(world)
+  T.truthy(need > 0, "a winter is coming")
+  Ledger.add(world, "seasoned_firewood", 5)
+  T.eq(Food.surplus(world, "seasoned_firewood"), 0, "far less fuel than winter needs: all kept")
+  Ledger.setCapacity(world, "seasoned_firewood", math.huge)
+  Ledger.add(world, "seasoned_firewood", math.ceil(need) + 7 - Ledger.get(world, "seasoned_firewood"))
+  T.truthy(Food.surplus(world, "seasoned_firewood") > 0, "more than the cautious need: some to spare")
+  T.eq(Food.surplus(world, "firewood"), 0, "the hottest fuel covers the need first")
+  Ledger.add(world, "wood", 1000)
+  T.eq(Food.surplus(world, "wood"), 0, "the woodpile is next year's fuel")
+  Food.setKeep(world, "wood", 0)
+  T.eq(Food.surplus(world, "wood"), Ledger.get(world, "wood"), "the player can sell it all")
 end)
 
-T.test("automatic pantry: moving the stepper makes the number mean what it says", function()
+T.test("readiness: the fuel to keep is cautious until the forecast is known, and spans two winters in winter", function()
   local world = newWorld(4)
-  Ledger.add(world, "creek_chub", 60)
-  local chub = reg:get("resources", "creek_chub").calories
-  Food.setDays(world, world.state.food.pantryDays, 5) -- winter stepper only
-  T.truthy(Food.pantryAuto(world))
-  Food.setDays(world, 4, 5)
-  T.falsy(Food.pantryAuto(world))
-  T.eq(world.state.food.crate.creek_chub, 60 - math.ceil(4 * DAILY / chub))
-  Food.setPantryAuto(world, true)
-  T.truthy(world.state.food.crate.creek_chub > 60 - math.ceil(4 * DAILY / chub), "automatic holds less")
+  local t, w, warmth = tun.time, tun.weather, tun.needs.dailyWarmth
+  -- Day 1 of year 1, nothing forecast: every season to the end of winter at the worst severity, plus
+  -- the longest cold snap.
+  local worst = w.severityMax
+  local expected = (t.daysPerSeason - 1 + 1) * warmth.spring + t.daysPerSeason * (warmth.summer + warmth.autumn)
+    + t.daysPerSeason * warmth.winter * worst + warmth.winter * worst * w.snapDaysMax * (w.snapMultiplier - 1)
+  T.near(Readiness.warmthAhead(world), expected, 1e-6)
+  -- A frozen day counts the rest of this winter and all of the next year.
+  local day = 3 * t.daysPerSeason + 2
+  world.state.calendar.elapsed = ((day - 1 + 12 / 24) - t.startHour / 24) * t.dayLength
+  world.state.calendar.day = day
+  local thisWinter = (t.daysPerSeason - 1) * warmth.winter * (w.severityMax + w.severityPerYear) * w.snapMultiplier
+  T.truthy(Readiness.warmthAhead(world) > thisWinter, "in winter the keep still covers the next winter")
 end)
 
 -- The gentler start (#161) ------------------------------------------------------

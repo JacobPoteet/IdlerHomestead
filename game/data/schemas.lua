@@ -8,7 +8,6 @@ return {
     calories = "number?", -- food energy per unit; present means it can be eaten
     keepsForWinter = "boolean?", -- fresh food that keeps long enough to count toward the winter stock
     value = "number?", -- base sale price in $; absent = can't be sold
-    autoSell = "boolean?", -- non-food goods sent to the sell crate by default
     heat = "number?", -- warmth per unit burned in a heat source; present means it's fuel
     housing = "string?", -- livestock: what houses it ("coop", "pen"), for "needs a ..." messages
   },
@@ -37,7 +36,7 @@ return {
     efficiency = "number?", -- battery: fraction of charging energy that is stored (absent = 1)
     vehicle = "boolean?", -- battery: the truck; charged in the "truck" priority tier, lends power only above a trip reserve
     placeNear = "string?", -- placement rule: must touch this terrain ("water": next to the creek; "road": beside the road, not on it)
-    stand = "boolean?", -- roadside stand: sells capped crate goods each day (tuning.stand, GDD §6.4)
+    stand = "boolean?", -- roadside stand: sells a capped number of spare goods each day (tuning.stand, GDD §6.4)
     offRoad = "boolean?", -- placement rule: never on the road (the hen house)
     placeOn = "string?", -- placement rule: "waterTable" needs a tile with a high water table (wells, pumps; GDD §5.3)
     waterSource = "table?", -- a place to fill the bucket: { fillTime = seconds, stored? = draws on the cistern stock }
@@ -184,7 +183,7 @@ return {
     about = "string", -- what the chip is, one line
     raises = "string", -- what pushes the number up
     lowers = "string", -- what pushes the number down
-    panel = "string?", -- panel the shortcut opens: "pantry" | "power" | "catalog" | "truck"
+    panel = "string?", -- panel the shortcut opens: "pantry" | "power" | "catalog" | "truck" | "load"
     panelLabel = "string?", -- the shortcut button's text
   },
 }

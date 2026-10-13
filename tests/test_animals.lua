@@ -310,12 +310,13 @@ T.test("animals: eggs wait in the nest box until tended, then go to the ledger",
   T.eq(s.collected, 5)
 end)
 
-T.test("animals: eggs are food and can be sold from the crate", function()
+T.test("animals: eggs are food and can be sold on the truck", function()
   local world = coopWorld(3)
   Ledger.add(world, "egg", 30)
-  Food.setPin(world, "egg", "sell")
-  T.eq(Food.crateOf(world, "egg"), 30)
-  local _, total = Market.crateQuote(world)
+  Food.setKeep(world, "egg", 0)
+  T.eq(Food.surplus(world, "egg"), 30)
+  Market.autoLoad(world)
+  local _, total = Market.loadQuote(world)
   T.eq(total, 30 * Market.sellPrice(world, "egg"))
 end)
 

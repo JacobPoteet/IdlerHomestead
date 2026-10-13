@@ -1,6 +1,7 @@
--- The truck (GDD §6.5, §7.6): battery status, and the trip to town as a menu.
--- At home: charge, solar output, "Drive to town". In town: sell the crate, buy (no delivery fee,
--- pickup-only items allowed), then drive home.
+-- The truck (GDD §6.5, §7.6): battery status, the load, and the trip to town as a menu.
+-- At home: charge, the load (D75: what goes to town, loaded in the Load the truck panel), solar output,
+-- "Load the truck" and "Drive to town". In town: sell the load, buy (no delivery fee, pickup-only
+-- items allowed), then drive home. Anything not loaded stays home.
 
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
@@ -14,7 +15,7 @@ local Truck = { name = "truck" }
 Truck.__index = Truck
 
 local ROW_H = 22
-local HOME_H = 176 -- panel height at home: status, bar, crate line, power line, button
+local HOME_H = 196 -- panel height at home: status, bar, load lines, power line, two buttons
 
 --- "about 5 hours", "under an hour", "about 2 days" for in-game hours (the truck charges by the sun).
 function Truck.duration(hours)
@@ -40,12 +41,20 @@ function Truck.statusText(trip)
   return string.format("%.1f kWh to go: not charging now", missing)
 end
 
---- What the crate holds and is worth, from Market.tripStatus.
-function Truck.crateText(trip)
+--- What the truck carries and is worth, from Market.tripStatus.
+function Truck.loadText(trip)
   if trip.units == 0 then
-    return "Sell crate: empty"
+    return string.format("Load: empty (0 / %d cargo)", trip.cargo)
   end
-  return string.format("Sell crate: %d / %d cargo, worth $%d in town", trip.units, trip.cargo, trip.value)
+  return string.format("Load: %d / %d cargo, worth $%d in town", trip.units, trip.cargo, trip.value)
+end
+
+--- What else could go, from Market.tripStatus.
+function Truck.spareText(trip)
+  if trip.spare == 0 then
+    return "Nothing spare left at home to load"
+  end
+  return string.format("%d spare units at home not loaded", trip.spare)
 end
 
 function Truck.new(world, onToast)
@@ -69,6 +78,13 @@ function Truck:resize(view)
   self:layout()
 end
 
+-- Start the trip (the panel turns into the town menu).
+function Truck:drive()
+  if Market.startTrip(self.world) then
+    self:resize(self.app.view)
+  end
+end
+
 function Truck:layout()
   local b, world = self.box, self.world
   self.buttons:clear()
@@ -76,17 +92,39 @@ function Truck:layout()
     Panel.closeButton(self.buttons, b, function()
       self.app:pop()
     end)
+    local half = (b.w - 24 - 6) / 2
     self.buttons:add({
       x = b.x + 12,
       y = b.y + b.h - 34,
-      w = b.w - 24,
+      w = half,
+      h = 26,
+      label = "Load the truck",
+      onPress = function()
+        self.app:push(require("src.scenes.load").new(world, self.onToast))
+      end,
+    })
+    self.buttons:add({
+      x = b.x + 12 + half + 6,
+      y = b.y + b.h - 34,
+      w = half,
       h = 26,
       label = "Drive to town",
       style = "accent",
       enabled = Market.canTrip(world),
       onPress = function()
-        if Market.startTrip(world) then
-          self:resize(self.app.view)
+        -- An empty truck with goods to spare is most likely a forgotten load: ask once.
+        if Market.loadUnits(world) == 0 and Market.spareUnits(world) > 0 then
+          self.app:push(require("src.scenes.confirm").new({
+            title = "The truck is empty",
+            message = "Nothing is loaded, so nothing will be sold in town. Load the truck first, or drive just to shop?",
+            confirmLabel = "Drive anyway",
+            cancelLabel = "Not yet",
+            onConfirm = function()
+              self:drive()
+            end,
+          }))
+        else
+          self:drive()
         end
       end,
     })
@@ -105,17 +143,17 @@ function Truck:layout()
       self.app:pop()
     end,
   })
-  local _, total = Market.crateQuote(world)
+  local _, total, units = Market.loadQuote(world)
   self.buttons:add({
     x = b.x + 12,
     y = b.y + b.h - 34,
     w = b.w / 2 - 24,
     h = 26,
-    label = total > 0 and ("Sell crate  $" .. total) or "Crate is empty",
-    enabled = total > 0,
+    label = units > 0 and ("Sell the load  $" .. total) or "Nothing loaded",
+    enabled = units > 0,
     style = "accent",
     onPress = function()
-      local earned = Market.sellCrate(world)
+      local earned = Market.sellLoad(world)
       self.onToast("Sold for $" .. earned)
       self:layout()
     end,
@@ -197,13 +235,15 @@ end
 local function bar(x, y, w, h, frac, color)
   love.graphics.setColor(theme.colors.background)
   love.graphics.rectangle("fill", x, y, w, h, 2, 2)
-  love.graphics.setColor(color)
-  love.graphics.rectangle("fill", x + 1, y + 1, math.max(0, (w - 2) * math.min(1, frac)), h - 2, 2, 2)
+  local fill = math.max(0, (w - 2) * math.min(1, frac))
+  if fill >= 1 then
+    love.graphics.setColor(color)
+    love.graphics.rectangle("fill", x + 1, y + 1, fill, h - 2, 2, 2)
+  end
 end
 
 function Truck:draw()
   local b, world = self.box, self.world
-  local truck = world.state.land.truck
   if not self:inTown() then
     local trip = Market.tripStatus(world)
     local charge, cap, cost = trip.charge, trip.capacity, trip.cost
@@ -221,26 +261,36 @@ function Truck:draw()
     love.graphics.setColor(theme.colors.accent)
     love.graphics.rectangle("fill", mx, b.y + 53, 1, 18)
     Text.draw(string.format("%.1f / %d kWh · a trip uses %d", charge, cap, cost), b.x + 12, b.y + 74, { size = "small" })
-    Text.draw(Truck.crateText(trip), b.x + 12, b.y + 88, { size = "small", width = w })
-    Text.draw(string.format("Making %.2f kW, homestead using %.2f kW", Power.output(world), Power.flow(world).served), b.x + 12, b.y + 102, {
+    -- The load (D75): what goes to town, and what else could.
+    Text.draw(Truck.loadText(trip), b.x + 12, b.y + 92, { size = "small", width = w, color = trip.units > 0 and theme.colors.accent or nil })
+    bar(b.x + 12, b.y + 106, b.w - 24, 6, trip.units / trip.cargo, theme.colors.accent)
+    Text.draw(Truck.spareText(trip), b.x + 12, b.y + 116, { size = "small", width = w, color = dim })
+    Text.draw(string.format("Making %.2f kW, homestead using %.2f kW", Power.output(world), Power.flow(world).served), b.x + 12, b.y + 132, {
       size = "small",
       color = dim,
       width = w,
     })
   else
     Panel.frame(self.app.view, b, "Town", string.format("You have $%d", Ledger.get(world, "money")))
-    local lines, total, units = Market.crateQuote(world)
-    Text.draw(string.format("Sell crate (%d / %d cargo)", units, world.tuning.economy.cargoCapacity), b.x + 12, b.y + 38, {
+    local lines, total, units = Market.loadQuote(world)
+    Text.draw(string.format("The load (%d / %d cargo)", units, Market.cargoCapacity(world)), b.x + 12, b.y + 38, {
       size = "small",
       color = theme.colors.textDim,
     })
     for n, line in ipairs(lines) do
       local y = b.y + 52 + (n - 1) * 14
-      if y < b.y + b.h - 50 then
+      if y < b.y + b.h - 64 then
         local res = world.registry:get("resources", line.id)
         Panel.icon(Panel.resourceIcon(line.id), b.x + 12, y)
         Text.draw(string.format("%s  %d x $%d", res.name, line.units, line.price), b.x + 28, y + 1, { size = "small" })
       end
+    end
+    if units == 0 then
+      Text.draw("Nothing loaded. Load the truck at home before the next trip; unloaded goods stay home.", b.x + 12, b.y + 52, {
+        size = "small",
+        width = b.w / 2 - 24,
+        color = theme.colors.textDim,
+      })
     end
     Text.draw(string.format("Total $%d", total), b.x + 12, b.y + b.h - 50, { size = "small", color = theme.colors.accent })
     Text.draw("Shop", b.x + b.w / 2 + 6, b.y + 38, { size = "small", color = theme.colors.textDim })

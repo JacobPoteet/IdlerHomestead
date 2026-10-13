@@ -27,8 +27,9 @@ local migrations = {}
 --- screen offers to delete it or keep it untouched. No migrations before launch: bump this whenever
 --- the shape of the saved run or meta changes in a way older code or data cannot read, and update the
 --- fingerprint in tests/test_save_compat.lua (that test fails until both are done).
---- History: 1 = before the stamp existed (unstamped saves), 2 = shelf-life batches (D73).
-Save.SAVE_COMPAT = 2
+--- History: 1 = before the stamp existed (unstamped saves), 2 = shelf-life batches (D73), 3 = keep
+--- targets and the truck load replace the sell crate (D75).
+Save.SAVE_COMPAT = 3
 
 --- How a slot's data relates to this build: "ok", "older" (no stamp or a lower one) or "newer".
 function Save.compatibility(data)
