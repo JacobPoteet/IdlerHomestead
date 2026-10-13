@@ -33,4 +33,5 @@ return {
   "visuals",
   "ui",
   "settings",
+  "audio",
 }

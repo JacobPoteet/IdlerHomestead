@@ -48,6 +48,7 @@ local Animals = require("src.sim.systems.animals")
 local Finds = require("src.sim.systems.finds")
 local Machines = require("src.sim.systems.machines")
 local Renderer = require("src.render.world_renderer")
+local Sampler = require("src.audio.sampler")
 local ActionRing = require("src.render.action_ring")
 local Assets = require("src.render.assets")
 local Buttons = require("src.ui.buttons")
@@ -103,6 +104,21 @@ function Homestead:enter(slot, data)
   self.held = {} -- toasts that came in while asleep, shown in the morning (D70)
   self.frostTold = {} -- crop id -> calendar day its won't-ripen warning last showed (D70, #165)
   self:subscribe()
+  self:attachAudio()
+end
+
+--- Hand the audio service this world: it listens to the event bus itself and reads the weather look,
+--- the pause state and the view through this snapshot (D100). Read-only.
+function Homestead:attachAudio()
+  local tile = self.world.tuning.display.tileSize
+  self.app.ctx.audio:attach(self.world, function()
+    return Sampler.snapshot({
+      world = self.world,
+      speed = self.session:effectiveSpeed(),
+      fx = self.renderer.fx,
+      center = { self.camera.x / tile, self.camera.y / tile },
+    })
+  end)
 end
 
 -- World events the player should hear about.
@@ -349,6 +365,7 @@ end
 
 function Homestead:exit()
   self:saveNow()
+  self.app.ctx.audio:detach()
   for _, off in ipairs(self.unsubscribe or {}) do
     off()
   end
@@ -440,6 +457,10 @@ function Homestead:present(text)
 end
 
 function Homestead:showToast(text)
+  local audio = self.app.ctx.audio -- absent in tests that build their own context
+  if audio then
+    audio:play("toast")
+  end
   self:record(text)
   self:present(text)
 end

@@ -54,6 +54,33 @@ function love.graphics.newImage(arg, ...)
   return newImage(arg, ...)
 end
 
+-- Audio files (#87, D100): love.audio.newSource and love.sound.newSoundData given a path inside game/
+-- read it with io the same way. (The driver is silent by default, so this only matters for audio=1.)
+if love.audio and love.audio.newSource then
+  local newSource = love.audio.newSource
+  function love.audio.newSource(arg, ...)
+    if type(arg) == "string" and not fsGetInfo(arg) then
+      local data = readGameFile(arg)
+      if data then
+        return newSource(love.filesystem.newFileData(data, arg), ...)
+      end
+    end
+    return newSource(arg, ...)
+  end
+end
+if love.sound and love.sound.newSoundData then
+  local newSoundData = love.sound.newSoundData
+  function love.sound.newSoundData(arg, ...)
+    if type(arg) == "string" and not fsGetInfo(arg) then
+      local data = readGameFile(arg)
+      if data then
+        return newSoundData(love.filesystem.newFileData(data, arg), ...)
+      end
+    end
+    return newSoundData(arg, ...)
+  end
+end
+
 local function parseArgs(args)
   local opts = { scenarios = {} }
   for _, a in ipairs(args or {}) do
@@ -83,7 +110,8 @@ local USAGE = [[
 Idler Homestead screenshot driver. Usage:  lovec tools/driver <scenario|all> [key=value ...]
   size=desktop|phone|landscape|both   window size to run at   (default both = all three;desktop 1280x720, phone 390x844, landscape 844x390)
   seed=N                    run seed for every scenario (default: a fixed seed per scenario, so runs repeat)
-  out=dir                   where PNGs go           (default docs/screens, must exist)
+  audio=1                   play sound for real (default: silent; plays are recorded in d.audioLog)
+  out=dir                  where PNGs go           (default docs/screens, must exist)
 Scenarios: ]]
 
 local function run(opts)
@@ -109,7 +137,7 @@ local function run(opts)
       print(string.format("== %s (%s)", name, size))
       -- Fixed seed per scenario (#188); seed=N overrides it for every scenario.
       local seed = tonumber(opts.seed) or Rng.hash(name)
-      local d = Driver.new({ size = size, outDir = outDir, prefix = name .. "_" .. size, seed = seed })
+      local d = Driver.new({ size = size, outDir = outDir, prefix = name .. "_" .. size, seed = seed, audio = opts.audio == "1" })
       scenario(d)
     end
   end

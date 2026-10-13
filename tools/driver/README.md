@@ -54,7 +54,13 @@ First-time tip cards (D69) are off in every scenario by default so they never co
 - LÖVE refuses to mount a folder outside the source, so `tools/driver/main.lua` adds `game/` to
   `package.path` and makes `love.filesystem.read/getInfo` and `love.graphics.newImage` fall back to
   reading `game/` with plain `io`. Nothing is copied. If the game starts reading other files through
-  `love.filesystem` (for example audio), extend that shim in `main.lua`.
+  `love.filesystem`, extend that shim in `main.lua`. (#87: `love.audio.newSource` and
+  `love.sound.newSoundData` are shimmed the same way; the shim stays because LÖVE 11.5 cannot mount a
+  folder outside the source, and moving the entry point into `game/` would break `lovec game`.)
+- Audio is silent by default: the game gets the recording null backend (`audioBackend`) and every play
+  lands in `d.audioLog` (`{ what, volume, pitch, loop }`), so scenarios can assert on sound. Pass
+  `audio=1` to hear it (real LÖVE audio, shimmed paths). Scenario `audio` shows the Settings sliders and
+  the sound test.
 
 ## Writing a scenario
 

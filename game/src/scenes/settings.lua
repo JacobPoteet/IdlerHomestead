@@ -83,6 +83,11 @@ function Settings:layout()
     y = y + h + ITEM_GAP
     self.items[#self.items + 1] = item
   end
+  -- Not an option: opens the sound test (D100).
+  self.items[#self.items + 1] = { heading = "Sound test", y = y, h = HEADING_H }
+  y = y + HEADING_H
+  self.items[#self.items + 1] = { soundTest = true, y = y, h = ctrlH }
+  y = y + ctrlH + ITEM_GAP
 
   local window = self.list:fit(P.list, y, tuning.ui.scrollHintHeight, ctrlH)
   local top = self.list:origin()
@@ -92,6 +97,18 @@ function Settings:layout()
     item.ay = top + item.y
     item.visible = self.list:visible(item.ay, item.h)
     local opt = item.opt
+    if item.soundTest and item.visible then
+      self.rowButtons:add({
+        x = x0,
+        y = item.ay,
+        w = innerW,
+        h = ctrlH,
+        label = "Listen to every sound",
+        onPress = function()
+          self.app:push(require("src.scenes.sound_test").new())
+        end,
+      })
+    end
     if opt and item.visible then
       local value = settings:get(opt.id)
       if opt.kind == "toggle" then
@@ -174,11 +191,32 @@ function Settings:exit()
   self.app.ctx.settings:save()
 end
 
+--- A tap on a slider's bar sets the value there (the -/+ buttons stay for fine steps). True if handled.
+function Settings:tapBar(x, y)
+  if not self.list:contains(x, y) then
+    return false
+  end
+  local ctrlH = Layout.controlH(self.app.ctx.tuning.input.minTouchTarget)
+  for _, item in ipairs(self.items) do
+    local bar = item.visible and item.bar
+    if bar and x >= bar.x and x <= bar.x + bar.w and y >= bar.y + bar.h / 2 - ctrlH / 2 and y <= bar.y + bar.h / 2 + ctrlH / 2 then
+      local opt = item.opt
+      self.app.ctx.settings:set(opt.id, opt.min + (opt.max - opt.min) * (x - bar.x) / bar.w)
+      self:layout()
+      return true
+    end
+  end
+  return false
+end
+
 function Settings:action(name, data)
   if name == "press" or name == "release" then
     self.list:action(name, data) -- a drag that ends moving lets the list coast (D94)
   end
   if self.buttons:action(name, data) then
+    return true
+  end
+  if name == "select" and self:tapBar(data.x, data.y) then
     return true
   end
   if name == "press" or name == "select" or name == "hover" then
@@ -209,7 +247,7 @@ function Settings:draw()
       local innerW = b.w - 2 * Layout.PAD - ctx.tuning.ui.scrollBarWidth - 4
       if item.heading then
         Text.draw(item.heading, x0, item.ay + 4, { size = "body", color = theme.colors.accent })
-      else
+      elseif item.opt then
         local opt = item.opt
         local value = settings:get(opt.id)
         local labelY = item.ay + (opt.kind == "toggle" and (Layout.controlH(ctx.tuning.input.minTouchTarget) - 12) / 2 or 0)

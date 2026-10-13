@@ -32,7 +32,7 @@ T.test("settings: a fresh store holds the tuning defaults", function()
   for id, v in pairs(cfg.defaults) do
     T.eq(s:get(id), v, id)
   end
-  T.eq(#s.options, 9)
+  T.eq(#s.options, 14)
 end)
 
 T.test("settings: every option has a default, a valid kind and a valid default value", function()

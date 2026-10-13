@@ -94,6 +94,10 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 Currently LÖVE's default font, rendered crisp at every scale. A pixel font with good small sizes and
 accented characters is wanted before the art pass.
 
+## Audio
+
+Sounds are cues in `game/data/content/sounds.lua`, played from synthesized placeholders until files are dropped into `game/assets/audio/<bus>/<cue>.ogg`. The cue list, formats, loudness, loop rules and replacement steps are in [AUDIO.md](AUDIO.md) (GDD D100). Audio, like render, never changes the sim and stays outside `src/sim`.
+
 ## Shaders
 
 Shaders live in [`game/shaders/`](../game/shaders/) and are managed by

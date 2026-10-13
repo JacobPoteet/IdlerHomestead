@@ -12,7 +12,13 @@ return {
     filmGrain = true, -- film grain over the world
     gradeStrength = 1, -- 0..1 share of the colour grade (tint, saturation, vignette) applied
     ambientFx = true, -- fireflies, dust motes, mist, cloud shadows and rain streaks
+    volumeMaster = 0.8, -- 0..1 slider; scales every sound (the sound is mastered quiet, so 0.8 is a comfortable start)
+    volumeMusic = 0.6, -- 0..1 slider; music bus (no tracks yet)
+    volumeAmbience = 0.7, -- 0..1 slider; nature beds, weather and fire crackle
+    volumeEffects = 0.8, -- 0..1 slider; chores, fishing, interface and event sounds
+    muteUnfocused = true, -- silence the game while its window is in the background
   },
+  volume = { min = 0, max = 1, step = 0.1 }, -- slider range and step of the four volume sliders
   uiScaleMax = 4, -- largest fixed whole UI scale offered (the window can clamp it lower)
   comfortTouchPixels = 36, -- screen pixels; on a touch device a fixed scale that makes the smallest button smaller than this gets a warning
   idleDelayChoices = { 0.5, 1, 2, 4 }, -- multipliers offered for the idle takeover delay
