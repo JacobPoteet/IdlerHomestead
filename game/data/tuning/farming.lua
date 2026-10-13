@@ -22,5 +22,6 @@ return {
   starterWaterWeight = 1, -- score per tile of distance to the nearest water (lower score wins; the bucket walk)
   starterTruckWeight = 0.5, -- score per tile of distance to the truck
   starterSoilWeight = 4, -- score removed per 1.0 of soil quality (better soil wins ties)
+  starterAdjacencyWeight = 2, -- score removed per neighbouring tile (of 8) already in the starter block (lower score wins; makes the field a compact lump, D88)
   starterFrostMargin = 1, -- days of slack beyond a crop's grow time before the freeze when judging "ripens in time"
 }

@@ -111,6 +111,20 @@ function Market.neverFits(world, id)
   return false
 end
 
+--- The least a delivery order could cost now (price plus the delivery fee) among the items that are
+--- only waiting on money, or nil when none is (the Catalog's "how do I earn" line, D88, #161).
+function Market.cheapestOrder(world)
+  local best
+  for _, item in ipairs(world.registry:all("catalog")) do
+    local reason = Market.cannotBuy(world, item.id, false)
+    if reason == nil or reason == "not enough money" then
+      local cost = Market.itemPrice(world, item.id) + world.tuning.economy.deliveryFee
+      best = best and math.min(best, cost) or cost
+    end
+  end
+  return best
+end
+
 --- Why an item can't be bought right now (nil if it can). pickup = buying in town.
 function Market.cannotBuy(world, id, pickup)
   local item = world.registry:get("catalog", id)

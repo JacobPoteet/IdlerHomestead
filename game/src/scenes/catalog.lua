@@ -13,6 +13,7 @@ local Catalog = { name = "catalog" }
 Catalog.__index = Catalog
 
 local ROW_H = 24
+local HINT_H = 30 -- px of footer for the two-line "where money comes from" hint
 
 function Catalog.new(world, onToast)
   return setmetatable({ world = world, onToast = onToast }, Catalog)
@@ -34,11 +35,40 @@ function Catalog:items()
   return list
 end
 
+--- When money is under the cheapest order (and nothing is on its way), say where early money comes
+--- from (D88, #161). Nil otherwise.
+function Catalog:moneyHintText()
+  local world = self.world
+  if #world.state.market.orders > 0 then
+    return nil
+  end
+  local cheapest = Market.cheapestOrder(world)
+  if not cheapest or Ledger.get(world, "money") >= cheapest then
+    return nil
+  end
+  return string.format(
+    "Cheapest order is $%d. Earn it by clearing junk piles ($%d to $%d each) or selling spare food on a truck trip.",
+    cheapest,
+    self:junkPay()
+  )
+end
+
+--- The least and most cash one junk pile pays, read from its content definition.
+function Catalog:junkPay()
+  local pay = self.world.registry:get("objects", "junk").yields.money
+  if type(pay) == "number" then
+    return pay, pay
+  end
+  return pay[1], pay[2]
+end
+
 function Catalog:resize(view)
   local items = self:items()
   -- Each held order (due, but no room in storage) gets its own row with a refund button (D60).
   self.heldCount = #Market.heldOrders(self.world)
-  self.box = Panel.box(view, 380, 70 + (#items + self.heldCount) * ROW_H + 30)
+  self.moneyHint = self:moneyHintText()
+  self.hintH = self.moneyHint and HINT_H or 0
+  self.box = Panel.box(view, 380, 70 + (#items + self.heldCount) * ROW_H + 30 + self.hintH)
   self:layout()
 end
 
@@ -61,7 +91,7 @@ function Catalog:layout()
   local items = self:items()
   local ui = self.app.ctx.tuning.ui
   local top = b.y + 42
-  local room = b.y + b.h - 40 - (self.heldCount or 0) * ROW_H - top
+  local room = b.y + b.h - 40 - (self.hintH or 0) - (self.heldCount or 0) * ROW_H - top
   self.list:fit({ x = b.x, y = top, w = b.w, h = room }, #items * ROW_H, ui.scrollHintHeight, ROW_H)
   local right = b.x + b.w - 84 - (self.list.overflow and ui.scrollBarWidth + 2 or 0)
   for n, item in ipairs(items) do
@@ -121,6 +151,8 @@ function Catalog:update()
   local money = Ledger.get(self.world, "money")
   local held = #Market.heldOrders(self.world)
   if held ~= self.heldCount then
+    self:resize(self.app.view)
+  elseif (self:moneyHintText() ~= nil) ~= (self.moneyHint ~= nil) then
     self:resize(self.app.view)
   elseif money ~= self.lastMoney then
     self.lastMoney = money
@@ -194,6 +226,12 @@ function Catalog:draw()
       size = "small",
       width = b.w - 24,
       color = theme.colors.textDim,
+    })
+  elseif self.moneyHint then
+    Text.draw(self.moneyHint, b.x + 12, b.y + b.h - 34, {
+      size = "small",
+      width = b.w - 24,
+      color = theme.colors.accent,
     })
   end
   self.buttons:draw()

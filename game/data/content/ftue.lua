@@ -28,6 +28,14 @@ return {
     text = "Cleared! Pick a seed in the bottom bar (under Tools on a narrow screen), then tap open ground to till and plant it.",
   },
   {
+    -- Early money is invisible (#161, D88): the first junk pile cleared pays, so say that is where it comes from.
+    id = "junk_money",
+    title = "Where money comes from",
+    trigger = "object.cleared",
+    match = { object = "junk" },
+    text = "Junk pays cash: that is where your first money comes from, so clear more of it. Spend it in the Catalog on seeds, bait and food. Later the truck sells your spare food in town.",
+  },
+  {
     id = "water",
     title = "Water",
     trigger = "crop.planted",

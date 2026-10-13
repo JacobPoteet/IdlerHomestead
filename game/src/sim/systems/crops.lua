@@ -99,7 +99,49 @@ function Crops.hasAnyPlan(world)
   return next(fields.plan) ~= nil or next(fields.tilled) ~= nil or next(world.state.crops) ~= nil
 end
 
--- Free tillable tiles near the truck, best first: close to water, close to the truck, good soil.
+-- Tiles the homesteader can walk to from the truck within `radius` (4-neighbour flood fill over walkable
+-- tiles, so anything it reaches here the pathfinder reaches too). Returns a set { [i] = true }.
+local ORTHO = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }
+
+local function reachableFromTruck(world, anchor, radius)
+  local grid = world.state.grid
+  local reached, queue, head = {}, {}, 1
+  local function visit(i)
+    if not reached[i] and Grid.walkable(world, i) and Grid.distance(grid, i, anchor) <= radius then
+      reached[i] = true
+      queue[#queue + 1] = i
+    end
+  end
+  local ax, ay = Grid.coords(grid, anchor)
+  for dy = -1, 1 do
+    for dx = -1, 1 do
+      if Grid.inBounds(grid, ax + dx, ay + dy) then
+        visit(Grid.index(grid, ax + dx, ay + dy))
+      end
+    end
+  end
+  local spawn = Land.spawn(world)
+  if spawn then
+    visit(spawn)
+  end
+  while head <= #queue do
+    local x, y = Grid.coords(grid, queue[head])
+    head = head + 1
+    for _, d in ipairs(ORTHO) do
+      if Grid.inBounds(grid, x + d[1], y + d[2]) then
+        visit(Grid.index(grid, x + d[1], y + d[2]))
+      end
+    end
+  end
+  return reached
+end
+
+-- A compact block of `count` free tillable tiles near the truck (D88, #137). Each candidate has a
+-- base score (water distance, truck distance, soil: lower is better) and must be workable from a tile
+-- the homesteader can walk to from the truck. The block grows from the best-scoring tile: every next
+-- tile touches the block, and each neighbouring tile (8 around it) already in it lowers the tile's score by
+-- starterAdjacencyWeight, so the field fills out as a lump instead of a strip along the creek.
+-- Deterministic (ties go to the lower index); uses no randomness. Returns tiles in growth order.
 local function starterTiles(world, count)
   local cfg = world.tuning.farming
   local grid, fields = world.state.grid, world.state.fields
@@ -110,7 +152,8 @@ local function starterTiles(world, count)
       water[#water + 1] = i
     end
   end
-  local scored = {}
+  local reached = reachableFromTruck(world, anchor, cfg.starterRadius + 1)
+  local base = {}
   for i = 1, #grid.terrain do
     if
       Grid.distance(grid, i, anchor) <= cfg.starterRadius
@@ -121,32 +164,72 @@ local function starterTiles(world, count)
       and not fields.held[i]
       and not world.state.crops[i]
     then
-      local nearest = #water > 0 and math.huge or 0
-      for _, w in ipairs(water) do
-        nearest = math.min(nearest, Grid.distance(grid, i, w))
+      -- workable: a reached walkable tile is within one step of it (or it is one itself)
+      local x, y = Grid.coords(grid, i)
+      local ok = false
+      for dy = -1, 1 do
+        for dx = -1, 1 do
+          if Grid.inBounds(grid, x + dx, y + dy) and reached[Grid.index(grid, x + dx, y + dy)] then
+            ok = true
+          end
+        end
       end
-      local score = cfg.starterWaterWeight * nearest
-        + cfg.starterTruckWeight * Grid.distance(grid, i, anchor)
-        - cfg.starterSoilWeight * grid.soil[i]
-      scored[#scored + 1] = { i = i, score = score }
+      if ok then
+        local nearest = #water > 0 and math.huge or 0
+        for _, w in ipairs(water) do
+          nearest = math.min(nearest, Grid.distance(grid, i, w))
+        end
+        base[i] = cfg.starterWaterWeight * nearest
+          + cfg.starterTruckWeight * Grid.distance(grid, i, anchor)
+          - cfg.starterSoilWeight * grid.soil[i]
+      end
     end
   end
-  table.sort(scored, function(a, b)
-    if a.score ~= b.score then
-      return a.score < b.score
+  local tiles, chosen = {}, {}
+  while #tiles < count do
+    local best, bestScore, bestTouch
+    for i, b in pairs(base) do
+      if not chosen[i] then
+        local x, y = Grid.coords(grid, i)
+        local near, room, touch = 0, 0, false
+        for dy = -1, 1 do
+          for dx = -1, 1 do
+            if (dx ~= 0 or dy ~= 0) and Grid.inBounds(grid, x + dx, y + dy) then
+              if chosen[Grid.index(grid, x + dx, y + dy)] then
+                touch = true
+                near = near + 1
+              end
+              if base[Grid.index(grid, x + dx, y + dy)] then
+                room = room + 1
+              end
+            end
+          end
+        end
+        -- the seed tile has no block to touch yet: prefer one with open ground around it, so the block can grow
+        local score = b - cfg.starterAdjacencyWeight * (#tiles == 0 and room or near)
+        -- touching the block beats not touching (the seed tile has nothing to touch); then the lower
+        -- score, then the lower index
+        local better = best == nil
+          or (touch and not bestTouch)
+          or (touch == bestTouch and (score < bestScore or (score == bestScore and i < best)))
+        if better then
+          best, bestScore, bestTouch = i, score, touch
+        end
+      end
     end
-    return a.i < b.i
-  end)
-  local tiles = {}
-  for k = 1, math.min(count, #scored) do
-    tiles[k] = scored[k].i
+    if not best then
+      break
+    end
+    chosen[best] = true
+    tiles[#tiles + 1] = best
   end
   return tiles
 end
 
 --- Plan the default starter field (tuning.farming.starterField) when nothing is planned, tilled or
 --- growing. Never overrides a player's layout. Skips frozen ground, crops that could not ripen
---- before the freeze, and crops with no seed in stock (one tile per seed). Deterministic: no RNG.
+--- before the freeze, and crops with no seed in stock (one tile per seed). The field is one compact
+--- block reachable from the truck (D88). Deterministic: no RNG.
 --- Returns the list of planned tile indices (empty if nothing was planned).
 function Crops.planStarter(world)
   local planned = {}
@@ -155,14 +238,23 @@ function Crops.planStarter(world)
   end
   local cfg = world.tuning.farming
   local daysLeft = Weather.daysToFreeze(world)
+  local wanted, total = {}, 0
   for _, entry in ipairs(cfg.starterField) do
     local def = world.registry:get("crops", entry.crop)
-    local seeds = Ledger.get(world, def.seed)
-    local count = math.min(entry.tiles, seeds)
+    local count = math.min(entry.tiles, Ledger.get(world, def.seed))
     if count > 0 and daysLeft >= def.growDays + cfg.starterFrostMargin then
-      for _, i in ipairs(starterTiles(world, count)) do
-        Crops.setPlan(world, i, def.id)
-        planned[#planned + 1] = i
+      wanted[#wanted + 1] = { def = def, count = count }
+      total = total + count
+    end
+  end
+  local tiles = starterTiles(world, total)
+  local n = 0
+  for _, w in ipairs(wanted) do
+    for _ = 1, w.count do
+      n = n + 1
+      if tiles[n] then
+        Crops.setPlan(world, tiles[n], w.def.id)
+        planned[#planned + 1] = tiles[n]
       end
     end
   end
