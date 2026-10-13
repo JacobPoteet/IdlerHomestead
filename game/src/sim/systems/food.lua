@@ -1,10 +1,12 @@
 -- Food rules & the sell crate (GDD §6.2).
 --
 -- The crate is a reservation on ledger stock, not a separate store: crate[id] units are marked for
--- sale but stay in the ledger (still edible in a pinch, still spoiling). Selling removes them.
+-- sale but stay in the ledger (still edible in a pinch, still spoiling). Selling removes them,
+-- oldest batch first like everything else that takes stock (D73: ages live in spoilage.lua and
+-- belong to the stock, so moving units between pantry and crate never changes them).
 -- Rules, re-applied every tuning.food.rulesInterval in-game hours:
 --   1. Preserved food fills the winter stock first: winterDays of eating.
---   2. Fresh food (has spoilDays) fills the pantry: pantryDays of eating.
+--   2. Fresh food (has a shelf life) fills the pantry: pantryDays of eating.
 --   3. Fresh food that keeps for winter (potatoes) tops up the winter stock.
 --   4. Fresh food that a placed processor can preserve is held for preserving while the winter
 --      stock is short.
@@ -12,7 +14,7 @@
 -- Per-item pins override: "keep" (never sell), "sell" (always sell), "preserve" (hold to preserve).
 -- A separate "truck only" flag per item keeps it out of the roadside stand's daily sale (D62).
 -- Automatic pantry (D68, #163): a new run's pantry holds a perishable only up to
--- tuning.food.autoPantryHorizon of its spoilDays, so surplus goes to the crate instead of rotting.
+-- tuning.food.autoPantryHorizon of its shelf life, so surplus goes to the crate instead of rotting.
 -- Moving the "keep N days" stepper turns the automatic mode off (the number then means what it
 -- always did); saves from before D68 have no flag and keep their manual rule.
 --
@@ -24,6 +26,7 @@
 
 local Calendar = require("src.sim.systems.calendar")
 local Ledger = require("src.sim.systems.ledger")
+local Spoilage = require("src.sim.systems.spoilage")
 
 local Food = {}
 
@@ -113,8 +116,9 @@ end
 --- the food keeps while the automatic pantry is on.
 function Food.pantryHoldDays(world, res)
   local state = world.state.food
-  if state.pantryAuto and res.spoilDays then
-    return math.min(state.pantryDays, res.spoilDays * world.tuning.food.autoPantryHorizon)
+  local life = Spoilage.shelfLife(world, res.id)
+  if state.pantryAuto and life then
+    return math.min(state.pantryDays, life * world.tuning.food.autoPantryHorizon)
   end
   return state.pantryDays
 end
@@ -157,7 +161,7 @@ function Food.sort(world)
   -- Preserved goods count toward the winter stock.
   for _, res in ipairs(resources) do
     local amount = Ledger.get(world, res.id)
-    if amount > 0 and res.calories and not res.spoilDays then
+    if amount > 0 and res.calories and not Spoilage.perishable(world, res.id) then
       local keep = math.min(amount, math.ceil(math.max(0, winterLeft) / res.calories))
       winterLeft = winterLeft - keep * res.calories
       crate[res.id] = amount - keep
@@ -166,7 +170,7 @@ function Food.sort(world)
   -- Fresh food fills the pantry, then waits to be preserved, then is sold.
   for _, res in ipairs(resources) do
     local amount = Ledger.get(world, res.id)
-    if amount > 0 and res.calories and res.spoilDays then
+    if amount > 0 and res.calories and Spoilage.perishable(world, res.id) then
       -- The automatic pantry holds a perishable only as long as it is eaten before it spoils.
       local room = math.max(0, pantryLeft)
       if state.pantryAuto then

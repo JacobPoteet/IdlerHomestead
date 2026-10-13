@@ -73,20 +73,24 @@ crop.harvested / fish.caught / eggs --> ledger (one stock per resource)
   preserve:  smoker (4 fish, 6 h, 2 wood) -> smoked fish (no spoilage, 700 kcal, $10)  |  canned food (bought)
 ```
 
-Exact spoilage rules (also posted on #151):
+Exact spoilage rules. Superseded on 2026-10-12 by shelf-life batches (GDD D73, #183); the aggregate rules first posted on #151 are summarised after the table.
 
 | Rule | Source | Value |
 |---|---|---|
 | When | `Spoilage.daily`, on `calendar.newDay` (midnight), before `Needs.eat` | once a day |
-| Which stock | every resource with `spoilDays`, the whole ledger count | pantry and sell crate spoil equally (D31); there is no batch and no age |
-| Expected loss | `floor(amount / (spoilDays * keeps) + rng:float())`, rng stream `spoilage` | about `1/spoilDays` of the stock a day: fish 50 percent, radish 25 percent, egg 7 percent (14 days), potato 5 percent |
-| Small stocks | the floor plus a random draw | 1 radish has a 25 percent chance to go tonight; 2 fish lose exactly 1; 3 fish lose 1 or 2 |
-| Slows it | a powered chest freezer: `keeps = 1 + Power.effect("spoilSlow")`, `spoilSlow = 3` scaled by how well it is powered | up to 4x slower (fish 12.5 percent, radish 6 percent, potato 1 percent a day); the effect eases in and out over about 8 hours (`inertia`) |
-| Does not slow it | winter or any season, pantry vs crate, the Stand cooler (it only adds sales cap, though its line says food keeps), cold weather | nothing |
-| Immune | `preserved` category (smoked fish, canned food), non-food goods | no `spoilDays` |
-| Event | `food.spoiled { resource, category, amount }`, one per resource per night | toast `N Radish spoiled` (not queued: replaces whatever toast is showing); first spoil of each category writes a note |
+| Batches | every harvest, catch or collection of a perishable is a batch with its own age; same-day additions merge; `world.state.spoilage.batches`, oldest first | the ledger still holds the amounts; batches follow `ledger.changed` |
+| Shelf life | `tuning.food.shelfLife` (by resource id, then category) | fish 2 days, milk 2, radish 7, egg 14, potato 21; nothing spoils before it |
+| After it | `tuning.food.rotShare` of a batch past its shelf life rots each night (rounded up) | half a night: 10 radishes go 5, 3, 1, 1 |
+| Who takes what | eating, truck and stand sales, preserving, the cat, mice | the oldest batch first (FIFO); pantry vs crate does not change ages (D31) |
+| Slows it | a powered chest freezer: a night ages food by `1 / keeps`, `keeps = 1 + Power.effect("spoilSlow")`, `spoilSlow = 3` scaled by how well it is powered | up to 4x the shelf life; the effect eases in and out over about 8 hours (`inertia`) |
+| Does not slow it | winter or any season, pantry vs crate, the Stand cooler, cold weather | nothing |
+| Immune | anything without a shelf life: `preserved` (smoked fish, cheese, canned food), non-food goods | never spoils |
+| Randomness | none | deterministic |
+| Event | `food.spoiled { resource, category, amount }` per resource, one `food.spoilReport` per night | toast and first-spoil card, morning report line; first spoil of each category writes a note |
 
-Consequences a beginner cannot see: stock is not per batch, so "days until this batch spoils" does not exist in the model, only a daily rate. Spoilage runs before eating, so a harvest is taxed before it is eaten. The default pantry keeps 3 days of food (9000 kcal, `food.defaultPantryDays`), but only 3000 kcal is eaten a day, so extra radishes sit in the pantry losing a quarter a night while the sell crate stays empty (rules 1 to 5 in `food.lua`; only food beyond the pantry, winter stock and held-for-smoker goes to the crate).
+What the player sees now: each perishable row in the Pantry says how long the food keeps and when its oldest batch spoils ("in 3 days", "tomorrow night", "tonight: 4 will rot"); the red chip and the Pantry warning appear only when something will actually rot tonight.
+
+The model this review was written against (D38, D68): every resource with `spoilDays` lost about `1/spoilDays` of its whole stock each night (fish 50 percent, radish 25, egg 7, potato 5), rounded with a seeded draw, and new food rotted like old. Consequences a beginner could not see: stock was not per batch, so "days until this batch spoils" did not exist in the model, only a daily rate. Spoilage runs before eating, so a harvest is taxed before it is eaten. The default pantry keeps 3 days of food (9000 kcal, `food.defaultPantryDays`), but only 3000 kcal is eaten a day, so extra radishes sit in the pantry losing a quarter a night while the sell crate stays empty (rules 1 to 5 in `food.lua`; only food beyond the pantry, winter stock and held-for-smoker goes to the crate).
 
 ### Other loops, briefly
 

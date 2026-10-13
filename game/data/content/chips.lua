@@ -76,9 +76,9 @@ return {
   {
     id = "spoiled",
     name = "Spoiling tonight",
-    unit = "units of food expected to rot tonight",
-    about = "Fresh food that will probably go bad before morning.",
-    raises = "Fresh food sitting in the pantry for days; fish spoil fastest.",
+    unit = "units of food that rot tonight",
+    about = "Fresh food older than its shelf life goes bad overnight. Only shown when something will.",
+    raises = "Old batches left too long. Fish and milk keep only a couple of days; the Pantry shows each food's.",
     lowers = "Eat, sell or preserve it (smoking, a freezer).",
     panel = "pantry",
     panelLabel = "Open Pantry",

@@ -87,7 +87,13 @@ end
 
 function headlines.spoiled(world)
   local tonight = Spoilage.tonight(world)
-  return string.format("About %d units of food expected to rot tonight.", math.floor(tonight.expected + 0.5))
+  local one = tonight.units == 1
+  return string.format(
+    "%d %s of food at the end of %s shelf life will rot tonight.",
+    tonight.units,
+    one and "unit" or "units",
+    one and "its" or "their"
+  )
 end
 
 function headlines.water(world)

@@ -17,6 +17,7 @@ Idle / roguelite homestead game in LÖVE 11.5 (LuaJIT). The design source of tru
 - Every tuning value gets a comment with its unit and intent.
 - All randomness goes through the seeded RNG service.
 - Save slot state = `{ meta = ..., run = ... }`. Run state is discarded on failure, and meta persists.
+- No save migrations before launch, and saves do not need to load older shapes: **bump `Save.SAVE_COMPAT`** (`game/src/core/save.lua`) on a breaking save change and update the fingerprint in `tests/test_save_compat.lua` (it fails until you do). Older saves get a "can't be loaded" prompt (Delete / Keep), never a silent delete (GDD D74).
 - Input goes through the action abstraction (mouse, touch, keyboard). No hover-only UI. Platform-specific features check capability flags, never OS names.
 - Sim state is plain serializable tables, kept separate from definitions.
 - `game/src/render/` is presentation: it reads sim state and never changes it. Sprites are looked up by id through `game/assets/manifest.lua` (placeholders in `src/render/placeholders.lua`); shaders live in `game/shaders/` with parameters in `data/tuning/visuals.lua`. See docs/ASSETS.md.

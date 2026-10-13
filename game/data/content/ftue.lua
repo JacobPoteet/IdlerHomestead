@@ -71,7 +71,7 @@ return {
     doneFlag = "spoilExplained",
     card = false,
     replay = "spoil",
-    text = "Fresh food spoils. Eat it, sell it or smoke it.",
+    text = "Fresh food keeps for a while, then spoils. Eat it, sell it or smoke it before then.",
   },
   {
     id = "fish",

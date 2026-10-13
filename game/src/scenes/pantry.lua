@@ -1,7 +1,7 @@
 -- Pantry & food rules (GDD §6.2): how many days to keep, how much to preserve for winter, and
 -- per-item pins. Everything else goes in the sell crate for the next truck trip.
--- Perishables show their nightly spoilage rate, tonight's expected loss and a warning when a
--- meaningful amount will rot (D68, #151); a footer says what slows it.
+-- Perishables show how long they keep and when their oldest batch spoils, with a warning when
+-- something will rot tonight (D68, D73); a footer says what slows it.
 
 local Ledger = require("src.sim.systems.ledger")
 local Food = require("src.sim.systems.food")
@@ -36,7 +36,7 @@ function Pantry:goods()
   local fresh, rest = {}, {}
   for _, res in ipairs(self.world.registry:all("resources")) do
     if Ledger.get(self.world, res.id) > 0 and (res.calories or res.value) then
-      local list = res.spoilDays and fresh or rest
+      local list = Spoilage.perishable(self.world, res.id) and fresh or rest
       list[#list + 1] = res
     end
   end
@@ -62,7 +62,10 @@ function Pantry:footer()
   local tonight = Spoilage.tonight(world)
   if tonight.warn then
     lines[#lines + 1] = {
-      text = string.format("Warning: about %d units will rot tonight. Eat, sell or preserve them.", math.floor(tonight.expected + 0.5)),
+      text = string.format(
+        "Warning: %s of food will rot tonight (at the end of its shelf life). Eat, sell or preserve it.",
+        tonight.units == 1 and "1 unit" or (tonight.units .. " units")
+      ),
       color = theme.colors.danger,
     }
   end
@@ -249,7 +252,7 @@ function Pantry:draw()
     if info then
       -- The "!" keeps the warning readable without relying on colour.
       Text.draw(
-        (warn and "! " or "") .. SpoilText.rateLine(info),
+        (warn and "! " or "") .. SpoilText.ageLine(info),
         b.x + 30,
         row.y + ROW_H - 2,
         { size = "small", color = warn and theme.colors.danger or theme.colors.textDim }
