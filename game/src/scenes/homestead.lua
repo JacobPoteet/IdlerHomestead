@@ -2752,6 +2752,7 @@ function Homestead:draw()
   self.camera:attach(view)
   self.renderer:drawLights({ x1, y1, x2, y2 }, daylight)
   self.renderer:drawAmbient({ x1, y1, x2, y2 }, daylight)
+  self.renderer:drawCropCues({ x1, y1, x2, y2 }, daylight)
   if self.selected then
     self.renderer:drawSelection(self.selected, view.scale * self.camera:zoom())
   end

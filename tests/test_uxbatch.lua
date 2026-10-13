@@ -15,6 +15,7 @@ local Inventory = require("src.sim.systems.inventory")
 local Power = require("src.sim.systems.power")
 local Shelter = require("src.sim.systems.shelter")
 local TripMarker = require("src.render.trip_marker")
+local CropCues = require("src.render.crop_cues")
 local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
@@ -612,4 +613,35 @@ T.test("trip marker: shown only while a trip is ready and the player is home", f
     local dy = TripMarker.offset(t * 0.1, cfg, false)
     T.truthy(dy >= 0 and dy <= cfg.bobPixels and dy == math.floor(dy), "whole art pixels inside the bob")
   end
+end)
+
+T.test("crop cues: ripe, thirsty and planned map from sim state (D102)", function()
+  T.eq(CropCues.cue(nil), nil)
+  T.eq(CropCues.cue({ growth = 0.3, moisture = 1 }), nil, "watered and growing: no cue")
+  T.eq(CropCues.cue({ growth = 0.3, moisture = 0 }), "thirsty")
+  T.eq(CropCues.cue({ growth = 1, moisture = 0 }), "ready", "ripe wins over dry (a ripe crop needs no water)")
+  T.eq(CropCues.cue({ growth = 1.2, moisture = 1 }), "ready")
+  T.eq(CropCues.planState("radish", false, nil), "planned_bare")
+  T.eq(CropCues.planState("radish", true, nil), "planned_tilled")
+  T.eq(CropCues.planState("radish", true, { growth = 0, moisture = 0 }), nil, "a planted tile is a plant, not a plan")
+  T.eq(CropCues.planState(nil, true, nil), nil)
+end)
+
+T.test("crop cues: sparkle is always visible, still under reduce motion", function()
+  local cfg = tun.visuals.cropCues
+  local a, frame = CropCues.sparkle(5, 3, 4, cfg, true)
+  T.eq(a, cfg.sparkleRest)
+  T.eq(frame, 1)
+  local sawStar = false
+  for t = 0, 60 do
+    local alpha, f = CropCues.sparkle(t * 0.05, 3, 4, cfg, false)
+    T.truthy(alpha >= cfg.sparkleRest - 1e-9 and alpha <= 1 + 1e-9, "never fades out")
+    T.truthy(f == 1 or f == 2)
+    sawStar = sawStar or f == 2
+  end
+  T.truthy(sawStar, "it twinkles")
+  T.truthy(CropCues.iconAlpha(0, cfg) < CropCues.iconAlpha(1, cfg), "icons dim a little at night")
+  T.truthy(CropCues.iconAlpha(0, cfg) > 0.5, "but stay readable")
+  T.eq(CropCues.nightLift(1, cfg), 0)
+  T.eq(CropCues.nightLift(0, cfg), cfg.nightLift, "full lift in the dark")
 end)

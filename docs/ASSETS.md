@@ -69,7 +69,11 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 |---|---|---|
 | `radish_1..3` | M1 | Ready stage shows the red root. |
 | `potato_1..3` | M1 | Ready stage flowers. |
+| `cue_droplet`, `cue_ready_1..2` | D102 | Thirsty droplet (7x9) and ripe sparkle frames (7x7), drawn over the graded world above the tile's top right. |
+| `plan_marker` | D102 | Dashed frame for a planned tile; the renderer draws a faint `<crop>_1` ghost inside it. |
 | More crops | M6–M7 | Carrots, beans, squash, corn (tall), greenhouse crops. |
+
+**Readability rules for crop and small-sprite art (#20, D102).** Give every crop stage a dark 1-pixel edge and a bright interior (the placeholder `p:outline(C.outline)` does this), keep the sprout at least about 8 pixels wide, and make stages differ by silhouette, not tint alone. The night grade multiplies colour, so contrast must come from the art and from `visuals.cropCues.nightLift`; do not rely on hue. The thirsty droplet and ripe sparkle are separate sprites drawn by the renderer, so real crop art should not paint them in. Tune in `data/tuning/visuals.lua` (`cropCues`) and check with `lovec tools/driver crops`.
 
 ### Actors (16×20)
 
