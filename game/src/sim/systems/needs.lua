@@ -8,6 +8,7 @@
 -- when Condition hits 0 (the day's shortfalls and the shelter, so the rescue can say what failed).
 
 local Calendar = require("src.sim.systems.calendar")
+local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
 local Power = require("src.sim.systems.power")
 local Shelter = require("src.sim.systems.shelter")
@@ -82,11 +83,10 @@ end
 --- sleeping shelter's heater slot delivers only part of its warmth (D82, Shelter.heatReach).
 function Needs.heatEfficiency(world)
   local best = 0
-  for anchor, obj in pairs(world.state.grid.objects) do
-    local heat = world.registry:get("objects", obj.id).heatSource
-    if heat then
-      best = math.max(best, heat * Shelter.heatReach(world, anchor))
-    end
+  local objects = world.state.grid.objects
+  -- The cached index of heat sources (D58), not a scan of every placed object: the HUD asks every frame.
+  for _, anchor in ipairs(Grid.anchorsWith(world, "heatSource")) do
+    best = math.max(best, world.registry:get("objects", objects[anchor].id).heatSource * Shelter.heatReach(world, anchor))
   end
   return best
 end

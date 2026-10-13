@@ -212,17 +212,24 @@ function overlayStats.draw()
   local contentWidth = math.max(versionTextWidth, rendererInfoWidth, systemInfoWidth, baseWidth)
   local rectangleWidth = contentWidth + padding
 
+  -- Project lines (sim / update / draw milliseconds, #19) from overlayStats.extraLines, if set.
+  local extra = overlayStats.extraLines and overlayStats.extraLines() or {}
+  for _, line in ipairs(extra) do
+    rectangleWidth = math.max(rectangleWidth, font:getWidth(line) + padding)
+  end
+  local rectangleHeight = 340 + 20 * #extra
+
   -- Update the overlay area dimensions for touch detection
   overlayStats.touch.overlayArea = {
     x = 10,
     y = 10,
     width = rectangleWidth,
-    height = 340
+    height = rectangleHeight
   }
 
   -- Draw background rectangle with dynamic width
   love.graphics.setColor(0, 0, 0, 0.8)
-  love.graphics.rectangle("fill", 10, 10, rectangleWidth, 340)
+  love.graphics.rectangle("fill", 10, 10, rectangleWidth, rectangleHeight)
   love.graphics.setColor(0.678, 0.847, 0.902, 1)
 
   -- System Info
@@ -251,6 +258,11 @@ function overlayStats.draw()
   local fps = frameTime > 0 and (1 / frameTime) or 0
   love.graphics.print(string.format("FPS: %.1f (%.1fms)", fps, frameTime * 1000), 20, y)
   y = y + 20
+
+  for _, line in ipairs(extra) do
+    love.graphics.print(line, 20, y)
+    y = y + 20
+  end
 
   -- Reset canvases each frame
   local currentCanvases = love.graphics.getStats().canvases

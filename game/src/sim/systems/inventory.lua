@@ -27,6 +27,22 @@ function Inventory.equipmentIds(world)
   return ids
 end
 
+--- The same sorted ids written into the caller's scratch list `into` (entries past the returned count
+--- are stale): allocation-free for hot paths such as Stats.modifier. Returns the count.
+function Inventory.fillEquipmentIds(world, into)
+  local n = 0
+  for id in pairs(world.state.inventory.equipment) do
+    local j = n
+    while j >= 1 and into[j] > id do
+      into[j + 1] = into[j]
+      j = j - 1
+    end
+    into[j + 1] = id
+    n = n + 1
+  end
+  return n
+end
+
 function Inventory.addEquipment(world, id)
   world.registry:get("catalog", id)
   world.state.inventory.equipment[id] = true

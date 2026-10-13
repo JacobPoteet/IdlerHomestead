@@ -480,8 +480,13 @@ function Renderer:draw(alpha, visible, daylight)
       }
     end
   end
+  local defs, registry = {}, world.registry -- id -> definition, looked up once per frame
   for anchor, obj in pairs(grid.objects) do
-    local def = world.registry:get("objects", obj.id)
+    local def = defs[obj.id]
+    if not def then
+      def = registry:get("objects", obj.id)
+      defs[obj.id] = def
+    end
     local x, y = Grid.coords(grid, anchor)
     local fh = def.footprintH or 1
     if x + (def.footprintW or 1) >= x1 and x <= x2 and y + fh >= y1 and y <= y2 then

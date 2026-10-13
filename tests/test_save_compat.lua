@@ -111,18 +111,18 @@ local function fingerprint(list)
   return string.format("%08x", h)
 end
 
--- The shape of a default new game as a slot would save it.
+-- The shape of a default new game as a slot would save it (the file form: grid arrays packed, D103).
 local function newGameShape()
   local data = Save.newSlotData("Shape")
   local world = World.new({ registry = reg, tuning = tun, meta = data.meta }, World.newState(1))
   data.run = world.state
-  return paths(serialize.decode(serialize.encode(data)), "slot", 1, {})
+  return paths(serialize.decode(serialize.encode(Save.forDisk(data))), "slot", 1, {})
 end
 
 -- When this fails: the saved state changed shape. If old saves can no longer be read correctly,
 -- bump Save.SAVE_COMPAT in game/src/core/save.lua (no migrations before launch, D74), then update
 -- EXPECTED below to the new stamp and fingerprint the failure prints.
-local EXPECTED = { compat = 6, fingerprint = "2963f51b" }
+local EXPECTED = { compat = 7, fingerprint = "a3568c08" }
 
 T.test("compat: the saved-state shape matches the SAVE_COMPAT it was stamped with", function()
   local list = newGameShape()
