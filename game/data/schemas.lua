@@ -45,7 +45,12 @@ return {
     drip = "table?", -- drip line: { radius = tiles }; waters thirsty crops in range from the cistern stock, no actor
     battery = "number?", -- kWh of storage
     station = "string?", -- processor station id used by recipes (e.g. "smoker")
-    shelter = "boolean?", -- the homesteader sleeps here (GDD §5.3 shelter ladder)
+    shelter = "boolean?", -- the homesteader sleeps here (GDD §5.3 shelter ladder, D82)
+    shelterRank = "number?", -- shelter: higher is better; Sleep picks the best reachable (truck 0, camp 1, shack 2)
+    insulation = "number?", -- shelter: multiplier on the night's warmth need (1 = none, lower keeps more heat)
+    recovery = "number?", -- shelter: multiplier on the daily Condition recovery of a fed, warm day
+    heaterRadius = "number?", -- shelter: tiles within which a heat source delivers its warmth in full (beyond it: tuning.shelter.farHeat)
+    studySpeed = "number?", -- shelter: study speed added while resting there (a desk)
     heatSource = "number?", -- burns fuel for warmth; warmth per unit of fuel heat (efficiency)
     splitter = "boolean?", -- wood is split into firewood here
     chop = "boolean?", -- an axe (chopSpeed) speeds up clearing it

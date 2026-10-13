@@ -25,6 +25,7 @@ return {
   "cat",
   "animals",
   "threats",
+  "shelter", -- D82: accessors only (insulation, heater slot, best bed); read by power, needs, sleep
   "needs",
   "sleep",
   "actors",

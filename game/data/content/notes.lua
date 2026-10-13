@@ -206,6 +206,26 @@ return {
     event = "needs.warmed",
     match = { shortfall = { min = 0.001 } },
   },
+  -- Shelter ladder (D82): the night spent in each place writes what it was like, which makes the
+  -- next rung an idea.
+  {
+    id = "truck_cold",
+    name = "Cold cab",
+    line = "The truck cab holds no heat at all.",
+    hint = "Sleep through a chilly night in the truck",
+    icon = "icon_cold",
+    event = "needs.warmed",
+    match = { shelter = "truck", needed = { min = 0.5 } },
+  },
+  {
+    id = "camp_cold",
+    name = "Canvas night",
+    line = "Canvas keeps the wind off, not the cold.",
+    hint = "Sleep through a chilly night in a camp",
+    icon = "icon_cold",
+    event = "needs.warmed",
+    match = { shelter = "camp", needed = { min = 0.5 } },
+  },
   {
     id = "first_frost",
     name = "First frost",

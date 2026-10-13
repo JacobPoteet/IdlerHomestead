@@ -10,6 +10,7 @@
 
 local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
+local Shelter = require("src.sim.systems.shelter")
 local Tasks = require("src.sim.systems.tasks")
 
 local Sleep = {}
@@ -53,13 +54,22 @@ local function shelters(world)
   return Grid.anchorsWith(world, "shelter")
 end
 
---- A job that walks the actor to bed, or nil if no shelter can be reached.
+--- A job that walks the actor to bed, or nil if no shelter can be reached. The best reachable
+--- shelter wins (D82: camp over truck, shack over camp); the nearest breaks a tie in rank.
 function Sleep.bedJob(world, actor)
-  local best
+  local best, bestAnchor
   for _, anchor in ipairs(shelters(world)) do
     local job = Tasks.jobFor(world, actor, "sleep", anchor)
-    if job and (not best or #job.path < #best.path) then
-      best = job
+    if job then
+      local better = not best
+      if not better then
+        local ra = Shelter.rank(world, anchor)
+        local rb = Shelter.rank(world, bestAnchor)
+        better = ra > rb or (ra == rb and #job.path < #best.path)
+      end
+      if better then
+        best, bestAnchor = job, anchor
+      end
     end
   end
   return best
@@ -84,10 +94,11 @@ function Sleep.init(world)
     workTime = function()
       return 0
     end,
-    complete = function(w, actor)
+    complete = function(w, actor, i)
       if Sleep.isBedtime(w) then
         actor.asleep = true
-        w.events:emit("sleep.started", { actor = actor.id })
+        local obj = Grid.object(w, i)
+        w.events:emit("sleep.started", { actor = actor.id, shelter = obj and obj.id or nil })
       end
     end,
   })

@@ -408,6 +408,59 @@ function P.woodshed(p)
   end
 end
 
+-- Shelter ladder (D82) ------------------------------------------------------------------
+
+local CANVAS = { 0.74, 0.70, 0.55 }
+local CANVAS_DARK = { 0.58, 0.54, 0.40 }
+
+function P.camp(p) -- 32x32: a canvas lean-to with a bedroll under it
+  p:ellipse(16, 29, 15, 3, C.shadow)
+  p:rect(2, 24, 28, 3, CANVAS_DARK)
+  for row = 0, 12 do -- sloped canvas roof
+    local inset = 13 - row
+    p:rect(3 + inset, 8 + row, 26 - inset * 2 + 1, 1, row % 4 == 3 and CANVAS_DARK or CANVAS)
+  end
+  p:rect(15, 5, 2, 20, C.barkDark) -- ridge pole
+  p:rect(7, 21, 18, 4, C.shirtDark) -- bedroll in the doorway
+  p:rect(7, 21, 18, 1, C.shirt)
+  p:rect(10, 23, 12, 2, C.barkDark)
+  p:px(14, 10, CANVAS_DARK)
+  p:px(18, 14, CANVAS_DARK)
+end
+
+function P.shack(p) -- 48x32: a small plank shack with a tin roof, a window and a stove pipe
+  p:ellipse(24, 30, 23, 3, C.shadow)
+  p:rect(2, 12, 44, 17, C.barkLight) -- plank walls
+  for x = 2, 44, 4 do
+    p:rect(x, 12, 1, 17, C.bark)
+  end
+  p:rect(0, 7, 48, 5, C.metal) -- tin roof
+  p:rect(0, 7, 48, 1, { 0.70, 0.72, 0.74 })
+  p:rect(0, 11, 48, 1, C.barkDark)
+  p:rect(36, 1, 3, 8, { 0.20, 0.20, 0.22 }) -- stove pipe
+  p:rect(7, 17, 9, 7, C.barkDark) -- window
+  p:rect(8, 18, 7, 5, { 0.86, 0.78, 0.50 }) -- lit glass
+  p:rect(11, 18, 1, 5, C.barkDark)
+  p:rect(26, 15, 9, 14, C.barkDark) -- door
+  p:rect(27, 16, 7, 12, C.bark)
+  p:px(32, 23, C.metal)
+end
+
+function P.icon_camp(p)
+  for row = 0, 6 do
+    local inset = 6 - row
+    p:rect(1 + inset, 3 + row, 10 - inset * 2 + 1, 1, CANVAS)
+  end
+  p:rect(5, 9, 3, 1, C.shirtDark)
+end
+
+function P.icon_shack(p)
+  p:rect(0, 3, 12, 2, C.metal)
+  p:rect(1, 5, 10, 6, C.barkLight)
+  p:rect(2, 6, 3, 3, { 0.86, 0.78, 0.50 })
+  p:rect(7, 7, 3, 4, C.barkDark)
+end
+
 function P.wood_stove(p)
   p:ellipse(8, 22, 7, 2, C.shadow)
   p:rect(11, 0, 2, 9, { 0.20, 0.20, 0.22 }) -- stove pipe

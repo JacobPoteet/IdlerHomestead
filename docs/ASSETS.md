@@ -51,7 +51,8 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 | `wood_stove` | 16×24 | M3 | Better heat source than the campfire. |
 | Sell crate, delivery drop-off | 16×16 | Later | The crate is only a HUD count for now; deliveries appear instantly. |
 | Woodpile / woodshed | 16×16 / 32×32 | M3 | Firewood stock shown visually. |
-| Shack / cabin | 32×32+ | M3 | |
+| `camp` 32×32 (2×2 footprint, canvas lean-to with a bedroll), `shack` 48×32 (3×2, plank walls, tin roof, stove pipe, a window that reads lit), icons `icon_camp`, `icon_shack` 12×12 | M5 (placeholder) | Shelter ladder (#198, D82). Needs: real tent and shack art, smoke from the shack chimney, a lit window at night as input for the night-lights shader (#193), a cabin and workshop later. |
+| Cabin | 48×48+ | Later | #198 later tiers. |
 | `well` 16×24, `hand_pump`, `dc_pump`, `drip_line` 16×16, `cistern` 32×16 (2×1) | various | M5 (placeholders) | Water ladder (#35). Icons `icon_<object>` are 12×12. Needs: handle and bucket animation, cistern water levels (a code-drawn gauge today), pump on/off art, hose lines for the drip line (a status lamp and zone tint today). See #94. |
 | `solar_array` 32x16 (2x1), `battery_bank`, `micro_hydro`, `generator`, `electric_heater`, `lamp`, `chest_freezer` 16x16, `wind_turbine` 16x32 | various | M5 (placeholders) | Power network (#34). The turbine needs blade animation; the generator, heater and freezer need on/off art states (today a status light is drawn over them, see `visuals.powerLamp`). Icons `icon_<object>` and `icon_fuel` are 12x12. |
 | Roadside stand `roadside_stand` 32×24 (2×1 footprint, tall awning), icon `icon_roadside_stand` 12×12 (reused for the three upgrade icons) | M5 (placeholder) | Roadside stand (#37). Needs: real awning and table art, goods that show what is on sale, upgrade looks (sign, cooler, display rack). |

@@ -337,7 +337,7 @@ local function playRun(ctx, session, policyName, seed, years, features)
   result.counters.standUnits = Stand.total(world).units
   result.counters.machineHarvests = Machines.done(world)
   result.owned = {}
-  for _, id in ipairs({ "shelter_cat", "chicken_coop", "chicken_fence", "goat_pen", "goat_trailer", "cheese_press", "roadside_stand", "stand_sign", "stand_cooler", "stand_display", "well", "cistern", "dc_pump", "drip_line", "hand_pump", "solar_array", "battery_bank", "wind_turbine", "micro_hydro", "generator", "electric_heater", "lamp", "chest_freezer", "auto_harvester" }) do
+  for _, id in ipairs({ "camp", "shack", "shelter_cat", "chicken_coop", "chicken_fence", "goat_pen", "goat_trailer", "cheese_press", "roadside_stand", "stand_sign", "stand_cooler", "stand_display", "well", "cistern", "dc_pump", "drip_line", "hand_pump", "solar_array", "battery_bank", "wind_turbine", "micro_hydro", "generator", "electric_heater", "lamp", "chest_freezer", "auto_harvester" }) do
     if Inventory.owns(world, id) then
       result.owned[id] = true
     end

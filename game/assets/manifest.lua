@@ -32,6 +32,8 @@ return {
     chopping_block = { placeholder = "chopping_block", w = 16, h = 16 },
     woodshed = { placeholder = "woodshed", w = 32, h = 24 },
     wood_stove = { placeholder = "wood_stove", w = 16, h = 24 },
+    camp = { placeholder = "camp", w = 32, h = 32 }, -- D82: 2x2 footprint
+    shack = { placeholder = "shack", w = 48, h = 32 }, -- D82: 3x2 footprint
 
     -- Power network (GDD §7.5)
     solar_array = { placeholder = "solar_array", w = 32, h = 16 },
@@ -101,6 +103,8 @@ return {
     icon_axe = { placeholder = "icon_axe", w = 12, h = 12 },
     icon_campfire = { placeholder = "icon_campfire", w = 12, h = 12 },
     icon_woodshed = { placeholder = "icon_woodshed", w = 12, h = 12 },
+    icon_camp = { placeholder = "icon_camp", w = 12, h = 12 },
+    icon_shack = { placeholder = "icon_shack", w = 12, h = 12 },
     icon_wood_stove = { placeholder = "icon_wood_stove", w = 12, h = 12 },
     icon_smoker = { placeholder = "icon_smoker", w = 12, h = 12 },
     icon_folding_panel = { placeholder = "icon_folding_panel", w = 12, h = 12 },

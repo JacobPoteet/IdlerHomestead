@@ -33,6 +33,7 @@
 local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
+local Shelter = require("src.sim.systems.shelter")
 local Weather = require("src.sim.systems.weather")
 
 local Power = {}
@@ -549,7 +550,7 @@ local function solve(world, hours, commit)
   local thermostat = { need = 0 }
   for _, anchor in ipairs(sinks) do
     if defAt(world, anchor).sink.schedule == "heat" then
-      thermostat.need = Weather.warmthNeed(world)
+      thermostat.need = Weather.warmthNeed(world) * Shelter.insulation(world)
       break
     end
   end
@@ -624,7 +625,7 @@ local function solve(world, hours, commit)
     for name, amount in pairs(sink.effects or {}) do
       if name == "warmthPerKwh" then
         if commit then
-          s.warmth = s.warmth + want * ratio * hours * amount
+          s.warmth = s.warmth + want * ratio * hours * amount * Shelter.heatReach(world, anchor) -- a heater outside the shelter's heater slot warms less (D82)
         end
       else
         flow.effects[name] = (flow.effects[name] or 0) + amount * held
