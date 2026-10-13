@@ -356,6 +356,55 @@ T.test("ftue: the tips end when the next run begins", function()
   T.eq(currentId(world), nil)
 end)
 
+-- Run 2 cards (D99, #173) ----------------------------------------------------------------
+
+--- A slot that has failed once and started its second run: the world for run 2.
+local function secondRun(opts)
+  local data = Save.newSlotData("Runs")
+  Ftue.begin(data.meta, true)
+  if opts and opts.skip then
+    data.meta.ftue.skipped, data.meta.ftue.off = true, true
+  end
+  Run.startNext(data) -- run 1 -> 2
+  return newWorld({ meta = data.meta }), data
+end
+
+T.test("ftue: run 2 shows what carried over, once per slot", function()
+  local world, data = secondRun()
+  T.truthy(data.meta.ftue.off, "the first-run tips stay off")
+  world.events:emit("crop.planted", {})
+  run(world, 5)
+  T.eq(currentId(world), "carried")
+  Ftue.dismiss(world, "carried")
+  pastGap(world)
+  run(world, 10)
+  T.eq(currentId(world), "carried_perks", "follows the first card")
+  Ftue.dismiss(world, "carried_perks")
+  -- Run 3 does not repeat them.
+  Run.startNext(data)
+  local third = newWorld({ meta = data.meta })
+  run(third, 30)
+  T.eq(currentId(third), nil)
+  -- Nor does run 2 of the same slot if it is loaded again after they were seen.
+  data.meta.career.runs = 2
+  local again = newWorld({ meta = data.meta })
+  run(again, 30)
+  T.eq(currentId(again), nil)
+end)
+
+T.test("ftue: skipping the tips also skips the run 2 cards; the first run never shows them", function()
+  local world = secondRun({ skip = true })
+  run(world, 30)
+  T.eq(currentId(world), nil)
+  local first = newWorld()
+  run(first, 30)
+  T.truthy(currentId(first) ~= "carried", "run 1 has the first-run tips only")
+  local card = first.meta.ftue.queue
+  for _, entry in ipairs(card) do
+    T.truthy(entry.id ~= "carried" and entry.id ~= "carried_perks")
+  end
+end)
+
 -- Determinism -------------------------------------------------------------------------
 
 T.test("ftue: is deterministic and never changes the simulation", function()

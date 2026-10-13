@@ -43,6 +43,19 @@ end
 function Recovery:layout()
   local b, recovery = self.box, self.data.meta.recovery
   self.buttons:clear()
+  -- What ended the run (D99): the cause line and hint every time, plus one suggested first change on
+  -- the slot's first recovery (#173). The study section below moves down to make room.
+  local ctx = self.app.ctx
+  local cause = recovery.summary.cause or { kind = "unknown" }
+  self.failure = Run.failureText(ctx.registry, ctx.tuning, cause)
+  self.firstChange = Run.rescues(self.data.meta) == 1
+      and (ctx.tuning.ui.failure.firstChange .. " " .. Run.firstChange(ctx.registry, ctx.tuning, cause))
+    or nil
+  self.causeW = b.w - 24 - 18
+  local height = Text.wrappedHeight(self.failure.line, "small", self.causeW)
+    + Text.wrappedHeight(self.failure.hint, "small", self.causeW)
+    + (self.firstChange and Text.wrappedHeight(self.firstChange, "small", self.causeW) + 2 or 0)
+  self.shift = math.max(0, math.ceil(height) - 12) -- the block starts at +108 and the study label sits at +132
   self.buttons:add({
     x = b.x + b.w - 136,
     y = b.y + b.h - 36,
@@ -58,7 +71,7 @@ function Recovery:layout()
   if recovery.freeStudyUsed then
     return
   end
-  local y = b.y + 150
+  local y = b.y + 150 + self.shift
   for n, def in ipairs(Journal.ideas(self.metaWorld)) do
     if n > MAX_IDEAS then
       break
@@ -133,14 +146,24 @@ function Recovery:draw()
     })
   end
 
-  Text.draw("One free study while you recover", b.x + 12, b.y + 132, { size = "small", color = dim })
+  local f = self.failure
+  Panel.icon(f.icon, b.x + 12, b.y + 108)
+  Text.draw(f.line, b.x + 30, b.y + 108, { size = "small", width = self.causeW })
+  local cy = b.y + 108 + Text.wrappedHeight(f.line, "small", self.causeW)
+  Text.draw(f.hint, b.x + 30, cy, { size = "small", width = self.causeW, color = dim })
+  if self.firstChange then
+    cy = cy + Text.wrappedHeight(f.hint, "small", self.causeW) + 2
+    Text.draw(self.firstChange, b.x + 30, cy, { size = "small", width = self.causeW, color = theme.colors.accent })
+  end
+
+  Text.draw("One free study while you recover", b.x + 12, b.y + 132 + self.shift, { size = "small", color = dim })
   if recovery.freeStudyUsed then
-    Text.draw("Learned: " .. Journal.node(self.metaWorld, recovery.freeStudy).name, b.x + 12, b.y + 150, {
+    Text.draw("Learned: " .. Journal.node(self.metaWorld, recovery.freeStudy).name, b.x + 12, b.y + 150 + self.shift, {
       size = "body",
       color = theme.colors.accent,
     })
   elseif #self.ideaRows == 0 then
-    Text.draw("No ideas yet. Notes from your next run will spark some.", b.x + 12, b.y + 150, {
+    Text.draw("No ideas yet. Notes from your next run will spark some.", b.x + 12, b.y + 150 + self.shift, {
       size = "small",
       color = dim,
     })

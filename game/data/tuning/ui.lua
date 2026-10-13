@@ -94,6 +94,24 @@ return {
     resting = "Resting hours: the routine sleeps too",
     countdown = "Routine starts in %ds if you stop tapping",
   },
+  failure = { -- rescue and recovery words for what ended a run (D99, #216, #173); %s is a shelter or object name, lower case
+    bothRatio = 2, -- ratio: cold and hunger both count when neither damage is at least this many times the other
+    cold = "The cold got you.",
+    coldIn = "The cold got you in the %s.",
+    both = "Cold and hunger got you.",
+    bothIn = "Cold and hunger got you in the %s.",
+    coldNext = "The Shelter page of the Journal has a warmer bed: the %s.",
+    coldTop = "More firewood or a heater keeps the shack warm. The Shelter page of the Journal has more.",
+    hunger = "You ran out of food.",
+    hungerHint = "Plant early and watch the food chip; it counts the days left.",
+    unknown = "Your strength gave out.",
+    unknownHint = "The Journal keeps what you learned.",
+    firstChange = "First change for next time:", -- label above the suggestion on the first recovery (once per slot, D99)
+    firstColdNext = "Learn the %s early, from the Shelter page of the Journal.",
+    firstColdTop = "Stock firewood before the first freeze.",
+    firstHunger = "Plant a field in the first days and keep a few days of food.",
+    firstUnknown = "Spend the free study below, then plan the first week.",
+  },
   placement = { -- placement preview, confirmation and order card (D79, #197); %s / %d are filled in by src/ui/place_text.lua
     cardGap = 10, -- view px kept clear between the placement card and the target footprint (D86); the camera pans to keep it
     title = "Build %s here?",

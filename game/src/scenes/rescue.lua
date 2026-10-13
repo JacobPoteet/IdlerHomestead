@@ -2,6 +2,7 @@
 -- tap to continue to recovery in town. The run is already over (see src/meta/run.lua).
 
 local Run = require("src.meta.run")
+local Panel = require("src.ui.panel")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
@@ -18,7 +19,7 @@ local AGAIN_LINES = {
 }
 
 local SNOWFLAKES = 90
-local CONTINUE_DELAY = 2.5 -- seconds before a tap moves on (so a stray tap can't skip it)
+local CONTINUE_DELAY = 3.2 -- seconds before a tap moves on (so a stray tap can't skip it)
 
 function Rescue.new()
   return setmetatable({ time = 0 }, Rescue)
@@ -33,6 +34,9 @@ function Rescue:enter(slot, data)
     self.line = AGAIN_LINES[(rescues - 2) % #AGAIN_LINES + 1]
   end
   self.summary = data.meta.recovery and data.meta.recovery.summary
+  -- What failed and what to look at (D99, #216): one line, one hint, one icon.
+  local ctx = self.app.ctx
+  self.failure = self.summary and Run.failureText(ctx.registry, ctx.tuning, self.summary.cause or { kind = "unknown" })
   -- Presentation-only randomness (not the sim RNG): where the snowflakes start.
   self.flakes = {}
   for n = 1, SNOWFLAKES do
@@ -110,6 +114,22 @@ function Rescue:draw()
       width = view.w,
       align = "center",
       color = { theme.colors.textDim[1], theme.colors.textDim[2], theme.colors.textDim[3], textAlpha },
+    })
+  end
+  if self.failure and t >= 1.8 then
+    local f = self.failure
+    local alpha = math.min(1, (t - 1.8) / 0.8)
+    local y = view.h * 0.22 + 64
+    local w = math.min(view.w - 32, 380)
+    local x = (view.w - w) / 2
+    Panel.icon(f.icon, view.w / 2 - 6, y, alpha)
+    Text.draw(f.line, x, y + 16, { size = "body", width = w, align = "center", color = { 1, 1, 1, alpha } })
+    local lineH = Text.wrappedHeight(f.line, "body", w)
+    Text.draw(f.hint, x, y + 18 + lineH, {
+      size = "small",
+      width = w,
+      align = "center",
+      color = { theme.colors.textDim[1], theme.colors.textDim[2], theme.colors.textDim[3], alpha },
     })
   end
   if t >= CONTINUE_DELAY then
