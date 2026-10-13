@@ -5,6 +5,7 @@ local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Buttons = require("src.ui.buttons")
 local Panel = require("src.ui.panel")
+local ScrollList = require("src.ui.scroll_list")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
@@ -19,6 +20,8 @@ end
 
 function Catalog:enter()
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
+  self.rowButtons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
+  self.list = ScrollList.new()
 end
 
 function Catalog:items()
@@ -46,35 +49,31 @@ local REASONS = {
   ["too big for storage"] = "Too big",
 }
 
--- How many rows fit between the header and the footer line.
-function Catalog:visibleRows()
-  return math.max(1, math.floor((self.box.h - 42 - 40 - (self.heldCount or 0) * ROW_H) / ROW_H))
-end
-
--- Scroll by whole rows (drag, wheel or arrow keys) when the catalog outgrows the panel.
-function Catalog:scrollBy(rows)
-  local most = math.max(0, #self:items() - self:visibleRows())
-  self.top = math.max(0, math.min(most, (self.top or 0) + rows))
-  self:layout()
-end
-
 function Catalog:layout()
   local b, world = self.box, self.world
   self.buttons:clear()
+  self.rowButtons:clear()
   Panel.closeButton(self.buttons, b, function()
     self.app:pop()
   end)
   self.rows = {}
-  local items, visible = self:items(), self:visibleRows()
-  self.top = math.max(0, math.min(self.top or 0, #items - visible))
-  for n = self.top + 1, math.min(#items, self.top + visible) do
-    local item = items[n]
-    local y = b.y + 42 + (n - self.top - 1) * ROW_H
+  -- The item list scrolls (D87, #8) between the header and the held orders / footer.
+  local items = self:items()
+  local ui = self.app.ctx.tuning.ui
+  local top = b.y + 42
+  local room = b.y + b.h - 40 - (self.heldCount or 0) * ROW_H - top
+  self.list:fit({ x = b.x, y = top, w = b.w, h = room }, #items * ROW_H, ui.scrollHintHeight, ROW_H)
+  local right = b.x + b.w - 84 - (self.list.overflow and ui.scrollBarWidth + 2 or 0)
+  for n, item in ipairs(items) do
+    local y = self.list:origin() + (n - 1) * ROW_H
+    if not self.list:visible(y, ROW_H) then
+      goto continue
+    end
     self.rows[#self.rows + 1] = { item = item, y = y }
     local reason = Market.cannotBuy(world, item.id, false)
     local fee = world.tuning.economy.deliveryFee
-    self.buttons:add({
-      x = b.x + b.w - 84,
+    self.rowButtons:add({
+      x = right,
       y = y,
       w = 74,
       h = ROW_H - 2,
@@ -88,6 +87,7 @@ function Catalog:layout()
         self:layout()
       end,
     })
+    ::continue::
   end
   -- Held orders sit just above the footer, each with a cancel-and-refund button.
   self.heldRows = {}
@@ -132,19 +132,17 @@ function Catalog:action(name, data)
   if self.buttons:action(name, data) then
     return true
   end
-  if name == "cancel" then
-    self.app:pop()
-  elseif name == "pan" then
-    self.dragged = (self.dragged or 0) + data.dy
-    local rows = math.floor(math.abs(self.dragged) / ROW_H)
-    if rows > 0 then
-      self.dragged = self.dragged - (self.dragged > 0 and 1 or -1) * rows * ROW_H
-      self:scrollBy(data.dy > 0 and -rows or rows) -- dragging up shows later rows
+  if name == "press" or name == "select" or name == "hover" then
+    -- Row buttons only answer inside the list's window: a half-scrolled row must not reach out of it.
+    if self.list:contains(data.x, data.y) and self.rowButtons:action(name, data) then
+      return true
     end
-  elseif name == "zoom" then
-    self:scrollBy(-data.steps)
   elseif name == "release" then
-    self.dragged = 0
+    self.rowButtons:action(name, data)
+  elseif name == "cancel" then
+    self.app:pop()
+  elseif self.list:action(name, data, self.app.ctx.tuning.ui.scrollWheelStep) then
+    self:layout()
   end
   return true
 end
@@ -158,6 +156,7 @@ function Catalog:draw()
     fee,
     world.tuning.economy.deliveryHour
   ))
+  self.list:begin(self.app.view.scale)
   for _, row in ipairs(self.rows) do
     local item = row.item
     Panel.icon(Panel.catalogIcon(item), b.x + 12, row.y + 5)
@@ -172,6 +171,9 @@ function Catalog:draw()
       color = world.state.market.specials[item.id] and theme.colors.accent or theme.colors.textDim,
     })
   end
+  self.rowButtons:draw()
+  self.list:finish()
+  self.list:drawCue(self.app.ctx.tuning.ui)
   for _, row in ipairs(self.heldRows) do
     local item = world.registry:get("catalog", row.held.item)
     Panel.icon(Panel.catalogIcon(item), b.x + 12, row.y + 5)
@@ -180,15 +182,6 @@ function Catalog:draw()
       width = b.w - 124,
       color = theme.colors.danger,
     })
-  end
-  local hidden = #self:items() - self:visibleRows()
-  if hidden > 0 then
-    Text.draw(
-      string.format("Drag or scroll for more (%d more)", hidden - self.top > 0 and hidden - self.top or 0),
-      b.x + 12,
-      b.y + b.h - 34,
-      { size = "small", color = theme.colors.textDim }
-    )
   end
   local names = {}
   for _, o in ipairs(world.state.market.orders) do

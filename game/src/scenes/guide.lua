@@ -3,6 +3,7 @@
 
 local Buttons = require("src.ui.buttons")
 local Panel = require("src.ui.panel")
+local ScrollList = require("src.ui.scroll_list")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
@@ -17,6 +18,7 @@ end
 
 function Guide:enter()
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
+  self.list = ScrollList.new()
 end
 
 function Guide:resize(view)
@@ -26,6 +28,9 @@ function Guide:resize(view)
   Panel.closeButton(self.buttons, self.box, function()
     self.app:pop()
   end)
+  -- The species list scrolls (D87, #8) when the panel is shorter than the guide.
+  local b = self.box
+  self.list:fit({ x = b.x, y = b.y + 44, w = b.w, h = b.h - 44 - 6 }, count * ROW_H, self.app.ctx.tuning.ui.scrollHintHeight, ROW_H)
 end
 
 local function capitalize(s)
@@ -55,8 +60,13 @@ local function hint(fish)
 end
 
 function Guide:action(name, data)
-  if not self.buttons:action(name, data) and name == "cancel" then
+  if self.buttons:action(name, data) then
+    return true
+  end
+  if name == "cancel" then
     self.app:pop()
+  elseif self.list:action(name, data, self.app.ctx.tuning.ui.scrollWheelStep) then
+    return true
   end
   return true
 end
@@ -72,8 +82,9 @@ function Guide:draw()
     end
   end
   Panel.frame(self.app.view, b, "Fish guide", string.format("%d of %d species caught", caught, total))
+  self.list:begin(self.app.view.scale)
   for n, fish in ipairs(self.world.registry:all("fish")) do
-    local y = b.y + 44 + (n - 1) * ROW_H
+    local y = self.list:origin() + (n - 1) * ROW_H
     local entry = guide[fish.id]
     Panel.icon(entry and ("icon_" .. fish.id) or "icon_unknown", b.x + 12, y + 2)
     Text.draw(entry and fish.name or "???", b.x + 30, y + 2, { size = "small" })
@@ -84,12 +95,14 @@ function Guide:draw()
     if entry then
       Text.draw(string.format("x%d · best %d cm", entry.count, entry.best), b.x, y + 7, {
         size = "small",
-        width = b.w - 12,
+        width = b.w - 12 - (self.list.overflow and self.app.ctx.tuning.ui.scrollBarWidth + 4 or 0),
         align = "right",
         color = theme.colors.accent,
       })
     end
   end
+  self.list:finish()
+  self.list:drawCue(self.app.ctx.tuning.ui)
   self.buttons:draw()
 end
 

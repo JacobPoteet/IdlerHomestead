@@ -391,6 +391,25 @@ T.test("toolbar: the palettes stay clear of the speed, routine and power column"
   end
 end)
 
+T.test("toolbar: a palette with 8+ seeds stays capped, clear of the control column and on screen (#184)", function()
+  for _, view in ipairs({ SIZES[4], SIZES[2] }) do -- 640x360 and 390x844
+    local cfg = cfgFor(view)
+    cfg.paletteMaxRows = tun.ui.paletteMaxRows
+    cfg.scrollBarWidth = tun.ui.scrollBarWidth
+    local topH = cfg.h + (view.w < tun.ui.compactWidth and tun.ui.statRowHeight + 8 or 0)
+    cfg.paletteTop = topH + tun.ui.buttonGap + 3 * (cfg.h + tun.ui.buttonGap)
+    local spec = buttons(true, "rod")
+    for i = 1, 10 do
+      table.insert(spec.tools, 1, { id = "seed:extra" .. i, w = tun.ui.buttonWidths.seed })
+    end
+    local out = Toolbar.arrange(spec, view, cfg)
+    local pop = out.popups.tools
+    T.truthy(pop.y >= cfg.paletteTop, view.name .. ": the seed palette reaches into the control column")
+    T.truthy(pop.y + pop.h <= view.h - out.bottomH, view.name .. ": the seed palette covers the bar")
+    T.truthy(pop.h <= 2 * cfg.gap + cfg.paletteMaxRows * (cfg.h + cfg.gap), view.name .. ": the seed palette is capped")
+  end
+end)
+
 T.test("toolbar: the tool in hand stays on the bar in palette mode", function()
   local view = SIZES[2]
   local out = Toolbar.arrange(buttons(true, "place"), view, cfgFor(view))

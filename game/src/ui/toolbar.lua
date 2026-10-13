@@ -13,7 +13,9 @@ local Toolbar = {}
 ---   left, right            the classic lists (items in order, `gapBefore` adds space before an item),
 ---   fixedLeft, toolsButton, active, fixedRight, moreButton   the palette bar: `active` may be nil,
 ---   tools, more            the items inside each palette }
---- cfg = { pad, gap, h, margin, paletteGap } (virtual pixels). view = { w, h }.
+--- cfg = { pad, gap, h, margin, paletteGap } (virtual pixels), plus the palette cap and scroll state:
+---   paletteMaxRows (rows of buttons), paletteTop (y the palette must stay below), scrollBarWidth,
+---   scroll = { tools = px, more = px } (how far each palette is scrolled). view = { w, h }.
 --- Returns { palette = bool, bottomH, rows = n, bar = { items placed on the bar, in order },
 ---           popups = { tools = rect, more = rect } } (popups only in palette mode; each rect has x, y, w,
 ---           h and `items`, which are placed inside it).
@@ -98,20 +100,41 @@ function Toolbar.arrange(spec, view, cfg)
   end
 
   -- Palettes: a framed block of buttons just above the bar, anchored under the button that opens it.
-  local function popup(items, anchor, alignRight)
-    local inner = avail - 2 * gap
-    local prow, prowW, plines = {}, 0, {}
-    for _, b in ipairs(items) do
-      local need = b.w + (#prow > 0 and gap or 0)
-      if #prow > 0 and prowW + need > inner then
-        plines[#plines + 1] = prow
-        prow, prowW, need = {}, 0, b.w
+  -- The palette height is capped (D87, #184): at most cfg.paletteMaxRows rows and never above
+  -- cfg.paletteTop (the lowest thing the palette must keep clear of). A taller palette scrolls: its
+  -- items sit `scroll` pixels higher (cfg.scroll[name], clamped here and returned as `offset`), the
+  -- window is `view` and the buttons that fall outside it are the scene's to clip.
+  local function popup(name, items, anchor, alignRight)
+    local function flow(inner)
+      local prow, prowW, plines = {}, 0, {}
+      for _, b in ipairs(items) do
+        local need = b.w + (#prow > 0 and gap or 0)
+        if #prow > 0 and prowW + need > inner then
+          plines[#plines + 1] = prow
+          prow, prowW, need = {}, 0, b.w
+        end
+        prow[#prow + 1] = b
+        prowW = prowW + need
       end
-      prow[#prow + 1] = b
-      prowW = prowW + need
+      if #prow > 0 then
+        plines[#plines + 1] = prow
+      end
+      return plines
     end
-    if #prow > 0 then
-      plines[#plines + 1] = prow
+    local function linesH(n)
+      return n * h + (n - 1) * gap
+    end
+    local inner = avail - 2 * gap
+    local plines = flow(inner)
+    local bottom = view.h - bottomH - cfg.paletteGap
+    local maxH = 2 * gap + linesH(cfg.paletteMaxRows or #plines)
+    if cfg.paletteTop then
+      maxH = math.min(maxH, bottom - cfg.paletteTop)
+    end
+    local scrolls = 2 * gap + linesH(#plines) > maxH
+    local bar = scrolls and (cfg.scrollBarWidth or 0) + gap or 0
+    if scrolls then
+      plines = flow(inner - bar) -- room for the scroll thumb beside the buttons
     end
     local widest = 0
     for _, line in ipairs(plines) do
@@ -121,23 +144,36 @@ function Toolbar.arrange(spec, view, cfg)
       end
       widest = math.max(widest, w)
     end
-    local w = widest + 2 * gap
-    local ph = #plines * h + (#plines - 1) * gap + 2 * gap
+    local w = widest + 2 * gap + bar
+    local contentH = linesH(#plines)
+    local ph = scrolls and math.max(2 * gap + h, maxH) or contentH + 2 * gap
+    local viewH = ph - 2 * gap
+    local offset = math.max(0, math.min(((cfg.scroll or {})[name]) or 0, contentH - viewH))
     local x = alignRight and (anchor.x + anchor.w - w) or anchor.x
     x = math.max(pad, math.min(x, view.w - pad - w))
-    local y = view.h - bottomH - cfg.paletteGap - ph
+    local y = bottom - ph
     for n, line in ipairs(plines) do
       local bx = x + gap
       for _, b in ipairs(line) do
-        b.x, b.y, b.h = bx, y + gap + (n - 1) * (h + gap), h
+        b.x, b.y, b.h = bx, y + gap + (n - 1) * (h + gap) - offset, h
         bx = bx + b.w + gap
       end
     end
-    return { x = x, y = y, w = w, h = ph, items = items }
+    return {
+      x = x,
+      y = y,
+      w = w,
+      h = ph,
+      items = items,
+      scrolls = scrolls,
+      contentH = contentH,
+      offset = offset,
+      view = { x = x, y = y + gap, w = w - bar - gap, h = viewH },
+    }
   end
   result.popups = {
-    tools = popup(spec.tools, spec.toolsButton, false),
-    more = popup(spec.more, spec.moreButton, true),
+    tools = popup("tools", spec.tools, spec.toolsButton, false),
+    more = popup("more", spec.more, spec.moreButton, true),
   }
   return result
 end

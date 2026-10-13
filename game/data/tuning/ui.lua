@@ -38,6 +38,7 @@ return {
     more = 46, -- the books palette button on narrow views
     activeMin = 44, -- narrowest "tool in hand" shortcut beside the palette button
   },
+  paletteMaxRows = 4, -- rows of buttons a toolbar palette shows at once; more seeds or tools scroll (drag, wheel, keys) with a thumb beside them (D87, #184)
   paletteGap = 4, -- virtual pixels between the toolbar and the palette that opens above it
   pillHeight = 14, -- height of the small status pills above the toolbar (routine badge, tool caption)
   pillGap = 4, -- space between those pills and the bar, and between two stacked pills

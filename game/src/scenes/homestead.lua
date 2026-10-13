@@ -51,6 +51,7 @@ local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
 local ChipText = require("src.ui.chip_text")
 local Toolbar = require("src.ui.toolbar")
+local ScrollList = require("src.ui.scroll_list")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
@@ -83,6 +84,8 @@ function Homestead:enter(slot, data)
   self.camera.x, self.camera.y = (hs.x - 0.5) * tile, (hs.y - 0.5) * tile
   self.renderer = Renderer.new(self.world)
   self.buttons = Buttons.new(tuning.input.minTouchTarget)
+  self.paletteButtons = Buttons.new(tuning.input.minTouchTarget)
+  self.paletteLists = { tools = ScrollList.new(), more = ScrollList.new() }
   self.mode = "act" -- "act" | "plan" | "place"
   self.seed = nil -- crop id in hand
   self.tool = nil -- "rod" in hand
@@ -735,6 +738,9 @@ function Homestead:layoutToolbar(view)
       selected = self.palette == id,
       onPress = function()
         self.palette = self.palette ~= id and id or nil
+        for _, list in pairs(self.paletteLists) do
+          list.offset = 0 -- a palette opens at its top
+        end
         self:layout()
       end,
     }
@@ -785,12 +791,22 @@ function Homestead:layoutToolbar(view)
     tools = tools,
     more = { routineList, catalog, fishGuide },
   }
+  -- The palette is capped (D87, #184): a few rows, and never up into the speed/routine/power column;
+  -- more than fits scrolls (drag, wheel, keys) with a thumb beside the buttons.
+  local scroll = {}
+  for name, list in pairs(self.paletteLists) do
+    scroll[name] = list.offset
+  end
   local arranged = Toolbar.arrange(spec, view, {
     pad = ui.barPadding,
     gap = ui.buttonGap,
     h = self.btnH,
     margin = ui.barMargin,
     paletteGap = ui.paletteGap,
+    paletteMaxRows = ui.paletteMaxRows,
+    paletteTop = self.topH + ui.buttonGap + 3 * (self.btnH + ui.buttonGap),
+    scrollBarWidth = ui.scrollBarWidth,
+    scroll = scroll,
   })
   self.toolbar = arranged
   self.bottomH = arranged.bottomH
@@ -798,14 +814,22 @@ function Homestead:layoutToolbar(view)
     self.buttons:add(b)
   end
   self.paletteRect = nil
+  self.paletteButtons:clear()
   if arranged.popups and self.palette then
     local popup = arranged.popups[self.palette]
     self.paletteRect = popup
+    self.paletteList = self.paletteLists[self.palette]
+    self.paletteList:fit(popup.view, popup.contentH, 0, 1)
+    self.paletteList.offset = popup.offset
+    -- Buttons that scrolled out of the window are left out; half-hidden ones answer only inside it.
     for _, b in ipairs(popup.items) do
-      self.buttons:add(b)
+      if b.y + b.h > popup.view.y and b.y < popup.view.y + popup.view.h then
+        self.paletteButtons:add(b)
+      end
     end
   else
     self.palette = nil -- the view got wide enough for the full bar
+    self.paletteList = nil
   end
 end
 
@@ -1494,6 +1518,25 @@ function Homestead:action(name, data)
     return true
   end
   local pr = self.paletteRect
+  if pr then
+    local list = self.paletteList
+    local over = data.x and data.x >= pr.x and data.x < pr.x + pr.w and data.y >= pr.y and data.y < pr.y + pr.h
+    -- Palette buttons answer only inside the palette's window (a half-scrolled one must not reach out).
+    if (name == "press" or name == "select" or name == "hover") and list:contains(data.x, data.y) and self.paletteButtons:action(name, data) then
+      return true
+    elseif name == "release" then
+      self.paletteButtons:action(name, data)
+    elseif name == "press" then
+      self.palettePress = over -- a drag that began on the palette scrolls it, not the camera
+    end
+    local step = self.app.ctx.tuning.ui.scrollWheelStep
+    if list.overflow and ((name == "pan" and (self.palettePress or data.keys)) or (name == "zoom" and over)) then
+      if list:action(name, data, step) then
+        self:layout()
+      end
+      return true
+    end
+  end
   if pr and data.x and (name == "press" or name == "select" or name == "context") then
     -- An open palette is solid; a tap outside it puts it away without reaching the ground (D72, #17).
     local inside = data.x >= pr.x and data.x < pr.x + pr.w and data.y >= pr.y and data.y < pr.y + pr.h
@@ -2288,6 +2331,14 @@ function Homestead:draw()
   if self.paletteRect then
     local r = self.paletteRect
     Draw.panel(r.x, r.y, r.w, r.h)
+    self.paletteList:begin(self.app.view.scale)
+    self.paletteButtons:draw()
+    self.paletteList:finish()
+    if r.scrolls then
+      local ui = self.app.ctx.tuning.ui
+      local v = r.view
+      self.paletteList:drawThumb(ui.scrollBarWidth, ui.scrollHintHeight, { x = r.x + r.w - ui.buttonGap, y = v.y, w = 0, h = v.h })
+    end
   end
   self.buttons:draw()
   self:drawCard()

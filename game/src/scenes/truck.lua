@@ -8,6 +8,7 @@ local Market = require("src.sim.systems.market")
 local Power = require("src.sim.systems.power")
 local Buttons = require("src.ui.buttons")
 local Panel = require("src.ui.panel")
+local ScrollList = require("src.ui.scroll_list")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
@@ -15,6 +16,7 @@ local Truck = { name = "truck" }
 Truck.__index = Truck
 
 local ROW_H = 22
+local LOAD_ROW_H = 14 -- one line of the load list in town
 local HOME_H = 196 -- panel height at home: status, bar, load lines, power line, two buttons
 
 --- "about 5 hours", "under an hour", "about 2 days" for in-game hours (the truck charges by the sun).
@@ -63,6 +65,8 @@ end
 
 function Truck:enter()
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
+  self.shopButtons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
+  self.shop, self.loadList = ScrollList.new(), ScrollList.new()
 end
 
 function Truck:inTown()
@@ -166,16 +170,25 @@ function Truck:layout()
       known[#known + 1] = item
     end
   end
-  -- The shop list scrolls by whole rows (drag or wheel) when it outgrows the panel.
-  local visible = self:shopVisibleRows()
-  self.top = math.max(0, math.min(self.top or 0, #known - visible))
-  for n = self.top + 1, math.min(#known, self.top + visible) do
-    local item = known[n]
-    local y = b.y + 50 + (n - self.top - 1) * ROW_H
+  -- Both town lists scroll (D87, #8): the shop on the right and the load on the left clip to their
+  -- windows and take drag, wheel and keys.
+  local ui = self.app.ctx.tuning.ui
+  self.shopButtons:clear()
+  local shopTop = b.y + 50
+  self.shop:fit({ x = x - 6, y = shopTop, w = b.x + b.w - x + 6, h = b.y + b.h - 56 - shopTop }, #known * ROW_H, ui.scrollHintHeight, ROW_H)
+  local lines = Market.loadQuote(world)
+  local loadTop = b.y + 52
+  self.loadList:fit({ x = b.x + 8, y = loadTop, w = b.w / 2 - 16, h = b.y + b.h - 64 - loadTop }, #lines * LOAD_ROW_H, ui.scrollHintHeight, LOAD_ROW_H)
+  local barRoom = self.shop.overflow and ui.scrollBarWidth + 2 or 0
+  for n, item in ipairs(known) do
+    local y = self.shop:origin() + (n - 1) * ROW_H
+    if not self.shop:visible(y, ROW_H) then
+      goto continue
+    end
     self.shopRows[#self.shopRows + 1] = { item = item, y = y, x = x }
     local reason = Market.cannotBuy(world, item.id, true)
-    self.buttons:add({
-      x = b.x + b.w - 70,
+    self.shopButtons:add({
+      x = b.x + b.w - 70 - barRoom,
       y = y,
       w = 60,
       h = ROW_H - 2,
@@ -189,18 +202,8 @@ function Truck:layout()
         self:layout()
       end,
     })
+    ::continue::
   end
-  self.shopMore = #known - self.top - visible
-end
-
--- Shop rows that fit between the header and the bottom edge.
-function Truck:shopVisibleRows()
-  return math.max(1, math.floor((self.box.h - 50 - 16) / ROW_H))
-end
-
-function Truck:scrollShop(rows)
-  self.top = (self.top or 0) + rows
-  self:layout()
 end
 
 function Truck:update(dt)
@@ -215,19 +218,23 @@ function Truck:action(name, data)
   if self.buttons:action(name, data) then
     return true
   end
+  if self:inTown() then
+    -- The list under the pointer (or last touched) takes the drag, wheel and keys.
+    if data.x then
+      self.leftFocus = data.x < self.box.x + self.box.w / 2
+    end
+    if name == "press" or name == "select" or name == "hover" then
+      if self.shop:contains(data.x, data.y) and self.shopButtons:action(name, data) then
+        return true
+      end
+    elseif name == "release" then
+      self.shopButtons:action(name, data)
+    elseif (self.leftFocus and self.loadList or self.shop):action(name, data, self.app.ctx.tuning.ui.scrollWheelStep) then
+      self:layout()
+    end
+  end
   if name == "cancel" and not self:inTown() then
     self.app:pop()
-  elseif self:inTown() and name == "pan" then
-    self.dragged = (self.dragged or 0) + data.dy
-    local rows = math.floor(math.abs(self.dragged) / ROW_H)
-    if rows > 0 then
-      self.dragged = self.dragged - (self.dragged > 0 and 1 or -1) * rows * ROW_H
-      self:scrollShop(data.dy > 0 and -rows or rows) -- dragging up shows later rows
-    end
-  elseif self:inTown() and name == "zoom" then
-    self:scrollShop(-data.steps)
-  elseif name == "release" then
-    self.dragged = 0
   end
   return true
 end
@@ -277,14 +284,17 @@ function Truck:draw()
       size = "small",
       color = theme.colors.textDim,
     })
+    self.loadList:begin(self.app.view.scale)
     for n, line in ipairs(lines) do
-      local y = b.y + 52 + (n - 1) * 14
-      if y < b.y + b.h - 64 then
+      local y = self.loadList:origin() + (n - 1) * LOAD_ROW_H
+      if self.loadList:visible(y, LOAD_ROW_H) then
         local res = world.registry:get("resources", line.id)
         Panel.icon(Panel.resourceIcon(line.id), b.x + 12, y)
         Text.draw(string.format("%s  %d x $%d", res.name, line.units, line.price), b.x + 28, y + 1, { size = "small" })
       end
     end
+    self.loadList:finish()
+    self.loadList:drawCue(self.app.ctx.tuning.ui)
     if units == 0 then
       Text.draw("Nothing loaded. Load the truck at home before the next trip; unloaded goods stay home.", b.x + 12, b.y + 52, {
         size = "small",
@@ -301,16 +311,14 @@ function Truck:draw()
       color = theme.colors.textDim,
     })
     Text.draw("Shop", b.x + b.w / 2 + 6, b.y + 38, { size = "small", color = theme.colors.textDim })
-    if (self.shopMore or 0) > 0 then
-      Text.draw(string.format("Drag or scroll: %d more", self.shopMore), b.x + b.w / 2 + 6, b.y + b.h - 14, {
-        size = "small",
-        color = theme.colors.textDim,
-      })
-    end
+    self.shop:begin(self.app.view.scale)
     for _, row in ipairs(self.shopRows or {}) do
       Panel.icon(Panel.catalogIcon(row.item), row.x, row.y + 4)
       Text.draw(row.item.name, row.x + 16, row.y + 5, { size = "small" })
     end
+    self.shopButtons:draw()
+    self.shop:finish()
+    self.shop:drawCue(self.app.ctx.tuning.ui)
   end
   self.buttons:draw()
 end

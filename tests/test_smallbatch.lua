@@ -130,22 +130,22 @@ T.test("power panel: a long device list overflows its window and every switch is
     manyDevices(world, 30)
     world:tick(STEP)
     local panel = panelFor(world, v[1], v[2])
-    T.truthy(panel.overflow, "30 devices overflow at " .. v[1] .. "x" .. v[2])
-    local view = panel.view
+    T.truthy(panel.list.overflow, "30 devices overflow at " .. v[1] .. "x" .. v[2])
+    local view = panel.list.view
     T.truthy(view.y + view.h <= panel.box.y + panel.box.h, "the window stays inside the panel")
     local seen = {}
     local offset, guard = 0, 0
     repeat
-      panel.scroll = offset
+      panel.list.offset = offset
       panel:layout()
       for _, button in ipairs(panel.rowButtons.list) do
         seen[button.y .. ":" .. offset] = true
       end
       offset = offset + view.h / 2
       guard = guard + 1
-    until offset > panel.contentH or guard > 200
+    until offset > panel.list.contentH or guard > 200
     -- Scroll to the very end: the last switch sits fully inside the window.
-    panel.scroll = panel.contentH
+    panel.list.offset = panel.list.contentH
     panel:layout()
     local last = panel.rowButtons.list[#panel.rowButtons.list]
     T.truthy(last, "a switch is visible at the end")
@@ -159,20 +159,20 @@ T.test("power panel: row buttons answer only inside the window; wheel and drag s
   manyDevices(world, 30)
   world:tick(STEP)
   local panel = panelFor(world, 390, 844)
-  T.eq(panel.scroll, 0)
+  T.eq(panel.list.offset, 0)
   panel:action("zoom", { steps = -2 })
-  T.truthy(panel.scroll > 0, "wheel down scrolls")
-  local scrolled = panel.scroll
+  T.truthy(panel.list.offset > 0, "wheel down scrolls")
+  local scrolled = panel.list.offset
   panel:action("pan", { dy = -30 })
-  T.truthy(panel.scroll > scrolled, "dragging up shows later rows")
+  T.truthy(panel.list.offset > scrolled, "dragging up shows later rows")
   panel:action("pan", { dy = 10000 })
-  T.eq(panel.scroll, 0, "clamped at the top")
+  T.eq(panel.list.offset, 0, "clamped at the top")
   -- A button half-scrolled above the window must not respond to a tap outside the window.
-  panel.scroll = 30
+  panel.list.offset = 30
   panel:layout()
   local outside
   for _, button in ipairs(panel.rowButtons.list) do
-    if button.y < panel.view.y then
+    if button.y < panel.list.view.y then
       outside = button
     end
   end
@@ -181,7 +181,7 @@ T.test("power panel: row buttons answer only inside the window; wheel and drag s
     for _, s in ipairs(Power.sinkList(world)) do
       before[s.anchor] = s.enabled
     end
-    panel:action("select", { x = outside.x + 2, y = panel.view.y - 2 })
+    panel:action("select", { x = outside.x + 2, y = panel.list.view.y - 2 })
     for _, s in ipairs(Power.sinkList(world)) do
       T.eq(s.enabled, before[s.anchor], "nothing switched from outside the window")
     end
