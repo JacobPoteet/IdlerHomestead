@@ -24,6 +24,8 @@ Also `clarity` (D72: the tap-to-explain chip cards and their shortcut, the Tools
 
 Also `truckload` (D75: the Pantry keep list with Auto and a keep set by hand, the truck panel at home with an empty and a loaded truck, Load the truck before and after Auto-load, the reserve-guard confirmation when loading kept wood, and the town selling the load).
 
+Also `smallbatch` (D76-D78: a long Power list scrolled by wheel and drag with a switch pressed while paused, the Plan button lit then plain after a plan, the town menu with game time paused and the drive home).
+
 Also `shelf` (D73, D74: an out-of-date save planted in the in-memory store, listed as "can't be loaded", its Keep it / Delete save prompt and the second confirmation; then a Pantry with batches of different ages, "Oldest batch spoils in N days", no red chip while nothing rots, then the chip and the Pantry warning two nights later).
 
 On narrow views some toolbar buttons live in the Tools or More palette: `d:pick(label)` presses a toolbar button wherever it is (it opens the palette when needed), `d:press` only sees what is on screen.
