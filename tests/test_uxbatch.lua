@@ -130,6 +130,7 @@ end)
 
 T.test("alerts: condition levels", function()
   local world = newWorld(1)
+  world.state.alerts.dawn = nil -- levels by value only here: the falling-condition rule is in test_message_log.lua (D90)
   world.state.needs.condition = tun.alerts.conditionAmber + 1
   T.eq((Alerts.level(world, "condition")), 0)
   world.state.needs.condition = tun.alerts.conditionAmber - 1

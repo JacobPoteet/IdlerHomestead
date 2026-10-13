@@ -117,6 +117,12 @@ return {
       water = "Needs to touch the creek",
     },
   },
+  log = { -- message log (D90, #167)
+    maxLines = 40, -- lines kept, newest first; older ones drop off the end (a night of news is about a dozen)
+    coalesceSeconds = 60, -- game seconds within which the pieces of one multi-part event (storage full for several goods) merge into one line
+    buttonWidth = 34, -- virtual pixels wide the Log button beside Menu in the top bar (the touch-size rule still makes it hittable)
+    panelWidth = 400, -- virtual pixels wide the log panel (shrinks to fit a narrow view)
+  },
   journal = { -- Field Journal navigation (D81, #194); all virtual pixels unless noted
     defaultArea = "Other", -- area heading for a chapter whose content has no `area`
     pad = 4, -- space inside the map rect and between the map rect and the node card

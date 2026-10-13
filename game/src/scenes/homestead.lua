@@ -53,6 +53,7 @@ local Draw = require("src.ui.draw")
 local ChipText = require("src.ui.chip_text")
 local Toolbar = require("src.ui.toolbar")
 local ScrollList = require("src.ui.scroll_list")
+local MessageLog = require("src.ui.message_log")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
@@ -93,6 +94,8 @@ function Homestead:enter(slot, data)
   self.placing = nil -- object id being placed
   self.toast = nil
   self.toastQueue = {}
+  local logCfg = self.app.ctx.tuning.ui.log
+  self.log = MessageLog.new(logCfg.maxLines, logCfg.coalesceSeconds) -- what the toasts said (D90, #167); UI state, not saved
   self.held = {} -- toasts that came in while asleep, shown in the morning (D70)
   self.frostTold = {} -- crop id -> calendar day its won't-ripen warning last showed (D70, #165)
   self:subscribe()
@@ -245,15 +248,18 @@ function Homestead:subscribe()
       end
     end),
     events:on("ledger.overflow", function(e)
-      self:showToast(string.format("Storage full: lost %d %s", e.lost, name("resources", e.id)))
+      -- Several goods overflowing together are one log line, and the toast shows the merged line.
+      local part = string.format("%d %s", e.lost, name("resources", e.id):lower())
+      self.log:addPart("overflow", part, "Storage full: lost %s", self:stamp())
+      self:present(self.log:lines()[1].text)
     end),
     -- Spoilage is reported once a night (D68, #151): see Homestead:spoilageNews, shown when awake.
     -- Journal news waits its turn so a note and the idea it sparks are both seen.
     events:on("journal.note", function(e)
-      self:queueToast("New note: " .. world.registry:get("notes", e.note).line)
+      self:newsToast("New note: " .. world.registry:get("notes", e.note).line)
     end),
     events:on("journal.idea", function(e)
-      self:queueToast("New idea: " .. Journal.node(world, e.item).name .. " · see the Journal")
+      self:newsToast("New idea: " .. Journal.node(world, e.item).name .. " · see the Journal")
     end),
     events:on("needs.depleted", function()
       self.failed = true
@@ -279,29 +285,35 @@ function Homestead:subscribe()
       end
     end),
     events:on("weather.forecast", function(e)
-      self:queueToast(Forecast.news(world, e.piece))
+      self:newsToast(Forecast.news(world, e.piece))
     end),
     events:on("weather.changed", function(e)
       local news = Forecast.weatherNews(world, e.kind)
       if news then
-        self:queueToast(news)
+        self:newsToast(news)
       end
     end),
     events:on("threat.warned", function(e)
-      self:queueToast(Forecast.threatWarning(world, e.threat, e.days))
+      self:newsToast(Forecast.threatWarning(world, e.threat, e.days))
     end),
     events:on("threat.started", function(e)
       local news = Forecast.threatStarted(world, e.threat)
       if news then
-        self:queueToast(news)
+        self:newsToast(news)
       end
     end),
     events:on("threat.ended", function(e)
-      -- The summary goes first: the note the strike just wrote waits behind it.
-      self:urgentToast(Forecast.threatSummary(world, e))
+      -- The summary goes first: the note the strike just wrote waits behind it (asleep, both are held
+      -- in the order they were raised, so the summary still leads).
+      local text = Forecast.threatSummary(world, e)
+      if self.session:sleeping() then
+        self:newsToast(text)
+      else
+        self:urgentToast(text)
+      end
     end),
     events:on("weather.froze", function()
-      self:queueToast("The creek froze. Cut a hole to fish or fetch water.")
+      self:newsToast("The creek froze. Cut a hole to fish or fetch water.")
     end),
     events:on("water.dry", function()
       self:queueToast("A drip line is dry. Fill the cistern or the crops need hand watering.")
@@ -316,7 +328,7 @@ function Homestead:subscribe()
       self:queueToast(string.format("Power short: %s at %d%%", Power.tierName(world, e.tier), math.floor(e.ratio * 100)))
     end),
     events:on("weather.coldSnap", function(e)
-      self:queueToast(e.active and "Cold snap! Fires need far more wood." or "The cold snap broke.")
+      self:newsToast(e.active and "Cold snap! Fires need far more wood." or "The cold snap broke.")
     end),
     events:on("finds.picked", function(e)
       local def = world.registry:get("finds", e.find)
@@ -383,6 +395,7 @@ function Homestead:spoilageNews()
   end
   local report = Food.takeReport(world)
   if report.first then
+    self:record(SpoilText.summary(world, report)) -- the card explains; the log keeps the one-line fact
     local app = self.app
     app:push(require("src.scenes.notice").new({
       title = "Food spoils",
@@ -402,28 +415,49 @@ function Homestead:spoilageNews()
   end
 end
 
-function Homestead:showToast(text)
+--- The date a message log line is stamped with.
+function Homestead:stamp()
+  local now = Calendar.now(self.world)
+  return { day = now.day, hour = now.hour, at = Calendar.elapsed(self.world) }
+end
+
+--- Put a line in the message log (D90, #167). Every toast goes through here, once, when it is raised
+--- (or, for news held through the night, when the homesteader is up), so a toast that was replaced or
+--- ran out unseen can still be read there.
+function Homestead:record(text)
+  self.log:add(text, self:stamp())
+end
+
+--- Put a toast on screen without logging it (it was logged already).
+function Homestead:present(text)
   self.toast = { text = text, time = TOAST_TIME }
+end
+
+function Homestead:showToast(text)
+  self:record(text)
+  self:present(text)
 end
 
 --- Show after the current toast (and any already waiting) instead of replacing it.
 function Homestead:queueToast(text)
+  self:record(text)
   if not self.toast then
-    self:showToast(text)
+    self:present(text)
     return
   end
   self.toastQueue[#self.toastQueue + 1] = text
 end
 
 --- Queue a toast, or hold it until the homesteader is up when it comes in during the fast-forwarded
---- night. A held toast is keyed: a newer one with the same key replaces the older.
+--- night (D70, D90). A held toast with a key is replaced by a newer one with the same key; with no key
+--- it is always kept, and the held toasts come out in the order they were raised.
 function Homestead:heldToast(key, text)
   if not self.session:sleeping() then
     self:queueToast(text)
     return
   end
   for _, held in ipairs(self.held) do
-    if held.key == key then
+    if key and held.key == key then
       held.text = text
       return
     end
@@ -431,12 +465,35 @@ function Homestead:heldToast(key, text)
   self.held[#self.held + 1] = { key = key, text = text }
 end
 
+--- Hand the held toasts over once the homesteader is up (after the morning report, which is a card).
+function Homestead:releaseHeld()
+  if self.session:sleeping() or #self.held == 0 then
+    return
+  end
+  local held = self.held
+  self.held = {}
+  for _, h in ipairs(held) do
+    self:queueToast(h.text)
+  end
+end
+
 --- Show now, putting whatever was showing back at the head of the queue (nothing is lost).
 function Homestead:urgentToast(text)
+  self:record(text)
   if self.toast then
     table.insert(self.toastQueue, 1, self.toast.text)
   end
-  self:showToast(text)
+  self:present(text)
+end
+
+--- News the player should hear, held through the fast-forwarded night so it is not read to nobody.
+function Homestead:newsToast(text)
+  self:heldToast(nil, text)
+end
+
+--- Open the message log (tap the toast area or the Log button).
+function Homestead:openLog()
+  self.app:push(require("src.scenes.message_log").new(self.log))
 end
 
 function Homestead:toaster()
@@ -556,7 +613,7 @@ end
 -- True when the stats don't fit beside the date and need their own row under it.
 function Homestead:wantsStatRow()
   local ui = self.app.ctx.tuning.ui
-  local room = self.app.view.w - ui.menuWidth - ui.statsAfterDate - ui.barPadding
+  local room = self.app.view.w - ui.menuWidth - ui.log.buttonWidth - 2 - ui.statsAfterDate - ui.barPadding
   return self:statsWidth(ui.statMinGap) > room
 end
 
@@ -580,6 +637,17 @@ function Homestead:layout()
     label = "Menu",
     onPress = function()
       self:openMenu()
+    end,
+  })
+  -- The message log (D90, #167): everything the toasts said, one tap away beside Menu.
+  self.buttons:add({
+    x = view.w - ui.menuWidth - ui.log.buttonWidth - 4,
+    y = 0,
+    w = ui.log.buttonWidth,
+    h = self.topRowH,
+    label = "Log",
+    onPress = function()
+      self:openLog()
     end,
   })
   self:layoutToolbar(view)
@@ -1127,7 +1195,13 @@ end
 
 --- Taps on the card read it rather than direct the homesteader, so they do not reset the takeover timer.
 function Homestead:ignoresActivityAt(x, y)
-  return self:overCard(x, y) or self:chipAt(x, y) ~= nil -- a chip's explanation is not directing the homesteader either (D72)
+  return self:overCard(x, y) or self:chipAt(x, y) ~= nil or self:overToast(x, y) -- a chip's explanation is not directing the homesteader either (D72)
+end
+
+--- Is the point on the toast? (Its rectangle is the one drawn last, grown to the touch size.)
+function Homestead:overToast(x, y)
+  local r = self.toast and self.toastHit
+  return r ~= nil and x ~= nil and x >= r.x and x < r.x + r.w and y >= r.y and y < r.y + r.h
 end
 
 function Homestead:overCard(x, y)
@@ -1397,18 +1471,13 @@ function Homestead:update(dt)
       self:layoutCard()
     end
   end
-  if not self.session:sleeping() and #self.held > 0 then
-    for _, held in ipairs(self.held) do
-      self:queueToast(held.text)
-    end
-    self.held = {}
-  end
+  self:releaseHeld()
   if self.toast then
     self.toast.time = self.toast.time - dt
     if self.toast.time <= 0 then
       self.toast = nil
       if #self.toastQueue > 0 then
-        self:showToast(table.remove(self.toastQueue, 1))
+        self:present(table.remove(self.toastQueue, 1))
       end
     end
   end
@@ -1632,6 +1701,10 @@ function Homestead:action(name, data)
     return true
   end
   local view = self.app.view
+  if name == "select" and data.x and self:overToast(data.x, data.y) then
+    self:openLog() -- tapping the toast opens the message log (D90, #167)
+    return true
+  end
   if name == "select" and data.x then
     local chip = self:chipAt(data.x, data.y)
     if chip then
@@ -1889,7 +1962,7 @@ function Homestead:drawTopBar(view)
   if self.statRow then
     x, rowTop, room = ui.barPadding, self.topRowH, view.w - 2 * ui.barPadding
   else
-    x, rowTop, room = ui.statsAfterDate, 0, view.w - ui.menuWidth - ui.statsAfterDate - ui.barPadding
+    x, rowTop, room = ui.statsAfterDate, 0, view.w - ui.menuWidth - ui.log.buttonWidth - 2 - ui.statsAfterDate - ui.barPadding
   end
   local rowH = self.statRow and ui.statRowHeight or self.topRowH
   local gap = self:statsWidth(ui.statGap) <= room and ui.statGap or ui.statMinGap
@@ -1914,7 +1987,7 @@ function Homestead:chipRects()
   if self.statRow then
     x, rowTop, room = ui.barPadding, self.topRowH, view.w - 2 * ui.barPadding
   else
-    x, rowTop, room = ui.statsAfterDate, 0, view.w - ui.menuWidth - ui.statsAfterDate - ui.barPadding
+    x, rowTop, room = ui.statsAfterDate, 0, view.w - ui.menuWidth - ui.log.buttonWidth - 2 - ui.statsAfterDate - ui.barPadding
   end
   local rowH = self.statRow and ui.statRowHeight or self.topRowH
   local gap = self:statsWidth(ui.statGap) <= room and ui.statGap or ui.statMinGap
@@ -2366,6 +2439,12 @@ function Homestead:drawInfo(view)
     love.graphics.setColor(0, 0, 0, 0.55 * math.min(1, self.toast.time * 3))
     love.graphics.rectangle("fill", x, y, w, h, 3, 3)
     Text.draw(self.toast.text, x + 8, y + 4, { size = "body", width = w - 16, align = "center" })
+    -- The tap target: at least a finger tall, so a thin toast is still easy to hit.
+    local minSize = self.app.ctx.tuning.input.minTouchTarget
+    local grow = math.max(0, minSize - h)
+    self.toastHit = { x = x, y = y - grow / 2, w = w, h = h + grow }
+  else
+    self.toastHit = nil
   end
 end
 
