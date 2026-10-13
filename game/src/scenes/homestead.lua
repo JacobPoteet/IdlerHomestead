@@ -21,6 +21,8 @@ local Food = require("src.sim.systems.food")
 local Ftue = require("src.sim.systems.ftue")
 local Spoilage = require("src.sim.systems.spoilage")
 local Inventory = require("src.sim.systems.inventory")
+local Placement = require("src.sim.systems.placement")
+local PlaceText = require("src.ui.place_text")
 local Journal = require("src.sim.systems.journal")
 local Weather = require("src.sim.systems.weather")
 local Nightly = require("src.sim.systems.nightly")
@@ -188,6 +190,29 @@ function Homestead:subscribe()
     -- The truck reached a full trip's charge (D72, #162); the tip card (D69) says what to do on the first one.
     events:on("market.tripReady", function()
       self:heldToast("tripReady", "The truck is charged: tap it to drive to town")
+    end),
+    -- Building over clutter and crops (D79, #197): an order that cannot go on says why.
+    events:on("placement.held", function(e)
+      local p = self.app.ctx.tuning.ui.placement
+      local what = name("objects", e.object):lower()
+      if e.kind == "full" then
+        self:queueToast(string.format("%s: %s", what, string.format(p.orderFull, name("resources", e.resource):lower())))
+      elseif e.kind == "blocked" then
+        self:queueToast(string.format("%s: %s", what, p.orderBlocked))
+      else
+        self:queueToast(string.format("%s: %s", what, p.orderUnreachable))
+      end
+    end),
+    events:on("placement.done", function(e)
+      self:queueToast(string.format(self.app.ctx.tuning.ui.placement.done, name("objects", e.object):lower()))
+    end),
+    events:on("placement.cancelled", function(e)
+      local p = self.app.ctx.tuning.ui.placement
+      if e.reason == "player" then
+        self:queueToast(string.format(p.cancelled, name("objects", e.object):lower()))
+      else
+        self:queueToast(string.format(p.lostItem, name("objects", e.object):lower()))
+      end
     end),
     events:on("market.held", function(e)
       self:showToast(name("catalog", e.item) .. " is waiting at the gate: no room in storage")
@@ -411,6 +436,9 @@ end
 
 function Homestead:setHand(seed, tool)
   self.seed, self.tool, self.mode, self.planStart, self.placing = seed, tool, "act", nil, nil
+  if self.placeCard and self.placeCard.kind == "confirm" then
+    self.placeCard = nil -- leaving Place drops a confirmation that was up (D79)
+  end
   self:layout()
   local late = seed and self:frostWarning(seed)
   if late then
@@ -421,8 +449,8 @@ end
 -- First object waiting in the inventory (sorted for stability), or nil.
 function Homestead:nextPlaceable()
   local ids = {}
-  for id, count in pairs(self.world.state.inventory.objects) do
-    if count > 0 then
+  for id in pairs(self.world.state.inventory.objects) do
+    if Placement.available(self.world, id) > 0 then -- items already promised to a queued order are not offered
       ids[#ids + 1] = id
     end
   end
@@ -606,6 +634,15 @@ function Homestead:layoutToolbar(view)
       self:setHand(nil, self.tool ~= "rod" and "rod" or nil)
     end),
   }
+  tools[#tools + 1] = {
+    id = "untill",
+    w = fit(L.untill, bw.untill),
+    label = L.untill,
+    selected = inHand and self.tool == "untill",
+    onPress = act(function()
+      self:setHand(nil, self.tool ~= "untill" and "untill" or nil)
+    end),
+  }
   local placeable = self:nextPlaceable()
   if placeable then
     local def = world.registry:get("objects", placeable)
@@ -702,7 +739,7 @@ function Homestead:layoutToolbar(view)
   end
   local toolsButton, moreButton = opener("tools", L.tools, bw.tools), opener("more", L.more, bw.more)
   local active
-  for _, id in ipairs({ "place", "plan", "rod" }) do
+  for _, id in ipairs({ "place", "plan", "rod", "untill" }) do
     for _, b in ipairs(tools) do
       if b.id == id and b.selected and not active then
         active = b
@@ -783,6 +820,9 @@ end
 
 --- The id the card slot would show now (cheap: the update loop compares it with the one on screen).
 function Homestead:cardIdNow()
+  if self.placeCard then
+    return "place:" .. self.placeCard.kind .. ":" .. self.placeCard.tile -- the player's own card has the slot (D79)
+  end
   local due = self:dueCard()
   if due then
     return due.id
@@ -838,7 +878,7 @@ function Homestead:layoutCard()
     y = by,
     w = bw,
     h = btnH,
-    label = "Got it",
+    label = spec.rightLabel or "Got it",
     style = "accent",
     onPress = function()
       spec.onGotIt()
@@ -853,6 +893,51 @@ end
 --- { { text, color } }, leftLabel, onLeft, onGotIt }.
 function Homestead:cardSpec()
   local world = self.world
+  local pc = self.placeCard
+  if pc then
+    local p = self.app.ctx.tuning.ui.placement
+    local colors = { text = theme.colors.text, dim = theme.colors.textDim, warn = theme.colors.danger }
+    if pc.kind == "confirm" then
+      local preview = Placement.preview(world, self.placing, pc.tile)
+      local text = PlaceText.confirm(world, self.placing, preview, colors)
+      return {
+        id = "place:confirm:" .. pc.tile,
+        kind = "place",
+        title = text.title,
+        lines = text.lines,
+        lineGap = 2,
+        leftLabel = p.cancel,
+        rightLabel = p.confirm,
+        onLeft = function()
+          self.placeCard = nil
+        end,
+        onGotIt = function()
+          self:confirmPlacement(pc.tile)
+        end,
+      }
+    end
+    local order = Placement.orderAt(world, pc.tile)
+    if order then
+      local text = PlaceText.order(world, order, colors)
+      return {
+        id = "place:order:" .. pc.tile,
+        kind = "place",
+        title = text.title,
+        lines = text.lines,
+        lineGap = 2,
+        leftLabel = p.orderClose,
+        rightLabel = p.orderCancel,
+        onLeft = function()
+          self.placeCard = nil
+        end,
+        onGotIt = function()
+          Placement.cancel(world, pc.tile)
+          self.placeCard = nil
+        end,
+      }
+    end
+    self.placeCard = nil
+  end
   local due = self:dueCard()
   if due then
     return {
@@ -1163,7 +1248,11 @@ function Homestead:update(dt)
   if self.activeChip then
     self.activeChip.label = self.activeChip.short or self.activeChip.source.label -- the shortcut mirrors the tool in hand
   end
-  if self.mode == "place" and Inventory.objectCount(self.world, self.placing) <= 0 then
+  if self.placeCard and self.placeCard.kind == "order" and not Placement.orderAt(self.world, self.placeCard.tile) then
+    self.placeCard = nil -- the order was built or cancelled
+    self:layoutCard()
+  end
+  if self.mode == "place" and Placement.available(self.world, self.placing) <= 0 then
     self:setHand(nil, nil)
   end
 end
@@ -1222,6 +1311,23 @@ function Homestead:frostWarning(cropId)
   return text
 end
 
+--- The player confirmed the card: queue the order (crops and plans under it go now) and leave Place.
+function Homestead:confirmPlacement(i)
+  local world, id = self.world, self.placing
+  local p = self.app.ctx.tuning.ui.placement
+  self.placeCard = nil
+  local result, reason, rule = Placement.request(world, id, i)
+  if result == "queued" then
+    self:showToast(p.ordered)
+    self:setHand(nil, nil)
+  elseif result == "placed" then
+    self:showToast("Placed " .. world.registry:get("objects", id).name:lower())
+    self:setHand(nil, nil)
+  else
+    self:showToast(PlaceText.reason(world, reason, rule))
+  end
+end
+
 function Homestead:tap(i)
   local world = self.world
   self.selected = i
@@ -1242,16 +1348,31 @@ function Homestead:tap(i)
     return
   end
   if self.mode == "place" then
-    if Inventory.place(world, self.placing, i) then
-      self:showToast("Placed " .. world.registry:get("objects", self.placing).name:lower())
-      self:setHand(nil, nil)
-    elseif world.registry:get("objects", self.placing).placeOn == "waterTable" and not Land.hasWaterTable(world, i) then
-      self:showToast("Needs a high water table (blue tiles)")
-    elseif world.registry:get("objects", self.placing).placeNear == "road" then
-      self:showToast("Needs a free spot beside the road")
+    -- Any buildable tile its own rules allow (D79). Open ground is placed at once; trees, rocks and crops in
+    -- the way open the confirmation card first, which says what will be cleared or removed.
+    local preview = Placement.preview(world, self.placing, i)
+    if not preview.ok then
+      self.placeCard = nil
+      self:showToast(PlaceText.reason(world, preview.reason, preview.rule))
+      self:layoutCard()
+    elseif preview.immediate then
+      self.placeCard = nil
+      if Placement.request(world, self.placing, i) == "placed" then
+        self:showToast("Placed " .. world.registry:get("objects", self.placing).name:lower())
+        self:setHand(nil, nil)
+      else
+        self:showToast(PlaceText.reason(world, "bounds"))
+      end
     else
-      self:showToast("Can't place it there")
+      self.placeCard = { kind = "confirm", tile = i }
+      self:layoutCard()
     end
+    return
+  end
+  local queued = self.mode == "act" and Placement.orderAt(world, i)
+  if queued then
+    self.placeCard = { kind = "order", tile = queued.tile } -- a tap on a waiting building shows its order (D79)
+    self:layoutCard()
     return
   end
   if Cat.at(world, i) then
@@ -1283,6 +1404,8 @@ function Homestead:tap(i)
   elseif full then
     -- Refused for lack of room: say which store is full (D59).
     self:showToast(string.format("%s storage is full", world.registry:get("resources", full).name))
+  elseif self.tool == "untill" then
+    self:showToast(self.app.ctx.tuning.ui.placement.noUntill)
   else
     self:showToast("Can't do anything there")
   end
@@ -1351,6 +1474,9 @@ function Homestead:action(name, data)
     if self.palette then
       self.palette = nil
       self:layout()
+    elseif self.placeCard then
+      self.placeCard = nil
+      self:layoutCard()
     elseif self.planStart then
       self.planStart = nil
     elseif self.mode ~= "act" then
@@ -1476,15 +1602,45 @@ function Homestead:drawOverlays()
     love.graphics.setLineWidth(1 / camera:zoom())
     love.graphics.rectangle("line", minX, minY, maxX - minX, maxY - minY)
   end
-  if self.mode == "place" and self.hover then
-    -- Ghost of the object being placed: tinted green where it fits, red where it doesn't.
+  -- Buildings waiting for the way to be cleared (D79): a faint ghost with an accent outline on the footprint.
+  for _, order in ipairs(Placement.orders(world)) do
+    local def = world.registry:get("objects", order.object)
+    local sprite = Assets.sprite(order.object)
+    local x, y = Grid.coords(grid, order.tile)
+    love.graphics.setColor(1, 1, 1, 0.4)
+    love.graphics.draw(sprite.image, sprite.quad, (x - 1) * tile, (y - 1 + (def.footprintH or 1)) * tile - sprite.h)
+    for _, t in ipairs(Grid.footprintTiles(grid, def, x, y)) do
+      outlineTile(camera, t, grid, order.why and theme.colors.danger or theme.colors.accent, 2)
+    end
+  end
+  local target = self.mode == "place" and (self.placeCard and self.placeCard.kind == "confirm" and self.placeCard.tile or self.hover)
+  if target then
+    -- Ghost of the object being placed: green where it fits now, amber where trees, rocks or crops must go
+    -- first (those tiles are outlined: orange to clear, red to remove), red where it can't go.
     local def = world.registry:get("objects", self.placing)
     local sprite = Assets.sprite(self.placing)
-    local x, y = Grid.coords(grid, self.hover)
-    local ok = Inventory.canPlace(world, self.placing, self.hover)
-    love.graphics.setColor(ok and 0.6 or 1, ok and 1 or 0.45, ok and 0.6 or 0.45, 0.7)
+    local x, y = Grid.coords(grid, target)
+    local preview = Placement.preview(world, self.placing, target)
+    if not preview.ok then
+      love.graphics.setColor(1, 0.45, 0.45, 0.7)
+    elseif preview.immediate then
+      love.graphics.setColor(0.6, 1, 0.6, 0.7)
+    else
+      love.graphics.setColor(1, 0.8, 0.4, 0.7)
+    end
     local bottom = (y - 1 + (def.footprintH or 1)) * tile
     love.graphics.draw(sprite.image, sprite.quad, (x - 1) * tile, bottom - sprite.h)
+    if preview.ok then
+      for _, c in ipairs(preview.clear) do
+        outlineTile(camera, c.anchor, grid, theme.colors.accent, 2)
+      end
+      for _, t in ipairs(preview.tiles) do
+        local status = Crops.tileStatus(world, t)
+        if status.crop or status.plan then
+          outlineTile(camera, t, grid, theme.colors.danger, 2)
+        end
+      end
+    end
   end
   if self.hover then
     outlineTile(camera, self.hover, grid, { 1, 1, 1, 0.35 })
@@ -1732,6 +1888,8 @@ function Homestead:captionText()
     return self.seed and string.format(c.planSeed, crop(self.seed)) or c.planClear
   elseif self.tool == "rod" then
     return c.rod
+  elseif self.tool == "untill" then
+    return c.untill
   elseif self.seed then
     return string.format(c.seed, crop(self.seed))
   end
@@ -1787,6 +1945,10 @@ function Homestead:tileInfo(i)
   local world = self.world
   local grid = world.state.grid
   local lines = {}
+  local queued = Placement.orderAt(world, i)
+  if queued then
+    lines[#lines + 1] = string.format(self.app.ctx.tuning.ui.placement.orderTitle, world.registry:get("objects", queued.object).name)
+  end
   local terrain = Grid.terrain(world, i)
   lines[#lines + 1] = world.state.fields.tilled[i] and "Tilled soil" or terrain.name
   if terrain.tillable then

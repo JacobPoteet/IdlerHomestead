@@ -66,6 +66,7 @@ local STATE_OWNERS = {
   needs = "needs",
   perks = "perks",
   perksApplied = "perks",
+  placement = "placement",
   power = "power",
   priorities = "tasks",
   routine = "routine",

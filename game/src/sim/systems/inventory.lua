@@ -76,81 +76,149 @@ function Inventory.refreshStorage(world)
   end
 end
 
---- Can an object of this type be placed with its top-left at tile i? (Objects with
---- `placeNear = "water"`, like micro-hydro, must also touch a water tile; `placeOn = "waterTable"`,
---- like wells and pumps, needs a tile with a high enough water table; `placeNear = "road"`, the
---- roadside stand, must touch the road without covering it.)
-function Inventory.canPlace(world, id, i)
+local function clearable(def)
+  return def.clearable ~= false and def.clearTime ~= nil
+end
+
+-- Does any tile within one step of t (diagonals included) have terrain satisfying `test`?
+local function touches(world, t, test)
+  local grid = world.state.grid
+  local tx, ty = Grid.coords(grid, t)
+  for dy = -1, 1 do
+    for dx = -1, 1 do
+      if Grid.inBounds(grid, tx + dx, ty + dy) and test(Grid.terrain(world, Grid.index(grid, tx + dx, ty + dy))) then
+        return true
+      end
+    end
+  end
+  return false
+end
+
+--- What would it take to put an object of this type with its top-left at tile i? (D79: any buildable
+--- tile, grass or tilled soil, that the object's own rules allow; trees, rocks, logs, brush and junk are
+--- cleared first, crops and plans are removed.) Returns a table:
+---   ok         the spot is legal once whatever is in the way is cleared or removed
+---   reason     when not ok: "bounds", "terrain" (road or water), "object" (something that can't be
+---              cleared, such as the truck or another building), "rule" (the object's own rule, see
+---              `rule`: "waterTable", "road", "water", "offRoad") or "claimed" (another order has it)
+---   immediate  ok and nothing in the way, so it can be placed at once
+---   tiles      the footprint
+---   clear      { { anchor, id } ... } clearable objects on the footprint, by anchor
+---   crops      { { tile, crop, mature } ... } growing crops that would be removed
+---   plans      planned tiles with no crop yet that would lose their plan
+---   tilled     tilled tiles under the footprint (kept for a pick-up, #15)
+---   actor      the homesteader stands where a blocking object would go (a moment's wait)
+--- (Objects with `placeNear = "water"`, like micro-hydro, must also touch a water tile;
+--- `placeOn = "waterTable"`, like wells and pumps, needs a tile with a high enough water table;
+--- `placeNear = "road"`, the roadside stand, must touch the road without covering it.)
+function Inventory.check(world, id, i, ignoreHeld)
   local grid = world.state.grid
   local def = world.registry:get("objects", id)
   local x, y = Grid.coords(grid, i)
   local tiles = Grid.footprintTiles(grid, def, x, y)
+  local result = { ok = false, immediate = false, clear = {}, crops = {}, plans = 0, tilled = 0, actor = false }
   if not tiles then
-    return false
+    result.reason = "bounds"
+    return result
   end
-  local touchesWater = false
-  local touchesRoad = false
+  result.tiles = tiles
+  local touchesWater, touchesRoad = false, false
+  local seen = {}
   for _, t in ipairs(tiles) do
     local terrain = Grid.terrain(world, t)
-    if not terrain.walkable or terrain.water or world.occupancy[t] then
-      return false
+    if not terrain.walkable or terrain.water or not terrain.buildable then
+      result.reason = "terrain" -- roads and water stay off limits
+      return result
     end
-    if def.offRoad and terrain.id == "road" then
-      return false -- a henhouse does not go in the road
+    local anchor = world.occupancy[t]
+    if anchor and not seen[anchor] then
+      seen[anchor] = true
+      local other = Grid.object(world, t)
+      if not clearable(other) then
+        result.reason = "object"
+        return result
+      end
+      result.clear[#result.clear + 1] = { anchor = anchor, id = other.id }
     end
     if def.placeOn == "waterTable" and not Land.hasWaterTable(world, t) then
-      return false -- wells and pumps need groundwater close to the surface
+      result.reason, result.rule = "rule", "waterTable" -- wells and pumps need groundwater close to the surface
+      return result
     end
     if def.placeNear == "water" and not touchesWater then
-      local tx, ty = Grid.coords(grid, t)
-      for dy = -1, 1 do
-        for dx = -1, 1 do
-          if Grid.inBounds(grid, tx + dx, ty + dy) and Grid.terrain(world, Grid.index(grid, tx + dx, ty + dy)).water then
-            touchesWater = true
-          end
+      touchesWater = touches(world, t, function(terr)
+        return terr.water
+      end)
+    end
+    if def.placeNear == "road" and not touchesRoad then
+      touchesRoad = touches(world, t, function(terr)
+        return terr.id == "road"
+      end)
+    end
+    local status = Crops.tileStatus(world, t)
+    if status.held and not ignoreHeld then
+      result.reason = "claimed"
+      return result
+    end
+    if status.crop then
+      result.crops[#result.crops + 1] = { tile = t, crop = status.crop, mature = status.mature }
+    elseif status.plan then
+      result.plans = result.plans + 1
+    end
+    if status.tilled then
+      result.tilled = result.tilled + 1
+    end
+    if def.blocks then
+      for _, actor in ipairs(Actors.list(world)) do
+        if Grid.index(grid, math.floor(actor.x + 0.5), math.floor(actor.y + 0.5)) == t then
+          result.actor = true
         end
-      end
-    end
-    if def.placeNear == "road" then
-      if Grid.terrain(world, t).id == "road" then
-        return false -- the stand sits beside the road, not on it
-      end
-      if not touchesRoad then
-        local tx, ty = Grid.coords(grid, t)
-        for dy = -1, 1 do
-          for dx = -1, 1 do
-            if Grid.inBounds(grid, tx + dx, ty + dy) and Grid.terrain(world, Grid.index(grid, tx + dx, ty + dy)).id == "road" then
-              touchesRoad = true
-            end
-          end
-        end
-      end
-    end
-    if Crops.tileInUse(world, t) then
-      return false
-    end
-    for _, actor in ipairs(Actors.list(world)) do
-      if def.blocks and Grid.index(grid, math.floor(actor.x + 0.5), math.floor(actor.y + 0.5)) == t then
-        return false
       end
     end
   end
   if def.placeNear == "road" and not touchesRoad then
-    return false
+    result.reason, result.rule = "rule", "road"
+    return result
   end
-  return def.placeNear ~= "water" or touchesWater
+  if def.placeNear == "water" and not touchesWater then
+    result.reason, result.rule = "rule", "water"
+    return result
+  end
+  table.sort(result.clear, function(a, b)
+    return a.anchor < b.anchor
+  end)
+  result.ok = true
+  result.immediate = #result.clear == 0 and #result.crops == 0 and result.plans == 0 and not result.actor
+  return result
 end
 
---- Place an object from inventory at tile i. Returns true on success.
+--- Can an object of this type be placed with its top-left at tile i right now, with nothing to clear
+--- or remove first? (Tilled soil without a crop or plan is fine, D79.)
+function Inventory.canPlace(world, id, i)
+  return Inventory.check(world, id, i).immediate
+end
+
+--- Place an object from inventory at tile i. Returns true on success. Tilled soil under the footprint is
+--- covered (the object remembers which tiles were tilled, `tilled = { [tile] = true }`, so picking it up
+--- can hand the soil back as it was, #15).
 function Inventory.place(world, id, i)
   if Inventory.objectCount(world, id) <= 0 or not Inventory.canPlace(world, id, i) then
     return false
   end
-  local x, y = Grid.coords(world.state.grid, i)
+  local grid = world.state.grid
+  local x, y = Grid.coords(grid, i)
+  local tiles = Grid.footprintTiles(grid, world.registry:get("objects", id), x, y)
   local anchor = Grid.placeObject(world, id, x, y)
   if not anchor then
     return false
   end
+  local was
+  for _, t in ipairs(tiles) do
+    if Crops.cover(world, t, "placement") then
+      was = was or {}
+      was[t] = true
+    end
+  end
+  grid.objects[anchor].tilled = was
   local objects = world.state.inventory.objects
   objects[id] = objects[id] - 1
   if objects[id] <= 0 then

@@ -1,6 +1,8 @@
 -- Fields & crops. Per-crop values live in data/content/crops.lua.
 return {
   tillTime = 2, -- seconds of work to till a tile
+  untillTime = 2, -- seconds of work to turn a tilled tile back to grass (D79)
+  routineUntill = true, -- the idle routine untills tilled tiles nobody planned (leftovers of a cleared plan); false: only the Untill tool does (D79)
   plantTime = 1, -- seconds of work to plant a tile
   waterTime = 0.8, -- seconds of work to water a tile
   harvestTime = 1.2, -- seconds of work to harvest a tile

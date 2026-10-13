@@ -15,6 +15,7 @@ return {
     name = "string",
     walkable = "boolean", -- can actors stand on it
     tillable = "boolean?", -- can be tilled into a field
+    buildable = "boolean?", -- objects may be placed here (grass; roads and water are off limits, D79)
     water = "boolean?", -- buckets can be filled here
     walkCost = "number?", -- movement cost multiplier (default 1)
   },
