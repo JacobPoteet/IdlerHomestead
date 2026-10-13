@@ -1,16 +1,23 @@
--- Field Journal (GDD §8.1, §8.3): the study queue, a pannable knowledge map of nodes and note
--- stamps, and the notes you've written. Studying happens at night; choosing what to study is
--- always the player's decision. Map positions are auto-laid-out from the data (src/ui/journal_map.lua).
+-- Field Journal (GDD §8.1, §8.3, D81): the study queue, the knowledge tree and the notes you've written.
+-- Studying happens at night; choosing what to study is always the player's decision.
 --
--- Layout, top to bottom: the study queue strip, the map (clipped, pan by dragging / arrow keys /
--- wheel), and the notes strip. Tapping a node opens a compact card over the bottom of the map.
+-- Layout, top to bottom: the study queue strip, the map area, and the notes strip. The map area shows
+-- either the OVERVIEW (chapter tiles grouped under area headings, scrolling vertically) or one FOCUSED
+-- chapter fitted to the view (note stamps left, nodes right, links; auto-laid-out by journal_map.lua, D41).
+-- Tapping a node opens a compact card (below the chapter, or beside it on wide, short views).
+-- The navigation is split into small, replaceable modules (D81, intentionally minimal):
+--   ui/journal_layout.lua (pure geometry)   ui/journal_nav.lua (state and input)
+--   ui/journal_overview.lua, ui/journal_focus.lua (drawing).   This scene glues them together.
 
 local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Buttons = require("src.ui.buttons")
-local JournalMap = require("src.ui.journal_map")
+local Focus = require("src.ui.journal_focus")
+local Layout = require("src.ui.journal_layout")
+local Nav = require("src.ui.journal_nav")
+local Overview = require("src.ui.journal_overview")
 local NodeView = require("src.ui.node_view")
 local Panel = require("src.ui.panel")
 local Text = require("src.ui.text")
@@ -21,7 +28,6 @@ JournalScene.__index = JournalScene
 
 -- Layout, in virtual pixels.
 local MAX_W = 720 -- panel width on wide windows
-local MARGIN = 6 -- empty space around the map's content
 local CHIP_H = 34 -- height of a study queue chip
 local CHIP_GAP = 4 -- space between queue chips
 local CARD_H = 64 -- node card height (taller when an unknown node lists what it needs)
@@ -30,7 +36,6 @@ local CARD_TEXT_TOP = 21 -- card description top, from the card's top
 local CARD_STAMP_ROOM = 30 -- space kept under the description for the needed-note stamps
 local NOTE_STAMP = 24 -- note stamp edge in the notes strip (touch-sized)
 local NOTE_GAP = 2 -- space between note stamps
-local WHEEL_STEP = 24 -- pixels the map moves per mouse-wheel notch
 local RING_R = 12.5 -- radius of a node's study progress ring
 local ICON_SCALE = 2 -- node icons are drawn at twice their sprite size
 local TITLE_PAD = 36 -- space from the panel top to the queue heading
@@ -52,23 +57,24 @@ local SILHOUETTE = { 0.16, 0.18, 0.17 } -- an unknown node's icon
 
 local ORDER_REASONS = { owned = "Owned", ordered = "Ordered", ["pickup only"] = "In town", ["too big for storage"] = "Too big" }
 
+-- Test hook: a function(world) -> chapters that replaces Journal.chapters (the screenshot driver uses it to
+-- show a grown journal). Nil in the game.
+JournalScene.chapterSource = nil
+
 function JournalScene.new(world, onToast)
-  return setmetatable({ world = world, onToast = onToast, selected = nil, selectedNote = nil, offX = 0, offY = 0 }, JournalScene)
+  return setmetatable({ world = world, onToast = onToast, selected = nil, selectedNote = nil, nav = Nav.new() }, JournalScene)
 end
 
 function JournalScene:enter()
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
   self.cardButtons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
+  self.spec = self.app.ctx.tuning.ui.journal
   self.pendingFocus = true
   self.refresh = 0
 end
 
 local function inRect(r, x, y)
   return r and x >= r.x and x < r.x + r.w and y >= r.y and y < r.y + r.h
-end
-
-local function clamp(v, lo, hi)
-  return math.max(lo, math.min(hi, v))
 end
 
 local function nights(n)
@@ -101,24 +107,35 @@ function JournalScene:resize(view)
   self.mapRect = { x = b.x + 6, y = mapTop, w = inner, h = self.notesRect.y - 4 - mapTop }
   self:placeCard()
 
-  self.map = JournalMap.build(Journal.chapters(world), self.mapRect.h - 2 * MARGIN)
+  self.chapters = self:chapterList()
+  self.groups = Layout.groups(self.chapters, self.spec.defaultArea)
+  Nav.resized(self.nav)
+  self:layoutButtons()
   if self.pendingFocus then
+    -- Open on the overview, scrolled to the chapter that has something to do.
     self.pendingFocus = false
-    local focus = Journal.queue(world)[1]
-    if not focus then
-      local ideas = Journal.ideas(world)
-      focus = ideas[1] and ideas[1].id
-    end
-    local node = focus and self.map.nodes[focus]
-    if node then
-      -- Open on the chapter that has something to do, its corner at the top left.
-      self.offX, self.offY = -node.region.x, -node.region.y
-      self:clampPan()
-      self:reveal(focus)
+    local target = Layout.startTarget(Journal.queue(world), self:ideaIds())
+    local index = target and Layout.chapterIndexOf(self.chapters, target)
+    if index then
+      self.nav.cur = index
+      Nav.revealTile(self.nav, index, self.spec)
     end
   end
-  self:clampPan()
-  self:layoutButtons()
+end
+
+function JournalScene:chapterList()
+  return (JournalScene.chapterSource or Journal.chapters)(self.world)
+end
+
+--- The ids of the ideas nobody has queued yet ("to study"), in journal order.
+function JournalScene:ideaIds()
+  local ids = {}
+  for _, def in ipairs(Journal.ideas(self.world)) do
+    if Journal.status(self.world, def.id) == "idea" then
+      ids[#ids + 1] = def.id
+    end
+  end
+  return ids
 end
 
 --- What to do to learn a node that is still unknown (D72, #160): "Needs: Fell a tree; Catch a fish", from
@@ -143,73 +160,65 @@ function JournalScene:cardHeight()
   if not text then
     return CARD_H
   end
-  return math.max(CARD_H, CARD_TEXT_TOP + Text.wrappedHeight(text, "small", self.mapRect.w - 8 - CARD_TEXT_X - 8) + CARD_STAMP_ROOM)
+  local _, _, side = Layout.cardSlot(self.mapRect, 0, self.spec)
+  local width = side and self.spec.sideCardWidth or self.mapRect.w - 2 * self.spec.pad
+  return math.max(CARD_H, CARD_TEXT_TOP + Text.wrappedHeight(text, "small", width - CARD_TEXT_X - 8) + CARD_STAMP_ROOM)
 end
 
 function JournalScene:placeCard()
-  local r, h = self.mapRect, self:cardHeight()
-  self.cardH = h
-  self.cardRect = { x = r.x + 4, y = r.y + r.h - h - 4, w = r.w - 8, h = h }
+  self.cardRect, self.cardH, self.cardSide = Layout.cardSlot(self.mapRect, self:cardHeight(), self.spec)
 end
 
--- Keep the map's content inside the viewport (centred horizontally when it fits).
-function JournalScene:clampPan()
-  local m, r = self.map, self.mapRect
-  local contentW, contentH = m.w + 2 * MARGIN, m.h + 2 * MARGIN
-  local viewH = r.h - (self.selected and (self.cardH + 4) or 0)
-  if contentW <= r.w then
-    self.offX = math.floor((r.w - contentW) / 2)
-  else
-    self.offX = clamp(self.offX, r.w - contentW, 0)
-  end
-  if contentH <= viewH then
-    self.offY = 0
-  else
-    self.offY = clamp(self.offY, viewH - contentH, 0)
-  end
-end
-
---- Scroll the least amount that brings a node fully into view (above the card, if one is open).
-function JournalScene:reveal(id)
-  local node = self.map.nodes[id]
-  if not node then
-    return
-  end
-  local r = self.mapRect
-  local viewH = r.h - (self.selected and (self.cardH + 4) or 0)
-  local pad = 6
-  local left, top = node.x + MARGIN + self.offX, node.y + MARGIN + self.offY
-  if left < pad then
-    self.offX = self.offX + pad - left
-  elseif left + node.w > r.w - pad then
-    self.offX = self.offX - (left + node.w - (r.w - pad))
-  end
-  if top < pad then
-    self.offY = self.offY + pad - top
-  elseif top + node.h > viewH - pad then
-    self.offY = self.offY - (top + node.h - (viewH - pad))
-  end
-  self:clampPan()
-end
-
-function JournalScene:panBy(dx, dy)
-  self.offX, self.offY = self.offX + dx, self.offY + dy
-  self:clampPan()
-end
-
-function JournalScene:select(id)
+--- Open a node's card and show its chapter, unless `keepChapter` (a tap inside the chapter already shown).
+function JournalScene:select(id, keepChapter)
   self.selected, self.selectedNote = id, nil
-  self:placeCard()
-  if id then
-    self:reveal(id)
+  local index = id and not keepChapter and Layout.chapterIndexOf(self.chapters, id)
+  if index then
+    Nav.openChapter(self.nav, index)
   end
-  self:clampPan()
   self:layoutButtons()
 end
 
 function JournalScene:selectNote(id)
   self.selectedNote = id
   self:layoutButtons()
+end
+
+--- Rebuild the navigation chips and the overview / focus geometry from the current journal state.
+function JournalScene:layoutNav()
+  local world, nav = self.world, self.nav
+  local function statusOf(id)
+    return Journal.status(world, id)
+  end
+  local ideas = self:ideaIds()
+  self.stats = Layout.allStats(self.chapters, statusOf)
+  local data = { chapters = self.chapters, stats = self.stats, groups = self.groups, ideaCount = #ideas }
+  local free = Layout.freeRect(self.mapRect, self.selected and self.cardRect or nil, self.cardSide, self.spec)
+  Nav.layout(nav, data, free, self.spec, self.app.ctx.tuning.input.minTouchTarget)
+  for _, chip in ipairs(nav.chips) do
+    local kind = chip.kind
+    chip.onPress = function()
+      if kind == "back" then
+        Nav.backToOverview(nav)
+        self.selected, self.selectedNote = nil, nil
+        self:layoutButtons()
+      elseif kind == "queue" then
+        local id = Layout.queueTarget(Journal.queue(world))
+        if id then
+          self:select(id)
+        end
+      elseif kind == "study" then
+        local id = Layout.nextIdea(self:ideaIds(), self.selected)
+        if id then
+          self:select(id)
+        end
+      else
+        Nav.setFilter(nav, kind)
+        self:layoutButtons()
+      end
+    end
+    self.hits[#self.hits + 1] = chip
+  end
 end
 
 -- Buttons and tap targets. Chips and note stamps are plain hit rectangles (drawn by hand);
@@ -260,6 +269,9 @@ function JournalScene:layoutButtons()
     self.noteStamps[i] = stamp
     self.hits[#self.hits + 1] = stamp
   end
+
+  -- The map area: chips (jumps, filter) and the overview grid or the fitted chapter.
+  self:layoutNav()
 
   -- The open node's card.
   self.cardStamps = {}
@@ -326,40 +338,32 @@ end
 
 -- Input ---------------------------------------------------------------------------------------
 
-function JournalScene:mapOrigin()
-  return self.mapRect.x + MARGIN + math.floor(self.offX), self.mapRect.y + MARGIN + math.floor(self.offY)
-end
-
 function JournalScene:cardOpen()
   return self.selected ~= nil
 end
 
 function JournalScene:tapMap(x, y)
-  local ox, oy = self:mapOrigin()
-  local mx, my = x - ox, y - oy
-  for _, region in ipairs(self.map.regions) do
-    for _, node in ipairs(region.nodes) do
-      if inRect({ x = node.x, y = node.y, w = node.w, h = node.h }, mx, my) then
-        self:select(node.id)
-        return
-      end
+  local nav = self.nav
+  if nav.view == "overview" then
+    local index = Nav.tileAt(nav, x, y)
+    if index then
+      Nav.openChapter(nav, index)
+      self.selected, self.selectedNote = nil, nil
+      self:layoutButtons()
     end
-    for _, stamp in ipairs(region.stamps) do
-      if inRect(stamp, mx, my) then
-        self.selected = nil
-        self:clampPan()
-        self:selectNote(stamp.note)
-        return
-      end
-    end
+    return
   end
-  -- Empty paper: put the card and the note away.
-  self.selectedNote = nil
-  if self.selected then
+  local kind, id = Layout.hit(nav.fit, x, y)
+  if kind == "node" then
+    self:select(id, true)
+  elseif kind == "note" then
     self.selected = nil
-    self:clampPan()
+    self:selectNote(id)
+  else
+    -- Empty paper: put the card and the note away.
+    self.selected, self.selectedNote = nil, nil
+    self:layoutButtons()
   end
-  self:layoutButtons()
 end
 
 function JournalScene:action(name, data)
@@ -374,12 +378,12 @@ function JournalScene:action(name, data)
     self.dragInMap = not consumed and inRect(self.mapRect, data.x, data.y) and not (self:cardOpen() and inRect(self.cardRect, data.x, data.y))
   elseif name == "pan" then
     if data.keys or self.dragInMap then
-      self:panBy(data.dx, data.dy)
+      Nav.drag(self.nav, data.dy)
     end
   elseif name == "zoom" then
-    -- The mouse wheel scrolls the map.
+    -- The mouse wheel scrolls the overview.
     if inRect(self.mapRect, data.x, data.y) then
-      self:panBy(0, data.steps * WHEEL_STEP)
+      Nav.wheel(self.nav, data.steps, self.spec.wheelStep)
     end
   elseif name == "select" and not consumed then
     local x, y = data.x, data.y
@@ -406,7 +410,9 @@ function JournalScene:action(name, data)
   elseif name == "cancel" then
     if self.selected or self.selectedNote then
       self.selected, self.selectedNote = nil, nil
-      self:clampPan()
+      self:layoutButtons()
+    elseif self.nav.view == "focus" then
+      Nav.backToOverview(self.nav)
       self:layoutButtons()
     else
       self.app:pop()
@@ -578,35 +584,12 @@ function JournalScene:drawMap()
   local r, scale = self.mapRect, self.app.view.scale
   love.graphics.setColor(COLOR.mapBg)
   love.graphics.rectangle("fill", r.x, r.y, r.w, r.h, 4, 4)
-
-  -- Clip to the viewport; scissor works in screen pixels, not virtual ones.
-  love.graphics.setScissor(math.floor(r.x * scale), math.floor(r.y * scale), math.ceil(r.w * scale), math.ceil(r.h * scale))
-  local ox, oy = self:mapOrigin()
-  love.graphics.push()
-  love.graphics.translate(ox, oy)
-  for _, region in ipairs(self.map.regions) do
-    local sx, sy = region.x + ox, region.y + oy
-    if sx < r.x + r.w and sx + region.w > r.x and sy < r.y + r.h and sy + region.h > r.y then
-      self:drawRegion(region)
-    end
+  Overview.drawChips(self.nav, self.spec)
+  if self.nav.view == "focus" then
+    Focus.draw(self, self.nav, self.spec)
+  else
+    Overview.draw(self.nav, { chapters = self.chapters, stats = self.stats }, self.spec, scale)
   end
-  love.graphics.pop()
-
-  -- Scroll bars, only where the content overflows.
-  local contentW, contentH = self.map.w + 2 * MARGIN, self.map.h + 2 * MARGIN
-  local viewH = r.h - (self.selected and (self.cardH + 4) or 0)
-  love.graphics.setColor(1, 1, 1, 0.25)
-  if contentW > r.w then
-    local barW = math.max(12, r.w * r.w / contentW)
-    local at = (-self.offX) / (contentW - r.w) * (r.w - barW)
-    love.graphics.rectangle("fill", r.x + at, r.y + r.h - 3, barW, 2)
-  end
-  if contentH > viewH then
-    local barH = math.max(12, viewH * viewH / contentH)
-    local at = (-self.offY) / (contentH - viewH) * (viewH - barH)
-    love.graphics.rectangle("fill", r.x + r.w - 3, r.y + at, 2, barH)
-  end
-  love.graphics.setScissor()
   love.graphics.setColor(theme.colors.panelBorder)
   love.graphics.setLineWidth(1)
   love.graphics.rectangle("line", r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 4, 4)

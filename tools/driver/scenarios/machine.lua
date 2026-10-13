@@ -118,11 +118,7 @@ return function(d)
   d:press("Journal")
   d:frames(2)
   local journal = d:scene()
-  journal:select("auto_harvester") -- the node's card, scrolled into view
-  local region = journal.map.nodes.auto_harvester.region
-  journal.offX, journal.offY = -region.x, -region.y
-  journal:clampPan()
-  journal:reveal("auto_harvester")
+  journal:select("auto_harvester") -- opens the node's chapter and its card
   d:frames(3)
   d:shot("journal")
 end

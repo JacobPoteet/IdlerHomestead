@@ -68,7 +68,7 @@ end
 function Journal.chapters(world)
   local list, byPage = {}, {}
   for _, chapter in ipairs(world.registry:all("chapters")) do
-    local entry = { id = chapter.id, name = chapter.name, nodes = {} }
+    local entry = { id = chapter.id, name = chapter.name, area = chapter.area, nodes = {} }
     list[#list + 1] = entry
     for _, page in ipairs(chapter.pages) do
       byPage[page] = byPage[page] or entry
