@@ -17,7 +17,7 @@ local Ftue = {}
 
 --- Start the tips for a brand-new slot's meta (`on` false starts it finished, for tools and tests).
 function Ftue.begin(meta, on)
-  meta.ftue = { seen = {}, seenAt = {}, queue = {}, off = not on }
+  meta.ftue = { seen = {}, seenAt = {}, queue = {}, off = not on, skipped = not on }
   return meta.ftue
 end
 
@@ -61,7 +61,16 @@ end
 --- Queue a step, due `delay` game seconds from now (unless it is seen, queued, or tips are off).
 local function enqueue(world, def)
   local st = Ftue.state(world)
-  if st.off or def.card == false or Ftue.isSeen(world, def.id) or queued(st, def.id) then
+  if def.card == false or Ftue.isSeen(world, def.id) or queued(st, def.id) then
+    return false
+  end
+  if def.run then
+    -- A later-run card (D99): only in that run of the slot, and not once the player chose no tips.
+    local career = world.meta.career
+    if st.skipped or not career or career.runs ~= def.run then
+      return false
+    end
+  elseif st.off then
     return false
   end
   local delay = def.delay or world.tuning.ftue.defaultDelay
@@ -142,7 +151,7 @@ end
 --- Steps that become due a while after another was dismissed (checked every tick; cheap).
 function Ftue.tick(world)
   local st = world.meta.ftue
-  if not st or st.off then
+  if not st then
     return
   end
   local now = Calendar.elapsed(world)
@@ -158,7 +167,7 @@ end
 --- content, and only once `tuning.ftue.minGap` has passed since the last card was dismissed.
 function Ftue.current(world)
   local st = Ftue.state(world)
-  if st.off or #st.queue == 0 then
+  if #st.queue == 0 then -- (a run-2 card is queued while the first-run tips are off, D99)
     return nil
   end
   local now = Calendar.elapsed(world)
@@ -195,14 +204,14 @@ end
 --- "Skip tips": no more cards, now or later in this slot.
 function Ftue.skip(world)
   local st = Ftue.state(world)
-  st.off = true
+  st.off, st.skipped = true, true
   st.queue = {}
 end
 
 --- Menu toggle. Turning tips on again keeps what was already seen.
 function Ftue.setEnabled(world, on)
   local st = Ftue.state(world)
-  st.off = not on
+  st.off, st.skipped = not on, not on
   if not on then
     st.queue = {}
   end
@@ -211,15 +220,17 @@ end
 --- Menu "Show all again": forget what was seen, so every tip comes back as its moment arrives.
 function Ftue.reset(world)
   local st = Ftue.state(world)
-  st.seen, st.seenAt, st.queue, st.lastShown, st.off = {}, {}, {}, nil, false
+  st.seen, st.seenAt, st.queue, st.lastShown, st.off, st.skipped = {}, {}, {}, nil, false, false
   queueStarts(world)
 end
 
---- A new run begins: tips are for the first run only, so they stop (Menu > Tips can bring them back).
+--- A new run begins: the first-run tips stop (Menu > Tips can bring them back). Cards marked `run = 2`
+--- queue when run 2's world starts, unless the player skipped the tips (D99).
 function Ftue.endForRun(meta)
   if meta.ftue then
     meta.ftue.off = true
     meta.ftue.queue = {}
+    meta.ftue.lastShown = nil -- game seconds restart with each run
   end
 end
 

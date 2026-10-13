@@ -56,9 +56,72 @@ function Run.summary(world)
   }
 end
 
---- The run is over (Condition hit zero). Records it and discards the run state.
-function Run.fail(data, world)
+--- What finished the run (D99): `depleted` is the needs.depleted payload { hunger, cold, shelter } (the
+--- last day's shortfalls, 0..1, and the shelter id of the night). Returns { kind, shelter } where kind is
+--- "cold", "hunger", "both" (neither damage at least twice the other) or "unknown" (no payload).
+function Run.cause(tuning, depleted)
+  if not depleted or depleted.hunger == nil then
+    return { kind = "unknown" }
+  end
+  local hunger = tuning.needs.hungerDamage * (depleted.hunger or 0)
+  local cold = tuning.needs.coldDamage * (depleted.cold or 0)
+  local both = tuning.ui.failure.bothRatio
+  local kind = "unknown"
+  if hunger > 0 and cold > 0 and hunger < cold * both and cold < hunger * both then
+    kind = "both"
+  elseif cold > hunger then
+    kind = "cold"
+  elseif hunger > 0 then
+    kind = "hunger"
+  end
+  return { kind = kind, shelter = depleted.shelter or nil }
+end
+
+--- The next shelter rung above `shelterId` as an object definition, or nil at the top (or unknown).
+function Run.nextRung(registry, shelterId)
+  local rank = shelterId and registry:has("objects", shelterId) and registry:get("objects", shelterId).shelterRank
+  local best
+  for _, def in ipairs(registry:all("objects")) do
+    if def.shelter and rank and (def.shelterRank or 0) > rank and (not best or def.shelterRank < best.shelterRank) then
+      best = def
+    end
+  end
+  return best
+end
+
+--- The rescue's words for a cause (pure; D99, #216): { icon, line, hint, page? }. `line` names what
+--- failed and where the night was spent, `hint` points at the journal page or the next rung.
+function Run.failureText(registry, tuning, cause)
+  local t = tuning.ui.failure
+  local shelter = cause.shelter and registry:has("objects", cause.shelter) and registry:get("objects", cause.shelter).name:lower()
+  if cause.kind == "cold" or cause.kind == "both" then
+    local next = Run.nextRung(registry, cause.shelter)
+    local line = shelter and string.format(cause.kind == "both" and t.bothIn or t.coldIn, shelter) or (cause.kind == "both" and t.both or t.cold)
+    local hint = next and string.format(t.coldNext, next.name:lower()) or t.coldTop
+    return { icon = "icon_cold", line = line, hint = hint, page = "shelter" }
+  elseif cause.kind == "hunger" then
+    return { icon = "icon_food", line = t.hunger, hint = t.hungerHint }
+  end
+  return { icon = "icon_unknown", line = t.unknown, hint = t.unknownHint }
+end
+
+--- The one suggestion on the first recovery of a slot (D99, #173): a first change for the next run.
+function Run.firstChange(registry, tuning, cause)
+  local t = tuning.ui.failure
+  if cause.kind == "cold" or cause.kind == "both" then
+    local next = Run.nextRung(registry, cause.shelter)
+    return next and string.format(t.firstColdNext, next.name:lower()) or t.firstColdTop
+  elseif cause.kind == "hunger" then
+    return t.firstHunger
+  end
+  return t.firstUnknown
+end
+
+--- The run is over (Condition hit zero). Records it and discards the run state. `depleted` is the
+--- needs.depleted payload (optional: tools that end a run without it record an unknown cause).
+function Run.fail(data, world, depleted)
   local summary = Run.summary(world)
+  summary.cause = Run.cause(world.tuning, depleted)
   local career = Run.career(data.meta)
   career.history[#career.history + 1] = summary
   -- A study in progress finishes while you recover (GDD §8.1).

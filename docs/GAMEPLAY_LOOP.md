@@ -131,7 +131,7 @@ Severity: **High** loses the run or the player; **Medium** wastes time or hides 
 | F15 | Sell crate vs pantry vs stand pin is three concepts introduced in one panel with no explanation. | `pantry.lua` | Medium | #151, #152; D75 (#196) made it one keep number per good plus the Stand/Truck toggle |
 | F16 | Fishing: the rod is an icon-only toolbar button, the `Fish` button opens the guide, and the idle routine fishes last in priority, so a beginner sees neither. | `Homestead:layout()`, `task_categories.lua` | Low | new: toolbar labels |
 | F17 | Pace: a season is about 26 minutes and winter is about 80 minutes in; the 4x speed exists but is never mentioned. | D56, #121 | Low | #121 |
-| F18 | The first run is meant to fail (GDD 11), but the first death is usually from starvation on day 4 to 6 (idle) or in winter, with no "what killed you and what to try next" beyond the run summary. | `recovery.lua`, BALANCE | Low | open question |
+| F18 | The first run is meant to fail (GDD 11), but the first death is usually from starvation on day 4 to 6 (idle) or in winter, with no "what killed you and what to try next" beyond the run summary. | `recovery.lua`, BALANCE | Low | done (D99) |
 
 ---
 
@@ -195,7 +195,7 @@ Open items for the implementer: the three Journal steps assume the first-run pla
 8. **Neglect-gated unlocks.** Should "Fish spoil" and "Produce rots" stay as unlock gates (so the player learns by losing food), or should the smoker and freezer unlock from a different note (for example a first catch plus a day with fish in stock)? Same family as #126.
 9. **Pace.** Is a 26-minute season right for a first run, and should the player be told about the 4x button?
 10. **Messages.** Do we want a message log and a morning report as persistent UI, or should the FTUE cards carry the explanation and the rest stay as toasts?
-11. **What killed you.** After the first rescue, should the recovery scene explain the cause (hunger or cold) and suggest a first change, since the run is meant to fail?
+11. **What killed you.** Answered in D99: the rescue and recovery name the cause and the shelter, the first recovery of a slot suggests one change, and run 2 gets two cards (once per slot).
 
 ---
 

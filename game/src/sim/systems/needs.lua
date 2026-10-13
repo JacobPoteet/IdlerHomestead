@@ -4,7 +4,8 @@
 --
 -- State: world.state.needs = { condition }
 -- Emits "needs.ate" { calories, shortfall }, "needs.warmed" { warmth, electric, needed, burned, green,
--- shortfall } (green = units of poor fuel, heat below 1) and "needs.depleted" when Condition hits 0.
+-- shortfall } (green = units of poor fuel, heat below 1) and "needs.depleted" { hunger, cold, shelter }
+-- when Condition hits 0 (the day's shortfalls and the shelter, so the rescue can say what failed).
 
 local Calendar = require("src.sim.systems.calendar")
 local Ledger = require("src.sim.systems.ledger")
@@ -180,7 +181,7 @@ function Needs.daily(world)
     state.condition = math.min(cfg.conditionMax, state.condition + cfg.dailyRecovery * Shelter.recovery(world))
   end
   if state.condition <= 0 then
-    world.events:emit("needs.depleted", {})
+    world.events:emit("needs.depleted", { hunger = hungry, cold = cold, shelter = Shelter.id(world) }) -- what the last day lacked (0..1 shortfalls) and where the night was spent (D99)
   end
 end
 

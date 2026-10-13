@@ -28,8 +28,8 @@ local migrations = {}
 --- the shape of the saved run or meta changes in a way older code or data cannot read, and update the
 --- fingerprint in tests/test_save_compat.lua (that test fails until both are done).
 --- History: 1 = before the stamp existed (unstamped saves), 2 = shelf-life batches (D73), 3 = keep
---- targets and the truck load replace the sell crate (D75), 4 = placement orders and held field tiles (D79), 5 = condition at the last dawns in the alert state (D90).
-Save.SAVE_COMPAT = 5
+--- targets and the truck load replace the sell crate (D75), 4 = placement orders and held field tiles (D79), 5 = condition at the last dawns in the alert state (D90), 6 = `skipped` flag in the slot's tip state (meta.ftue, D99).
+Save.SAVE_COMPAT = 6
 
 --- How a slot's data relates to this build: "ok", "older" (no stamp or a lower one) or "newer".
 function Save.compatibility(data)

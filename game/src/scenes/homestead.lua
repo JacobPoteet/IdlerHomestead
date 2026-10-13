@@ -267,8 +267,8 @@ function Homestead:subscribe()
     events:on("journal.idea", function(e)
       self:newsToast("New idea: " .. Journal.node(world, e.item).name .. " · see the Journal")
     end),
-    events:on("needs.depleted", function()
-      self.failed = true
+    events:on("needs.depleted", function(e)
+      self.failed = e or {}
     end),
     -- Warnings (D70): low food, fuel or health, said once per crossing. Held while asleep so the fast
     -- night does not swallow them; the morning report comes first, then these.
@@ -1524,7 +1524,7 @@ function Homestead:update(dt)
   if self.failed then
     -- Condition hit zero: the run is over (GDD §4.3). Record it, then search & rescue.
     local slot, data = self.session.slot, self.session.data
-    Run.fail(data, self.world)
+    Run.fail(data, self.world, self.failed)
     self.app:switch(require("src.scenes.rescue").new(), slot, data)
     return
   end

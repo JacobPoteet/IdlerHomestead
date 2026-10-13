@@ -139,6 +139,24 @@ return {
     trigger = "weather.froze",
     text = "The creek froze: cut a hole to fish or fetch water. Long nights mean fast studying.",
   },
+  -- Cards for run 2 (D99, #173): `run = 2` queues them when the slot's second run begins, even though the
+  -- first-run tips are over, and never if the player skipped the tips. Once per slot like every step.
+  {
+    id = "carried",
+    run = 2,
+    trigger = "start",
+    delay = 3,
+    title = "New land, same knowledge",
+    text = "The land is new and the farm is gone. What stays: the notes you wrote, the idea you studied for free, and the Journal's research.",
+  },
+  {
+    id = "carried_perks",
+    run = 2,
+    highlight = "button:journal",
+    after = { step = "carried", seconds = 8 },
+    title = "Notes spark ideas",
+    text = "Open the Journal: notes from last run are ready to study. A perk studied in a run works from your next run, so it starts now.",
+  },
   {
     id = "threat",
     title = "A threat is coming",
