@@ -437,6 +437,32 @@ function Power.takeWarmth(world)
   return warmth
 end
 
+--- Warmth the placed, switched-on electric heaters can make in one night of `season` (D101, #175): each
+--- heats through the dark hours at its draw, warmed by its reach into the shelter (D82). The energy is
+--- limited by the home batteries (their capacity when something charges them by day, otherwise what is
+--- stored now). A forecast, not a promise: it ignores the night's own need, which the caller caps it at.
+function Power.heatPerNight(world, season)
+  local daylight = world.tuning.time.daylight[season]
+  local darkHours = 24 - (daylight[2] - daylight[1])
+  local _, sinks = scan(world)
+  local energy, warmth = 0, 0
+  for _, anchor in ipairs(sinks) do
+    local sink = defAt(world, anchor).sink
+    local per = sink.effects and sink.effects.warmthPerKwh
+    if per and sink.schedule == "heat" and Power.isEnabled(world, anchor) then
+      local kwh = sink.draw * darkHours
+      energy = energy + kwh
+      warmth = warmth + kwh * per * Shelter.heatReach(world, anchor)
+    end
+  end
+  if energy <= 0 then
+    return 0
+  end
+  local bank = Power.bank(world)
+  local supply = #Power.sourceList(world) > 0 and bank.capacity or bank.charge
+  return warmth * math.min(1, supply / energy)
+end
+
 -- The tick ------------------------------------------------------------------------------------
 
 -- Fill batteries of one class (vehicle or home) from `avail` kW. Returns kW used.

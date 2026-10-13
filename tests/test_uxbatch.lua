@@ -11,6 +11,10 @@ local Alerts = require("src.sim.systems.alerts")
 local Calendar = require("src.sim.systems.calendar")
 local Crops = require("src.sim.systems.crops")
 local Grid = require("src.sim.grid")
+local Inventory = require("src.sim.systems.inventory")
+local Power = require("src.sim.systems.power")
+local Shelter = require("src.sim.systems.shelter")
+local TripMarker = require("src.render.trip_marker")
 local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
@@ -548,4 +552,64 @@ T.test("morning report: deterministic", function()
     return serialize.encode(Nightly.report(world))
   end
   T.eq(signature(7), signature(7))
+end)
+
+-- Electric heat in the winter readiness (D101, #175) ---------------------------------------------
+
+local function placeAnywhere(world, id)
+  for i = 1, #world.state.grid.terrain do
+    if Inventory.canPlace(world, id, i) then
+      Inventory.addObject(world, id)
+      T.truthy(Inventory.place(world, id, i), "placed " .. id)
+      return
+    end
+  end
+  error("no room for " .. id)
+end
+
+T.test("readiness: electric heaters and a battery pay part of each night, never twice", function()
+  local world = newWorld(1)
+  settleAt(world, AUTUMN, 12)
+  setStock(world, "seasoned_firewood", 0)
+  setStock(world, "firewood", 0)
+  local bare = Readiness.winter(world)
+  T.eq(bare.electric.total, 0)
+  placeAnywhere(world, "electric_heater")
+  T.eq(Readiness.winter(world).electric.total, 0, "a heater with no battery or source makes nothing")
+  placeAnywhere(world, "battery_bank")
+  placeAnywhere(world, "solar_array")
+  local r = Readiness.winter(world)
+  T.truthy(r.electric.total > 0 and r.electric.perNight > 0)
+  T.near(r.fuel.need + r.electric.total, bare.fuel.need, 1e-6, "fuel pays only what the heaters do not")
+  T.truthy(r.electric.perNight <= Weather.expectedWarmthNeed(world, "winter", 7) * Shelter.insulation(world) + 1e-9, "never more than the night needs")
+  local _, message = AlertText.readinessCard(world)
+  T.truthy(message:find("Electric:", 1, true))
+  T.eq(Readiness.winter(newWorld(1)), nil)
+  -- Switching the heater off (or removing it) takes the electric share away again.
+  for anchor, obj in pairs(world.state.grid.objects) do
+    if obj.id == "electric_heater" then
+      Power.setEnabled(world, anchor, false)
+    end
+  end
+  T.eq(Readiness.winter(world).electric.total, 0)
+end)
+
+T.test("catalog: the Stand cooler line says what the modifier does", function()
+  local item = reg:get("catalog", "stand_cooler")
+  T.truthy(item.line:find("+" .. item.modifiers.standCap, 1, true), "names the cap it adds")
+  T.eq(item.line:lower():find("keep", 1, true), nil, "does not claim to slow spoilage")
+  T.eq(item.modifiers.spoilSlow, nil)
+end)
+
+T.test("trip marker: shown only while a trip is ready and the player is home", function()
+  T.truthy(TripMarker.visible(true, false))
+  T.falsy(TripMarker.visible(true, true))
+  T.falsy(TripMarker.visible(false, false))
+  T.falsy(TripMarker.visible(nil, nil))
+  local cfg = tun.visuals.tripMarker
+  T.eq(TripMarker.offset(0.3, cfg, true), 0, "reduce motion holds it still")
+  for t = 0, 24 do
+    local dy = TripMarker.offset(t * 0.1, cfg, false)
+    T.truthy(dy >= 0 and dy <= cfg.bobPixels and dy == math.floor(dy), "whole art pixels inside the bob")
+  end
 end)

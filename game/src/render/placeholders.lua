@@ -102,6 +102,20 @@ function P.plan_marker(p, w, h)
   end
 end
 
+function P.trip_marker(p)
+  -- A downward arrow, gold with a dark edge, pointing at the truck (D101).
+  local function arrow(ox, oy, color)
+    p:rect(ox + 3, oy, 3, 5, color)
+    for row = 0, 4 do
+      p:rect(ox + row, oy + 5 + row, 9 - 2 * row, 1, color)
+    end
+  end
+  for _, d in ipairs({ { 0, 1 }, { 2, 1 }, { 1, 0 }, { 1, 2 } }) do
+    arrow(d[1], d[2], { 0.12, 0.10, 0.06, 0.9 })
+  end
+  arrow(1, 1, C.gold)
+end
+
 function P.brush(p)
   p:ellipse(8, 13, 6, 2, C.shadow)
   p:circle(5, 9, 4, C.leafDark)

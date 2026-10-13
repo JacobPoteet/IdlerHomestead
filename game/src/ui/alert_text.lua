@@ -130,6 +130,9 @@ function AlertText.readinessCard(world)
     r.fuel.have,
     r.fuel.need
   )
+  if r.electric.total > 0 then
+    lines[#lines + 1] = string.format("Electric: your heaters should make about %.0f warmth a night, so fuel covers the rest.", r.electric.perNight)
+  end
   if r.noFire then
     lines[#lines + 1] = "No fire is placed, so fuel does nothing yet. Place a campfire or stove."
   end
