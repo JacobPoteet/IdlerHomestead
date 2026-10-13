@@ -18,6 +18,7 @@ local Assets = require("src.render.assets")
 local Shaders = require("src.render.shaders")
 local Lighting = require("src.render.lighting")
 local WeatherFx = require("src.render.weather_fx")
+local Lights = require("src.render.lights")
 
 local Renderer = {}
 Renderer.__index = Renderer
@@ -30,6 +31,7 @@ local function waterDepth(dist)
 end
 local BANK_DEPTH = waterDepth(1) / 2
 local FORD_DEPTH = 0.3
+local MAX_REACH = 31 -- tiles: the farthest distance from the creek the mist map stores (the shader scales it)
 
 function Renderer.new(world)
   local self = setmetatable({
@@ -166,6 +168,39 @@ function Renderer:buildWater()
       end
     end
   end
+  -- Reach of the morning mist: 1 on the creek, falling to 0 `mist.reach` tiles inland (BFS from the water over land).
+  local reach, inland, qhead = {}, {}, 1
+  for i = 1, grid.w * grid.h do
+    if Grid.terrain(world, i).water then
+      reach[i] = 0
+      inland[#inland + 1] = i
+    end
+  end
+  while qhead <= #inland do
+    local i = inland[qhead]
+    qhead = qhead + 1
+    local x, y = Grid.coords(grid, i)
+    for dy = -1, 1 do
+      for dx = -1, 1 do
+        if Grid.inBounds(grid, x + dx, y + dy) then
+          local n = Grid.index(grid, x + dx, y + dy)
+          if not reach[n] then
+            reach[n] = reach[i] + 1
+            inland[#inland + 1] = n
+          end
+        end
+      end
+    end
+  end
+  local mistData = love.image.newImageData(grid.w, grid.h)
+  for i = 1, grid.w * grid.h do
+    local x, y = Grid.coords(grid, i)
+    local near = math.min(reach[i] or MAX_REACH, MAX_REACH) / MAX_REACH -- tiles from the creek, 0 = on it (mist.reach is applied in the shader, so F6 can retune it)
+    mistData:setPixel(x - 1, y - 1, near, near, near, 1)
+  end
+  self.reachMap = love.graphics.newImage(mistData)
+  self.reachMap:setFilter("linear", "linear")
+
   local data = love.image.newImageData(grid.w, grid.h)
   local white = love.image.newImageData(1, 1)
   white:setPixel(0, 0, 1, 1, 1, 1)
@@ -393,6 +428,9 @@ function Renderer:draw(alpha, visible, daylight)
     })
   end
 
+  -- Wind sway (sway.glsl): crops, brush and tree canopies lean with the weather's wind.
+  local sway = self:swayShader()
+
   -- Y-sorted sprites: { sortY, draw function }
   local items = {}
   for i, crop in pairs(crops) do
@@ -401,12 +439,18 @@ function Renderer:draw(alpha, visible, daylight)
       items[#items + 1] = {
         y * tile - 0.5,
         function()
-          if crop.moisture <= 0 and crop.growth < 1 then
+          local thirsty = crop.moisture <= 0 and crop.growth < 1
+          local sprite = Assets.sprite(crop.id .. "_" .. cropStage(crop))
+          if sway then
+            self:drawSwaying(sway, sprite, (x - 1) * tile, y * tile - sprite.h, v.wind.crop, self:swayPhase(x, y), thirsty)
+            return
+          end
+          if thirsty then
             love.graphics.setColor(0.86, 0.80, 0.58, 1) -- thirsty
           else
             love.graphics.setColor(1, 1, 1, 1)
           end
-          Assets.draw(crop.id .. "_" .. cropStage(crop), (x - 1) * tile, (y - 1) * tile)
+          love.graphics.draw(sprite.image, sprite.quad, (x - 1) * tile, y * tile - sprite.h)
         end,
       }
     end
@@ -427,7 +471,11 @@ function Renderer:draw(alpha, visible, daylight)
           if capShader then
             self:capSprite(capShader, sprite)
           end
-          love.graphics.draw(sprite.image, sprite.quad, (x - 1) * tile, bottom - sprite.h)
+          if def.sway and sway and not capShader then
+            self:drawSwaying(sway, sprite, (x - 1) * tile, bottom - sprite.h, def.sway, self:swayPhase(x, y), false)
+          else
+            love.graphics.draw(sprite.image, sprite.quad, (x - 1) * tile, bottom - sprite.h)
+          end
           if capShader then
             love.graphics.setShader()
           end
@@ -517,6 +565,171 @@ function Renderer:draw(alpha, visible, daylight)
   end
   love.graphics.setColor(1, 1, 1, 1)
   self:drawCloudShadows(visible, daylight)
+  self:drawMist(visible, ice)
+end
+
+--- The sway shader with this frame's wind sent, or nil when it is unavailable.
+function Renderer:swayShader()
+  local shader = Shaders.get("sway")
+  if not shader then
+    return nil
+  end
+  local cfg = self.world.tuning.visuals.wind
+  local clock, wind = self.fx:windSway()
+  Shaders.send(shader, {
+    swayTime = clock,
+    amplitude = cfg.amplitude * wind,
+    lean = cfg.lean,
+    gust = cfg.gust,
+    thirsty = cfg.thirsty,
+  })
+  self.swayLast = nil -- the per-sprite uniforms (bounds, weight) are sent again when the sprite changes
+  return shader
+end
+
+--- A plant's sway phase 0..1 (the shader's vertex colour): the tile's place in the gust that rolls across
+--- the land, plus a little per-tile jitter so neighbours are not in lockstep.
+function Renderer:swayPhase(x, y)
+  local cfg = self.world.tuning.visuals.wind
+  local jitter = variantFor(y * 1024 + x, 64) / 64
+  return ((x * cfg.spread + y * cfg.spread * 0.37) / (2 * math.pi) + jitter * 0.15) % 1
+end
+
+--- Draw `sprite` swaying in the wind with its top-left at (x, y). `cfg` = { weight, root }. The sprite is
+--- drawn on a quad padded each side by the most it can lean, so the tip is not clipped by its atlas cell.
+function Renderer:drawSwaying(shader, sprite, x, y, cfg, phase, thirsty)
+  local pad = self.swayPad
+  if not pad then
+    local w = self.world.tuning.visuals.wind
+    pad = math.ceil(w.amplitude * 1.2 * (1 + w.gust) * 1.7) + 1 -- widest weight x peak wave x a gale
+    self.swayPad = pad
+  end
+  if sprite.swayPad ~= pad then
+    local iw, ih = sprite.image:getDimensions()
+    local qx, qy, qw, qh = sprite.quad:getViewport()
+    sprite.swayQuad = love.graphics.newQuad(qx - pad, qy, qw + 2 * pad, qh, iw, ih)
+    sprite.swayCell = { { qx / iw, qy / ih, (qx + qw) / iw, (qy + qh) / ih }, { 1 / iw, 1 / ih } }
+    sprite.swayPad = pad
+  end
+  if self.swayLast ~= sprite or self.swayLastCfg ~= cfg then
+    shader:send("bounds", sprite.swayCell[1])
+    shader:send("texel", sprite.swayCell[2])
+    shader:send("spriteH", sprite.h)
+    shader:send("weight", cfg.weight)
+    shader:send("root", cfg.root)
+    self.swayLast, self.swayLastCfg = sprite, cfg
+  end
+  love.graphics.setShader(shader)
+  love.graphics.setColor(phase, thirsty and 1 or 0, 0, 1)
+  love.graphics.draw(sprite.image, sprite.swayQuad, x - pad, y)
+  love.graphics.setShader()
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
+--- Morning mist over the creek and low ground: how strong it is right now (0..1). It forms before
+--- sunrise, holds a little, and burns off by mid-morning; calm and damp mornings have the most, wind
+--- blows it away, and a frozen creek holds less.
+function Renderer:mistStrength(ice)
+  local world = self.world
+  local cfg = world.tuning.visuals.mist
+  local sunrise = Calendar.daylight(world)
+  local hour = Calendar.now(world).hour
+  local rise = math.min(1, math.max(0, (hour - (sunrise - cfg.preHours)) / cfg.preHours))
+  local burn = math.min(1, math.max(0, (hour - (sunrise + cfg.holdHours)) / cfg.fadeHours))
+  local time = (rise * rise * (3 - 2 * rise)) * (1 - burn * burn * (3 - 2 * burn))
+  if time <= 0 then
+    return 0
+  end
+  local _, wet = self.fx:rainAndWet()
+  local _, wind = self.fx:windSway()
+  local calm = 1 - math.min(1, math.max(0, (wind - cfg.calmUntil) / (cfg.windKill - cfg.calmUntil)))
+  local damp = cfg.dryLevel + (1 - cfg.dryLevel) * wet
+  return time * calm * damp * (1 - (1 - cfg.frozen) * ice)
+end
+
+--- Draw the morning mist as one translucent quad over the visible land (world-anchored, mist.glsl).
+function Renderer:drawMist(visible, ice)
+  local shader = Shaders.get("mist")
+  local cfg = self.world.tuning.visuals.mist
+  local strength = self:mistStrength(ice)
+  if not shader or strength <= 0.01 then
+    return
+  end
+  local grid, tile = self.world.state.grid, self.tile
+  local x1, y1 = math.max(1, visible[1] - 1), math.max(1, visible[2] - 1)
+  local x2, y2 = math.min(grid.w, visible[3] + 1), math.min(grid.h, visible[4] + 2)
+  local rx, ry, rw, rh = (x1 - 1) * tile, (y1 - 1) * tile, (x2 - x1 + 1) * tile, (y2 - y1 + 1) * tile
+  Shaders.send(shader, {
+    reachMap = self.reachMap,
+    reachTiles = cfg.reach,
+    mapPixels = { grid.w * tile, grid.h * tile },
+    rect = { rx, ry, rw, rh },
+    offset = self.fx:mistOffset(),
+    strength = strength,
+    ground = cfg.ground,
+    scale = cfg.scale,
+    block = cfg.block,
+    levels = cfg.levels,
+    maxAlpha = cfg.alpha,
+    mistColor = cfg.color,
+  })
+  love.graphics.setShader(shader)
+  love.graphics.setColor(1, 1, 1, 1)
+  love.graphics.draw(self:whiteImage(), rx, ry, 0, rw, rh)
+  love.graphics.setShader()
+end
+
+--- Night lights, additive over the GRADED world (call with the camera transform on, after drawGraded).
+--- Which objects glow is the `light` field of their definition and whether it is on is read from the sim
+--- (Lights.visible); here we only paint. Returns how many lights were drawn (for the perf notes).
+function Renderer:drawLights(visible, daylight)
+  local world, tile = self.world, self.tile
+  local cfg = world.tuning.visuals.lights
+  local dark = math.min(1, math.max(0, (cfg.fadeStart - daylight) / (cfg.fadeStart - cfg.fadeEnd)))
+  if dark <= 0.001 then
+    return 0
+  end
+  local shader = Shaders.get("light")
+  local lit = Lights.visible(world, visible, cfg.margin)
+  if #lit == 0 then
+    return 0
+  end
+  love.graphics.setBlendMode("add")
+  local step = math.floor(self.time * cfg.flickerSpeed)
+  for n, item in ipairs(lit) do
+    local light = item.light
+    local sprite = Assets.sprite(item.id)
+    local left, top = (item.tileX - 1) * tile, item.bottom - sprite.h
+    local flick = 1 + light.flicker * (variantFor(step * 31 + n * 7 + item.anchor, 64) / 63 * 2 - 1)
+    local radius = math.floor(light.radius * flick + 0.5) -- whole art pixels, so the pool steps rather than shimmers
+    local cx, cy = left + light.at[1], top + light.at[2]
+    if shader then
+      local c = light.color
+      Shaders.send(shader, {
+        rect = { cx - radius, cy - radius * 0.8, radius * 2, radius * 1.6 },
+        center = { cx, cy },
+        radius = radius,
+        lightColor = { c[1] * cfg.intensity * dark, c[2] * cfg.intensity * dark, c[3] * cfg.intensity * dark },
+        bands = cfg.bands,
+        falloff = cfg.falloff,
+        dither = cfg.dither,
+      })
+      love.graphics.setShader(shader)
+      love.graphics.setColor(1, 1, 1, 1)
+      love.graphics.draw(self:whiteImage(), cx - radius, cy - radius * 0.8, 0, radius * 2, radius * 1.6)
+      love.graphics.setShader()
+    end
+    if light.windows then
+      local c, g = light.color, cfg.windowGlow * dark
+      love.graphics.setColor(c[1] * g, c[2] * g, c[3] * g, 1)
+      for _, w in ipairs(light.windows) do
+        love.graphics.rectangle("fill", left + w[1], top + w[2], w[3], w[4])
+      end
+    end
+  end
+  love.graphics.setBlendMode("alpha")
+  love.graphics.setColor(1, 1, 1, 1)
+  return #lit
 end
 
 --- Switch to the snow-cap shader for one sprite: tell it where the sprite's cell sits in its atlas, so

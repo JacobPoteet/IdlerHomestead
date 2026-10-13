@@ -101,7 +101,7 @@ return {
     armWobble = 1.5, -- world art pixels the arm's tip bobs while working
     armWobbleSpeed = 6, -- radians per second of the bob
   },
-  weather = { -- day-to-day weather look (D51, D83); wind sway is still to come (#193)
+  weather = { -- day-to-day weather look (D51, D83); wind sway is in `wind` below (D84)
     blendSeconds = 3, -- real seconds for the look to ease into a new day's weather
     looks = { -- weather kind -> { tint multiplier on the grade, light multiplier, rain 0..1 streak density }
       clear = { tint = { 1.00, 1.00, 1.00 }, light = 1.00, rain = 0 },
@@ -156,6 +156,45 @@ return {
       splashRadius = 3, -- art pixels, widest ring radius (rings are flat: half as tall as wide)
       splashAlpha = 0.55, -- 0..1 ring alpha when it first lands, fading to 0 as it spreads
     },
+  },
+  wind = { -- wind sway of crops, brush and tree canopies (shaders/sway.glsl, D84); the strength is Weather.windStrength, eased
+    amplitude = 3.2, -- art pixels the top of a sprite leans at wind strength 1 (offsets snap to whole art pixels, so the sway steps like pixel art)
+    speed = 1.7, -- radians per second of the sway at wind strength 1 (faster in a gale)
+    lean = 0.4, -- 0..1 how much of the sway is a steady lean downwind (the rest is the back-and-forth)
+    gust = 0.35, -- 0..1 extra, slower swell on top of the sway, travelling across the land
+    spread = 0.11, -- radians of sway phase per tile across the map, so a gust rolls over the field instead of every plant moving together
+    crop = { weight = 1.0, root = 0.2 }, -- crops: weight = multiplier on the amplitude, root = 0..1 share of the sprite height (from the bottom) that stays still
+    thirsty = { 0.86, 0.80, 0.58 }, -- colour multiplier on a crop that needs water (same as the unswayed draw)
+  },
+  mist = { -- morning mist over the creek and low ground (shaders/mist.glsl, D84); world-anchored, drifting
+    preHours = 1.0, -- in-game hours before sunrise that it starts to form
+    holdHours = 0.8, -- hours after sunrise it stays at full strength
+    fadeHours = 2.5, -- hours it then takes to burn off by mid-morning
+    dryLevel = 0.75, -- 0..1 strength on an ordinary dry morning (a wet morning after rain is 1)
+    calmUntil = 1.0, -- wind strength up to which the air is calm enough for mist
+    windKill = 1.5, -- wind strength at which the mist is gone (it thins out between calmUntil and here)
+    frozen = 0.5, -- 0..1 multiplier while the creek is frozen over (cold air holds less)
+    reach = 7, -- tiles from the creek bank that the mist spreads over land
+    ground = 0.2, -- 0..1 mist left over the low open ground far from the creek, at full strength
+    scale = 0.022, -- noise frequency, 1/art pixels (0.022 = banks of mist about 45 art pixels across)
+    block = 2, -- art pixels per mist pixel, so the edges stay chunky pixel art
+    levels = 4, -- number of visible density bands
+    alpha = 0.75, -- 0..1 alpha of the thickest band at full strength
+    color = { 0.86, 0.91, 0.96 }, -- mist colour (graded afterwards, so it warms at dawn)
+    drift = 2.5, -- art pixels per second the banks drift downwind at wind strength 1
+    direction = { 1.0, 0.25 }, -- drift direction (x east, y south)
+  },
+  lights = { -- night lights over the graded world (shaders/light.glsl, D84); which objects glow is the `light` field in data/content/objects.lua
+    fadeStart = 0.7, -- daylight level (0 night .. 1 day) below which the lights begin to come on
+    fadeEnd = 0.25, -- daylight level at which they are at full strength
+    intensity = 0.75, -- 0..1 brightness at the centre of a light at full darkness (added on top of the graded image)
+    bands = 4, -- number of pixel-art brightness steps in the falloff
+    falloff = 1.6, -- exponent of the falloff (higher = tighter, brighter core)
+    dither = 0.12, -- 0..1 ordered dither between bands, on the art-pixel grid
+    flickerSpeed = 7, -- flicker steps per second (the glow radius jumps in whole art pixels)
+    windowGlow = 0.85, -- 0..1 brightness of lit window and stove-door pixels at full darkness
+    margin = 4, -- tiles past the screen edge whose lights still count (at least the biggest radius in tiles)
+    heatNeedMin = 0.01, -- a heat source glows when the night's warmth need is at least this (warmth units; it burns fuel for it)
   },
   hens = { -- the flock around the coop (D63): drawn only by day, a pure function of the render clock
     wander = 1.8, -- tiles each way from the coop's middle that a hen drifts

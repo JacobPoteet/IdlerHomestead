@@ -2,7 +2,7 @@
 -- yields: resource -> amount, or { min, max } for a random amount.
 -- autoClear: the idle homesteader clears these on its own (trees need a player order).
 return {
-  { id = "brush", name = "Brush", blocks = false, walkCost = 2, clearTime = 2, yields = { wood = 1 }, autoClear = true },
+  { id = "brush", name = "Brush", blocks = false, walkCost = 2, clearTime = 2, yields = { wood = 1 }, autoClear = true, sway = { weight = 0.8, root = 0.2 } },
   { id = "rock", name = "Rock", blocks = true, clearTime = 4, yields = { stone = { 1, 3 } }, autoClear = true },
   { id = "log", name = "Fallen log", blocks = true, clearTime = 5, yields = { wood = { 3, 5 } }, autoClear = true, chop = true },
   {
@@ -13,7 +13,7 @@ return {
     yields = { scrap = { 1, 3 }, money = { 2, 6 } },
     autoClear = true,
   },
-  { id = "tree", name = "Tree", blocks = true, clearTime = 14, yields = { wood = { 6, 9 } }, chop = true },
+  { id = "tree", name = "Tree", blocks = true, clearTime = 14, yields = { wood = { 6, 9 } }, chop = true, sway = { weight = 1.2, root = 0.45 } }, -- only the canopy sways: the lower 45% of the sprite (the trunk) stays put
   {
     id = "truck",
     name = "Electric truck",
@@ -62,12 +62,13 @@ return {
     heaterRadius = 5, -- tiles: room for the wood stove inside
     studySpeed = 0.2, -- the desk by the window: study goes 20% faster in bed here
     storage = { firewood = 20, seasoned_firewood = 30 }, -- a stack of wood under the roof
+    light = { on = "shelter", radius = 26, color = { 1.00, 0.76, 0.40 }, flicker = 0.04, at = { 12, 22 }, windows = { { 8, 18, 7, 5 } } }, -- the window glows at night while this is the homesteader's bed
   },
   -- Placeable equipment (bought from the catalog or part of the starting kit)
   { id = "folding_panel", name = "Folding solar panel", blocks = false, clearable = false, placeable = true, source = { curve = "solar", peak = 0.8 } },
   { id = "smoker", name = "Smoker", blocks = true, clearable = false, placeable = true, station = "smoker" },
   -- Heat & firewood (GDD §4.2, §5.3)
-  { id = "campfire", name = "Campfire", blocks = true, clearable = false, placeable = true, heatSource = 1 },
+  { id = "campfire", name = "Campfire", blocks = true, clearable = false, placeable = true, heatSource = 1, light = { on = "heat", radius = 44, color = { 1.00, 0.58, 0.24 }, flicker = 0.2, at = { 8, 8 } } }, -- light: glows in the dark while it burns (shaders/light.glsl, D84)
   { id = "chopping_block", name = "Chopping block", blocks = true, clearable = false, placeable = true, splitter = true },
   {
     id = "woodshed",
@@ -79,7 +80,7 @@ return {
     station = "woodshed",
     storage = { firewood = 30, seasoned_firewood = 60 },
   },
-  { id = "wood_stove", name = "Wood stove", blocks = true, clearable = false, placeable = true, heatSource = 1.6 },
+  { id = "wood_stove", name = "Wood stove", blocks = true, clearable = false, placeable = true, heatSource = 1.6, light = { on = "heat", radius = 30, color = { 1.00, 0.55, 0.22 }, flicker = 0.12, at = { 8, 15 }, windows = { { 6, 14, 4, 2 } } } },
 
   -- Power network (GDD §7.5). Sources: `source` { curve, peak kW }. Batteries: `battery` kWh.
   -- Sinks: `sink` { tier, draw kW, schedule, inertia, effects }; see data/tuning/power.lua.
@@ -144,6 +145,7 @@ return {
     clearable = false,
     placeable = true,
     sink = { tier = "lights", draw = 0.1, schedule = "dark", effects = { studySpeed = 0.3 } }, -- study goes faster by lamplight
+    light = { on = "power", radius = 52, color = { 1.00, 0.84, 0.50 }, flicker = 0.03, at = { 8, 5 } }, -- glows while it is powered and running
   },
   {
     id = "chest_freezer",

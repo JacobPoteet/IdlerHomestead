@@ -2191,6 +2191,12 @@ function Homestead:draw()
   love.graphics.origin()
   self.renderer:drawGraded(self.canvas, tint, light, view.scale * self.camera:zoom())
   love.graphics.pop()
+  -- Night lights glow over the graded world (additive), in world space again.
+  love.graphics.push("all")
+  self.camera:attach(view)
+  self.renderer:drawLights({ x1, y1, x2, y2 }, daylight)
+  love.graphics.pop() -- the camera transform
+  love.graphics.pop() -- the saved graphics state
   local z = self.camera:zoom() -- rain is built on the world's art-pixel grid, so it scales with the zoom (#193)
   self.renderer:drawRain(view, {
     zoom = z,
