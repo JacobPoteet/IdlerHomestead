@@ -81,7 +81,7 @@ end
 function Power.init(world)
   local s = world.state.power or {}
   world.state.power = s
-  -- Fields added after the first saves exist: fill them in so old saves keep loading.
+  -- A fresh run starts empty: fill in the fields.
   s.charge = s.charge or {}
   s.off = s.off or {}
   s.held = s.held or {}

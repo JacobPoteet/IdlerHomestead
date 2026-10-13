@@ -17,7 +17,7 @@
 --       for storage room; the order stays queued and is retried every tick),
 --       "market.cancelled" { item, amount } (player cancelled a held order, refunded),
 --       "market.refunded" { item, amount } (an order that could never fit its store, refunded).
--- Orders: { item, arriveDay, paid (money charged; absent in old saves), held (due but no room) }.
+-- Orders: { item, arriveDay, paid (money charged), held (due but no room) }.
 
 local Calendar = require("src.sim.systems.calendar")
 local Ledger = require("src.sim.systems.ledger")
@@ -210,12 +210,11 @@ function Market.order(world, id)
   return true
 end
 
--- Take order `index` off the list and give back what it cost (older saves did not record the
--- price paid: use today's price then).
+-- Take order `index` off the list and give back what it cost.
 local function refund(world, index, event)
   local orders = world.state.market.orders
   local order = table.remove(orders, index)
-  local amount = order.paid or (Market.itemPrice(world, order.item) + world.tuning.economy.deliveryFee)
+  local amount = order.paid
   Ledger.add(world, "money", amount, "refund")
   world.events:emit(event, { item = order.item, amount = amount })
   return amount
@@ -229,7 +228,7 @@ function Market.heldOrders(world)
       list[#list + 1] = {
         index = index,
         item = order.item,
-        paid = order.paid or (Market.itemPrice(world, order.item) + world.tuning.economy.deliveryFee),
+        paid = order.paid,
       }
     end
   end
@@ -247,7 +246,7 @@ function Market.cancelHeld(world, index)
 end
 
 -- Emits "market.tripReady" {} each time the truck's charge climbs to a full trip (the edge, never
--- while it merely stays ready, and not for a truck that starts ready). Old saves have no flag yet.
+-- while it merely stays ready, and not for a truck that starts ready).
 local function watchTripReady(world)
   local m = world.state.market
   local ready = Market.canTrip(world)

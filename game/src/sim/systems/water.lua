@@ -242,7 +242,7 @@ end
 function Water.init(world)
   local s = world.state.water or {}
   world.state.water = s
-  -- Fields are filled in so saves from before the water ladder keep loading.
+  -- A fresh run starts empty: fill in the fields.
   s.acc = s.acc or {}
   s.dry = s.dry or {}
   s.hand = s.hand or 0

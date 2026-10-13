@@ -349,7 +349,7 @@ end
 
 function Weather.init(world)
   world.state.weather = world.state.weather or { winters = {}, revealed = {}, holes = {}, snap = false }
-  -- The sky is filled in so saves from before day-to-day weather keep loading (starting from today).
+  -- A fresh run rolls its sky from today.
   if not state(world).sky then
     state(world).sky = newSky(world)
   end

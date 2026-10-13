@@ -129,13 +129,24 @@ return function(d)
   scene.camera.x = wx + 8
   scene.camera.y = wy + 8 - (view.h - scene.bottomH - 30 - view.h / 2) / z -- the tile sits just above the toolbar
   scene.camera:clamp(view)
+  scene.toast = nil -- the "Tap where the campfire should go" toast sits on this row and a tap on it opens the log (D90)
   d:frames(2)
   d:clickTile(bx, by + 5)
   d:frames(3)
   d:shot("confirm_bottom")
   assert(
     world.state.grid.objects[lowTree] and scene.card and scene.placeCard,
-    "the card is open over a target near the bottom"
+    string.format(
+      "the card is open over a target near the bottom (tree %s card %s placeCard %s, tile %d,%d of %dx%d, terrain %s)",
+      tostring(world.state.grid.objects[lowTree] ~= nil),
+      tostring(scene.card ~= nil),
+      tostring(scene.placeCard ~= nil),
+      bx,
+      by + 5,
+      grid.w,
+      grid.h,
+      tostring(world.state.grid.terrain[Grid.index(grid, bx, by + 5)])
+    )
   )
   d:press("Go ahead")
   d:frames(3)

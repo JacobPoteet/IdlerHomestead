@@ -73,10 +73,14 @@ return function(d)
   journal:selectNote("felled_tree")
   d:frames(3)
   d:shot("journal_note_hint")
-  d:key("escape")
-  d:key("escape")
+  for _ = 1, 4 do -- each escape steps back one level (note, chapter, overview, close)
+    if d:scene().name == "homestead" then
+      break
+    end
+    d:key("escape")
+  end
   d:frames(3)
-  assert(d:scene().name == "homestead", "the journal closed")
+  assert(d:scene().name == "homestead", "the journal closed, scene is " .. tostring(d:scene().name))
 
   -- Truck at home: charging, then ready.
   local tx, ty = d:nearestObject("truck")

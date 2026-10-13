@@ -26,7 +26,7 @@ end
 
 function Routine.init(world)
   local s = world.state.routine
-  if not s then -- also covers older saves that predate the routine memory
+  if not s then
     s = {}
     world.state.routine = s
   end

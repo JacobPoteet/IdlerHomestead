@@ -82,6 +82,7 @@ end
 local USAGE = [[
 Idler Homestead screenshot driver. Usage:  lovec tools/driver <scenario|all> [key=value ...]
   size=desktop|phone|landscape|both   window size to run at   (default both = all three;desktop 1280x720, phone 390x844, landscape 844x390)
+  seed=N                    run seed for every scenario (default: a fixed seed per scenario, so runs repeat)
   out=dir                   where PNGs go           (default docs/screens, must exist)
 Scenarios: ]]
 
@@ -91,6 +92,7 @@ local function run(opts)
     return true
   end
   local Driver = require("driver")
+  local Rng = require("src.core.rng")
   local outDir = opts.out or (root .. "/docs/screens")
   local sizes = { "desktop", "phone", "landscape" }
   if opts.size and opts.size ~= "both" then
@@ -105,7 +107,9 @@ local function run(opts)
     local scenario = chunk()
     for _, size in ipairs(sizes) do
       print(string.format("== %s (%s)", name, size))
-      local d = Driver.new({ size = size, outDir = outDir, prefix = name .. "_" .. size })
+      -- Fixed seed per scenario (#188); seed=N overrides it for every scenario.
+      local seed = tonumber(opts.seed) or Rng.hash(name)
+      local d = Driver.new({ size = size, outDir = outDir, prefix = name .. "_" .. size, seed = seed })
       scenario(d)
     end
   end

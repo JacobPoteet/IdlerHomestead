@@ -8,6 +8,8 @@ local Game = require("src.game")
 local Buttons = require("src.ui.buttons")
 local Grid = require("src.sim.grid")
 local Actors = require("src.sim.systems.actors")
+local Rng = require("src.core.rng")
+local Assets = require("src.render.assets")
 
 local Driver = {}
 Driver.__index = Driver
@@ -26,6 +28,7 @@ function Driver.new(opts)
   love.window.setMode(size.w, size.h, { resizable = true, minwidth = 1, minheight = 1, vsync = 0 })
   local self = setmetatable({
     sizeName = opts.size,
+    seed = opts.seed or 1,
     outDir = opts.outDir,
     prefix = opts.prefix,
     shots = {},
@@ -68,8 +71,11 @@ end
 
 --- Resize the window and tell the game, like a real resize event.
 function Driver:resize(w, h)
-  love.window.setMode(w, h, { resizable = true, minwidth = 1, minheight = 1, vsync = 0 })
-  self.game:resize(w, h)
+  love.window.updateMode(w, h, { resizable = true, minwidth = 1, minheight = 1, vsync = 0 })
+  -- A mode change can leave the placeholder atlas canvas empty (#222; a real resize event never
+  -- does), so rebuild the sprites like the game does at startup.
+  Assets.load()
+  self.game:resize(love.graphics.getDimensions())
   self:frames(2)
 end
 
@@ -245,14 +251,50 @@ function Driver:nearestObject(ids)
   return best and best.x, best and best.y
 end
 
+--- The free tile (walkable, no object on it) closest to the homesteader's tile offset by (dx, dy),
+--- searched outwards in rings; returns x, y. Use it instead of fixed offsets, which can land on a
+--- building or crop (#188).
+function Driver:freeTileNear(dx, dy)
+  local world = self:world()
+  local grid = world.state.grid
+  local hx, hy = self:homesteaderTile()
+  local cx, cy = hx + (dx or 0), hy + (dy or 0)
+  for r = 0, math.max(grid.w, grid.h) do
+    for y = cy - r, cy + r do
+      for x = cx - r, cx + r do
+        if (math.abs(x - cx) == r or math.abs(y - cy) == r) and Grid.inBounds(grid, x, y) then
+          local i = Grid.index(grid, x, y)
+          if Grid.walkable(world, i) and not world.occupancy[i] and not (x == hx and y == hy) then
+            return x, y
+          end
+        end
+      end
+    end
+  end
+  error("freeTileNear: no free tile", 2)
+end
+
 --- Title -> slot list -> new homestead -> playing. Leaves the homestead scene on top.
 --- opts.tips = true starts the slot with the first-time tip cards on (off by default so they never
 --- cover another scenario's screenshots).
 function Driver:newGame(opts)
   self.game.app.ctx.tips = opts ~= nil and opts.tips == true
-  self:press("Play")
-  self:press("New")
-  self:press("Start")
+  -- Pin the run seed (#188): opts.seed, else the driver's (seed= on the command line, else a hash of
+  -- the scenario name), so every run of a scenario sees the same world.
+  local seed = opts and opts.seed or self.seed
+  local freshSeed = Rng.freshSeed
+  Rng.freshSeed = function()
+    return seed
+  end
+  local ok, err = pcall(function()
+    self:press("Play")
+    self:press("New")
+    self:press("Start")
+  end)
+  Rng.freshSeed = freshSeed
+  if not ok then
+    error(err, 0)
+  end
   self:frames(10)
 end
 

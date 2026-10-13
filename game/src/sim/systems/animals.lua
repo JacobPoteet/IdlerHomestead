@@ -607,7 +607,7 @@ end
 function Animals.init(world)
   local s = world.state.animals or {}
   world.state.animals = s
-  -- Fields are filled in so saves from before chickens (and before goats) keep loading.
+  -- A fresh run starts empty: fill in the fields.
   s.feed = s.feed or 0
   s.water = s.water or 0
   s.nest = s.nest or 0
