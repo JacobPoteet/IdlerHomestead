@@ -41,6 +41,8 @@ local Water = require("src.sim.systems.water")
 local Processing = require("src.sim.systems.processing")
 local Market = require("src.sim.systems.market")
 local Stand = require("src.sim.systems.stand")
+local Routine = require("src.sim.systems.routine")
+local Tasks = require("src.sim.systems.tasks")
 local Cat = require("src.sim.systems.cat")
 local Animals = require("src.sim.systems.animals")
 local Finds = require("src.sim.systems.finds")
@@ -187,11 +189,13 @@ function Homestead:subscribe()
     events:on("animals.pailFull", function()
       self:queueToast("The milk pail is full: the goats have dried up until you collect")
     end),
+    -- Idle nudges (D55, D93): shown only while the player is looking at the world. Under a panel they
+    -- wait in `pendingHint` and come out when the world is on top again (#120).
     events:on("routine.idleHint", function()
-      -- Only while the player is looking at the world; panels would hide it (D55).
-      if self.app:top() == self then
-        self:showToast("Homesteader is idle: press R or tap Start routine")
-      end
+      self:raiseHint("idle")
+    end),
+    events:on("routine.nothingToDo", function()
+      self:raiseHint("nothing")
     end),
     -- The routine laid out the starter field (D61, D88): say so, and how to change it.
     events:on("crop.starterPlanned", function(e)
@@ -1314,6 +1318,30 @@ function Homestead:skipNight()
   end
 end
 
+local HINT_TEXT = {
+  idle = "Homesteader is idle: press R or tap Start routine",
+  nothing = "Nothing to do: check the Routine priorities",
+}
+
+--- Show an idle nudge now, or hold it while a panel covers the world (D93, #120).
+function Homestead:raiseHint(kind)
+  if self.app:top() == self then
+    self.pendingHint = nil
+    self:showToast(HINT_TEXT[kind])
+  else
+    self.pendingHint = kind
+  end
+end
+
+--- The world is back on top: deliver a held nudge if it still applies.
+function Homestead:resume()
+  local kind = self.pendingHint
+  self.pendingHint = nil
+  if kind and Routine.hintKind(self.world) == kind then
+    self:showToast(HINT_TEXT[kind])
+  end
+end
+
 function Homestead:routineLabel()
   if self.session:sleeping() then
     return self.session:skippingNight() and self.app.ctx.tuning.ui.labels.skipping or self.app.ctx.tuning.ui.labels.skipNight
@@ -1326,7 +1354,15 @@ function Homestead:routineLabel()
 end
 
 function Homestead:controlsKey()
-  return self:speedLabel() .. "|" .. self:routineLabel() .. "|" .. tostring(Power.satisfaction(self.world) < 1)
+  return self:speedLabel() .. "|" .. self:routineLabel() .. "|" .. tostring(Power.satisfaction(self.world) < 1) .. "|" .. tostring(self:hintKind())
+end
+
+--- The nudge that holds right now, for the Routine button's pulse (D93, #120). Not while asleep.
+function Homestead:hintKind()
+  if self.session:sleeping() then
+    return nil
+  end
+  return Routine.hintKind(self.world)
 end
 
 function Homestead:openPower()
@@ -1380,10 +1416,19 @@ function Homestead:layoutControls(view)
       end,
     })
   else
+    -- A gentle pulse on the button while a nudge applies, so it survives panels and phone layouts (D93).
+    -- With the routine on and idle ("nothing"), the button opens the priorities instead.
+    local hint = self:hintKind()
+    local nothing = hint == "nothing"
     addCol(routineLabel, {
-      enabled = routineLabel == self.app.ctx.tuning.ui.labels.startRoutine,
+      enabled = nothing or routineLabel == self.app.ctx.tuning.ui.labels.startRoutine,
+      pulse = hint ~= nil,
       onPress = function()
-        self:startRoutine()
+        if nothing then
+          self.app:push(require("src.scenes.routine").new(self.world))
+        else
+          self:startRoutine()
+        end
       end,
     })
   end
@@ -1635,6 +1680,22 @@ function Homestead:tap(i)
     self.app:push(require("src.scenes.truck").new(world, self:toaster()))
     return
   end
+  if obj and obj.station then
+    -- A tap on a station with a batch in it says what it is doing and shows its card, rather than
+    -- sending the homesteader over for nothing (D93, #135).
+    local anchor = select(2, Grid.object(world, i))
+    local batch = Processing.batch(world, anchor)
+    if batch then
+      local recipe = world.registry:get("recipes", batch.recipe)
+      local out = world.registry:get("resources", recipe.output).name
+      if batch.blocked then
+        self:showToast(string.format("%d %s waiting for storage room: discard it from the card", batch.count, out))
+      else
+        self:showToast(string.format("%s: %.1fh left", recipe.name, batch.remaining / (world.tuning.time.dayLength / 24)))
+      end
+      return
+    end
+  end
   if obj and obj.machine then
     return -- a tap on a machine shows its card (and reach); its power switch is in the power panel
   end
@@ -1673,6 +1734,10 @@ function Homestead:action(name, data)
     end
   end
   if self.buttons:action(name, data) then
+    return true
+  end
+  -- The tile card's own button (discard a station's waiting output, D93).
+  if self.infoButtons and (name == "press" or name == "select" or name == "release") and data.x and self.infoButtons:action(name, data) then
     return true
   end
   local pr = self.paletteRect
@@ -2072,9 +2137,19 @@ end
 function Homestead:storageNotes()
   local world = self.world
   local notes, full = {}, {}
+  -- Only stores that are actually holding something back are listed (D93, #135): a finished batch's
+  -- output, or a harvest/pick/catch that has no room. A merely full store (spare firewood) is quiet.
+  local now = world.state.calendar.elapsed
+  if not self.blockingAt or math.abs(now - self.blockingAt) >= self.app.ctx.tuning.ui.storageNoteRefresh then
+    self.blockingAt = now
+    self.blocking = Tasks.blockedResources(world, Actors.homesteader(world))
+    for _, batch in ipairs(Processing.blockedBatches(world)) do
+      self.blocking[batch.output] = true
+    end
+  end
   for _, res in ipairs(world.registry:all("resources")) do
     -- A full coop is not a warning (it only holds new hens at the gate), so hens are left out.
-    if res.id ~= "water" and res.category ~= "animal" and Ledger.isFull(world, res.id) then
+    if res.id ~= "water" and res.category ~= "animal" and self.blocking[res.id] and Ledger.isFull(world, res.id) then
       full[#full + 1] = res.name
     end
   end
@@ -2413,19 +2488,69 @@ function Homestead:tileInfo(i)
   return lines
 end
 
+--- The selected station and its batch when the batch is finished and waiting for storage room (D93, #135).
+function Homestead:blockedStation()
+  local obj, anchor = Grid.object(self.world, self.selected)
+  local batch = obj and obj.station and Processing.batch(self.world, anchor)
+  if batch and batch.blocked then
+    return anchor, batch
+  end
+end
+
+--- Ask, then throw away the output a station is holding for room (D93, #135).
+function Homestead:askDiscard(anchor, batch)
+  local world = self.world
+  local out = world.registry:get("resources", world.registry:get("recipes", batch.recipe).output).name
+  self.app:push(require("src.scenes.confirm").new({
+    title = "Discard waiting output?",
+    message = string.format("The %d %s waiting in the station will be thrown away. The station is free to work again.", batch.count, out:lower()),
+    confirmLabel = "Discard",
+    danger = true,
+    onConfirm = function()
+      local count = Processing.discard(world, anchor)
+      if count then
+        self:showToast(string.format("Discarded %d %s", count, out:lower()))
+      end
+    end,
+  }))
+end
+
 function Homestead:drawInfo(view)
   local info -- the tile card's rectangle, when it is up (a wide toast keeps clear of it)
+  self.infoButtons = self.infoButtons or Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
+  self.infoButtons:clear()
   if self.selected then
     local lines = self:tileInfo(self.selected)
-    local h = #lines * 11 + 8
+    local anchor, batch = self:blockedStation()
+    local minSize = self.app.ctx.tuning.input.minTouchTarget
+    local btnH = anchor and minSize + 4 or 0 -- room for the Discard button under the lines
+    local h = #lines * 11 + 8 + btnH
     local y = (self.card and self.card.y or self.captionTop or view.h - self.bottomH) - h - 4 -- above the tip card (or the tool caption) when one is up
     local w = 132
     for _, line in ipairs(lines) do
       w = math.max(w, Text.measure(line, "small") + 14) -- a long line widens the card rather than spilling out
     end
+    if anchor then
+      w = math.max(w, 150)
+    end
     Draw.panel(4, y, w, h)
     for n, line in ipairs(lines) do
       Text.draw(line, 10, y + 4 + (n - 1) * 11, { size = "small", color = n == 1 and theme.colors.text or theme.colors.textDim })
+    end
+    if anchor then
+      self.infoButtons:add({
+        x = 10,
+        y = y + h - btnH - 2,
+        w = w - 12,
+        h = minSize,
+        label = "Discard waiting output",
+        size = "small",
+        style = "danger",
+        onPress = function()
+          self:askDiscard(anchor, batch)
+        end,
+      })
+      self.infoButtons:draw()
     end
     info = { x = 4, y = y, w = w, h = h }
   end

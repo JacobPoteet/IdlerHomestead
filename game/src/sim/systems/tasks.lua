@@ -319,6 +319,25 @@ function Tasks.chooseStandingJob(world, actor)
   end)
 end
 
+--- Resource ids whose full store is holding back some target on the map right now (D93, #135):
+--- a read-only scan of every task type's candidates that has a `blocked` hook. Returns { [id] = true }.
+function Tasks.blockedResources(world, actor)
+  local out = {}
+  for _, t in ipairs(world.taskTypes.list) do
+    if t.candidates and t.blocked then
+      t.candidates(world, actor, function(i)
+        if not t.canDo(world, actor, i, nil) then
+          local res = t.blocked(world, actor, i, nil)
+          if res then
+            out[res] = true
+          end
+        end
+      end)
+    end
+  end
+  return out
+end
+
 --- A stationary actor's search (machines, D65): within its capability set and area, the first
 --- category in `caps.categories` order with a doable, unclaimed target; within it the target nearest
 --- the area's centre (Chebyshev), ties by tile index, so the choice never depends on table order.

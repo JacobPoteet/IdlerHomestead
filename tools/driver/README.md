@@ -97,4 +97,6 @@ through input rather than mutate it, so the screenshots show what a player could
 
 Also `plan` (D92: a field planned with the Routine off is tilled and planted at once, tilled bare with no seeds, left by a far tap and finished on return) and `plantip` (a tip card holds game time: Paused button and badge).
 
+Also `fixbatch` (D93: Pantry rows with clear buttons, a station's waiting output with its Discard button and confirm, the "Full" pill listing only blocking stores, the idle nudge held behind a panel with the pulsing Routine button).
+
 Also `money` (D88: the first-junk money card and the Catalog line when money is under the cheapest order); the `starter` scenario now also shoots the starter-field toast.

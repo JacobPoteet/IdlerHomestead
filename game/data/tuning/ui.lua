@@ -19,6 +19,7 @@ return {
   controlTextPadding = 14, -- horizontal padding around a control button's label
   statsAfterDate = 162, -- left edge of the stat strip when it sits beside the date
   reportSeconds = 16, -- real seconds the morning report card waits before folding itself away (Got it closes it sooner; a tip card pauses the count)
+  storageNoteRefresh = 0.5, -- game seconds between re-scans for which full stores are holding something back (the "Full:" pill, D93)
   scrollWheelStep = 22, -- virtual pixels a list scrolls per mouse-wheel notch (about one pantry row)
   scrollBarWidth = 3, -- virtual pixels wide the scroll thumb drawn at the edge of a scrolling list
   scrollHintHeight = 12, -- virtual pixels reserved under a scrolling list for its "drag or scroll" hint

@@ -9,6 +9,8 @@ local Assets = require("src.render.assets")
 local Buttons = {}
 Buttons.__index = Buttons
 
+Buttons.PULSE_PERIOD = 2 -- seconds per breath of a `pulse` button's border (presentation only)
+
 --- minSize: smallest allowed button edge in virtual pixels (tuning.input.minTouchTarget).
 function Buttons.new(minSize)
   return setmetatable({ list = {}, minSize = minSize or 0, hovered = nil, pressed = nil }, Buttons)
@@ -100,6 +102,12 @@ function Buttons:draw()
     end
     love.graphics.setColor(border)
     love.graphics.setLineWidth(1)
+    if b.pulse then
+      -- A gentle, persistent attention pulse (never hover-only): the accent border breathes and thickens.
+      local wave = 0.5 + 0.5 * math.sin(love.timer.getTime() * 2 * math.pi / Buttons.PULSE_PERIOD)
+      love.graphics.setColor(colors.accent[1], colors.accent[2], colors.accent[3], 0.35 + 0.65 * wave)
+      love.graphics.setLineWidth(2)
+    end
     love.graphics.rectangle("line", b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1, 3, 3)
     local tw, th = Text.measure(b.label, b.size or "body")
     local textX, textW = b.x, b.w

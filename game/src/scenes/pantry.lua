@@ -12,23 +12,17 @@ local Buttons = require("src.ui.buttons")
 local Panel = require("src.ui.panel")
 local ScrollList = require("src.ui.scroll_list")
 local SpoilText = require("src.ui.spoil_text")
+local PantryLayout = require("src.ui.pantry_layout")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
 local Pantry = { name = "pantry" }
 Pantry.__index = Pantry
 
-local ROW_H = 26 -- a row clears the smallest touch target (tuning.input.minTouchTarget) with a gap
-local NOTE_H = 10 -- extra height under a perishable's row for its spoilage line
+local ROW_H = PantryLayout.BASE_ROW -- row pitch; set on enter from the touch target (PantryLayout.rowHeight)
+local NOTE_H = PantryLayout.NOTE_H
 -- Columns, measured from the panel's right edge.
-local COL = {
-  stand = 66, -- Stand/Truck toggle (54 wide)
-  plus = 96,
-  minus = 122,
-  auto = 160, -- Auto button (34 wide)
-  keep = 196, -- keep number
-  spare = 228, -- spare number
-}
+local COL = PantryLayout.COL
 
 -- What Auto keeps, in words, from the same tuning Food.keeps reads.
 local function helpText(world)
@@ -47,6 +41,8 @@ end
 
 function Pantry:enter()
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
+  -- Every row is at least a touch target tall, so row buttons never overlap the row below (#174).
+  ROW_H = PantryLayout.rowHeight(self.app.ctx.tuning.input.minTouchTarget)
 end
 
 -- Goods worth showing: in stock and edible, burnable or sellable. Perishables come first so their
@@ -138,12 +134,12 @@ function Pantry:layout()
       local stock = Ledger.get(world, res.id)
       local spare = res.value and math.max(0, stock - keep) or nil
       self.rows[#self.rows + 1] = { res = res, y = y, info = info, keep = keep, auto = auto, spare = spare }
-      local by = y + 1
+      local rects = PantryLayout.buttons(right, y, self.app.ctx.tuning.input.minTouchTarget, res.value ~= nil)
       self.rowButtons:add({
-        x = right - COL.auto,
-        y = by,
-        w = 34,
-        h = ROW_H - 4,
+        x = rects.auto.x,
+        y = rects.auto.y,
+        w = rects.auto.w,
+        h = rects.auto.h,
         label = "Auto",
         size = "small",
         selected = auto,
@@ -152,11 +148,11 @@ function Pantry:layout()
           self:layout()
         end,
       })
-      self.rowButtons:add({ x = right - COL.minus, y = by, w = 24, h = ROW_H - 4, label = "-", onPress = function()
+      self.rowButtons:add({ x = rects.minus.x, y = rects.minus.y, w = rects.minus.w, h = rects.minus.h, label = "-", onPress = function()
         Food.setKeep(world, res.id, keep - 1)
         self:layout()
       end })
-      self.rowButtons:add({ x = right - COL.plus, y = by, w = 24, h = ROW_H - 4, label = "+", onPress = function()
+      self.rowButtons:add({ x = rects.plus.x, y = rects.plus.y, w = rects.plus.w, h = rects.plus.h, label = "+", onPress = function()
         Food.setKeep(world, res.id, keep + 1)
         self:layout()
       end })
@@ -164,10 +160,10 @@ function Pantry:layout()
         -- "Not at the stand" pin (D62): a good marked Truck keeps its spare for the truck load.
         local truckOnly = Food.truckOnly(world, res.id)
         self.rowButtons:add({
-          x = right - COL.stand,
-          y = by,
-          w = 54,
-          h = ROW_H - 4,
+          x = rects.stand.x,
+          y = rects.stand.y,
+          w = rects.stand.w,
+          h = rects.stand.h,
           label = truckOnly and "Truck" or "Stand",
           size = "small",
           selected = truckOnly,
