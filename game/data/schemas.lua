@@ -96,6 +96,7 @@ return {
   chapters = {
     name = "string", -- region title on the journal map
     pages = "table", -- node `page` values that belong to this chapter
+    area = "string?", -- overview heading this chapter is grouped under (D81); absent = tuning.ui.journal.defaultArea
   },
   catalog = {
     name = "string",

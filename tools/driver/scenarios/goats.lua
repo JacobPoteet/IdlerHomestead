@@ -107,11 +107,7 @@ return function(d)
   d:press("Journal")
   d:frames(2)
   local journal = d:scene()
-  journal:select("goat_pen") -- the node's card, scrolled into view
-  local region = journal.map.nodes.goat_pen.region
-  journal.offX, journal.offY = -region.x, -region.y
-  journal:clampPan()
-  journal:reveal("goat_pen")
+  journal:select("goat_pen") -- opens the node's chapter and its card
   d:frames(3)
   d:shot("journal")
 end

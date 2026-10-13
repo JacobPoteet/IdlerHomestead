@@ -28,6 +28,8 @@ Also `smallbatch` (D76-D78: a long Power list scrolled by wheel and drag with a 
 
 Also `place` (D79: the Untill tool and caption, a tilled tile turning back to grass, the placement preview and confirmation card over a tree and over a ripe crop with its warning, the queued order working and the finished building, a cancelled order).
 
+Also `journal` (D81: the Journal overview grouped by area, a focused chapter, a node card beside the chapter on landscape, the filter, the Queue jump, and a 108-chapter journal scrolled by wheel and drag through the scene's test-only `chapterSource` hook).
+
 Also `shelf` (D73, D74: an out-of-date save planted in the in-memory store, listed as "can't be loaded", its Keep it / Delete save prompt and the second confirmation; then a Pantry with batches of different ages, "Oldest batch spoils in N days", no red chip while nothing rots, then the chip and the Pantry warning two nights later).
 
 On narrow views some toolbar buttons live in the Tools or More palette: `d:pick(label)` presses a toolbar button wherever it is (it opens the palette when needed), `d:press` only sees what is on screen.

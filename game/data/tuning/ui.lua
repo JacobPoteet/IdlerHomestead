@@ -115,5 +115,46 @@ return {
       water = "Needs to touch the creek",
     },
   },
-  startRoutineHint = "Starts the routine now. It waters, plants, harvests and chops for you; any tap ends it.", -- toast when the routine starts
+  journal = { -- Field Journal navigation (D81, #194); all virtual pixels unless noted
+    defaultArea = "Other", -- area heading for a chapter whose content has no `area`
+    pad = 4, -- space inside the map rect and between the map rect and the node card
+    gap = 4, -- space between chips and between tiles
+    chipHeight = 28, -- chip height (raised to input.minTouchTarget if that is larger)
+    chipMinWidth = 58, -- narrowest chip; chips wrap into rows when they do not fit one
+    tileMinWidth = 104, -- narrowest chapter tile; the grid fits as many columns as that allows
+    tileHeight = 62, -- chapter tile height: name, known count, ideas and locked, to-study
+    tilePad = 5, -- text inset inside a tile
+    headingHeight = 20, -- area heading strip height
+    groupGap = 6, -- space under an area's last row of tiles
+    radius = 3, -- corner radius of chips and tiles
+    wheelStep = 24, -- pixels the overview scrolls per mouse-wheel notch
+    thumbWidth = 3, -- scroll thumb width
+    thumbMin = 14, -- shortest scroll thumb
+    thumbAlpha = 0.3, -- scroll thumb opacity (0..1)
+    fitMaxScale = 2, -- largest zoom of a fitted chapter (art pixels are drawn at most this big)
+    fitMaxColumns = 5, -- most side-by-side columns a chapter is split into to fit a short, wide view
+    fitTolerance = 0.02, -- zoom a split must beat the previous one by to be preferred (ties keep fewer columns)
+    sideCardWidth = 230, -- node card width when it sits beside the chapter
+    sideCardMinViewWidth = 500, -- the card moves beside the chapter on views wider than this ...
+    sideCardMaxViewHeight = 300, -- ... and shorter than this
+    colors = {
+      tile = { 0.14, 0.17, 0.15, 1 }, -- chapter tile fill
+      chipOn = { 0.22, 0.29, 0.20, 1 }, -- the active filter chip's fill
+      dim = { 0.09, 0.11, 0.10, 0.75 }, -- veil over nodes the filter hides
+    },
+    labels = {
+      back = "< Chapters", -- focus view: back to the overview
+      queue = "Queue", -- jump to the head of the study queue
+      study = "To study (%d)", -- jump to the next idea; %d is how many ideas are waiting
+      filters = { all = "All", known = "Known", ideas = "Ideas", locked = "Locked" },
+      known = "%d/%d known", -- tile line: known of total
+      ideas = "Ideas: %d", -- tile line part: ideas (including queued and studying)
+      locked = "Locked: %d", -- tile line part: still ???
+      separator = ", ",
+      toStudy = "%d to study", -- tile line: ideas nobody has queued
+      empty = "No chapters match.", -- overview with a filter that hides everything
+      continued = " ...", -- suffix on the continuation columns of a split chapter
+    },
+  },
+  startRoutineHint ="Starts the routine now. It waters, plants, harvests and chops for you; any tap ends it.", -- toast when the routine starts
 }
