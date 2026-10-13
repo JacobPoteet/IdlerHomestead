@@ -177,6 +177,23 @@ function Driver:tryPress(label)
   return false
 end
 
+--- Press a toolbar button wherever it lives: on the bar, or (narrow views, D72) inside the Tools or
+--- More palette, which it opens first. Errors like press when the button is nowhere.
+function Driver:pick(label)
+  if self:tryPress(label) then
+    return
+  end
+  for _, opener in ipairs({ "Tools", "More" }) do
+    if self:tryPress(opener) then
+      if self:tryPress(label) then
+        return
+      end
+      self:tryPress(opener) -- not here: close it again
+    end
+  end
+  self:press(label) -- raises the usual error listing what exists
+end
+
 -- Homestead helpers -------------------------------------------------------------------------
 
 function Driver:scene()

@@ -24,7 +24,7 @@ return function(d)
   Tasks.setCondition(world, "harvest", "hour_after")
   Tasks.setCondition(world, "clear", "wood_below")
   d:advance(0.5)
-  d:press("Routine")
+  d:pick("Routine list")
   d:frames(2)
   d:shot("list")
 

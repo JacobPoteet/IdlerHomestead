@@ -39,7 +39,7 @@ return function(d)
   d:scene().toast = nil
   d:frames(3)
   d:shot("held_hud")
-  d:press("Catalog")
+  d:pick("Catalog")
   d:frames(2)
   d:shot("held_catalog")
   d:press(refund)

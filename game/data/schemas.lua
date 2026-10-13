@@ -88,6 +88,7 @@ return {
   notes = {
     name = "string", -- journal map label (<= ~3 words)
     line = "string", -- what the note says (<= ~8 words)
+    hint = "string", -- how to get it, written as an action (<= ~8 words); shown for notes not written yet (D72)
     icon = "string", -- sprite id for the stamp
     event = "string", -- world event that writes the note
     match = "table?", -- event field -> value, or { min = n } / { max = n }
@@ -177,5 +178,14 @@ return {
     default = "number", -- value when the kind is first picked
     unit = "string", -- what the value counts, for tooltips and docs
     short = "string", -- format with one %s for the value, shown in the routine list
+  },
+  chips = { -- top-bar chip explanations (GDD D72); see the header of content/chips.lua
+    name = "string", -- card title (<= ~3 words)
+    unit = "string", -- what the chip's number counts
+    about = "string", -- what the chip is, one line
+    raises = "string", -- what pushes the number up
+    lowers = "string", -- what pushes the number down
+    panel = "string?", -- panel the shortcut opens: "pantry" | "power" | "catalog" | "truck"
+    panelLabel = "string?", -- the shortcut button's text
   },
 }

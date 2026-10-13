@@ -4,7 +4,7 @@ return function(d)
   d:newGame()
   d:frames(10)
   d:shot("start")
-  d:press("Plan")
+  d:pick("Plan field")
   d:shot("plan_mode")
   d:key("escape")
   -- Run up to the first moment the routine can't start (bedtime), before she's asleep.

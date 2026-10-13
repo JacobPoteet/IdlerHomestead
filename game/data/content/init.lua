@@ -15,4 +15,5 @@ return {
   "task_categories",
   "routine_conditions",
   "ftue",
+  "chips",
 }
