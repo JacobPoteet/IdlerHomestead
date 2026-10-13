@@ -53,8 +53,8 @@ end
 --- Step to the next value in `steps` after the current one (wrapping); a current value that isn't in
 --- the list restarts from the first. Returns the new scale.
 function Session:cycleSpeed(steps)
-  if self:inTown() then
-    return self.clock.timeScale -- time stands still in town (D78); the chosen speed waits for the drive home
+  if self:timeHeld() then
+    return self.clock.timeScale -- time stands still in town (D78) or under a tip card (D92); the chosen speed waits
   end
   local current = self.clock.timeScale
   local nextScale = steps[1]
@@ -111,7 +111,7 @@ end
 --- Skip the rest of the night: the sim runs at tuning.time.skipSpeed until the homesteader wakes.
 --- Returns false when nobody is asleep (D56).
 function Session:skipNight()
-  if not self:sleeping() then
+  if not self:sleeping() or self.tipUp then -- no fast-forward under a tip card (D92)
     return false
   end
   self.skipping = true
@@ -127,12 +127,23 @@ function Session:inTown()
   return self.world.state.market.inTown == true
 end
 
+--- The scene tells the session whether an FTUE tip card is on screen (D92, #230). Runtime only, never saved.
+function Session:setTipUp(up)
+  self.tipUp = up == true
+end
+
+--- Is game time held for the player to read or decide: a town trip (D78) or a tip card (D92)? The
+--- chosen speed is untouched, so it is back the moment the hold ends.
+function Session:timeHeld()
+  return self:inTown() or self.tipUp == true
+end
+
 --- The sim speed actually applied: the player's speed, raised automatically while asleep (D56).
 --- A pause stays a pause. Sleep speed never lowers a speed the player chose above it. In town it is
 --- 0 whatever was chosen (D78): the chosen speed is untouched, so it is back on the drive home.
 function Session:effectiveSpeed()
   local chosen = self.clock.timeScale
-  if self:inTown() then
+  if self:timeHeld() then
     return 0
   end
   if chosen == 0 or not self:sleeping() then

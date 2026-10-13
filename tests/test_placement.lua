@@ -10,6 +10,7 @@ local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
 local Land = require("src.sim.systems.land")
 local Ledger = require("src.sim.systems.ledger")
+local Tasks = require("src.sim.systems.tasks")
 local Machines = require("src.sim.systems.machines")
 local Placement = require("src.sim.systems.placement")
 
@@ -495,6 +496,8 @@ T.test("placement: a harvester put in the middle of a field keeps picking the cr
   T.truthy(preview.ok, "a harvester can go on the field")
   T.eq(Placement.request(world, "auto_harvester", center), "queued")
   setTime(world, 1, 10)
+  -- Planned tiles are tilled and replanted by the homesteader (D92); switch that off so the field only shows the harvester's work.
+  Tasks.setPriorityEnabled(world, "plant", false)
   run(world, HOUR * 3)
   local obj = Grid.object(world, center)
   T.eq(obj and obj.id, "auto_harvester")

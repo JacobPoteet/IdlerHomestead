@@ -211,9 +211,13 @@ T.test("orders: till, plant, water, harvest by hand", function()
   run(world, 5)
   T.eq(world.state.crops[tile].moisture > 0.9, true, "watered")
   world.state.crops[tile].growth = 1
+  local harvested = 0
+  world.events:on("crop.harvested", function()
+    harvested = harvested + 1
+  end)
   Actors.order(world, hs, tile)
   run(world, 5)
-  T.eq(world.state.crops[tile], nil, "harvested")
+  T.eq(harvested, 1, "harvested (the planned tile is replanted afterwards, D92)")
   T.truthy(Ledger.get(world, "radish") >= 1)
 end)
 

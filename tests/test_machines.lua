@@ -225,6 +225,7 @@ T.test("harvester: leaves crops outside its radius and work outside its capabili
   world.state.crops[near] = { id = "radish", growth = 0.2, moisture = 0 } -- thirsty, not ripe
   local unplanted = tilesAround(world, anchor, 1, 2, 1)[1]
   world.state.fields.plan[unplanted] = "radish" -- planned, untilled
+  Tasks.setPriorityEnabled(world, "plant", false) -- the homesteader tills planned tiles itself (D92); only the machine is tested here
   run(world, HOUR * 2)
   T.eq(ripeCount(world, far), #far, "out of reach")
   T.eq(world.state.crops[near].moisture, 0, "never waters")

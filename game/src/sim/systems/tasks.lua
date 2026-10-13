@@ -18,6 +18,8 @@
 --   workTime(world, actor, i)            seconds of work at 1x efficiency
 --   complete(world, actor, i, order)     apply the result
 --   standOn                              true: actor must stand on the tile (default: within 1)
+--   standing                             true: the task is a standing order (D92): an actor with no job
+--                                        picks it up in any control mode, before the idle priorities
 --
 -- Actors (GDD §7.4, D65) are anything that claims tasks: the homesteader (actors.lua) walks to a
 -- target found by `chooseIdleJob` or a player order; a machine (machines.lua) stands still and
@@ -254,45 +256,67 @@ function Tasks.jobFor(world, actor, taskId, target)
   return newJob(taskType, target, path, nil)
 end
 
+-- One search over every task type `wanted` accepts: the doable, unreserved candidate nearest by walking
+-- distance becomes a job (one Dijkstra search over all candidates), or nil.
+local function nearestJob(world, actor, wanted)
+  local grid = world.state.grid
+  local here = Grid.index(grid, math.floor(actor.x + 0.5), math.floor(actor.y + 0.5))
+  local targets, taskAt, any = {}, {}, false
+  for _, t in ipairs(world.taskTypes.list) do
+    if wanted(t) and t.candidates and Tasks.allows(actor.caps, t) then
+      local canDoCandidate = t.canDoCandidate
+      local canDo = t.canDo
+      t.candidates(world, actor, function(i)
+        if taskAt[i] or reservedByOther(world, actor, t.id, i) then
+          return
+        end
+        local ok
+        if canDoCandidate then
+          ok = canDoCandidate(world, actor, i)
+        else
+          ok = canDo(world, actor, i, nil)
+        end
+        if ok then
+          targets[i] = t.standOn == true
+          taskAt[i] = t
+          any = true
+        end
+      end)
+    end
+  end
+  if any then
+    local path, target = Pathfind.nearest(world, here, targets)
+    if path then
+      return newJob(taskAt[target], target, path, nil)
+    end
+  end
+  return nil
+end
+
 --- The idle routine: the highest-priority category with a reachable task; within it, the
 --- target nearest by walking distance (one Dijkstra search over all candidates).
 function Tasks.chooseIdleJob(world, actor)
-  local grid = world.state.grid
-  local here = Grid.index(grid, math.floor(actor.x + 0.5), math.floor(actor.y + 0.5))
   for _, entry in ipairs(world.state.priorities) do
     if entry.enabled and Rules.met(world, entry.cond) then
-      local targets, taskAt, any = {}, {}, false
-      for _, t in ipairs(world.taskTypes.list) do
-        if t.category == entry.category and t.candidates and Tasks.allows(actor.caps, t) then
-          local canDoCandidate = t.canDoCandidate
-          local canDo = t.canDo
-          t.candidates(world, actor, function(i)
-            if taskAt[i] or reservedByOther(world, actor, t.id, i) then
-              return
-            end
-            local ok
-            if canDoCandidate then
-              ok = canDoCandidate(world, actor, i)
-            else
-              ok = canDo(world, actor, i, nil)
-            end
-            if ok then
-              targets[i] = t.standOn == true
-              taskAt[i] = t
-              any = true
-            end
-          end)
-        end
-      end
-      if any then
-        local path, target = Pathfind.nearest(world, here, targets)
-        if path then
-          return newJob(taskAt[target], target, path, nil)
-        end
+      local job = nearestJob(world, actor, function(t)
+        return t.category == entry.category
+      end)
+      if job then
+        return job
       end
     end
   end
   return nil
+end
+
+--- Standing orders (D92): task types flagged `standing` (tilling and planting of planned tiles) are
+--- the player's own instruction, so they run whatever the control mode, ahead of the routine's
+--- priority list and ignoring its conditions (D66). A category the player switched off in the Routine
+--- panel stays off, so a standing order never works against that toggle. Nearest target first.
+function Tasks.chooseStandingJob(world, actor)
+  return nearestJob(world, actor, function(t)
+    return t.standing == true and entryFor(world, t.category).enabled
+  end)
 end
 
 --- A stationary actor's search (machines, D65): within its capability set and area, the first
