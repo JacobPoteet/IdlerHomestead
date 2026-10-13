@@ -53,25 +53,60 @@ local function hash(n, salt)
   return v - math.floor(v)
 end
 
---- Falling rain across the screen: slanted streaks that scroll down, denser the harder it rains.
---- `view` is the virtual screen { w, h }; the streaks are drawn in those units.
-function Fx:drawRain(view)
+--- Falling rain over the whole screen: slanted streaks that scroll down and flat splash rings,
+--- denser the harder it rains. `view` is the virtual screen { w, h }. `grid` = { zoom, ox, oy } is
+--- the art-pixel grid on that screen (virtual pixels per art pixel and the grid's offset), so the
+--- rain is built in art pixels and scales with the camera zoom like the land does (#193).
+function Fx:drawRain(view, grid)
   local cfg = self.world.tuning.visuals.weather.rain
   if self.rain <= 0.01 then
     return
   end
-  local count = math.floor(cfg.drops * self.rain * (view.w * view.h) / cfg.referenceArea)
+  local z = grid.zoom
+  local ox, oy = grid.ox, grid.oy
+  local cols, rows = math.ceil(view.w / z) + 1, math.ceil(view.h / z) + 1 -- the screen in art pixels
+  local area = cols * rows / cfg.referenceArea
+  local strength = math.min(1, self.rain)
+  local c = cfg.color
   love.graphics.push("all")
-  love.graphics.setLineWidth(cfg.width)
-  love.graphics.setColor(cfg.color[1], cfg.color[2], cfg.color[3], cfg.color[4] * math.min(1, self.rain))
-  local w, h = view.w, view.h
+
+  local function pixel(cx, cy)
+    love.graphics.rectangle("fill", ox + cx * z, oy + cy * z, z, z)
+  end
+
+  love.graphics.setColor(c[1], c[2], c[3], c[4] * strength)
   local slant = cfg.slant
-  for n = 1, count do
+  for n = 1, math.floor(cfg.drops * self.rain * area) do
     local speed = cfg.speed * lerp(0.7, 1.3, hash(n, 3))
-    local len = cfg.length * lerp(0.6, 1.2, hash(n, 5))
-    local y = (hash(n, 2) * (h + len) + self.time * speed) % (h + len) - len
-    local x = (hash(n, 1) * (w + slant * h) - slant * y) % w
-    love.graphics.line(x, y, x - slant * len, y + len)
+    local len = math.max(2, math.floor(cfg.length * lerp(0.6, 1.2, hash(n, 5)) + 0.5))
+    local y = (hash(n, 2) * (rows + len) + self.time * speed) % (rows + len) - len
+    local x = hash(n, 1) * (cols + slant * rows) - slant * y
+    for k = 0, len - 1 do -- one art pixel per row, leaning with the wind
+      pixel(math.floor((x - slant * k) % cols), math.floor(y + k))
+    end
+  end
+
+  -- Splash rings: each slot lands somewhere new every cycle, spreads as a flat ring, and fades.
+  local radius = cfg.splashRadius
+  for n = 1, math.floor(cfg.splashes * self.rain * area) do
+    local phase = self.time / cfg.splashSeconds + hash(n, 7)
+    local cycle = math.floor(phase)
+    local age = phase - cycle
+    local cx = math.floor(hash(n + cycle * 131, 8) * cols)
+    local cy = math.floor(hash(n + cycle * 131, 9) * rows)
+    local r = 1 + math.floor(age * radius)
+    love.graphics.setColor(c[1], c[2], c[3], cfg.splashAlpha * (1 - age) * strength)
+    local steps = math.max(8, r * 4)
+    local seen = {}
+    for s = 0, steps - 1 do
+      local a = s / steps * 2 * math.pi
+      local px, py = cx + math.floor(math.cos(a) * r + 0.5), cy + math.floor(math.sin(a) * r * 0.5 + 0.5)
+      local key = px * 4096 + py
+      if not seen[key] then
+        seen[key] = true
+        pixel(px, py)
+      end
+    end
   end
   love.graphics.pop()
 end
