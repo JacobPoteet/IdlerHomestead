@@ -1,5 +1,5 @@
--- Survival needs (GDD §4.2). Each day the homesteader eats (freshest food first: content order of
--- food resources) and, in the cold months, burns fuel in the best placed heat source to stay warm
+-- Survival needs (GDD §4.2). Each day the homesteader eats (the food that would spoil first, D94; food
+-- that never spoils last) and, in the cold months, burns fuel in the best placed heat source to stay warm
 -- through the night (hottest fuel first). Shortfalls cost Condition; a fed, warm day restores some.
 --
 -- State: world.state.needs = { condition }
@@ -10,6 +10,7 @@ local Calendar = require("src.sim.systems.calendar")
 local Ledger = require("src.sim.systems.ledger")
 local Power = require("src.sim.systems.power")
 local Shelter = require("src.sim.systems.shelter")
+local Spoilage = require("src.sim.systems.spoilage")
 local Weather = require("src.sim.systems.weather")
 
 local Needs = {}
@@ -41,6 +42,25 @@ end
 local function hurt(world, amount)
   local state = world.state.needs
   state.condition = math.max(0, state.condition - amount)
+end
+
+--- The foods in the order today's meal eats them (D94): the one whose oldest batch spoils soonest
+--- first (`Spoilage.info(...).daysLeft`), ties in content-file order, food that never spoils last.
+function Needs.mealOrder(world)
+  local list = foods(world)
+  local rank = {}
+  for i, res in ipairs(list) do
+    local info = Spoilage.info(world, res.id)
+    rank[res.id] = { left = info and info.daysLeft or math.huge, index = i }
+  end
+  table.sort(list, function(a, b)
+    local ra, rb = rank[a.id], rank[b.id]
+    if ra.left ~= rb.left then
+      return ra.left < rb.left
+    end
+    return ra.index < rb.index
+  end)
+  return list
 end
 
 --- Total calories in stock.
@@ -104,7 +124,7 @@ function Needs.eat(world)
   local cfg = world.tuning.needs
   local need = cfg.dailyCalories
   local eaten = 0
-  for _, res in ipairs(foods(world)) do
+  for _, res in ipairs(Needs.mealOrder(world)) do
     while eaten < need and Ledger.remove(world, res.id, 1, "eat") do
       eaten = eaten + res.calories
     end

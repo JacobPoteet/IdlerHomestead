@@ -22,7 +22,7 @@ end
 function Catalog:enter()
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
   self.rowButtons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
-  self.list = ScrollList.new()
+  self.list = ScrollList.new(function() self:layout() end)
 end
 
 function Catalog:items()
@@ -161,6 +161,9 @@ function Catalog:update()
 end
 
 function Catalog:action(name, data)
+  if name == "press" or name == "release" then -- a drag that ends moving lets the list coast (D94)
+    self.list:action(name, data)
+  end
   if self.buttons:action(name, data) then
     return true
   end
@@ -173,7 +176,7 @@ function Catalog:action(name, data)
     self.rowButtons:action(name, data)
   elseif name == "cancel" then
     self.app:pop()
-  elseif self.list:action(name, data, self.app.ctx.tuning.ui.scrollWheelStep) then
+  elseif self.list:action(name, data, self.app.ctx.tuning.ui) then
     self:layout()
   end
   return true

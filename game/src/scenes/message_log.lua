@@ -57,12 +57,15 @@ function Scene:update()
 end
 
 function Scene:action(name, data)
+  if name == "press" or name == "release" then -- a drag that ends moving lets the list coast (D94)
+    self.list:action(name, data)
+  end
   if self.buttons:action(name, data) then
     return true
   end
   if name == "cancel" then
     self.app:pop()
-  elseif self.list:action(name, data, self.app.ctx.tuning.ui.scrollWheelStep) then
+  elseif self.list:action(name, data, self.app.ctx.tuning.ui) then
     -- the list follows the finger; the rows are positioned from the offset when drawn
   end
   return true -- modal

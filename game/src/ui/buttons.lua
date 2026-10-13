@@ -109,6 +109,11 @@ function Buttons:draw()
       love.graphics.setLineWidth(2)
     end
     love.graphics.rectangle("line", b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1, 3, 3)
+    if b.latched then
+      -- A held-on tool (the Plan latch, D94): a second, inner accent ring so it reads apart from a plain selection.
+      love.graphics.setColor(colors.accent)
+      love.graphics.rectangle("line", b.x + 2.5, b.y + 2.5, b.w - 5, b.h - 5, 2, 2)
+    end
     local tw, th = Text.measure(b.label, b.size or "body")
     local textX, textW = b.x, b.w
     if b.icon then
