@@ -16,7 +16,8 @@ return {
   -- Snow (shaders/snow.glsl)
   snowColor = { 0.93, 0.95, 0.98 }, -- fresh snow
   snowShade = { 0.72, 0.80, 0.90 }, -- clump edges
-  snowClumpScale = 0.18, -- snow clump noise frequency (higher = smaller patches)
+  snowClumpScale = 0.18, -- snow clump noise frequency, 1/ground pixels (higher = smaller patches; world-anchored)
+  snowPatchScale = 0.035, -- broad snow drift noise frequency, 1/ground pixels (0.035 = drifts about 2 tiles across)
   snowRampDays = 1.5, -- in-game days for snow to cover the ground once the freeze starts
   snowMeltDays = 2, -- in-game days for snow to melt after the thaw
   iceRampDays = 0.5, -- in-game days for the creek to freeze over / break up
@@ -103,14 +104,19 @@ return {
       windy = { tint = { 0.95, 0.97, 1.00 }, light = 0.94, rain = 0 },
       storm = { tint = { 0.68, 0.76, 0.94 }, light = 0.62, rain = 1 },
     },
-    rain = { -- the falling streaks, drawn over the graded world in virtual UI pixels
+    rain = { -- falling streaks and splash rings, drawn over the graded world in WORLD art pixels (#193):
+      -- every size, speed and count below is in art pixels, scaled by the camera zoom on screen, so
+      -- rain looks the same at every zoom, window size and widget mode and snaps to the art grid
       drops = 260, -- streaks on screen at full intensity per referenceArea
-      referenceArea = 230400, -- virtual pixels^2 the drops count is for (640x360)
-      length = 9, -- pixels, average streak length
-      width = 1, -- pixels
-      slant = 0.25, -- horizontal pixels each streak leans per vertical pixel (wind direction)
-      speed = 260, -- pixels per second, average fall speed
+      referenceArea = 57600, -- art pixels^2 the drops count is for (320x180, the default zoom on a 640x360 view)
+      length = 5, -- art pixels, average streak length
+      slant = 0.25, -- art pixels each streak leans sideways per art pixel fallen (wind direction)
+      speed = 130, -- art pixels per second, average fall speed
       color = { 0.78, 0.88, 1.00, 0.7 }, -- r, g, b, alpha at full intensity
+      splashes = 36, -- splash rings alive at full intensity per referenceArea
+      splashSeconds = 0.6, -- seconds a ring takes to spread and fade
+      splashRadius = 3, -- art pixels, widest ring radius (rings are flat: half as tall as wide)
+      splashAlpha = 0.55, -- 0..1 ring alpha when it first lands, fading to 0 as it spreads
     },
   },
   hens = { -- the flock around the coop (D63): drawn only by day, a pure function of the render clock

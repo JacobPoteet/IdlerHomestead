@@ -2151,7 +2151,12 @@ function Homestead:draw()
   love.graphics.origin()
   self.renderer:drawGraded(self.canvas, tint, light, view.scale * self.camera:zoom())
   love.graphics.pop()
-  self.renderer:drawRain(view)
+  local z = self.camera:zoom() -- rain is built on the world's art-pixel grid, so it scales with the zoom (#193)
+  self.renderer:drawRain(view, {
+    zoom = z,
+    ox = (view.w / 2 - self.camera.x * z) % z,
+    oy = (view.h / 2 - self.camera.y * z) % z,
+  })
 
   -- HUD (not graded)
   ActionRing.draw(self.world, self.camera, view, { top = self.topH, bottom = view.h - self.bottomH })

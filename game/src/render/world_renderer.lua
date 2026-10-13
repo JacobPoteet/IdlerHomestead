@@ -191,8 +191,8 @@ function Renderer:buildWater()
 end
 
 --- Falling rain over the graded world (call after drawGraded; `view` is the virtual screen).
-function Renderer:drawRain(view)
-  self.fx:drawRain(view)
+function Renderer:drawRain(view, grid)
+  self.fx:drawRain(view, grid)
 end
 
 function Renderer:update(dt)
@@ -311,6 +311,8 @@ function Renderer:draw(alpha, visible, daylight)
       snowColor = v.snowColor,
       shadeColor = v.snowShade,
       clumpScale = v.snowClumpScale,
+      patchScale = v.snowPatchScale,
+      groundSize = { self.ground:getWidth(), self.ground:getHeight() },
     })
     love.graphics.setShader(snowShader)
   end

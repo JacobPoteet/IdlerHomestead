@@ -107,7 +107,8 @@ gradients), avoid `sin()`-based hashes (precision on mobile), and keep everythin
 |---|---|---|
 | `water.glsl` | **M1** | Creek: depth shading from a per-tile depth map, pixel-snapped ripples drifting downstream, banding, daylight sparkles, foam along the banks. **M3:** `ice` blends to a pale frozen surface with crack lines; ice holes are drawn on top by the renderer. |
 | `grade.glsl` | **M1** | Whole-world post-process: time-of-day tint & light (dawn warm, night blue), saturation, vignette, film grain on the art-pixel grid at 12 fps. **M3:** the lighting keys stretch to each season's sunrise/sunset, and a per-season tint/saturation (`visuals.seasonGrade`) sits on top. |
-| `snow.glsl` | **M3** | Snow over the ground canvas: clumpy pixel coverage that ramps in after the freeze and melts after the thaw (`visuals.snow*`). |
+| `snow.glsl` | **M3** | Snow over the ground canvas: clumpy pixel coverage that ramps in after the freeze and melts after the thaw (`visuals.snow*`). World-anchored (D80): the clump position comes from the texture coordinate times `groundSize`, never `vertex_position` (LÖVE transforms streamed vertices on the CPU, so it is already screen space). `precision highp` on GL ES. |
+| Rain (`weather_fx.lua`) | **M3** | Not a shader: streaks and splash rings drawn as art-pixel squares on the world grid, scaled by camera zoom, so size, speed and density match at every zoom and window size (`visuals.weather.rain`, all in art pixels; D80). |
 | Wind sway | Planned | Vertex shader bending crops, brush and tree canopies with gusts; strength from weather. |
 | Cloud shadows | Planned | Soft noise shadows drifting across the land; ties into solar output on cloudy days. |
 | Night lights | Planned (M3) | Light-map canvas: lamp/window/stove/campfire glows that punch through the night grade. |
