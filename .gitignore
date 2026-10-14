@@ -2,3 +2,6 @@
 .vscode/settings.json
 game/log.txt
 game/src/core/version_stamp.lua
+
+# Local wiki location (never commit the vault path)
+.claude/wiki-path.local

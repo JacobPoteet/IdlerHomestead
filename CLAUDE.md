@@ -24,6 +24,10 @@ Idle / roguelite homestead game in LÖVE 11.5 (LuaJIT). The design source of tru
 - `game/src/render/` is presentation: it reads sim state and never changes it. Sprites are looked up by id through `game/assets/manifest.lua` (placeholders in `src/render/placeholders.lua`); shaders live in `game/shaders/` with parameters in `data/tuning/visuals.lua`. See docs/ASSETS.md.
 - When adding a sim helper module outside `src/sim/systems/`, add it to the list in `tests/test_architecture.lua`.
 
+## Wiki
+- Project documentation lives in the wiki, which sits outside this repo. Every change to main updates the matching wiki note first (and the Decision Log when a choice had a constraint behind it). `docs/GDD.md` stays the design source of truth.
+- The wiki's location is held in agent memory and in the gitignored `.claude/wiki-path.local`. Never write its path in the repo (a file, comment or commit message).
+
 ## Tracking work
 - Remaining work is tracked as GitHub issues grouped into milestones **M3–M7** (matching GDD §13).
 - When you notice follow-up work that the GDD doesn't track (shortcuts, polish, tech debt), open an issue labelled `found-during-dev` plus a topic label (`tech-debt`, `ux`, `art`, `shader`, `audio`, `balance`, `tooling`).
