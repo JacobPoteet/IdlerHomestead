@@ -149,7 +149,7 @@ function Settings:layout()
             w = r.w,
             h = r.h,
             label = entry.label,
-            selected = entry.value == value,
+            selected = entry.selected == nil and entry.value == value or entry.selected == true,
             enabled = entry.enabled ~= false,
             onPress = function()
               settings:set(opt.id, entry.value)
