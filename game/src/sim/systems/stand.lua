@@ -13,6 +13,7 @@
 local Calendar = require("src.sim.systems.calendar")
 local Food = require("src.sim.systems.food")
 local Grid = require("src.sim.grid")
+local Inventory = require("src.sim.systems.inventory")
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Spoilage = require("src.sim.systems.spoilage")
@@ -36,6 +37,19 @@ end
 function Stand.cap(world)
   local cfg = world.tuning.stand
   return math.min(cfg.maxCap, cfg.baseCap + Stats.modifier(world, "standCap"))
+end
+
+--- The stand's tiers (D116): the catalog equipment whose `upgrades` names the stand, in catalog order, as a list
+--- of { id, name, owned }. The stand is one fixed building; owning a tier changes how it looks (the item's
+--- `overlay` sprite, drawn by the renderer) and raises its cap (the `standCap` modifier).
+function Stand.tiers(world)
+  local list = {}
+  for _, item in ipairs(world.registry:all("catalog")) do
+    if item.upgrades then
+      list[#list + 1] = { id = item.id, name = item.name, owned = Inventory.hasEquipment(world, item.id) }
+    end
+  end
+  return list
 end
 
 --- Today's cap after season and weather.

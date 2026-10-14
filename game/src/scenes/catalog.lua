@@ -85,6 +85,7 @@ end
 
 local REASONS = {
   owned = "Owned",
+  replaced = "Owned", -- a better tier is owned: the lower one is covered (D115)
   ordered = "Ordered",
   ["pickup only"] = "In town",
   ["too big for storage"] = "Too big",

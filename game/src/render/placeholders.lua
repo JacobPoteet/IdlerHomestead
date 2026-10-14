@@ -1248,6 +1248,41 @@ function P.roadside_stand(p)
   p:rect(12, 10, 8, 1, awningRed)
 end
 
+-- Roadside stand tiers (D116): transparent 32x24 overlays drawn over the stand sprite while the upgrade is owned.
+-- Painted sign: a bright board over the price board and a pennant on the right post.
+function P.stand_sign_look(p)
+  local board, ink = { 0.98, 0.82, 0.28 }, { 0.30, 0.18, 0.10 }
+  p:rect(8, 8, 16, 5, C.barkDark)
+  p:rect(9, 9, 14, 3, board)
+  for x = 11, 21, 3 do
+    p:rect(x, 10, 2, 1, ink)
+  end
+  p:rect(28, 0, 1, 8, C.bark) -- pennant pole
+  p:rect(29, 0, 3, 3, { 0.74, 0.28, 0.24 })
+end
+
+-- Stand cooler: a pale blue chest on the table, lid and handle showing.
+function P.stand_cooler_look(p)
+  local body, lid = { 0.55, 0.74, 0.88 }, { 0.86, 0.93, 0.97 }
+  p:rect(20, 10, 9, 6, body)
+  p:rect(19, 9, 11, 2, lid)
+  p:rect(22, 8, 5, 1, C.barkDark) -- handle
+  p:rect(20, 13, 9, 1, { 0.40, 0.58, 0.74 })
+end
+
+-- Display rack: a two-shelf stand of produce along the front of the table.
+function P.stand_display_look(p)
+  p:rect(2, 10, 1, 8, C.barkDark)
+  p:rect(29, 10, 1, 8, C.barkDark)
+  p:rect(2, 10, 28, 1, C.bark)
+  p:rect(4, 8, 4, 2, C.radish)
+  p:rect(9, 8, 4, 2, C.leaf)
+  p:rect(14, 8, 4, 2, C.leafLight)
+  p:rect(19, 8, 4, 2, C.radish)
+  p:rect(24, 8, 4, 2, C.leaf)
+  p:rect(3, 18, 26, 1, C.barkDark)
+end
+
 function P.icon_roadside_stand(p)
   p:rect(1, 1, 10, 3, { 0.74, 0.28, 0.24 })
   p:rect(3, 1, 2, 3, { 0.92, 0.88, 0.76 })

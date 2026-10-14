@@ -269,12 +269,43 @@ end
 -- Which objects go by the field instead of by the truck.
 local BY_FIELD = { well = true, hand_pump = true, cistern = true, dc_pump = true, drip_line = true, auto_harvester = true }
 
+--- An upgrade object (the shack, D115) goes over the building it replaces. Returns nil when `id` is not an
+--- upgrade of something standing (place it like any other object), else whether it was placed.
+function Features.placeUpgrade(world, id)
+  local grid = world.state.grid
+  local def = world.registry:get("objects", id)
+  if not def.replaces then
+    return nil
+  end
+  local oldAnchor
+  for anchor, obj in pairs(grid.objects) do
+    if obj.id == def.replaces then
+      oldAnchor = anchor
+    end
+  end
+  if not oldAnchor then
+    return nil
+  end
+  local ox, oy = Grid.coords(grid, oldAnchor)
+  for _, offset in ipairs({ { 0, 0 }, { -1, 0 }, { 0, -1 }, { -1, -1 } }) do
+    local x, y = ox + offset[1], oy + offset[2]
+    if Grid.inBounds(grid, x, y) and Inventory.canPlace(world, id, Grid.index(grid, x, y)) then
+      return Inventory.place(world, id, Grid.index(grid, x, y))
+    end
+  end
+  return false
+end
+
 --- Place one `id` from the inventory where it helps: wells, pumps and cisterns beside the field
 --- (a drip line where it waters the most planned tiles), everything else the nearest legal tile to
 --- the truck at least `ringFrom` tiles away (a walkway). Returns true when placed.
 function Features.place(world, id, ringFrom)
   local grid = world.state.grid
   local def = world.registry:get("objects", id)
+  local upgraded = Features.placeUpgrade(world, id)
+  if upgraded ~= nil then
+    return upgraded
+  end
   local fieldSet, fieldList = fieldTileSet(world)
   local cx, cy
   if BY_FIELD[id] then

@@ -58,6 +58,7 @@ return {
     footprintH = 2,
     shelter = true,
     shelterRank = 2,
+    replaces = "camp", -- placed over the camp, which it removes (D115)
     insulation = 0.6, -- 40% less warmth needed
     recovery = 1.6, -- 60% more Condition on a fed, warm day
     heaterRadius = 5, -- tiles: room for the wood stove inside
