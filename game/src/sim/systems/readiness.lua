@@ -82,7 +82,7 @@ function Readiness.warmthAhead(world)
     inWinter = frozen
     local peak = 0 -- the season's hardest night at severity 1: where an unannounced cold snap could land
     local known = year == now.year
-    local severity = cfg.severityMax + cfg.severityPerYear * (year - 1)
+    local severity = Weather.severityBound(world, year) -- the roll's top end (the Great Winter may top it, D117)
     if frozen and known and forecast.severity then
       severity = forecast.severity
     end

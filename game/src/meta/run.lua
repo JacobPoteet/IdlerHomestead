@@ -14,9 +14,12 @@
 -- A summary also carries yearsSurvived (full game years completed: the year counter minus one, so dying in
 -- year 3 is 2), bestYearIncome (the most sales income, in $, in one game year of the run, D117) and, from
 -- the second run on, newBest = { years = bool, yearIncome = bool } (strictly beat the slot's earlier best).
+-- A summary also carries greatWinter (bool, D117): the run lived through the Great Winter to the thaw; the
+-- slot's best keeps it as career.best.greatWinter (true once any run did).
 -- meta.recovery = { summary, finishedStudy = itemId?, freeStudyUsed = bool } while recovering.
 
 local Calendar = require("src.sim.systems.calendar")
+local Established = require("src.sim.systems.established")
 local Events = require("src.core.events")
 local Ftue = require("src.sim.systems.ftue")
 local Income = require("src.sim.systems.income")
@@ -60,6 +63,7 @@ function Run.summary(world)
     dayOfSeason = now.dayOfSeason,
     yearsSurvived = now.year - 1,
     bestYearIncome = (Income.best(world)),
+    greatWinter = Established.survived(world.tuning, now.year), -- lived through the Great Winter (D117, #277)
     notes = notes,
   }
 end
@@ -148,14 +152,23 @@ function Run.progressTable(tuning, career, summary)
   if not first then
     columns[2], columns[3] = t.colPrevious, t.colBest
   end
-  return {
-    first = first,
-    columns = columns,
-    rows = {
-      row(t.yearsLabel, t.yearsFormat, "yearsSurvived", "years", flags.years),
-      row(t.incomeLabel, t.incomeFormat, "bestYearIncome", "yearIncome", flags.yearIncome),
-    },
+  local rows = {
+    row(t.yearsLabel, t.yearsFormat, "yearsSurvived", "years", flags.years),
+    row(t.incomeLabel, t.incomeFormat, "bestYearIncome", "yearIncome", flags.yearIncome),
   }
+  -- The Great Winter row (D117, #277) shows once the slot has lived through one; before that it is no news.
+  if summary.greatWinter or best.greatWinter then
+    local g = tuning.ui.greatWinter
+    local function cell(done)
+      return done and g.surviveYes or g.surviveNo
+    end
+    local cells = { cell(summary.greatWinter) }
+    if not first then
+      cells[2], cells[3] = cell(previous.greatWinter), cell(best.greatWinter)
+    end
+    rows[#rows + 1] = { label = g.surviveLabel, cells = cells, newBest = false }
+  end
+  return { first = first, columns = columns, rows = rows }
 end
 
 --- The slot screen's journal line from a slot header, or nil when the header has no figures.
@@ -181,6 +194,7 @@ function Run.fail(data, world, depleted)
       yearIncome = summary.bestYearIncome > career.best.yearIncome,
     }
   end
+  career.best.greatWinter = career.best.greatWinter or summary.greatWinter or nil
   career.best.years = math.max(career.best.years, summary.yearsSurvived)
   career.best.yearIncome = math.max(career.best.yearIncome, summary.bestYearIncome)
   career.history[#career.history + 1] = summary

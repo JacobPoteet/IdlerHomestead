@@ -25,7 +25,9 @@ function Forecast.summary(world)
   if not f.severity then
     return nil
   end
-  local parts = { SEVERITY[Weather.severityLevel(world, f.severity)] .. " winter" }
+  local word = SEVERITY[Weather.severityLevel(world, f.severity)]
+  -- The Great Winter (D117) is named in the warning.
+  local parts = { f.great and string.format(world.tuning.ui.greatWinter.summaryHead, word) or (word .. " winter") }
   if f.snapStart then
     local snap = "cold snap " .. timing(world, f.snapStart)
     if f.snapDays then
@@ -159,9 +161,13 @@ function Forecast.threatSummary(world, e)
   return head .. ": " .. table.concat(parts, ", ")
 end
 
---- The toast for a newly revealed forecast piece.
+--- The toast for a newly revealed forecast piece (nil when there is none to show: the Great Winter is
+--- announced in one toast, D117, and the pill carries the rest).
 function Forecast.news(world, piece)
   local f = Weather.forecast(world)
+  if f.great then
+    return piece == 1 and world.tuning.ui.greatWinter.news or nil
+  end
   if piece == 1 then
     return "Forecast: a " .. SEVERITY[Weather.severityLevel(world, f.severity)] .. " winter ahead"
   elseif piece == 2 then
