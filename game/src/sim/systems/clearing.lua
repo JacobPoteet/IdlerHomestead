@@ -30,7 +30,7 @@ local function shortage(world, def)
 end
 
 function Clearing.init(world)
-  Tasks.register(world, {
+  local clear = {
     id = "clear",
     category = "clear",
     verb = "Clear",
@@ -77,6 +77,28 @@ function Clearing.init(world)
       Grid.removeObject(w, anchor)
       w.events:emit("object.cleared", { object = def.id, tile = anchor, yields = gained })
     end,
+  }
+  Tasks.register(world, clear)
+  -- "Clear trees" (D109, #262): the routine's opt-in category for felling trees. The same work as the hand
+  -- order (the "clear" task's room check, axe speed and yields; the wood goes to the store), so it shares those
+  -- functions. It has no clickOrder: a tap on a tree is still the "clear" task, and only the routine uses this
+  -- one, over the objects marked `fell` in content.
+  Tasks.register(world, {
+    id = "fell",
+    category = "trees",
+    verb = "Clear",
+    candidates = function(w, _, add)
+      for anchor, obj in pairs(w.state.grid.objects) do
+        local def = w.registry:get("objects", obj.id)
+        if def.fell and clearable(def) then
+          add(anchor)
+        end
+      end
+    end,
+    canDo = clear.canDo,
+    blocked = clear.blocked,
+    workTime = clear.workTime,
+    complete = clear.complete,
   })
 end
 

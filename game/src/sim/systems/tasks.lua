@@ -64,7 +64,7 @@ function Tasks.syncPriorities(world)
   end
   for _, cat in ipairs(world.registry:all("task_categories")) do
     if not seen[cat.id] then
-      list[#list + 1] = { category = cat.id, enabled = true } -- no condition by default (D66)
+      list[#list + 1] = { category = cat.id, enabled = not cat.startsOff } -- no condition by default (D66); an opt-in category starts Off (D109)
     end
   end
   world.state.priorities = list
