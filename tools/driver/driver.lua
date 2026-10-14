@@ -149,6 +149,12 @@ function Driver:key(name)
   self:frames(2)
 end
 
+--- Type text like the keyboard would (the `textinput` event; a focused text field takes it).
+function Driver:text(str)
+  self.game:textinput(str)
+  self:frames(2)
+end
+
 --- All Buttons groups on the top scene (any field holding one).
 local function buttonGroups(scene)
   local groups = {}
