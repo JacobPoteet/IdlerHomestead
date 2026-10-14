@@ -46,12 +46,15 @@ local function placeRoadAndTruck(world, cfg, rng, creekRows)
   local creekX = creekRows[midY][1]
   local fromLeft = creekX > grid.w / 2
   local y = rng:int(math.floor(grid.h * cfg.roadMinRow), math.floor(grid.h * cfg.roadMaxRow))
-  local length = rng:int(cfg.roadMinLength, cfg.roadMaxLength)
+  -- The road runs in from the edge until the truck is a short walk from the creek, however wide the map is.
+  local gap = rng:int(cfg.truckCreekGapMin, cfg.truckCreekGapMax)
+  local length
   if fromLeft then
-    length = math.min(length, creekRows[y][1] - 6)
+    length = creekRows[y][1] - gap
   else
-    length = math.min(length, grid.w - creekRows[y][2] - 6)
+    length = grid.w - creekRows[y][2] - gap
   end
+  length = math.max(cfg.roadMinLength, length)
   local x, step = fromLeft and 1 or grid.w, fromLeft and 1 or -1
   for _ = 1, length do
     Grid.setTerrain(world, Grid.index(grid, x, y), "road")

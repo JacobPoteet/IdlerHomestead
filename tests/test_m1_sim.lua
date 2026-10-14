@@ -328,3 +328,19 @@ T.test("idle routine waters planted crops on every plot (regression: unreachable
     T.truthy(wateredAt - plantedAt < tun.time.dayLength, "seed " .. seed .. ": watered within a day")
   end
 end)
+
+T.test("landgen: the truck stays a short walk from the creek on the wide map (#260)", function()
+  for seed = 1, 20 do
+    local world = newWorld(seed)
+    local grid = world.state.grid
+    local tx, ty = Grid.coords(grid, world.state.land.truck)
+    local nearest = math.huge
+    for i = 1, #grid.terrain do
+      if grid.terrain[i] == "water" then
+        local x, y = Grid.coords(grid, i)
+        nearest = math.min(nearest, math.max(math.abs(x - tx), math.abs(y - ty)))
+      end
+    end
+    T.truthy(nearest <= tun.landgen.truckCreekGapMax + 4, "seed " .. seed .. " creek " .. nearest .. " tiles from the truck")
+  end
+end)
