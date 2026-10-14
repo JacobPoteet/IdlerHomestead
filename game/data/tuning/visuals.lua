@@ -190,11 +190,12 @@ return {
     },
   },
   wind = { -- wind sway of crops, brush and tree canopies (shaders/sway.glsl, D84); the strength is Weather.windStrength, eased
-    amplitude = 3.2, -- art pixels the top of a sprite leans at wind strength 1 (offsets snap to whole art pixels, so the sway steps like pixel art)
-    speed = 1.7, -- radians per second of the sway at wind strength 1 (faster in a gale)
+    amplitude = 2.4, -- art pixels the top of a sprite leans at wind strength 1 (offsets snap to whole art pixels, so the sway steps like pixel art)
+    speed = 0.75, -- radians per second of the sway at wind strength 1 (faster in a gale); slow, since 4x play shows effects at 2x and a quick sway reads as scan lines
     lean = 0.4, -- 0..1 how much of the sway is a steady lean downwind (the rest is the back-and-forth)
     gust = 0.35, -- 0..1 extra, slower swell on top of the sway, travelling across the land
     spread = 0.11, -- radians of sway phase per tile across the map, so a gust rolls over the field instead of every plant moving together
+    jitter = 1.0, -- 0..1 of a full sway cycle of random phase per tile, so each plant sways on its own beat and the field does not move as one band
     crop = { weight = 1.0, root = 0.2 }, -- crops: weight = multiplier on the amplitude, root = 0..1 share of the sprite height (from the bottom) that stays still
     thirsty = { 0.86, 0.80, 0.58 }, -- colour multiplier on a crop that needs water (same as the unswayed draw)
   },

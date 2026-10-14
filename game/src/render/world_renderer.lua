@@ -844,7 +844,7 @@ end
 function Renderer:swayPhase(x, y)
   local cfg = self.world.tuning.visuals.wind
   local jitter = variantFor(y * 1024 + x, 64) / 64
-  return ((x * cfg.spread + y * cfg.spread * 0.37) / (2 * math.pi) + jitter * 0.15) % 1
+  return ((x * cfg.spread + y * cfg.spread * 0.37) / (2 * math.pi) + jitter * cfg.jitter) % 1
 end
 
 --- Draw `sprite` swaying in the wind with its top-left at (x, y). `cfg` = { weight, root }. The sprite is
