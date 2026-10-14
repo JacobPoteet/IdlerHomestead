@@ -291,7 +291,7 @@ return {
     gap = 1, -- art pixels between the arrow's tip and the top of the truck sprite at the top of the bob
   },
   effectClock = { -- the render layer's own time (D97): world effects run on game time, UI pulses on real time
-    maxSpeed = 4, -- game-speed multiplier above which effects stop speeding up, so a night skip (8x, 60x) cannot strobe flames or shimmer
+    maxSpeed = 2, -- game-speed multiplier above which effects stop speeding up: 4x game speed (and the 8x of sleep) show effects at their 2x rate, so flames, sway, shimmer, mist and lights never strobe (#265)
     wrap = 3600, -- seconds after which the effect clocks wrap (keeps shader floats small)
   },
   vignette = 0.28,-- 0..1 darkening toward the screen edges

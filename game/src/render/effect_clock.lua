@@ -2,7 +2,7 @@
 --
 -- `world` time advances by dt * game speed, so flames, wind, clouds, water and the like stand still
 -- while the game is paused (player pause, tip card, town) and run faster at 2x/4x. The speed is capped
--- (`maxSpeed`) so a night skip at 8x/60x does not strobe a flame. `real` time always runs by dt, for
+-- (`maxSpeed`) so 4x play and 8x sleep show effects at the 2x rate and do not strobe a flame (#265). `real` time always runs by dt, for
 -- UI pulses. Both only ever advance by a non-negative step, so changing the speed or pausing changes the
 -- rate of the clock and never its value: nothing jumps.
 
