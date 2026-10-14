@@ -159,7 +159,6 @@ T.test("harvest: a mature crop stays in the ground while its produce has no room
   T.eq(#harvested, 1, "harvested once there is room")
 end)
 
-
 -- Hold, don't destroy (D59, D60): work waits for room, orders can be refunded, nothing vanishes. ----
 
 local Clearing = require("src.sim.systems.clearing")

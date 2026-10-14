@@ -143,7 +143,12 @@ function SoundTest:draw()
         Text.draw(item.heading, x0, item.ay + 4, { size = "body", color = theme.colors.accent })
       else
         Text.draw(item.id, x0, item.ay, { size = "body", width = innerW - PLAY_W - 6 })
-        Text.draw(item.detail, x0, item.ay + 14, { size = "small", width = innerW - PLAY_W - 6, color = theme.colors.textDim })
+        Text.draw(
+          item.detail,
+          x0,
+          item.ay + 14,
+          { size = "small", width = innerW - PLAY_W - 6, color = theme.colors.textDim }
+        )
       end
     end
   end

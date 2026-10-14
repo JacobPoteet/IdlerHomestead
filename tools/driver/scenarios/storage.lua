@@ -2,7 +2,6 @@
 -- full (names the store), and a paid order held at the gate with its refund button in the Catalog.
 -- The scenario tightens the stores directly (storage buildings are not built yet), then plays through
 -- the real HUD and input.
-local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 

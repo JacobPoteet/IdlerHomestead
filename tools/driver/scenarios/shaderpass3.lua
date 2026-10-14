@@ -59,11 +59,21 @@ return function(d)
   local tx, ty = Grid.coords(grid, world.state.land.truck)
   for anchor, obj in pairs(grid.objects) do
     local x, y = Grid.coords(grid, anchor)
-    if world.registry:get("objects", obj.id).clearable ~= false and math.abs(x - tx) <= 10 and math.abs(y - ty) <= 8 then
+    if
+      world.registry:get("objects", obj.id).clearable ~= false
+      and math.abs(x - tx) <= 10
+      and math.abs(y - ty) <= 8
+    then
       Grid.removeObject(world, anchor)
     end
   end
-  for _, put in ipairs({ { "shack", 3, -2 }, { "wood_stove", 7, -1 }, { "campfire", -2, 2 }, { "tree", -5, -2 }, { "brush", -3, -2 } }) do
+  for _, put in ipairs({
+    { "shack", 3, -2 },
+    { "wood_stove", 7, -1 },
+    { "campfire", -2, 2 },
+    { "tree", -5, -2 },
+    { "brush", -3, -2 },
+  }) do
     Grid.placeObject(world, put[1], tx + put[2], ty + put[3])
   end
   local yard = { tx, ty + 1 }

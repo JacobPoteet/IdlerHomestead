@@ -129,7 +129,11 @@ T.test("shelter: a heat source inside the heater slot counts fully, farther ones
   Grid.removeObject(world, near)
   local far = placeFar(world, "wood_stove", camp, radius)
   T.truthy(far and not Shelter.inHeaterSlot(world, far))
-  T.near(Needs.heatEfficiency(world), reg:get("objects", "wood_stove").heatSource.efficiency * tun.shelter.farHeat, 1e-9)
+  T.near(
+    Needs.heatEfficiency(world),
+    reg:get("objects", "wood_stove").heatSource.efficiency * tun.shelter.farHeat,
+    1e-9
+  )
 end)
 
 T.test("shelter: an electric heater outside the slot makes less warmth", function()
@@ -173,7 +177,13 @@ T.test("sleep: the best reachable shelter is the bed, and the night's event name
   for i = 1, #world.state.grid.terrain do
     local check = Inventory.check(world, "shack", i)
     local d = Grid.distance(world.state.grid, truck, i)
-    if check.rule == "replace" and #check.clear == 0 and #check.crops == 0 and d >= 6 and (not shackD or d < shackD) then
+    if
+      check.rule == "replace"
+      and #check.clear == 0
+      and #check.crops == 0
+      and d >= 6
+      and (not shackD or d < shackD)
+    then
       shack, shackD = i, d
     end
   end

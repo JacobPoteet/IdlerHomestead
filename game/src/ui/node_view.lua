@@ -3,7 +3,6 @@
 
 local Journal = require("src.sim.systems.journal")
 local Panel = require("src.ui.panel")
-local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
 local NodeView = {}

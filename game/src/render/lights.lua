@@ -42,7 +42,12 @@ function Lights.visible(world, visible, margin)
     local light = world.registry:get("objects", obj.id).light
     if light then
       local x, y = Grid.coords(grid, anchor)
-      if x >= visible[1] - margin and x <= visible[3] + margin and y >= visible[2] - margin and y <= visible[4] + margin + 2 then
+      if
+        x >= visible[1] - margin
+        and x <= visible[3] + margin
+        and y >= visible[2] - margin
+        and y <= visible[4] + margin + 2
+      then
         if Lights.isOn(world, anchor, light, state) then
           local def = world.registry:get("objects", obj.id)
           local bottom = (y - 1 + (def.footprintH or 1)) * tile

@@ -108,7 +108,6 @@ T.test("nothing to do: silent while the routine has a job, and the counter reset
   local world = newWorld(3)
   setTime(world, 10)
   local hints = collect(world, "routine.nothingToDo")
-  local hs = Actors.homesteader(world)
   for _ = 1, math.floor(tun.idle.nothingAfter * 3 / STEP) do
     world.control = "idle"
     keepBusy(world) -- any order or job in hand counts as work (planned tiles included, D92)
@@ -160,7 +159,8 @@ T.test("pantry layout: buttons never overlap, in a row or between rows, at every
       local right = box.x + box.w
       local rows, y = {}, 0
       -- A mix like the real list: a perishable with a note, then plain rows with and without a stand button.
-      local pattern = { { true, true }, { false, true }, { false, true }, { false, false }, { true, true }, { false, true } }
+      local pattern =
+        { { true, true }, { false, true }, { false, true }, { false, false }, { true, true }, { false, true } }
       for _, p in ipairs(pattern) do
         rows[#rows + 1] = PantryLayout.buttons(right, y, minTouch, p[2])
         y = y + PantryLayout.rowHeight(minTouch) + (p[1] and PantryLayout.NOTE_H or 0)
@@ -176,7 +176,19 @@ T.test("pantry layout: buttons never overlap, in a row or between rows, at every
       end
       for a = 1, #all do
         for b = a + 1, #all do
-          T.falsy(overlaps(all[a].rect, all[b].rect), string.format("%dx%d min %d: row %d %s vs row %d %s", sz[1], sz[2], minTouch, all[a].r, all[a].name, all[b].r, all[b].name))
+          T.falsy(
+            overlaps(all[a].rect, all[b].rect),
+            string.format(
+              "%dx%d min %d: row %d %s vs row %d %s",
+              sz[1],
+              sz[2],
+              minTouch,
+              all[a].r,
+              all[a].name,
+              all[b].r,
+              all[b].name
+            )
+          )
         end
       end
     end
@@ -184,7 +196,6 @@ T.test("pantry layout: buttons never overlap, in a row or between rows, at every
 end)
 
 -- #135: discard a station's waiting output ------------------------------------------------------------
-
 
 local function blockedSmoker(world)
   world.control = "idle"

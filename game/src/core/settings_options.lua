@@ -76,13 +76,23 @@ function M.build(tuning)
       note = function(settings, env)
         local scale, clamped = UiScale.effective(settings:get("uiScale"), env.pixelW, env.pixelH, display, cfg)
         local auto = UiScale.auto(env.pixelW, env.pixelH, display)
-        local text = string.format("Showing %dx%d units at %dx.", math.floor(env.pixelW / scale), math.floor(env.pixelH / scale), scale)
+        local text = string.format(
+          "Showing %dx%d units at %dx.",
+          math.floor(env.pixelW / scale),
+          math.floor(env.pixelH / scale),
+          scale
+        )
         if clamped and settings:get("uiScale") ~= cfg.defaults.uiScale then -- the untouched default just fits the window (a phone shows 1x)
           text = text .. " The chosen size does not fit this window."
         elseif auto < cfg.uiScaleMax then
           text = text .. " Larger sizes need a bigger window."
         end
-        if env.touchPrimary and settings:get("uiScale") ~= "auto" and scale < auto and UiScale.touchPixels(scale, env.minTouchTarget) < cfg.comfortTouchPixels then
+        if
+          env.touchPrimary
+          and settings:get("uiScale") ~= "auto"
+          and scale < auto
+          and UiScale.touchPixels(scale, env.minTouchTarget) < cfg.comfortTouchPixels
+        then
           text = text .. " Buttons get small for fingers."
         end
         return text
@@ -154,6 +164,15 @@ function M.build(tuning)
       group = "Visuals",
       note = function()
         return "Fireflies, dust, mist, cloud shadows and rain streaks."
+      end,
+    },
+    {
+      id = "depthOfField",
+      label = "Depth of field",
+      kind = "toggle",
+      group = "Visuals",
+      note = function()
+        return "Softens the top and bottom of the view, like a miniature."
       end,
     },
     {

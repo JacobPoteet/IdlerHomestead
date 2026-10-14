@@ -49,7 +49,7 @@ T.test("place card: the glide eases monotonically from start to end in the set t
   local x, y, done = PlaceCard.glideStep(g, 0.1, 0.4)
   T.eq(x, 100)
   T.truthy(y > 100 and y < 150 and not done, "mid glide is between the ends, slower than linear at the start")
-  x, y, done = PlaceCard.glideStep(g, 0.5, 0.4)
+  y, done = select(2, PlaceCard.glideStep(g, 0.5, 0.4))
   T.eq(y, 200)
   T.truthy(done)
   local z = PlaceCard.glide(0, 0, 10, 0)

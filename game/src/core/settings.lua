@@ -184,7 +184,12 @@ function Settings:encode()
   for id, v in pairs(self.values) do
     values[id] = v
   end
-  return serialize.encode({ version = Settings.FORMAT_VERSION, values = values, window = self.window, keys = next(self.keys) and self.keys or nil })
+  return serialize.encode({
+    version = Settings.FORMAT_VERSION,
+    values = values,
+    window = self.window,
+    keys = next(self.keys) and self.keys or nil,
+  })
 end
 
 --- Apply file contents (a string) over the defaults. Returns true if it was usable.

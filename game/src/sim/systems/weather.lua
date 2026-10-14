@@ -230,7 +230,10 @@ local function fillSky(world, sky)
     local kind = sky.spell
     local day = sky.first + #sky.days
     -- A spell of rain that runs into a frozen season falls as snow, which is the winter look: cloudy.
-    if cfg.kinds[kind].rainfall > 0 and Weather.isFrozenSeason(world, world.tuning.time.seasons[Calendar.seasonOfDay(world, day)]) then
+    if
+      cfg.kinds[kind].rainfall > 0
+      and Weather.isFrozenSeason(world, world.tuning.time.seasons[Calendar.seasonOfDay(world, day)])
+    then
       kind = cfg.frozenRainKind
     end
     sky.days[#sky.days + 1] = kind

@@ -343,7 +343,35 @@ local function playRun(ctx, session, policyName, seed, years, features)
   result.counters.standUnits = Stand.total(world).units
   result.counters.machineHarvests = Machines.done(world)
   result.owned = {}
-  for _, id in ipairs({ "camp", "shack", "shelter_cat", "chicken_coop", "chicken_fence", "goat_pen", "goat_trailer", "cheese_press", "roadside_stand", "stand_sign", "stand_cooler", "stand_display", "well", "cistern", "dc_pump", "sprinkler", "drip_line", "hand_pump", "solar_array", "battery_bank", "wind_turbine", "micro_hydro", "generator", "electric_heater", "lamp", "chest_freezer", "auto_harvester" }) do
+  for _, id in ipairs({
+    "camp",
+    "shack",
+    "shelter_cat",
+    "chicken_coop",
+    "chicken_fence",
+    "goat_pen",
+    "goat_trailer",
+    "cheese_press",
+    "roadside_stand",
+    "stand_sign",
+    "stand_cooler",
+    "stand_display",
+    "well",
+    "cistern",
+    "dc_pump",
+    "sprinkler",
+    "drip_line",
+    "hand_pump",
+    "solar_array",
+    "battery_bank",
+    "wind_turbine",
+    "micro_hydro",
+    "generator",
+    "electric_heater",
+    "lamp",
+    "chest_freezer",
+    "auto_harvester",
+  }) do
     if Inventory.owns(world, id) then
       result.owned[id] = true
     end
@@ -592,7 +620,15 @@ local METRIC_NAMES = {
 function Balance.printSummary(ctx, policyName, runIndex, summary, years)
   line("")
   line(string.rep("=", 100))
-  line(string.format("policy %-9s run %d   seeds: %d   (%s)", policyName, runIndex, summary.n, Policies.describe[policyName]))
+  line(
+    string.format(
+      "policy %-9s run %d   seeds: %d   (%s)",
+      policyName,
+      runIndex,
+      summary.n,
+      Policies.describe[policyName]
+    )
+  )
   line(string.rep("=", 100))
   local seasons = #ctx.tuning.time.seasons
   local points = summary.points
@@ -868,7 +904,9 @@ Balance.jsonEncode = jsonEncode
 --- CSV with one row per seed per run per season-start snapshot (day 1, 2, ...).
 function Balance.writeCsv(path, all)
   local fh = assert(io.open(path, "w"))
-  fh:write("policy,seed,run,day,year,season,dayOfSeason,condition,money,foodDays,warmth,warmthNights,notes,known,ideas,failedAtEnd\n")
+  fh:write(
+    "policy,seed,run,day,year,season,dayOfSeason,condition,money,foodDays,warmth,warmthNights,notes,known,ideas,failedAtEnd\n"
+  )
   for _, r in ipairs(all) do
     local days = {}
     for day in pairs(r.snaps) do
@@ -912,7 +950,15 @@ end
 
 --- Print one run day by day (for working out why a seed lived or died).
 function Balance.printTrace(r)
-  line(string.format("trace: policy %s seed %d run %d  %s", r.policy, r.baseSeed, r.run, r.alive and "survived" or ("failed on day " .. r.failDay .. " (" .. tostring(r.cause) .. ")")))
+  line(
+    string.format(
+      "trace: policy %s seed %d run %d  %s",
+      r.policy,
+      r.baseSeed,
+      r.run,
+      r.alive and "survived" or ("failed on day " .. r.failDay .. " (" .. tostring(r.cause) .. ")")
+    )
+  )
   line("  day  season    cond  money  foodDays  warmth  notes known ideas")
   local days = {}
   for day in pairs(r.snaps) do
@@ -924,7 +970,15 @@ function Balance.printTrace(r)
     line(
       string.format(
         "  %3d  %-8s %5.1f %6d %9.1f %7.1f %6d %5d %5d",
-        day, x.season, x.condition, x.money, x.foodDays, x.warmth, x.notes, x.known, x.ideas
+        day,
+        x.season,
+        x.condition,
+        x.money,
+        x.foodDays,
+        x.warmth,
+        x.notes,
+        x.known,
+        x.ideas
       )
     )
   end

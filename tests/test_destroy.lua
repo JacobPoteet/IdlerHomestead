@@ -39,7 +39,10 @@ local function row(world, n)
       for k = 0, n - 1 do
         if ok then
           local i = Grid.index(grid, x + k, y)
-          ok = Grid.terrain(world, i).buildable == true and Grid.terrain(world, i).tillable and not world.occupancy[i] and not Crops.tileInUse(world, i)
+          ok = Grid.terrain(world, i).buildable == true
+            and Grid.terrain(world, i).tillable
+            and not world.occupancy[i]
+            and not Crops.tileInUse(world, i)
           tiles[#tiles + 1] = i
         end
       end

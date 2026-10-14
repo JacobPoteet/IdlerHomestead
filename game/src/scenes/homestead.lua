@@ -21,8 +21,6 @@ local Needs = require("src.sim.systems.needs")
 local Food = require("src.sim.systems.food")
 local Established = require("src.sim.systems.established")
 local Ftue = require("src.sim.systems.ftue")
-local Spoilage = require("src.sim.systems.spoilage")
-local Inventory = require("src.sim.systems.inventory")
 local Placement = require("src.sim.systems.placement")
 local PlaceCard = require("src.ui.place_card")
 local Highlight = require("src.ui.highlight")
@@ -93,7 +91,9 @@ function Homestead:enter(slot, data)
   self.renderer = Renderer.new(self.world)
   self.buttons = Buttons.new(tuning.input.minTouchTarget)
   self.paletteButtons = Buttons.new(tuning.input.minTouchTarget)
-  local relayout = function() self:layout() end
+  local relayout = function()
+    self:layout()
+  end
   self.paletteLists = { tools = ScrollList.new(relayout), more = ScrollList.new(relayout) }
   self.mode = "act" -- "act" | "plan" | "place"
   self.seed = nil -- crop id in hand
@@ -183,14 +183,22 @@ function Homestead:subscribe()
     events:on("animals.short", function(e)
       local goats = e.kind == "goats"
       if e.feed then
-        self:queueToast(goats and "The goats ran short of hay. Buy bales or tend the pen." or "The hens ran short of feed. Buy a sack or tend the coop.")
+        self:queueToast(
+          goats and "The goats ran short of hay. Buy bales or tend the pen."
+            or "The hens ran short of feed. Buy a sack or tend the coop."
+        )
       elseif e.water then
-        self:queueToast(goats and "The goats' trough ran dry. Tend the pen." or "The hens' waterer ran dry. Tend the coop.")
+        self:queueToast(
+          goats and "The goats' trough ran dry. Tend the pen." or "The hens' waterer ran dry. Tend the coop."
+        )
       end
     end),
     events:on("animals.lost", function(e)
-      local name = e.kind == "goats" and "goat" or "hen"
-      self:queueToast(e.reason == "thirst" and ("A " .. name .. " was lost: no water") or ("A " .. name .. " was lost: no " .. (e.kind == "goats" and "hay" or "feed")))
+      local animal = e.kind == "goats" and "goat" or "hen"
+      self:queueToast(
+        e.reason == "thirst" and ("A " .. animal .. " was lost: no water")
+          or ("A " .. animal .. " was lost: no " .. (e.kind == "goats" and "hay" or "feed"))
+      )
     end),
     events:on("animals.predator", function(e)
       if self.session:sleeping() then
@@ -198,9 +206,14 @@ function Homestead:subscribe()
       end
       local goats = e.kind == "goats"
       if e.stopped then
-        self:queueToast(goats and "A coyote tried the pen in the night. The fence held." or "A fox tried the coop in the night. The door held.")
+        self:queueToast(
+          goats and "A coyote tried the pen in the night. The fence held."
+            or "A fox tried the coop in the night. The door held."
+        )
       elseif goats then
-        self:queueToast(string.format("A coyote got into the pen: lost %d goat%s", e.killed, e.killed == 1 and "" or "s"))
+        self:queueToast(
+          string.format("A coyote got into the pen: lost %d goat%s", e.killed, e.killed == 1 and "" or "s")
+        )
       else
         self:queueToast(string.format("A fox got into the coop: lost %d hen%s", e.killed, e.killed == 1 and "" or "s"))
       end
@@ -238,7 +251,9 @@ function Homestead:subscribe()
       local p = self.app.ctx.tuning.ui.placement
       local what = name("objects", e.object):lower()
       if e.kind == "full" then
-        self:queueToast(string.format("%s: %s", what, string.format(p.orderFull, name("resources", e.resource):lower())))
+        self:queueToast(
+          string.format("%s: %s", what, string.format(p.orderFull, name("resources", e.resource):lower()))
+        )
       elseif e.kind == "blocked" then
         self:queueToast(string.format("%s: %s", what, p.orderBlocked))
       else
@@ -361,7 +376,9 @@ function Homestead:subscribe()
       self:queueToast(name("objects", e.kind) .. " has ripe crops but no power")
     end),
     events:on("power.brownout", function(e)
-      self:queueToast(string.format("Power short: %s at %d%%", Power.tierName(world, e.tier), math.floor(e.ratio * 100)))
+      self:queueToast(
+        string.format("Power short: %s at %d%%", Power.tierName(world, e.tier), math.floor(e.ratio * 100))
+      )
     end),
     events:on("weather.coldSnap", function(e)
       self:newsToast(e.active and "Cold snap! Fires need far more wood." or "The cold snap broke.")
@@ -457,7 +474,12 @@ end
 --- `seen` flag keeps it from ever showing twice on a slot, across saves and later runs.
 function Homestead:establishedNews()
   local meta = self.world.meta
-  if not Established.cardDue(meta) or self.session:sleeping() or self.app:top() ~= self or Finds.pending(self.world) then
+  if
+    not Established.cardDue(meta)
+    or self.session:sleeping()
+    or self.app:top() ~= self
+    or Finds.pending(self.world)
+  then
     return
   end
   Established.cardShown(meta)
@@ -584,8 +606,9 @@ function Homestead:pressPlan(now)
   self.mode, self.planStart, self.tool, self.placing, self.moving = "plan", nil, nil, nil, nil
   self.planLatch, self.planTapAt = false, now
   local crops = self.world.registry
-  self:showToast(self.seed and "Tap two corners to plan " .. crops:get("crops", self.seed).name
-    or "Tap two corners to clear a plan")
+  self:showToast(
+    self.seed and "Tap two corners to plan " .. crops:get("crops", self.seed).name or "Tap two corners to clear a plan"
+  )
   self:layout()
 end
 
@@ -644,7 +667,8 @@ function Homestead:chipLayout()
     if x > ui.barPadding and x + width > ui.barPadding + own then
       row, x = row + 1, ui.barPadding
     end
-    items[#items + 1] = { entry = e, x = x, rowTop = topRowH + (row - 1) * ui.statRowHeight, rowH = ui.statRowHeight, width = width }
+    items[#items + 1] =
+      { entry = e, x = x, rowTop = topRowH + (row - 1) * ui.statRowHeight, rowH = ui.statRowHeight, width = width }
     x = x + width + gap
   end
   return { rows = row, items = items, gap = gap }
@@ -652,7 +676,6 @@ end
 
 function Homestead:layout()
   local view = self.app.view
-  local world = self.world
   local ui = self.app.ctx.tuning.ui
   local compact = view.w < ui.compactWidth
   local btnH = compact and ui.compactButtonHeight or ui.buttonHeight
@@ -958,7 +981,12 @@ function Homestead:cardIdNow()
   if due then
     return due.id
   end
-  if self.app:top() == self and not self.session:sleeping() and not Finds.pending(self.world) and Nightly.hasReport(self.world) then
+  if
+    self.app:top() == self
+    and not self.session:sleeping()
+    and not Finds.pending(self.world)
+    and Nightly.hasReport(self.world)
+  then
     return "night:" .. Nightly.report(self.world).day
   end
   return nil
@@ -1117,7 +1145,17 @@ function Homestead:layoutCard()
   if spec.kind == "place" then
     y = self:keepTargetClear(y, h)
   end
-  self.card = { x = x, y = y, w = w, h = h, title = spec.title, lines = spec.lines, lineGap = spec.lineGap or 0, titleH = titleH, pad = pad }
+  self.card = {
+    x = x,
+    y = y,
+    w = w,
+    h = h,
+    title = spec.title,
+    lines = spec.lines,
+    lineGap = spec.lineGap or 0,
+    titleH = titleH,
+    pad = pad,
+  }
   self.cardId = spec.id
   self.cardKind = spec.kind
   local bw = math.floor((inner - ctx.tuning.ui.buttonGap) / 2)
@@ -1220,27 +1258,39 @@ function Homestead:cardSpec()
   end
   local report = Nightly.report(world)
   local view = self:reportView(report)
-  local left = { leftLabel = "Pantry", onLeft = function()
-    self.app:push(require("src.scenes.pantry").new(world))
-  end }
+  local left = {
+    leftLabel = "Pantry",
+    onLeft = function()
+      self.app:push(require("src.scenes.pantry").new(world))
+    end,
+  }
   if view.first then
     -- The first spoilage ever: the card carries the explanation (D68) behind a button.
-    left = { leftLabel = "Why?", onLeft = function()
-      local app = self.app
-      app:push(require("src.scenes.notice").new({
-        title = "Food spoils",
-        headline = view.first,
-        message = SpoilText.explanation(world),
-        okLabel = "Got it",
-        more = { label = "Open Pantry", onPress = function()
-          app:push(require("src.scenes.pantry").new(world))
-        end },
-      }))
-    end }
+    left = {
+      leftLabel = "Why?",
+      onLeft = function()
+        local app = self.app
+        app:push(require("src.scenes.notice").new({
+          title = "Food spoils",
+          headline = view.first,
+          message = SpoilText.explanation(world),
+          okLabel = "Got it",
+          more = {
+            label = "Open Pantry",
+            onPress = function()
+              app:push(require("src.scenes.pantry").new(world))
+            end,
+          },
+        }))
+      end,
+    }
   elseif not view.spoil then
-    left = { leftLabel = "Journal", onLeft = function()
-      self.app:push(require("src.scenes.journal").new(world, self:toaster()))
-    end }
+    left = {
+      leftLabel = "Journal",
+      onLeft = function()
+        self.app:push(require("src.scenes.journal").new(world, self:toaster()))
+      end,
+    }
   end
   local lines = {}
   for _, line in ipairs(view.lines) do
@@ -1431,7 +1481,13 @@ function Homestead:routineLabel()
 end
 
 function Homestead:controlsKey()
-  return self:speedLabel() .. "|" .. self:routineLabel() .. "|" .. tostring(Power.satisfaction(self.world) < 1) .. "|" .. tostring(self:hintKind())
+  return self:speedLabel()
+    .. "|"
+    .. self:routineLabel()
+    .. "|"
+    .. tostring(Power.satisfaction(self.world) < 1)
+    .. "|"
+    .. tostring(self:hintKind())
 end
 
 --- The nudge that holds right now, for the Routine button's pulse (D93, #120). Not while asleep.
@@ -1681,7 +1737,13 @@ function Homestead:finishPlan(tiles)
   local result = Crops.planReplacing(self.world, tiles, self.seed)
   local count = result.planned
   if self.seed then
-    self:showToast(string.format("Planned %d tiles of %s. Tilling and planting start now", count, self.world.registry:get("crops", self.seed).name))
+    self:showToast(
+      string.format(
+        "Planned %d tiles of %s. Tilling and planting start now",
+        count,
+        self.world.registry:get("crops", self.seed).name
+      )
+    )
     local late = count > 0 and AlertText.frost(self.world, self.seed)
     if late then
       self:queueToast(late) -- planned anyway; the tiles are tinted amber on the map (#165)
@@ -1898,7 +1960,9 @@ function Homestead:tap(i)
       if batch.blocked then
         self:showToast(string.format("%d %s waiting for storage room: discard it from the card", batch.count, out))
       else
-        self:showToast(string.format("%s: %.1fh left", recipe.name, batch.remaining / (world.tuning.time.dayLength / 24)))
+        self:showToast(
+          string.format("%s: %.1fh left", recipe.name, batch.remaining / (world.tuning.time.dayLength / 24))
+        )
       end
       return
     end
@@ -1920,7 +1984,8 @@ function Homestead:tap(i)
       local late = (taskType.id == "till" or taskType.id == "plant") and self:frostWarning(self.seed)
       local crop = taskType.id == "untill" and world.state.crops[i]
       if crop then
-        late = string.format(self.app.ctx.tuning.ui.placement.pullCrop, world.registry:get("crops", crop.id).name:lower())
+        late =
+          string.format(self.app.ctx.tuning.ui.placement.pullCrop, world.registry:get("crops", crop.id).name:lower())
       end
       self:showToast(late or taskType.verb)
     end
@@ -1953,7 +2018,12 @@ function Homestead:action(name, data)
     return true
   end
   -- The tile card's own button (discard a station's waiting output, D93).
-  if self.infoButtons and (name == "press" or name == "select" or name == "release") and data.x and self.infoButtons:action(name, data) then
+  if
+    self.infoButtons
+    and (name == "press" or name == "select" or name == "release")
+    and data.x
+    and self.infoButtons:action(name, data)
+  then
     return true
   end
   local pr = self.paletteRect
@@ -1961,7 +2031,11 @@ function Homestead:action(name, data)
     local list = self.paletteList
     local over = data.x and data.x >= pr.x and data.x < pr.x + pr.w and data.y >= pr.y and data.y < pr.y + pr.h
     -- Palette buttons answer only inside the palette's window (a half-scrolled one must not reach out).
-    if (name == "press" or name == "select" or name == "hover") and list:contains(data.x, data.y) and self.paletteButtons:action(name, data) then
+    if
+      (name == "press" or name == "select" or name == "hover")
+      and list:contains(data.x, data.y)
+      and self.paletteButtons:action(name, data)
+    then
       return true
     elseif name == "release" then
       self.paletteButtons:action(name, data)
@@ -1972,7 +2046,9 @@ function Homestead:action(name, data)
     end
     local step = self.app.ctx.tuning.ui
     local jump = name == "pageUp" or name == "pageDown" or name == "listHome" or name == "listEnd"
-    if list.overflow and ((name == "pan" and (self.palettePress or data.keys)) or (name == "zoom" and over) or jump) then
+    if
+      list.overflow and ((name == "pan" and (self.palettePress or data.keys)) or (name == "zoom" and over) or jump)
+    then
       if list:action(name, data, step) then
         self:layout()
       end
@@ -2001,7 +2077,14 @@ function Homestead:action(name, data)
     end
   end
   local hit = self.readinessHit
-  if name == "select" and hit and data.x >= hit.x and data.x < hit.x + hit.w and data.y >= hit.y and data.y < hit.y + hit.h then
+  if
+    name == "select"
+    and hit
+    and data.x >= hit.x
+    and data.x < hit.x + hit.w
+    and data.y >= hit.y
+    and data.y < hit.y + hit.h
+  then
     self:openReadiness()
     return true
   end
@@ -2149,7 +2232,8 @@ function Homestead:drawOverlays()
         local x, y = Grid.coords(grid, i)
         local wx, wy = camera:tileToWorld(x, y)
         love.graphics.rectangle("fill", wx, wy, tile, tile)
-        minX, minY, maxX, maxY = math.min(minX, wx), math.min(minY, wy), math.max(maxX, wx + tile), math.max(maxY, wy + tile)
+        minX, minY, maxX, maxY =
+          math.min(minX, wx), math.min(minY, wy), math.max(maxX, wx + tile), math.max(maxY, wy + tile)
       end
       love.graphics.setColor(look.othersEdge)
       love.graphics.setLineWidth(1 / camera:zoom())
@@ -2223,7 +2307,8 @@ function Homestead:drawOverlays()
       local x, y = Grid.coords(grid, i)
       local wx, wy = camera:tileToWorld(x, y)
       love.graphics.rectangle("fill", wx, wy, tile, tile)
-      minX, minY, maxX, maxY = math.min(minX, wx), math.min(minY, wy), math.max(maxX, wx + tile), math.max(maxY, wy + tile)
+      minX, minY, maxX, maxY =
+        math.min(minX, wx), math.min(minY, wy), math.max(maxX, wx + tile), math.max(maxY, wy + tile)
     end
     -- A solid edge so the reach reads over crops and soil as well as grass.
     local edge = { reachColor[1], reachColor[2], reachColor[3], 0.9 }
@@ -2287,7 +2372,7 @@ function Homestead:drawOverlays()
         end
       end
       if replaceTag then
-        local wx, wy = camera:tileToWorld(x, y)
+        local wx = camera:tileToWorld(x, y)
         local z = camera:zoom()
         love.graphics.push()
         love.graphics.translate(wx, bottom - sprite.h)
@@ -2445,11 +2530,16 @@ function Homestead:storageNotes()
     for _, h in ipairs(held) do
       names[#names + 1] = world.registry:get("catalog", h.item).name
     end
-    notes[#notes + 1] = { "Order waiting for room: " .. table.concat(names, ", ") .. " · cancel in Catalog", theme.colors.accent }
+    notes[#notes + 1] =
+      { "Order waiting for room: " .. table.concat(names, ", ") .. " · cancel in Catalog", theme.colors.accent }
   end
   for _, batch in ipairs(Processing.blockedBatches(world)) do
     notes[#notes + 1] = {
-      string.format("%d %s waiting in the station for room", batch.count, world.registry:get("resources", batch.output).name),
+      string.format(
+        "%d %s waiting in the station for room",
+        batch.count,
+        world.registry:get("resources", batch.output).name
+      ),
       theme.colors.accent,
     }
   end
@@ -2608,7 +2698,8 @@ function Homestead:tileInfo(i)
   local lines = {}
   local queued = Placement.orderAt(world, i)
   if queued then
-    lines[#lines + 1] = string.format(self.app.ctx.tuning.ui.placement.orderTitle, world.registry:get("objects", queued.object).name)
+    lines[#lines + 1] =
+      string.format(self.app.ctx.tuning.ui.placement.orderTitle, world.registry:get("objects", queued.object).name)
   end
   local terrain = Grid.terrain(world, i)
   lines[#lines + 1] = world.state.fields.tilled[i] and "Tilled soil" or terrain.name
@@ -2645,7 +2736,10 @@ function Homestead:tileInfo(i)
     elseif obj.sink then
       local state = Power.sinkState(world, anchor)
       local ratio = math.floor(Power.sinkRatio(world, anchor) * 100 + 0.5)
-      lines[#lines + 1] = state == "ok" and "Powered" or state == "short" and string.format("Short of power (%d%%)", ratio) or state == "off" and "Switched off" or "Idle"
+      lines[#lines + 1] = state == "ok" and "Powered"
+        or state == "short" and string.format("Short of power (%d%%)", ratio)
+        or state == "off" and "Switched off"
+        or "Idle"
     end
     if obj.waterSource then
       if obj.waterSource.stored then
@@ -2700,8 +2794,10 @@ function Homestead:tileInfo(i)
     end
     if obj.stand then
       local cap, today = Stand.cap(world), Stand.todayCap(world)
-      lines[#lines + 1] = today < cap and string.format("Up to %d today (cap %d)", today, cap) or string.format("Sells up to %d a day", cap)
-      lines[#lines + 1] = string.format("Pays %d%% of town price", math.floor(world.tuning.stand.priceFraction * 100 + 0.5))
+      lines[#lines + 1] = today < cap and string.format("Up to %d today (cap %d)", today, cap)
+        or string.format("Sells up to %d a day", cap)
+      lines[#lines + 1] =
+        string.format("Pays %d%% of town price", math.floor(world.tuning.stand.priceFraction * 100 + 0.5))
       local have, missing = {}, {}
       for _, tier in ipairs(Stand.tiers(world)) do
         local list = tier.owned and have or missing
@@ -2756,14 +2852,22 @@ function Homestead:tileInfo(i)
     end
     if obj.storage and obj.storage.wood then
       local id = Needs.fuelId(world)
-      lines[#lines + 1] = string.format("Dry store: +%d wood (holds %d / %d)", obj.storage.wood, Ledger.get(world, id), Ledger.capacity(world, id))
+      lines[#lines + 1] = string.format(
+        "Dry store: +%d wood (holds %d / %d)",
+        obj.storage.wood,
+        Ledger.get(world, id),
+        Ledger.capacity(world, id)
+      )
     end
     if obj.heatSource or (obj.sink and obj.sink.effects and obj.sink.effects.warmthPerKwh) then
       local reach = Shelter.heatReach(world, anchor)
-      lines[#lines + 1] = reach >= 1 and "Beside the bed: full heat" or string.format("Too far from bed: %d%%", math.floor(reach * 100 + 0.5))
+      lines[#lines + 1] = reach >= 1 and "Beside the bed: full heat"
+        or string.format("Too far from bed: %d%%", math.floor(reach * 100 + 0.5))
     end
     if obj.shelter then -- the shelter ladder (D82)
-      lines[#lines + 1] = obj.insulation < 1 and string.format("Keeps heat: %d%% less fuel", math.floor((1 - obj.insulation) * 100 + 0.5)) or "Keeps no heat"
+      lines[#lines + 1] = obj.insulation < 1
+          and string.format("Keeps heat: %d%% less fuel", math.floor((1 - obj.insulation) * 100 + 0.5))
+        or "Keeps no heat"
       lines[#lines + 1] = string.format("Rest: %+d%% condition", math.floor((obj.recovery - 1) * 100 + 0.5))
       lines[#lines + 1] = string.format("Heater slot: %d tiles", obj.heaterRadius or 0)
       if (obj.studySpeed or 0) > 0 then
@@ -2777,7 +2881,8 @@ function Homestead:tileInfo(i)
     if Crops.isMature(crop) then
       lines[#lines + 1] = def.name .. ": ready"
     else
-      lines[#lines + 1] = string.format("%s: %d%%%s", def.name, math.floor(crop.growth * 100), crop.moisture > 0 and "" or ", thirsty")
+      lines[#lines + 1] =
+        string.format("%s: %d%%%s", def.name, math.floor(crop.growth * 100), crop.moisture > 0 and "" or ", thirsty")
     end
     lines[#lines + 1] = AlertText.cropFrostLine(world, crop) -- days to the freeze (D70, #165)
   elseif world.state.fields.plan[i] then
@@ -2806,7 +2911,11 @@ function Homestead:askDiscard(anchor, batch)
   local out = world.registry:get("resources", world.registry:get("recipes", batch.recipe).output).name
   self.app:push(require("src.scenes.confirm").new({
     title = "Discard waiting output?",
-    message = string.format("The %d %s waiting in the station will be thrown away. The station is free to work again.", batch.count, out:lower()),
+    message = string.format(
+      "The %d %s waiting in the station will be thrown away. The station is free to work again.",
+      batch.count,
+      out:lower()
+    ),
     confirmLabel = "Discard",
     danger = true,
     onConfirm = function()
@@ -2844,7 +2953,12 @@ function Homestead:drawInfo(view)
     end
     Draw.panel(4, y, w, h)
     for n, line in ipairs(lines) do
-      Text.draw(line, 10, y + 4 + (n - 1) * 11, { size = "small", color = n == 1 and theme.colors.text or theme.colors.textDim })
+      Text.draw(
+        line,
+        10,
+        y + 4 + (n - 1) * 11,
+        { size = "small", color = n == 1 and theme.colors.text or theme.colors.textDim }
+      )
     end
     local rowY = y + #lines * 11 + 6
     if anchor then
@@ -2962,15 +3076,10 @@ function Homestead:draw()
   love.graphics.origin()
   local haze = self.renderer:heatHaze(self.camera, view, { x1, y1, x2, y2 }, daylight)
   -- Night lights are painted into the light buffer, which the grade reads (D128).
-  local lightMap
   love.graphics.push("all")
-  local buffer = self.renderer:lightBuffer(self.canvas:getWidth(), self.canvas:getHeight())
-  love.graphics.setCanvas(buffer)
-  love.graphics.clear(0, 0, 0, 1)
   self.camera:attach(view)
-  if self.renderer:drawLights({ x1, y1, x2, y2 }, daylight) > 0 then
-    lightMap = buffer
-  end
+  local lights =
+    self.renderer:paintLights({ x1, y1, x2, y2 }, daylight, self.canvas:getWidth(), self.canvas:getHeight())
   love.graphics.pop() -- the camera transform
   love.graphics.pop()
   local bloom = self.renderer:bloomOn()
@@ -2982,7 +3091,8 @@ function Homestead:draw()
     love.graphics.setCanvas(graded)
     love.graphics.clear(0, 0, 0, 1)
   end
-  self.renderer:drawGraded(self.canvas, tint, light, view.scale * self.camera:zoom(), haze, lightMap)
+  local ox, oy = self.renderer.screenGrid(self.camera, view)
+  self.renderer:drawGraded(self.canvas, tint, light, view.scale * self.camera:zoom(), haze, lights, { ox, oy })
   if bloom then
     love.graphics.push("all")
     self.camera:attach(view)
@@ -3035,7 +3145,11 @@ function Homestead:draw()
     if r.scrolls then
       local ui = self.app.ctx.tuning.ui
       local v = r.view
-      self.paletteList:drawThumb(ui.scrollBarWidth, ui.scrollHintHeight, { x = r.x + r.w - ui.buttonGap, y = v.y, w = 0, h = v.h })
+      self.paletteList:drawThumb(
+        ui.scrollBarWidth,
+        ui.scrollHintHeight,
+        { x = r.x + r.w - ui.buttonGap, y = v.y, w = 0, h = v.h }
+      )
     end
   end
   self.buttons:draw()

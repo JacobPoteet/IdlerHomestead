@@ -237,7 +237,8 @@ end)
 
 T.test("session: ticks at the tuned rate, tracks playtime, autosaves", function()
   local store = Save.new(Save.memoryBackend(), { slotCount = 3 })
-  local session = Session.new({ store = store, slot = 1, data = Save.newSlotData("Test"), registry = reg, tuning = tun, seed = 3 })
+  local session =
+    Session.new({ store = store, slot = 1, data = Save.newSlotData("Test"), registry = reg, tuning = tun, seed = 3 })
   session:update(1)
   T.eq(session.world.state.tick, tun.time.tickRate)
   T.near(session.data.header.playtime, 1)

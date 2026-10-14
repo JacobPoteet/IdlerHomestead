@@ -362,7 +362,8 @@ T.test("budget: the sim allocates within tuning.perf per tick over a played stre
   local cfg = ctx.tuning.perf
   local data = Save.newSlotData("budget")
   local store = Save.new(Save.memoryBackend(), { slotCount = 1 })
-  local session = Session.new({ store = store, slot = 1, data = data, registry = ctx.registry, tuning = ctx.tuning, seed = 1 })
+  local session =
+    Session.new({ store = store, slot = 1, data = data, registry = ctx.registry, tuning = ctx.tuning, seed = 1 })
   local world = session.world
   local policy = Policies.new("scripted", world, 1, Features.parse(nil))
   world.events:on("calendar.newDay", function()
@@ -389,7 +390,21 @@ T.test("budget: the sim allocates within tuning.perf per tick over a played stre
     end
   end
   local mean = total / measured
-  print(string.format("  alloc per tick: mean %.2f KB (budget %.1f), worst %.1f KB (budget %.0f)", mean, cfg.testAllocKbPerTick, worst, cfg.testAllocKbWorstTick))
-  T.truthy(mean <= cfg.testAllocKbPerTick, string.format("mean %.2f KB per tick is over the %.1f budget", mean, cfg.testAllocKbPerTick))
-  T.truthy(worst <= cfg.testAllocKbWorstTick, string.format("worst tick %.1f KB is over the %.0f budget", worst, cfg.testAllocKbWorstTick))
+  print(
+    string.format(
+      "  alloc per tick: mean %.2f KB (budget %.1f), worst %.1f KB (budget %.0f)",
+      mean,
+      cfg.testAllocKbPerTick,
+      worst,
+      cfg.testAllocKbWorstTick
+    )
+  )
+  T.truthy(
+    mean <= cfg.testAllocKbPerTick,
+    string.format("mean %.2f KB per tick is over the %.1f budget", mean, cfg.testAllocKbPerTick)
+  )
+  T.truthy(
+    worst <= cfg.testAllocKbWorstTick,
+    string.format("worst tick %.1f KB is over the %.0f budget", worst, cfg.testAllocKbWorstTick)
+  )
 end)

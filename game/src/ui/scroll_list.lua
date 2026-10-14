@@ -13,7 +13,10 @@ local ScrollList = {}
 ScrollList.__index = ScrollList
 
 function ScrollList.new(onMove)
-  return setmetatable({ offset = 0, contentH = 0, overflow = false, onMove = onMove, view = { x = 0, y = 0, w = 0, h = 0 } }, ScrollList)
+  return setmetatable(
+    { offset = 0, contentH = 0, overflow = false, onMove = onMove, view = { x = 0, y = 0, w = 0, h = 0 } },
+    ScrollList
+  )
 end
 
 --- Fit the list into `rect` ({x, y, w, h}, the whole space the list may use, hint line included) for
@@ -146,7 +149,12 @@ end
 --- Clip drawing to the window until finish() (scissor works in screen pixels, so it needs the view scale).
 function ScrollList:begin(scale)
   local v = self.view
-  love.graphics.setScissor(math.floor(v.x * scale), math.floor(v.y * scale), math.ceil(v.w * scale), math.ceil(v.h * scale))
+  love.graphics.setScissor(
+    math.floor(v.x * scale),
+    math.floor(v.y * scale),
+    math.ceil(v.w * scale),
+    math.ceil(v.h * scale)
+  )
 end
 
 function ScrollList:finish()

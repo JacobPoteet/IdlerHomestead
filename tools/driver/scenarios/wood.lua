@@ -4,7 +4,6 @@
 -- (a scenario cannot wait for a season); the screens, taps and cards are the real ones.
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
-local Ledger = require("src.sim.systems.ledger")
 
 --- Jump the sim clock to a day and hour (the calendar's day marker with it, so no day is announced).
 local function jumpTo(world, day, hour)
@@ -21,31 +20,6 @@ local function dismissFinds(d)
       d:click(first.x + first.w / 2, first.y + first.h / 2)
       d:press("Take it")
       d:frames(3)
-    end
-  end
-end
-
---- Keep only the toasts that contain one of the plain patterns (staging for a screenshot).
-local function keepOnly(scene, patterns)
-  local function wanted(text)
-    for _, p in ipairs(patterns) do
-      if text:find(p, 1, true) then
-        return true
-      end
-    end
-    return false
-  end
-  local list = {}
-  if scene.toast then
-    list[#list + 1] = scene.toast.text
-  end
-  for _, text in ipairs(scene.toastQueue) do
-    list[#list + 1] = text
-  end
-  scene.toast, scene.toastQueue = nil, {}
-  for _, text in ipairs(list) do
-    if wanted(text) then
-      scene:queueToast(text)
     end
   end
 end

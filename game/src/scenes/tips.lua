@@ -128,14 +128,24 @@ function Tips:draw()
   local b = self.box
   local cfg = self.app.ctx.tuning.ftue
   Draw.panel(b.x, b.y, b.w, b.h)
-  Text.draw("Tips", b.x, b.y + cfg.tipsTitleTop, { size = "body", width = b.w, align = "center", color = theme.colors.text })
+  Text.draw(
+    "Tips",
+    b.x,
+    b.y + cfg.tipsTitleTop,
+    { size = "body", width = b.w, align = "center", color = theme.colors.text }
+  )
   self.buttons:draw()
-  Text.draw("Dim tips are the ones you have seen.", b.x, b.y + b.h - cfg.tipsPadding - cfg.tipsRowHeight - cfg.tipsLegendHeight + cfg.tipsLegendNudge, {
-    size = "small",
-    width = b.w,
-    align = "center",
-    color = theme.colors.textDim,
-  })
+  Text.draw(
+    "Dim tips are the ones you have seen.",
+    b.x,
+    b.y + b.h - cfg.tipsPadding - cfg.tipsRowHeight - cfg.tipsLegendHeight + cfg.tipsLegendNudge,
+    {
+      size = "small",
+      width = b.w,
+      align = "center",
+      color = theme.colors.textDim,
+    }
+  )
 end
 
 return Tips

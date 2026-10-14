@@ -31,7 +31,8 @@ local function carveCreek(world, cfg, rng)
   -- Fords: shallow crossings spread along the creek.
   for f = 1, cfg.fordCount do
     local band = grid.h / cfg.fordCount
-    local y = rng:int(math.floor((f - 1) * band) + 3, math.max(math.floor((f - 1) * band) + 3, math.floor(f * band) - 3))
+    local y =
+      rng:int(math.floor((f - 1) * band) + 3, math.max(math.floor((f - 1) * band) + 3, math.floor(f * band) - 3))
     for cx = rows[y][1], rows[y][2] do
       Grid.setTerrain(world, Grid.index(grid, cx, y), "ford")
     end

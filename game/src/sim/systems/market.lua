@@ -379,7 +379,7 @@ function Market.startTrip(world)
   if world.state.market.inTown or not Market.canTrip(world) then
     return false
   end
-  Power.drain(world, Land.truck(world),world.tuning.economy.tripCost)
+  Power.drain(world, Land.truck(world), world.tuning.economy.tripCost)
   world.state.market.inTown = true
   world.events:emit("market.trip", {})
   return true

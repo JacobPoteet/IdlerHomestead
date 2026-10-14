@@ -195,8 +195,15 @@ end
 function Driver:press(label)
   local b = self:findButton(label)
   if not b then
-    error(string.format("no button '%s' on scene '%s'; have: %s", label, tostring(self.game.app:top().name),
-      table.concat(self:labels(), ", ")), 2)
+    error(
+      string.format(
+        "no button '%s' on scene '%s'; have: %s",
+        label,
+        tostring(self.game.app:top().name),
+        table.concat(self:labels(), ", ")
+      ),
+      2
+    )
   end
   self:click(b.x + b.w / 2, b.y + b.h / 2)
 end

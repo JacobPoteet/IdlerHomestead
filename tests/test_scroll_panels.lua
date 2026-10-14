@@ -75,7 +75,8 @@ end)
 -- Panels ------------------------------------------------------------------------------------------
 
 local function mount(scene, w, h)
-  scene.app = { ctx = { tuning = tun }, view = { w = w, h = h, scale = 1 }, pop = function() end, push = function() end }
+  scene.app =
+    { ctx = { tuning = tun }, view = { w = w, h = h, scale = 1 }, pop = function() end, push = function() end }
   scene:enter()
   scene:resize({ w = w, h = h })
   return scene
@@ -217,7 +218,12 @@ T.test("palette: 8+ seeds stay inside a capped palette and every seed can be rea
           cfg.scroll = { tools = offset }
           local o = Toolbar.arrange(seedButtons(seeds), view, cfg).popups.tools
           for _, b in ipairs(o.items) do
-            if b.x >= o.view.x and b.x + b.w <= o.view.x + o.view.w and b.y >= o.view.y and b.y + b.h <= o.view.y + o.view.h then
+            if
+              b.x >= o.view.x
+              and b.x + b.w <= o.view.x + o.view.w
+              and b.y >= o.view.y
+              and b.y + b.h <= o.view.y + o.view.h
+            then
               reached[b.id] = true
             end
           end

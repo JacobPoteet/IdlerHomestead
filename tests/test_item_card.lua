@@ -28,7 +28,10 @@ T.test("item card: every catalog item has a description, a price line and a buy 
       local info = ItemText.build(world, item.id, pickup)
       T.truthy(info.desc and info.desc ~= "", item.id .. " has no description")
       T.truthy(info.price:find("%$"), item.id .. " price line")
-      T.eq(info.cost, require("src.sim.systems.market").itemPrice(world, item.id) + (pickup and 0 or tun.economy.deliveryFee))
+      T.eq(
+        info.cost,
+        require("src.sim.systems.market").itemPrice(world, item.id) + (pickup and 0 or tun.economy.deliveryFee)
+      )
       T.truthy(find(info, "Needs"), item.id .. " has no needs line")
     end
   end

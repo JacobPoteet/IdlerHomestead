@@ -69,7 +69,9 @@ function ItemCard:layout(view)
     y = b.y + b.h - PAD - BUTTON_H,
     w = half,
     h = BUTTON_H,
-    label = info.owned and t.owned or (info.cheat and t.cheatGet) or string.format(pickup and t.buy or t.order, info.cost),
+    label = info.owned and t.owned
+      or (info.cheat and t.cheatGet)
+      or string.format(pickup and t.buy or t.order, info.cost),
     enabled = info.reason == nil,
     style = info.reason == nil and "accent" or nil,
     onPress = function()

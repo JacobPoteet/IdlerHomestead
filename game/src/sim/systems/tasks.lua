@@ -40,7 +40,6 @@ local Rules = require("src.sim.routine_rules")
 
 local Tasks = {}
 
-
 function Tasks.init(world)
   world.taskTypes = { list = {}, byId = {} }
   world.reservations = {}

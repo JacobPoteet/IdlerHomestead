@@ -59,10 +59,20 @@ function NightText.morning(world, report)
   end
 
   if report.calories > 0 then
-    add(string.format("Ate %d calories (%s). Food left: %.1f days.", report.calories, counts(world, report.ate), Needs.foodDays(world)))
+    add(
+      string.format(
+        "Ate %d calories (%s). Food left: %.1f days.",
+        report.calories,
+        counts(world, report.ate),
+        Needs.foodDays(world)
+      )
+    )
   end
   if report.hungry > 0 then
-    add(string.format("Went hungry: -%d condition.", math.floor(report.hungry * needs.hungerDamage + 0.5)), theme.colors.danger)
+    add(
+      string.format("Went hungry: -%d condition.", math.floor(report.hungry * needs.hungerDamage + 0.5)),
+      theme.colors.danger
+    )
   end
 
   local burned = counts(world, report.burned)
@@ -76,7 +86,10 @@ function NightText.morning(world, report)
     add("Electric heat kept the cold out.")
   end
   if report.cold > 0 then
-    add(string.format("Too cold: -%d condition.", math.floor(report.cold * needs.coldDamage + 0.5)), theme.colors.danger)
+    add(
+      string.format("Too cold: -%d condition.", math.floor(report.cold * needs.coldDamage + 0.5)),
+      theme.colors.danger
+    )
   end
 
   if report.spoil then

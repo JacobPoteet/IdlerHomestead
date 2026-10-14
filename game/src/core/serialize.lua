@@ -5,8 +5,10 @@
 local M = {}
 
 local KEYWORDS = {}
-for word in ([[and break do else elseif end false for function goto if in
-  local nil not or repeat return then true until while]]):gmatch("%a+") do
+for word in
+  ([[and break do else elseif end false for function goto if in
+  local nil not or repeat return then true until while]]):gmatch("%a+")
+do
   KEYWORDS[word] = true
 end
 

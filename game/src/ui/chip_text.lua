@@ -102,7 +102,9 @@ local function weatherRows(world)
     if n > ui.topChips.weatherDays then
       break
     end
-    local label = n == 1 and ui.modal.todayLabel or n == 2 and ui.modal.tomorrowLabel or string.format(ui.modal.inDaysLabel, day.offset)
+    local label = n == 1 and ui.modal.todayLabel
+      or n == 2 and ui.modal.tomorrowLabel
+      or string.format(ui.modal.inDaysLabel, day.offset)
     rows[#rows + 1] = { label = label, value = world.tuning.weather.kinds[day.kind].label }
   end
   return rows

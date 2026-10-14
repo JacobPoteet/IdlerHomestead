@@ -341,6 +341,9 @@ T.test("landgen: the truck stays a short walk from the creek on the wide map (#2
         nearest = math.min(nearest, math.max(math.abs(x - tx), math.abs(y - ty)))
       end
     end
-    T.truthy(nearest <= tun.landgen.truckCreekGapMax + 4, "seed " .. seed .. " creek " .. nearest .. " tiles from the truck")
+    T.truthy(
+      nearest <= tun.landgen.truckCreekGapMax + 4,
+      "seed " .. seed .. " creek " .. nearest .. " tiles from the truck"
+    )
   end
 end)

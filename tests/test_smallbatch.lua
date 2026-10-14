@@ -133,14 +133,10 @@ T.test("power panel: a long device list overflows its window and every switch is
     T.truthy(panel.list.overflow, "30 devices overflow at " .. v[1] .. "x" .. v[2])
     local view = panel.list.view
     T.truthy(view.y + view.h <= panel.box.y + panel.box.h, "the window stays inside the panel")
-    local seen = {}
     local offset, guard = 0, 0
     repeat
       panel.list.offset = offset
       panel:layout()
-      for _, button in ipairs(panel.rowButtons.list) do
-        seen[button.y .. ":" .. offset] = true
-      end
       offset = offset + view.h / 2
       guard = guard + 1
     until offset > panel.list.contentH or guard > 200
@@ -236,7 +232,11 @@ end)
 T.test("plan tool: Shift keeps the tool on for several plans", function()
   local scene = planScene()
   local real = love.keyboard
-  love.keyboard = { isDown = function() return true end }
+  love.keyboard = {
+    isDown = function()
+      return true
+    end,
+  }
   local ok, err = pcall(function()
     scene:tap(1)
     scene:tap(2)
@@ -260,7 +260,11 @@ local Calendar = require("src.sim.systems.calendar")
 
 local function newSession(seed, run)
   return Session.new({
-    store = { write = function() return true end },
+    store = {
+      write = function()
+        return true
+      end,
+    },
     slot = 1,
     data = { meta = {}, run = run or World.newState(seed or 1), header = {} },
     registry = reg,

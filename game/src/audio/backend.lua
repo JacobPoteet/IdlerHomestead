@@ -34,7 +34,10 @@ function NullSource:setLooping(l)
   self.looping = l
 end
 function NullSource:clone()
-  local c = setmetatable({ volume = 1, pitch = 1, looping = false, playing = false, plays = 0, what = self.what, log = self.log }, NullSource)
+  local c = setmetatable(
+    { volume = 1, pitch = 1, looping = false, playing = false, plays = 0, what = self.what, log = self.log },
+    NullSource
+  )
   return c
 end
 
@@ -48,7 +51,10 @@ function Backend.null()
   end
   function self.newSource(x)
     local what = type(x) == "string" and x or ("synth:" .. #x.samples)
-    return setmetatable({ volume = 1, pitch = 1, looping = false, playing = false, plays = 0, what = what, log = log }, NullSource)
+    return setmetatable(
+      { volume = 1, pitch = 1, looping = false, playing = false, plays = 0, what = what, log = log },
+      NullSource
+    )
   end
   return self
 end

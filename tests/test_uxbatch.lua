@@ -8,7 +8,6 @@ local serialize = require("src.core.serialize")
 local World = require("src.sim.world")
 local Actors = require("src.sim.systems.actors")
 local Alerts = require("src.sim.systems.alerts")
-local Calendar = require("src.sim.systems.calendar")
 local Crops = require("src.sim.systems.crops")
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
@@ -17,7 +16,6 @@ local Shelter = require("src.sim.systems.shelter")
 local TripMarker = require("src.render.trip_marker")
 local CropCues = require("src.render.crop_cues")
 local Journal = require("src.sim.systems.journal")
-local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
 local Nightly = require("src.sim.systems.nightly")
 local Readiness = require("src.sim.systems.readiness")
@@ -96,8 +94,8 @@ T.test("scroll: clamps, drags with the finger, wheels and reports what is hidden
   T.eq(h, 60)
   at, h = Scroll.thumb(120, 240, 120, 120, 8)
   T.eq(at + h, 120, "at the bottom the thumb reaches the end of the track")
-  _, h = Scroll.thumb(0, 100000, 120, 120, 8)
-  T.eq(h, 8, "the thumb never gets smaller than the minimum")
+  local _, smallest = Scroll.thumb(0, 100000, 120, 120, 8)
+  T.eq(smallest, 8, "the thumb never gets smaller than the minimum")
 end)
 
 -- Warnings (#157) -----------------------------------------------------------------------------
@@ -330,7 +328,10 @@ T.test("readiness: the verdict names what is short, from the stock and the forec
   setStock(world, "wood", math.ceil(Needs.warmthNeeded(world) / Needs.warmthPerWood(world)))
   r = Readiness.winter(world)
   T.eq(r.verdict, "fuel")
-  T.truthy(r.fuel.covered >= 1 and r.fuel.covered < r.fuel.nights, "the wood of one night pays the first nights and not the whole winter")
+  T.truthy(
+    r.fuel.covered >= 1 and r.fuel.covered < r.fuel.nights,
+    "the wood of one night pays the first nights and not the whole winter"
+  )
 end)
 
 T.test("readiness: the need is exact only once the forecast is, and uses what is revealed", function()
@@ -589,7 +590,10 @@ T.test("readiness: electric heaters and a battery pay part of each night, never 
   local r = Readiness.winter(world)
   T.truthy(r.electric.total > 0 and r.electric.perNight > 0)
   T.near(r.fuel.need + r.electric.total, bare.fuel.need, 1e-6, "fuel pays only what the heaters do not")
-  T.truthy(r.electric.perNight <= Weather.expectedWarmthNeed(world, "winter", 7) * Shelter.insulation(world) + 1e-9, "never more than the night needs")
+  T.truthy(
+    r.electric.perNight <= Weather.expectedWarmthNeed(world, "winter", 7) * Shelter.insulation(world) + 1e-9,
+    "never more than the night needs"
+  )
   local _, message = AlertText.readinessCard(world)
   T.truthy(message:find("Electric:", 1, true))
   T.eq(Readiness.winter(newWorld(1)), nil)

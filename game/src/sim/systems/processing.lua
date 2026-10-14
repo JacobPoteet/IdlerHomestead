@@ -100,7 +100,10 @@ function Processing.discard(world, anchor)
   end
   local recipe = world.registry:get("recipes", batch.recipe)
   world.state.processing[anchor] = nil
-  world.events:emit("processing.discarded", { recipe = recipe.id, tile = anchor, output = recipe.output, count = batch.count })
+  world.events:emit(
+    "processing.discarded",
+    { recipe = recipe.id, tile = anchor, output = recipe.output, count = batch.count }
+  )
   return batch.count
 end
 
@@ -176,13 +179,19 @@ function Processing.tick(world, dt)
       local moved = Ledger.add(world, recipe.output, batch.count, "processed")
       batch.count = batch.count - moved
       if moved > 0 then
-        world.events:emit("processing.done", { recipe = recipe.id, tile = anchor, output = recipe.output, count = moved })
+        world.events:emit(
+          "processing.done",
+          { recipe = recipe.id, tile = anchor, output = recipe.output, count = moved }
+        )
       end
       if batch.count <= 0 then
         world.state.processing[anchor] = nil
       elseif not batch.blocked then
         batch.blocked = true
-        world.events:emit("processing.blocked", { recipe = recipe.id, tile = anchor, output = recipe.output, count = batch.count })
+        world.events:emit(
+          "processing.blocked",
+          { recipe = recipe.id, tile = anchor, output = recipe.output, count = batch.count }
+        )
       end
     end
   end

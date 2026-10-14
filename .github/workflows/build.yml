@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   # Every build waits for the test suite, so a tag cannot publish a build from failing tests.
-  # Only tests gate it: the format and lint checks in ci.yml are informational.
+  # Only tests gate it: format and lint gate merges in ci.yml, not releases.
   tests:
     uses: ./.github/workflows/tests.yml
 

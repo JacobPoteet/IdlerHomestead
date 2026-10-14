@@ -104,7 +104,14 @@ function Layout.overview(groups, visible, width, spec)
       y = y + spec.headingHeight
       for n, index in ipairs(shown) do
         local col, row = (n - 1) % cols, math.floor((n - 1) / cols)
-        local tile = { kind = "tile", index = index, x = col * (tileW + gap), y = y + row * (spec.tileHeight + gap), w = tileW, h = spec.tileHeight }
+        local tile = {
+          kind = "tile",
+          index = index,
+          x = col * (tileW + gap),
+          y = y + row * (spec.tileHeight + gap),
+          w = tileW,
+          h = spec.tileHeight,
+        }
         items[#items + 1] = tile
         tileOf[index] = tile
       end

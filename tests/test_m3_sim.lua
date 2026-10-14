@@ -16,10 +16,8 @@ local Grid = require("src.sim.grid")
 local Needs = require("src.sim.systems.needs")
 local Shelter = require("src.sim.systems.shelter")
 local Inventory = require("src.sim.systems.inventory")
-local Processing = require("src.sim.systems.processing")
 local Tasks = require("src.sim.systems.tasks")
 local Weather = require("src.sim.systems.weather")
-local Crops = require("src.sim.systems.crops")
 local Food = require("src.sim.systems.food")
 
 local tun = tuningLoader.load()
@@ -616,8 +614,10 @@ T.test("winter: fishing and fetching water cut an ice hole first", function()
   T.near(cold, tun.fishing.idleAttemptTime + tun.weather.iceCutTime, 1e-9)
   Weather.openHole(world, water)
   T.near(fish.workTime(world, actor, water), tun.fishing.idleAttemptTime, 1e-9)
-  T.falsy(Weather.waterTarget(world, water + 1) and world.state.grid.terrain[water + 1] == "water" and water + 1 ~= water,
-    "the routine sticks to open holes")
+  T.falsy(
+    Weather.waterTarget(world, water + 1) and world.state.grid.terrain[water + 1] == "water" and water + 1 ~= water,
+    "the routine sticks to open holes"
+  )
   T.truthy(Weather.waterTarget(world, water))
 end)
 
@@ -713,7 +713,8 @@ T.test("perks: known perks give head starts at the start of each run, once", fun
   T.eq(Ledger.get(world, "canned_food"), Ledger.get(base, "canned_food") + 4)
   T.eq(Power.charge(world, world.state.land.truck), reg:get("perks", "charge_before_leaving").truckCharge)
   -- Loading the same run again doesn't hand them out twice.
-  local again = World.new({ registry = reg, tuning = tun, meta = meta }, serialize.decode(serialize.encode(world.state)))
+  local again =
+    World.new({ registry = reg, tuning = tun, meta = meta }, serialize.decode(serialize.encode(world.state)))
   T.eq(Ledger.get(again, "canned_food"), Ledger.get(world, "canned_food"))
 end)
 

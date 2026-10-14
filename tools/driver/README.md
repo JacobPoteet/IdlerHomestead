@@ -43,6 +43,8 @@ Also `purchase` (D114-D116: the roadside stand bare and with the sign, cooler an
 
 Also `weatherworld` (D80: rain at three zooms, snow after a pan) and `shaderpass` (D83: cloud shadows with a pan pair proving they are world-anchored, a clear sky, rain with wet ground, puddles and creek rings, the ground drying, early frost on the creek bank, and a snowy yard with caps on the roofs). `shaderpass2` (D84: wind sway of crops, trees and brush as frame pairs in a breeze and a gale, morning mist at three zooms burning off by mid-morning and blown away on a windy day, and night lights from a campfire, lamp, wood stove and the shack window at dusk and at night).
 
+Also `lightpolish` (D132, #283: leaf dapple under a tree as frame pairs at mid-morning and late afternoon, hens and goats with their shadows, the warm night light pools by the campfire, the autumn rim light at three views and at noon, and the optional depth of field on and off).
+
 Also `scroll` (D87: the Tools palette with 42 seeds scrolled by wheel and drag on narrow views, and the Catalog, Fish guide and town menu laid out for a short view so their lists clip and scroll; extra crops are cloned into the registry, and the short view is a real `d:resize` of the window, restored afterwards).
 
 Also `shelf` (D73, D74: an out-of-date save planted in the in-memory store, listed as "can't be loaded", its Keep it / Delete save prompt and the second confirmation; then a Pantry with batches of different ages, "Oldest batch spoils in N days", no red chip while nothing rots, then the chip and the Pantry warning two nights later).

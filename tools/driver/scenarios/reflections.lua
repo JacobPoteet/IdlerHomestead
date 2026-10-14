@@ -26,7 +26,12 @@ return function(d)
     if placed < #kinds and y > 1 and Grid.inBounds(grid, x, y + 1) then
       local above = Grid.index(grid, x, y)
       local below = Grid.index(grid, x, y + 1)
-      if not Grid.terrain(world, above).water and Grid.terrain(world, below).water and not grid.objects[above] and (not first or math.abs(x - first[1]) <= 8 and math.abs(y - first[2]) <= 4) then
+      if
+        not Grid.terrain(world, above).water
+        and Grid.terrain(world, below).water
+        and not grid.objects[above]
+        and (not first or math.abs(x - first[1]) <= 8 and math.abs(y - first[2]) <= 4)
+      then
         if Grid.placeObject(world, kinds[placed + 1], x, y) then
           first = first or { x, y }
           placed = placed + 1

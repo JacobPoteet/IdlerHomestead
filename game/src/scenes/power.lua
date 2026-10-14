@@ -23,7 +23,9 @@ function PowerPanel.new(world, onToast)
 end
 
 function PowerPanel:enter()
-  self.list.onMove = function() self:layout() end
+  self.list.onMove = function()
+    self:layout()
+  end
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
   self.rowButtons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
 end
@@ -83,7 +85,8 @@ function PowerPanel:layout()
   text(
     leftX,
     y,
-    flow.demand <= 0 and "Nothing is asking for power" or string.format("%d%% of demand served", math.floor(satisfaction * 100 + 0.5)),
+    flow.demand <= 0 and "Nothing is asking for power"
+      or string.format("%d%% of demand served", math.floor(satisfaction * 100 + 0.5)),
     satisfaction >= 1 and GREEN or theme.colors.danger
   )
   y = y + 15
@@ -166,7 +169,6 @@ function PowerPanel:layout()
     y = y + ROW_H
   end
 
-
   -- Sources and devices: one scrolling list (D76, #82). Rows are laid out from the top of the list
   -- minus the scroll offset; only rows in view get buttons, and they answer only inside the window.
   local ui = self.app.ctx.tuning.ui
@@ -198,7 +200,8 @@ function PowerPanel:layout()
     contentH = contentH + r.h
   end
   local viewH = math.max(ROW_H * 2, bottom - top)
-  viewH = self.list:fit({ x = rightX - 4, y = top, w = colW + 8, h = viewH }, contentH, ui.scrollHintHeight, ROW_H * 2).h
+  viewH =
+    self.list:fit({ x = rightX - 4, y = top, w = colW + 8, h = viewH }, contentH, ui.scrollHintHeight, ROW_H * 2).h
   self.rowButtons:clear()
   self.listItems = {}
   local function ltext(x, ty, str, color)
@@ -242,7 +245,12 @@ function PowerPanel:layout()
       elseif r.kind == "sink" then
         local sink = r.sink
         ltext(rightX + 4, ry + 3, sink.name, theme.colors.text)
-        ltext(rightX + 4, ry + 13, string.format("%s  %.2g kW", Power.tierName(world, sink.tier), sink.draw), theme.colors.textDim)
+        ltext(
+          rightX + 4,
+          ry + 13,
+          string.format("%s  %.2g kW", Power.tierName(world, sink.tier), sink.draw),
+          theme.colors.textDim
+        )
         ltext(right - 112, ry + 8, stateText(sink), stateColor(sink.state))
         self.rowButtons:add({
           x = right - 54,

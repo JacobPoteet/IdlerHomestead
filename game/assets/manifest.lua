@@ -133,7 +133,7 @@ return {
     icon_sprinkler = { placeholder = "icon_sprinkler", w = 12, h = 12 },
     icon_cat = { placeholder = "icon_cat", w = 12, h = 12 },
     icon_shelter_cat = { placeholder = "icon_cat", w = 12, h = 12 },
-    icon_roadside_stand ={ placeholder = "icon_roadside_stand", w = 12, h = 12 },
+    icon_roadside_stand = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
     icon_stand_sign = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
     icon_stand_cooler = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
     icon_stand_display = { placeholder = "icon_roadside_stand", w = 12, h = 12 },

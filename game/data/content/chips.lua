@@ -13,7 +13,14 @@ return {
     id = "weather",
     name = "Weather",
     -- States: the kind of today's weather ("clear" ... "storm"), or "cold" during a cold snap.
-    status = { clear = "Clear today", cloudy = "Cloudy today", rain = "Rain today", windy = "Windy today", storm = "Storm today", cold = "Cold snap" },
+    status = {
+      clear = "Clear today",
+      cloudy = "Cloudy today",
+      rain = "Rain today",
+      windy = "Windy today",
+      storm = "Storm today",
+      cold = "Cold snap",
+    },
     rows = {}, -- one row per visible day is added by chip_text (day name, kind)
     why = {
       clear = "Full sun for solar. Water the crops by hand.",
@@ -90,13 +97,25 @@ return {
     id = "wood",
     name = "Wood",
     -- States: ok, low, bad (alert levels), none (no fire needed tonight), nofire (a fire is needed, none placed).
-    status = { ok = "Enough wood", low = "Wood is low", bad = "Not enough for tonight", none = "No fire needed tonight", nofire = "No fire to burn it in", full = "Store is full" },
+    status = {
+      ok = "Enough wood",
+      low = "Wood is low",
+      bad = "Not enough for tonight",
+      none = "No fire needed tonight",
+      nofire = "No fire to burn it in",
+      full = "Store is full",
+    },
     rows = {
       { key = "stock", label = "Logs", fmt = "%d of %d" },
       { key = "perNight", label = "Tonight's fire", fmt = "%d logs" },
       { key = "nights", label = "Lasts", fmt = "%.1f nights" },
     },
-    why = { low = "Fell trees or buy wood.", bad = "Fell trees or buy wood.", nofire = "Place a campfire or stove.", full = "A woodshed holds more." },
+    why = {
+      low = "Fell trees or buy wood.",
+      bad = "Fell trees or buy wood.",
+      nofire = "Place a campfire or stove.",
+      full = "A woodshed holds more.",
+    },
     panel = "pantry",
     panelLabel = "Open Pantry",
   },

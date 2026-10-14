@@ -543,7 +543,6 @@ function P.wood_stove(p)
   p:rect(11, 20, 2, 2, { 0.16, 0.16, 0.18 })
 end
 
-
 function P.icon_cold(p)
   local ice = { 0.75, 0.88, 1.0 }
   p:rect(5, 1, 1, 10, ice)

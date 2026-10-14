@@ -205,30 +205,33 @@ T.test("ftue: a step that already happened is not queued again after it was seen
   T.eq(currentId(world), nil)
 end)
 
-T.test("ftue: plant is due after the welcome if the player does not clear anything, and retires when they plant", function()
-  local world = newWorld()
-  run(world, 5)
-  Ftue.dismiss(world, "welcome")
-  world.events:emit("hud.chipOpened", {})
-  local after = reg:get("ftue", "plant").after.seconds
-  run(world, after - 5)
-  T.eq(currentId(world), nil)
-  run(world, 10)
-  run(world, tun.ftue.defaultDelay + 1)
-  T.eq(currentId(world), "plant", "the fallback timer")
+T.test(
+  "ftue: plant is due after the welcome if the player does not clear anything, and retires when they plant",
+  function()
+    local world = newWorld()
+    run(world, 5)
+    Ftue.dismiss(world, "welcome")
+    world.events:emit("hud.chipOpened", {})
+    local after = reg:get("ftue", "plant").after.seconds
+    run(world, after - 5)
+    T.eq(currentId(world), nil)
+    run(world, 10)
+    run(world, tun.ftue.defaultDelay + 1)
+    T.eq(currentId(world), "plant", "the fallback timer")
 
-  local other = newWorld()
-  run(other, 5)
-  Ftue.dismiss(other, "welcome")
-  other.events:emit("hud.chipOpened", {})
-  other.events:emit("crop.planted", {})
-  T.truthy(Ftue.isSeen(other, "plant"), "planting first retires the plant tip")
-  pastGap(other)
-  T.eq(currentId(other), "water")
-  Ftue.dismiss(other, "water")
-  run(other, after + 10)
-  T.eq(currentId(other), nil, "no plant card afterwards")
-end)
+    local other = newWorld()
+    run(other, 5)
+    Ftue.dismiss(other, "welcome")
+    other.events:emit("hud.chipOpened", {})
+    other.events:emit("crop.planted", {})
+    T.truthy(Ftue.isSeen(other, "plant"), "planting first retires the plant tip")
+    pastGap(other)
+    T.eq(currentId(other), "water")
+    Ftue.dismiss(other, "water")
+    run(other, after + 10)
+    T.eq(currentId(other), nil, "no plant card afterwards")
+  end
+)
 
 T.test("ftue: the spoilage step is told by the D68 card, not by a second one", function()
   local meta = {}
@@ -435,7 +438,9 @@ T.test("market: the cheapest order is the least price plus delivery fee among it
   local cheapest = Market.cheapestOrder(world)
   T.truthy(cheapest and cheapest > tun.economy.deliveryFee, "a catalog item is orderable")
   for _, item in ipairs(world.registry:all("catalog")) do
-    if Market.cannotBuy(world, item.id, false) == nil or Market.cannotBuy(world, item.id, false) == "not enough money" then
+    if
+      Market.cannotBuy(world, item.id, false) == nil or Market.cannotBuy(world, item.id, false) == "not enough money"
+    then
       T.truthy(Market.itemPrice(world, item.id) + tun.economy.deliveryFee >= cheapest, item.id)
     end
   end
@@ -505,7 +510,10 @@ T.test("ftue highlight: every target in the content parses", function()
     if def.highlight then
       n = n + 1
       T.truthy(
-        def.highlight == "seeds" or def.highlight:match("^button:%w+$") or def.highlight:match("^chip:%w+$") or def.highlight == "tile:truck",
+        def.highlight == "seeds"
+          or def.highlight:match("^button:%w+$")
+          or def.highlight:match("^chip:%w+$")
+          or def.highlight == "tile:truck",
         def.id .. ": " .. def.highlight
       )
     end
@@ -553,8 +561,19 @@ end)
 
 T.test("ftue tips list: geometry comes from tuning.ftue, not literals in the scene", function()
   for _, key in ipairs({
-    "tipsColumns", "tipsMaxColumns", "tipsBaseWidth", "tipsColumnWidth", "tipsMinColumnWidth", "tipsViewMargin",
-    "tipsRowHeight", "tipsRowGap", "tipsPadding", "tipsHeaderHeight", "tipsLegendHeight", "tipsTitleTop", "tipsLegendNudge",
+    "tipsColumns",
+    "tipsMaxColumns",
+    "tipsBaseWidth",
+    "tipsColumnWidth",
+    "tipsMinColumnWidth",
+    "tipsViewMargin",
+    "tipsRowHeight",
+    "tipsRowGap",
+    "tipsPadding",
+    "tipsHeaderHeight",
+    "tipsLegendHeight",
+    "tipsTitleTop",
+    "tipsLegendNudge",
   }) do
     T.truthy(type(tun.ftue[key]) == "number" and tun.ftue[key] > 0, "tuning.ftue." .. key .. " is a positive number")
   end

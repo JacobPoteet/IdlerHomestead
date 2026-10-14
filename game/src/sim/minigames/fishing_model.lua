@@ -18,7 +18,9 @@ Model.__index = Model
 function Model.new(params)
   local cfg = params.tuning
   -- activity: how active the fish are (weather, 1 = normal); livelier fish bite sooner.
-  local delay = params.rng:range(cfg.biteDelayMin, cfg.biteDelayMax) * (params.bait and cfg.baitBiteSpeed or 1) / (params.activity or 1)
+  local delay = params.rng:range(cfg.biteDelayMin, cfg.biteDelayMax)
+    * (params.bait and cfg.baitBiteSpeed or 1)
+    / (params.activity or 1)
   return setmetatable({
     fish = params.fish,
     cfg = cfg,

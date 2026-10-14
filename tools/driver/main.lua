@@ -137,7 +137,13 @@ local function run(opts)
       print(string.format("== %s (%s)", name, size))
       -- Fixed seed per scenario (#188); seed=N overrides it for every scenario.
       local seed = tonumber(opts.seed) or Rng.hash(name)
-      local d = Driver.new({ size = size, outDir = outDir, prefix = name .. "_" .. size, seed = seed, audio = opts.audio == "1" })
+      local d = Driver.new({
+        size = size,
+        outDir = outDir,
+        prefix = name .. "_" .. size,
+        seed = seed,
+        audio = opts.audio == "1",
+      })
       scenario(d)
     end
   end

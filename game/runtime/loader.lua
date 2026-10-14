@@ -79,7 +79,6 @@ function M.loadNativeLibrary(libraryName)
   else
     error("Failed: " .. assetFile .. " -> " .. saveFile)
   end
-  libraryData = nil
 
   -- Add the save directory to package.cpath
   package.cpath = package.cpath .. ";" .. love.filesystem.getSaveDirectory() .. "/?." .. extension:sub(2)

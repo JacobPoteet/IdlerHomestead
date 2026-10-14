@@ -95,7 +95,14 @@ end
 
 --- Fresh data for a new slot.
 function Save.newSlotData(name)
-  return { version = Save.FORMAT_VERSION, compat = Save.SAVE_COMPAT, name = name, header = { playtime = 0 }, meta = {}, run = nil }
+  return {
+    version = Save.FORMAT_VERSION,
+    compat = Save.SAVE_COMPAT,
+    name = name,
+    header = { playtime = 0 },
+    meta = {},
+    run = nil,
+  }
 end
 
 function Save:checkIndex(index)
@@ -168,9 +175,9 @@ local function decodeSlot(contents, keepPacked)
     data.version = version
   end
   if not keepPacked and type(data.run) == "table" and type(data.run.grid) == "table" then
-    local ok, err = pcall(Gridpack.unpack, data.run.grid)
+    local ok, unpackErr = pcall(Gridpack.unpack, data.run.grid)
     if not ok then
-      return nil, "save has a damaged map: " .. tostring(err)
+      return nil, "save has a damaged map: " .. tostring(unpackErr)
     end
   end
   return data

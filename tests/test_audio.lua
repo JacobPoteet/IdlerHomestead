@@ -20,12 +20,26 @@ local function newAudio(opts)
   opts = opts or {}
   local settings = Settings.new(Save.memoryBackend(), tun)
   local backend = opts.backend or Backend.null()
-  local fs = opts.fs or { getInfo = function() return nil end }
+  local fs = opts.fs or {
+    getInfo = function()
+      return nil
+    end,
+  }
   local audio = Audio.new({ tuning = tun, settings = settings, backend = backend, fs = fs, sounds = opts.sounds })
   return audio, backend, settings
 end
 
-local calm = { speed = 1, night = false, season = "summer", kind = "clear", wind = 1, rain = 0, frozen = false, fire = nil, hum = false }
+local calm = {
+  speed = 1,
+  night = false,
+  season = "summer",
+  kind = "clear",
+  wind = 1,
+  rain = 0,
+  frozen = false,
+  fire = nil,
+  hum = false,
+}
 
 T.test("audio: events map to cues by name, by payload field, and by default", function()
   local ev = sounds.events
@@ -169,7 +183,9 @@ end)
 T.test("audio: events on the bus play their cue", function()
   local audio, backend = newAudio()
   local world = { events = Events.new() }
-  audio:attach(world, function() return calm end)
+  audio:attach(world, function()
+    return calm
+  end)
   world.events:emit("fish.caught", { fish = "trout" })
   world.events:emit("ledger.changed", {})
   T.eq(#backend.log, 1)
@@ -194,14 +210,26 @@ T.test("audio: a missing or broken file never crashes and falls back to the plac
     end
     return realNew(x, mode)
   end
-  local a2 = newAudio({ backend = bad, fs = { getInfo = function() return { type = "file", size = 10 } end } })
+  local a2 = newAudio({
+    backend = bad,
+    fs = {
+      getInfo = function()
+        return { type = "file", size = 10 }
+      end,
+    },
+  })
   T.eq(a2.library:describe("clear"), "synth")
   T.truthy(a2:play("clear"))
   -- A filesystem that raises is survived.
-  local a3 = newAudio({ fs = { getInfo = function() error("no fs") end } })
+  local a3 = newAudio({ fs = {
+    getInfo = function()
+      error("no fs")
+    end,
+  } })
   T.truthy(a3:play("clear"))
   -- A cue with no generator and no file is silent, not an error.
-  local ghost = { buses = sounds.buses, events = {}, cues = { ghost = { bus = "sfx", volume = 1, where = "x", desc = "x" } } }
+  local ghost =
+    { buses = sounds.buses, events = {}, cues = { ghost = { bus = "sfx", volume = 1, where = "x", desc = "x" } } }
   local a4 = newAudio({ sounds = ghost })
   T.eq(a4.library:describe("ghost"), "silent")
   T.falsy(a4:play("ghost"))
@@ -223,7 +251,9 @@ T.test("audio: a file dropped in the bus folder replaces the placeholder, number
   T.eq(audio.library:describe("fish_caught"), "file")
   T.eq(audio.library:describe("till"), "synth")
   local seen = {}
-  audio:attach({ events = Events.new() }, function() return calm end)
+  audio:attach({ events = Events.new() }, function()
+    return calm
+  end)
   for _ = 1, 40 do
     audio:update(1)
     audio:play("clear")
@@ -242,7 +272,9 @@ T.test("audio: beds fade in, duck when paused and never hard-stop", function()
   for k, v in pairs(calm) do
     snap[k] = v
   end
-  audio:attach({ events = Events.new() }, function() return snap end)
+  audio:attach({ events = Events.new() }, function()
+    return snap
+  end)
   for _ = 1, 10 do
     audio:update(1)
   end
@@ -288,7 +320,9 @@ T.test("audio: dusk and dawn play once on the change, thunder only on storm days
   for k, v in pairs(calm) do
     snap[k] = v
   end
-  audio:attach({ events = Events.new() }, function() return snap end)
+  audio:attach({ events = Events.new() }, function()
+    return snap
+  end)
   local function oneShots()
     local n = 0
     for _, e in ipairs(backend.log) do
@@ -321,7 +355,9 @@ end)
 T.test("audio: variation is deterministic per seed and never the sim RNG", function()
   local function run()
     local audio, backend = newAudio()
-    audio:attach({ events = Events.new() }, function() return calm end)
+    audio:attach({ events = Events.new() }, function()
+      return calm
+    end)
     for _ = 1, 8 do
       audio:update(1)
       audio:play("chop_wood")
@@ -360,7 +396,12 @@ T.test("audio: volume sliders are settings that round trip", function()
   T.eq(again:get("volumeMusic"), 0)
   T.eq(again:get("volumeAmbience"), 1)
   -- The service reads the sliders live.
-  local audio = Audio.new({ tuning = tun, settings = again, backend = Backend.null(), fs = { getInfo = function() end } })
-  T.near(audio:busGain("sfx"), Mixer.curve(0.3, cfg.volumeCurve) * Mixer.curve(again:get("volumeEffects"), cfg.volumeCurve), 1e-9)
+  local audio =
+    Audio.new({ tuning = tun, settings = again, backend = Backend.null(), fs = { getInfo = function() end } })
+  T.near(
+    audio:busGain("sfx"),
+    Mixer.curve(0.3, cfg.volumeCurve) * Mixer.curve(again:get("volumeEffects"), cfg.volumeCurve),
+    1e-9
+  )
   T.eq(audio:busGain("music"), 0)
 end)

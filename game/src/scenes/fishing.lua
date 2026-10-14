@@ -70,12 +70,27 @@ function FishingScene:layout()
   local b = self.box
   self.buttons:clear()
   if self.result then
-    self.buttons:add({ x = b.x + 12, y = b.y + b.h - 34, w = 140, h = 26, label = "Cast again", style = "accent", onPress = function()
-      self:cast()
-    end })
-    self.buttons:add({ x = b.x + b.w - 152, y = b.y + b.h - 34, w = 140, h = 26, label = "Done", onPress = function()
-      self.app:pop()
-    end })
+    self.buttons:add({
+      x = b.x + 12,
+      y = b.y + b.h - 34,
+      w = 140,
+      h = 26,
+      label = "Cast again",
+      style = "accent",
+      onPress = function()
+        self:cast()
+      end,
+    })
+    self.buttons:add({
+      x = b.x + b.w - 152,
+      y = b.y + b.h - 34,
+      w = 140,
+      h = 26,
+      label = "Done",
+      onPress = function()
+        self.app:pop()
+      end,
+    })
   else
     Panel.closeButton(self.buttons, b, function()
       self.app:pop()

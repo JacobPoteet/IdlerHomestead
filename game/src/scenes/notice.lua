@@ -79,7 +79,12 @@ function Notice:draw()
   Text.draw(self.opts.title or "", b.x + 12, b.y + 10, { size = "body" })
   local y = b.y + 28
   if self.headline then
-    Text.draw(self.headline, b.x + 12, y, { size = self.headlineSize, width = b.w - 24, color = self.opts.tone or theme.colors.accent })
+    Text.draw(
+      self.headline,
+      b.x + 12,
+      y,
+      { size = self.headlineSize, width = b.w - 24, color = self.opts.tone or theme.colors.accent }
+    )
     y = y + self.headlineH
   end
   for _, row in ipairs(self.rows) do

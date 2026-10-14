@@ -109,10 +109,21 @@ end)
 
 local function scene(sleeping)
   local world = newWorld(1)
-  local s = setmetatable({
+  local s
+  s = setmetatable({
     world = world,
-    app = { ctx = { tuning = tun }, top = function() return nil end },
-    session = { sleeping = function() return s and s.asleep end, setSpeed = function() end },
+    app = {
+      ctx = { tuning = tun },
+      top = function()
+        return nil
+      end,
+    },
+    session = {
+      sleeping = function()
+        return s and s.asleep
+      end,
+      setSpeed = function() end,
+    },
     toast = nil,
     toastQueue = {},
     held = {},

@@ -105,7 +105,7 @@ function Toolbar.arrange(spec, view, cfg)
   -- items sit `scroll` pixels higher (cfg.scroll[name], clamped here and returned as `offset`), the
   -- window is `view` and the buttons that fall outside it are the scene's to clip.
   local function popup(name, items, anchor, alignRight)
-    local function flow(inner)
+    local function wrap(inner)
       local prow, prowW, plines = {}, 0, {}
       for _, b in ipairs(items) do
         local need = b.w + (#prow > 0 and gap or 0)
@@ -125,16 +125,16 @@ function Toolbar.arrange(spec, view, cfg)
       return n * h + (n - 1) * gap
     end
     local inner = avail - 2 * gap
-    local plines = flow(inner)
+    local plines = wrap(inner)
     local bottom = view.h - bottomH - cfg.paletteGap
     local maxH = 2 * gap + linesH(cfg.paletteMaxRows or #plines)
     if cfg.paletteTop then
       maxH = math.min(maxH, bottom - cfg.paletteTop)
     end
     local scrolls = 2 * gap + linesH(#plines) > maxH
-    local bar = scrolls and (cfg.scrollBarWidth or 0) + gap or 0
+    local thumb = scrolls and (cfg.scrollBarWidth or 0) + gap or 0
     if scrolls then
-      plines = flow(inner - bar) -- room for the scroll thumb beside the buttons
+      plines = wrap(inner - thumb) -- room for the scroll thumb beside the buttons
     end
     local widest = 0
     for _, line in ipairs(plines) do
@@ -144,11 +144,11 @@ function Toolbar.arrange(spec, view, cfg)
       end
       widest = math.max(widest, w)
     end
-    local w = widest + 2 * gap + bar
+    local w = widest + 2 * gap + thumb
     local contentH = linesH(#plines)
     local ph = scrolls and math.max(2 * gap + h, maxH) or contentH + 2 * gap
     local viewH = ph - 2 * gap
-    local offset = math.max(0, math.min(((cfg.scroll or {})[name]) or 0, contentH - viewH))
+    local offset = math.max(0, math.min((cfg.scroll or {})[name] or 0, contentH - viewH))
     local x = alignRight and (anchor.x + anchor.w - w) or anchor.x
     x = math.max(pad, math.min(x, view.w - pad - w))
     local y = bottom - ph
@@ -168,7 +168,7 @@ function Toolbar.arrange(spec, view, cfg)
       scrolls = scrolls,
       contentH = contentH,
       offset = offset,
-      view = { x = x, y = y + gap, w = w - bar - gap, h = viewH },
+      view = { x = x, y = y + gap, w = w - thumb - gap, h = viewH },
     }
   end
   result.popups = {
