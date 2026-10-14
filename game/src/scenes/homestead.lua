@@ -55,6 +55,7 @@ local Assets = require("src.render.assets")
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
 local ChipText = require("src.ui.chip_text")
+local ChipStrip = require("src.ui.chip_strip")
 local Toolbar = require("src.ui.toolbar")
 local ScrollList = require("src.ui.scroll_list")
 local MessageLog = require("src.ui.message_log")
@@ -588,92 +589,40 @@ function Homestead:nextPlaceable()
   return ids[1]
 end
 
--- Top-bar stats, in order: { icon, text }. Big numbers are abbreviated so the strip stays short.
-local function count(n)
-  if n >= 10000 then
-    return string.format("%dk", math.floor(n / 1000))
-  end
-  return tostring(n)
-end
-
-function Homestead:stats()
+--- Where each top-bar chip goes (D112): { rows = extra stat rows under the date (0 = beside it), items =
+--- { { entry, x, rowTop, rowH, width } }, gap }. The chips sit beside the date when they fit, otherwise on
+--- their own row(s) under it, wrapping to another row when one is not enough (many chips on a narrow
+--- phone). The chips are the entries of src/ui/chip_strip.lua, built from the same accessors as the modals.
+function Homestead:chipLayout()
   local world = self.world
-  local truck = world.state.land.truck
-  -- Wood in stock and, when a fire is needed, the nights it lasts at tonight's need.
-  local woodOutlook = Needs.woodOutlook(world)
-  -- The truck chip says "go" once a trip is possible (D72, #162), in the accent colour.
-  local battery = string.format("%d%%", math.floor(Power.charge(world, truck) / Power.capacity(world, truck) * 100))
-  local tripReady = Market.canTrip(world) and not world.state.market.inTown
-  -- Each entry is { icon, text, colour, id = chip id } (the id keys the tap-to-explain card, #158).
-  local stats = {
-    { "icon_money", "$" .. count(Ledger.get(world, "money")), id = "money" },
-    -- Food, wood and health turn amber, then red, as they run low (D70, #157; thresholds in tuning.alerts).
-    { "icon_food", string.format("%.1fd", Needs.foodDays(world)), AlertText.chipColor(world, "food"), id = "food" },
-    { "icon_heart", tostring(math.floor(Needs.condition(world) + 0.5)), AlertText.chipColor(world, "condition"), id = "condition" },
-    {
-      "icon_battery",
-      tripReady and (battery .. " " .. self.app.ctx.tuning.ui.labels.tripReady) or battery,
-      tripReady and theme.colors.accent or nil,
-      id = "battery",
-    },
-    -- Spare goods (D75): units above their keep targets, what the stand and the truck can sell.
-    { "icon_crate", count(select(2, Food.surpluses(world))), id = "surplus" },
-    {
-      "icon_wood",
-      -- D104: the logs held, then the nights they last at tonight's need once a fire is needed (one accessor, Needs.woodOutlook).
-      woodOutlook.nights == math.huge and count(woodOutlook.stock)
-        or string.format(woodOutlook.nights >= 10 and "%s · %.0fn" or "%s · %.1fn", count(woodOutlook.stock), woodOutlook.nights),
-      -- The wood chip turns red when the store is full (D59), and amber then red as the stock falls short of the coming nights (D70).
-      Ledger.isFull(world, "wood") and theme.colors.danger or AlertText.chipColor(world, "fuel"),
-      id = "wood",
-    },
-  }
-  local tonight = Spoilage.tonight(world)
-  if tonight.warn then
-    -- Fresh food is about to rot (D68, D73): the number is how many units go tonight.
-    stats[#stats + 1] = { "icon_spoiled", "-" .. tonight.units, theme.colors.danger, id = "spoiled" }
-  end
-  if Water.hasCistern(world) then
-    -- Cistern stock, once there is a cistern to hold it.
-    stats[#stats + 1] = { "icon_water", string.format("%d%%", math.floor(Water.fraction(world) * 100 + 0.5)), id = "water" }
-  end
-  if Animals.hasCoop(world) then
-    -- Hens (red when they are short of feed or water) and the eggs waiting in the nest box.
-    local flock = Animals.info(world)
-    local short = flock.hens > 0 and (flock.hungryDays > 0 or flock.thirstyDays > 0 or flock.feedDays < 1)
-    stats[#stats + 1] = { "icon_hen", string.format("%d/%d", flock.hens, flock.housing), short and theme.colors.danger or nil, id = "hens" }
-    stats[#stats + 1] = { "icon_egg", tostring(flock.nest), id = "eggs" }
-  end
-  if Animals.hasPen(world) then
-    -- Goats (red when short of hay or water, or the animal-feed warning is red) and the milk in the pail.
-    local herd = Animals.goatInfo(world)
-    local short = herd.goats > 0 and (herd.hungryDays > 0 or herd.thirstyDays > 0 or herd.feedDays < 1)
-    stats[#stats + 1] = {
-      "icon_goat",
-      string.format("%d/%d", herd.goats, herd.housing),
-      short and theme.colors.danger or AlertText.chipColor(world, "animals"),
-      id = "goats",
-    }
-    stats[#stats + 1] = { "icon_milk", tostring(herd.pail), id = "milk" }
-  end
-  return stats
-end
-
--- Width of the stat strip with `gap` between stats.
-function Homestead:statsWidth(gap)
+  local view = self.app.view
   local ui = self.app.ctx.tuning.ui
-  local total = 0
-  for _, s in ipairs(self:stats()) do
-    total = total + Assets.sprite(s[1]).w + ui.statIconGap + Text.measure(s[2], "small")
+  local entries = ChipStrip.entries(world)
+  local topRowH = view.w < ui.compactWidth and ui.compactTopBarHeight or ui.topBarHeight
+  local beside = view.w - ui.menuWidth - ui.log.buttonWidth - 2 - ui.statsAfterDate - ui.barPadding
+  local items = {}
+  if ChipStrip.stripWidth(world, entries, ui.statMinGap) <= beside then
+    local gap = ChipStrip.stripWidth(world, entries, ui.statGap) <= beside and ui.statGap or ui.statMinGap
+    local x = ui.statsAfterDate
+    for _, e in ipairs(entries) do
+      local width = ChipStrip.width(world, e)
+      items[#items + 1] = { entry = e, x = x, rowTop = 0, rowH = topRowH, width = width }
+      x = x + width + gap
+    end
+    return { rows = 0, items = items, gap = gap }
   end
-  return total + gap * (#self:stats() - 1)
-end
-
--- True when the stats don't fit beside the date and need their own row under it.
-function Homestead:wantsStatRow()
-  local ui = self.app.ctx.tuning.ui
-  local room = self.app.view.w - ui.menuWidth - ui.log.buttonWidth - 2 - ui.statsAfterDate - ui.barPadding
-  return self:statsWidth(ui.statMinGap) > room
+  local own = view.w - 2 * ui.barPadding
+  local gap = ChipStrip.stripWidth(world, entries, ui.statGap) <= own and ui.statGap or ui.statMinGap
+  local x, row = ui.barPadding, 1
+  for _, e in ipairs(entries) do
+    local width = ChipStrip.width(world, e)
+    if x > ui.barPadding and x + width > ui.barPadding + own then
+      row, x = row + 1, ui.barPadding
+    end
+    items[#items + 1] = { entry = e, x = x, rowTop = topRowH + (row - 1) * ui.statRowHeight, rowH = ui.statRowHeight, width = width }
+    x = x + width + gap
+  end
+  return { rows = row, items = items, gap = gap }
 end
 
 function Homestead:layout()
@@ -683,9 +632,9 @@ function Homestead:layout()
   local compact = view.w < ui.compactWidth
   local btnH = compact and ui.compactButtonHeight or ui.buttonHeight
   self.btnH = btnH
-  self.statRow = self:wantsStatRow()
+  self.statRows = self:chipLayout().rows
   self.topRowH = compact and ui.compactTopBarHeight or ui.topBarHeight
-  self.topH = self.topRowH + (self.statRow and ui.statRowHeight or 0)
+  self.topH = self.topRowH + self.statRows * ui.statRowHeight
   self.buttons:clear()
   self.seedButtons = {}
   self.buttons:add({
@@ -1564,7 +1513,7 @@ function Homestead:update(dt)
       end
     end
   end
-  if self:controlsKey() ~= self.controlsKeyShown or self:wantsStatRow() ~= self.statRow then
+  if self:controlsKey() ~= self.controlsKeyShown or self:chipLayout().rows ~= self.statRows then
     self:layout()
   end
   -- The Journal button lights up while there's an idea to pick and nothing queued (GDD §8.1).
@@ -2260,22 +2209,12 @@ function Homestead:drawTopBar(view)
   local date = string.format("Day %d · %s · %02d:%02d", now.dayOfSeason, season, hour, minute)
   local _, th = Text.measure(date, "body")
   Text.draw(date, 8, math.floor((self.topRowH - th) / 2), { size = "body" })
-  -- Stats sit beside the date, or on their own row under it when the view is too narrow.
-  local x, rowTop, room
-  if self.statRow then
-    x, rowTop, room = ui.barPadding, self.topRowH, view.w - 2 * ui.barPadding
-  else
-    x, rowTop, room = ui.statsAfterDate, 0, view.w - ui.menuWidth - ui.log.buttonWidth - 2 - ui.statsAfterDate - ui.barPadding
-  end
-  local rowH = self.statRow and ui.statRowHeight or self.topRowH
-  local gap = self:statsWidth(ui.statGap) <= room and ui.statGap or ui.statMinGap
-  for _, s in ipairs(self:stats()) do
-    local sprite = Assets.sprite(s[1])
-    local y = rowTop + math.floor((rowH - sprite.h) / 2)
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.draw(sprite.image, sprite.quad, x, y)
-    Text.draw(s[2], x + sprite.w + ui.statIconGap, y + 1, { size = "small", color = s[3] })
-    x = x + sprite.w + ui.statIconGap + Text.measure(s[2], "small") + gap
+  -- Stats sit beside the date, or on their own row(s) under it when the view is too narrow.
+  local barRoom = ui.topChips.barGap + ui.topChips.barHeight -- the chip's fill bar hangs under its icon
+  for _, item in ipairs(self:chipLayout().items) do
+    local e = item.entry
+    local sprite = Assets.sprite(e.icons and e.icons[1] or e.icon)
+    ChipStrip.draw(world, e, item.x, item.rowTop + math.floor((item.rowH - sprite.h - barRoom) / 2))
   end
 end
 
@@ -2283,30 +2222,19 @@ end
 --- the minimum touch size tall and wide, so a finger can hit one (D72, #158). Laid out exactly like
 --- drawTopBar draws the strip, so a test can check them without a canvas.
 function Homestead:chipRects()
-  local view = self.app.view
-  local ui = self.app.ctx.tuning.ui
   local minSize = self.app.ctx.tuning.input.minTouchTarget
-  local x, rowTop, room
-  if self.statRow then
-    x, rowTop, room = ui.barPadding, self.topRowH, view.w - 2 * ui.barPadding
-  else
-    x, rowTop, room = ui.statsAfterDate, 0, view.w - ui.menuWidth - ui.log.buttonWidth - 2 - ui.statsAfterDate - ui.barPadding
-  end
-  local rowH = self.statRow and ui.statRowHeight or self.topRowH
-  local gap = self:statsWidth(ui.statGap) <= room and ui.statGap or ui.statMinGap
+  local layout = self:chipLayout()
   local rects = {}
-  for _, s in ipairs(self:stats()) do
-    local width = Assets.sprite(s[1]).w + ui.statIconGap + Text.measure(s[2], "small")
-    local w = math.max(minSize, width + gap)
-    local h = math.max(minSize, rowH)
+  for _, item in ipairs(layout.items) do
+    local w = math.max(minSize, item.width + layout.gap)
+    local h = math.max(minSize, item.rowH)
     rects[#rects + 1] = {
-      id = s.id,
-      x = x - (w - width) / 2,
-      y = rowTop + (rowH - h) / 2,
+      id = item.entry.id,
+      x = item.x - (w - item.width) / 2,
+      y = item.rowTop + (item.rowH - h) / 2,
       w = w,
       h = h,
     }
-    x = x + width + gap
   end
   return rects
 end
@@ -2340,7 +2268,10 @@ function Homestead:openChip(id)
   app:push(require("src.scenes.notice").new({
     title = card.title,
     headline = card.headline,
-    message = card.message,
+    tone = card.level >= 2 and theme.colors.danger or card.level == 1 and theme.colors.accent or theme.colors.text,
+    rows = card.rows,
+    why = card.why,
+    width = app.ctx.tuning.ui.modal.width,
     okLabel = "Got it",
     more = more,
   }))
@@ -2410,8 +2341,8 @@ end
 -- Winter forecast under the top bar, from autumn on (GDD §4.1); loud during the cold snap.
 function Homestead:drawForecast()
   local world = self.world
-  -- The weather pill comes first: today and the days ahead (D51).
-  local lines = { { "Weather: " .. Forecast.weather(world), theme.colors.text } }
+  -- The weather is a chip in the top bar now (D112): today and the days ahead as glyphs, the words in its modal.
+  local lines = {}
   -- Threats the player has been warned of (D67): amber while coming, red while they are on.
   for _, t in ipairs(Forecast.threats(world)) do
     lines[#lines + 1] = { t[1], t[2] and theme.colors.danger or theme.colors.accent }

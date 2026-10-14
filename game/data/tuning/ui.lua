@@ -272,5 +272,29 @@ return {
     margin = 6, -- virtual pixels between the label and the left/bottom screen edges
     promptPrefix = "This build: ", -- line added under the out-of-date save message
   },
+  topChips = { -- what the top-bar chips show besides their number (D112, #267): a state bar, a level mark and a trend arrow
+    barHeight = 2, -- virtual pixels: the fill bar under a chip's icon and number
+    barGap = 1, -- virtual pixels between the icon and the bar under it
+    barTrack = { 0, 0, 0, 0.45 }, -- rgba: the empty part of a chip's bar
+    barOk = { 0.55, 0.74, 0.45, 1 }, -- rgba: a bar whose chip is fine (amber and red use the theme accent and danger colours)
+    marks = { [0] = "", "!", "!!" }, -- text after the number by alert level (0 fine, 1 amber, 2 red): the state is never colour alone
+    markGap = 2, -- virtual pixels between a chip's number and its level mark or trend arrow
+    trendSize = 5, -- virtual pixels: width and height of the trend triangle after a number
+    trendMinKw = 0.05, -- kW: a battery charging or draining slower than this shows no trend arrow (flat)
+    foodFullDays = 7, -- days of food that fill the food bar (a week in the larder reads as full)
+    woodFullNights = 10, -- nights of wood that fill the wood bar once a fire is needed (before that the bar is the share of the store)
+    waterAmber = 0.25, -- cistern fill (0..1) under which the water chip turns amber
+    waterRed = 0.10, -- cistern fill (0..1) under which the water chip turns red
+    stormThreat = 2, -- weather kinds whose threat multiplier (tuning.weather.kinds) is at least this show the weather chip amber (storms)
+    weatherDays = 3, -- days of weather the weather chip shows as icons, today first (capped by what the forecast reveals)
+    iconGap = 1, -- virtual pixels between the weather chip's day icons
+  },
+  modal = { -- the short chip modals (D112, #267)
+    width = 260, -- virtual pixels: widest a chip modal gets (narrower on small views)
+    rowGap = 2, -- virtual pixels between rows
+    todayLabel = "Today", -- weather modal: the first day
+    tomorrowLabel = "Tomorrow", -- weather modal: the second day
+    inDaysLabel = "In %d days", -- weather modal: later days
+  },
   startRoutineHint ="Starts the routine now. It waters, plants, harvests and chops for you; any tap ends it.", -- toast when the routine starts
 }

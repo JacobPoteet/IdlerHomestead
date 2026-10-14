@@ -735,6 +735,50 @@ function P.icon_battery(p)
   p:rect(2, 4, 4, 4, { 0.45, 0.82, 0.42 })
 end
 
+-- Weather glyphs for the top-bar weather chip (D112): each a different silhouette, so no kind is told by colour alone.
+function P.icon_wx_clear(p)
+  p:circle(6, 6, 3, C.sparkle)
+  for _, r in ipairs({ { 6, 0 }, { 6, 11 }, { 0, 6 }, { 11, 6 }, { 2, 2 }, { 9, 2 }, { 2, 9 }, { 9, 9 } }) do
+    p:px(r[1], r[2], C.sparkle)
+  end
+end
+
+function P.icon_wx_cloudy(p)
+  p:circle(4, 7, 3, C.stoneLight)
+  p:circle(8, 6, 3, C.stoneLight)
+  p:rect(2, 7, 9, 3, C.stoneLight)
+  p:rect(2, 10, 9, 1, C.stone)
+end
+
+function P.icon_wx_rain(p)
+  p:circle(4, 4, 3, C.stone)
+  p:circle(8, 3, 3, C.stone)
+  p:rect(2, 4, 9, 2, C.stone)
+  for _, x in ipairs({ 3, 6, 9 }) do
+    p:rect(x, 8, 1, 2, C.waterLight)
+    p:px(x - 1, 11, C.waterLight)
+  end
+end
+
+function P.icon_wx_windy(p)
+  p:rect(1, 3, 8, 1, C.white)
+  p:rect(9, 2, 2, 1, C.white)
+  p:px(10, 3, C.white)
+  p:rect(1, 6, 10, 1, C.white)
+  p:rect(1, 9, 6, 1, C.white)
+  p:rect(7, 9, 2, 1, C.white)
+  p:px(8, 8, C.white)
+end
+
+function P.icon_wx_storm(p)
+  p:circle(4, 3, 3, C.stoneDark)
+  p:circle(8, 3, 3, C.stoneDark)
+  p:rect(2, 3, 9, 2, C.stoneDark)
+  p:rect(6, 6, 2, 2, C.sparkle)
+  p:rect(4, 8, 3, 1, C.sparkle)
+  p:rect(5, 9, 2, 2, C.sparkle)
+end
+
 function P.icon_crate(p)
   p:rect(1, 3, 10, 8, C.barkLight)
   p:rect(1, 3, 10, 1, C.bark)
