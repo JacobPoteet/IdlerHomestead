@@ -1,12 +1,13 @@
 name: CI
 
-# Runs the headless test suite on every push to main and on every pull request.
-# Kept separate from build.yml (tag-triggered release build).
+# Runs the headless test suite and the formatter check on every push to main and on every pull request.
+# build.yml also calls this workflow (workflow_call), so a release tag cannot publish while tests fail.
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
@@ -16,6 +17,56 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  format:
+    name: Format (StyLua)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    # Informational until the tree is formatted with StyLua (about 140 files differ today, mostly aligned
+    # `=` padding). Remove this line to make it block merges once that pass lands.
+    continue-on-error: true
+    env:
+      # Pinned so a new StyLua release cannot reformat the tree under us. Keep in step with local installs.
+      STYLUA_VERSION: "2.0.2"
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Install StyLua
+        run: |
+          curl -fsSL --retry 5 --retry-delay 10 \
+            "https://github.com/JohnnyMorganz/StyLua/releases/download/v${STYLUA_VERSION}/stylua-linux-x86_64.zip" \
+            -o stylua.zip
+          mkdir -p ~/bin
+          unzip -o stylua.zip -d ~/bin
+          chmod +x ~/bin/stylua
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Show StyLua version
+        run: stylua --version
+
+      - name: Check formatting
+        # Config comes from .stylua.toml at the repo root (2-space indent, 120 columns).
+        run: stylua --check game tests tools
+
+  lint:
+    name: Lint (luacheck, informational)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    # Informational until the existing warnings are cleared. Remove this line to make it block merges.
+    continue-on-error: true
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Install luacheck
+        run: |
+          sudo apt-get -y install luarocks
+          sudo luarocks install luacheck
+
+      - name: Run luacheck
+        # Config comes from .luacheckrc at the repo root.
+        run: luacheck game tests tools
+
   tests:
     name: Tests (LÖVE 11.5)
     runs-on: ubuntu-22.04
@@ -28,7 +79,7 @@ jobs:
       SDL_AUDIODRIVER: dummy
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache LÖVE AppImage
         id: cache-love
@@ -70,8 +121,10 @@ jobs:
         if: always()
         run: |
           {
-            echo '### Test output'
+            echo '### Test result'
             echo '```'
-            tail -n 40 test-output.txt || true
+            # Every failure (with the lines of its traceback) plus the totals line. Falls back to the tail
+            # if the run died before printing a summary.
+            grep -E -A 4 '^FAIL |passed, [0-9]+ failed' test-output.txt || tail -n 40 test-output.txt || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

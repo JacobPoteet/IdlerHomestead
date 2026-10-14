@@ -12,8 +12,13 @@ permissions:
   issues: read
 
 jobs:
+  # Every build waits for the test suite and formatter check, so a tag cannot publish a build from red code.
+  tests:
+    uses: ./.github/workflows/ci.yml
+
   configure:
     name: Configure build
+    needs: [tests]
     runs-on: ubuntu-22.04
     outputs:
       android_build_tools_version: ${{ steps.set_build.outputs.android_build_tools_version }}
@@ -54,6 +59,12 @@ jobs:
         uses: ./.github/actions/get-env
         with:
           env_file: game/product.env
+      - name: Warn if release has no patch notes
+        if: ${{ github.ref_type == 'tag' }}
+        run: |
+          if [ ! -f "docs/patch-notes/${GITHUB_REF_NAME}.md" ]; then
+            echo "::warning::No hand-written patch notes at docs/patch-notes/${GITHUB_REF_NAME}.md. The release page will fall back to the closed-issue list. See docs/patch-notes/README.md."
+          fi
       - name: Set build parameters
         id: set_build
         shell: bash
@@ -501,7 +512,8 @@ jobs:
 
   build-android:
     if: ${{ needs.configure.outputs.target_android == 'true' }}
-    runs-on: ubuntu-20.04
+    # ubuntu-20.04 is retired on GitHub-hosted runners; keep this on a supported image.
+    runs-on: ubuntu-22.04
     needs: [configure]
     continue-on-error: true
     permissions:
