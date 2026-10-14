@@ -75,7 +75,7 @@ function Renderer:drawPowerLamp(anchor, def, x, y)
   love.graphics.setColor(1, 1, 1, 1)
 end
 
---- Status light on a drip line: blue while the cistern can feed it, red when the zone is dry.
+--- Status light on a drip line or sprinkler: blue while the cistern can feed it, red when the zone is dry.
 function Renderer:drawDripLamp(anchor, x, y)
   local world, v = self.world, self.world.tuning.visuals
   local size = v.powerLamp.size
@@ -546,7 +546,7 @@ function Renderer:draw(alpha, visible, daylight)
           elseif def.sink or (def.source and def.source.curve == "fuel") then
             self:drawPowerLamp(anchor, def, (x - 1) * tile + sprite.w - 4, bottom - sprite.h + 1)
           end
-          if def.drip then
+          if Water.irrigationKind(def) then
             self:drawDripLamp(anchor, (x - 1) * tile + sprite.w - 4, bottom - sprite.h + 1)
           end
           if def.waterSource and def.waterSource.stored then

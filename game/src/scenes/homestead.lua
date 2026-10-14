@@ -345,11 +345,12 @@ function Homestead:subscribe()
     events:on("weather.froze", function()
       self:newsToast("The creek froze. Cut a hole to fish or fetch water.")
     end),
-    events:on("water.dry", function()
-      self:queueToast("A drip line is dry. Fill the cistern or the crops need hand watering.")
+    events:on("water.dry", function(e)
+      local what = e.kind == "sprinkler" and "A sprinkler" or "A drip line"
+      self:queueToast(what .. " is dry. Fill the cistern or the crops need hand watering.")
     end),
-    events:on("water.restored", function()
-      self:queueToast("Drip lines are watering again.")
+    events:on("water.restored", function(e)
+      self:queueToast((e.kind == "sprinkler" and "Sprinklers are" or "Drip lines are") .. " watering again.")
     end),
     events:on("machine.unpowered", function(e)
       self:queueToast(name("objects", e.kind) .. " has ripe crops but no power")
@@ -2064,7 +2065,7 @@ function Homestead:drawOverlays()
   local zoneAnchor
   if self.selected and self.mode ~= "place" then
     local obj, anchor = Grid.object(world, self.selected)
-    zoneAnchor = obj and obj.drip and anchor or nil
+    zoneAnchor = obj and Water.irrigationKind(obj) and anchor or nil
   end
   if zoneAnchor then
     love.graphics.setColor(visuals.waterZone[Water.dripState(world, zoneAnchor) == "dry" and "dry" or "ok"])
@@ -2073,7 +2074,7 @@ function Homestead:drawOverlays()
       local wx, wy = camera:tileToWorld(x, y)
       love.graphics.rectangle("fill", wx, wy, tile, tile)
     end
-  elseif rangePreview and rangePreview.kind == "drip" then
+  elseif rangePreview and (rangePreview.kind == "drip" or rangePreview.kind == "sprinkler") then
     love.graphics.setColor(visuals.waterZone.ok)
     for _, i in ipairs(rangePreview.mine) do
       local x, y = Grid.coords(grid, i)
@@ -2574,8 +2575,9 @@ function Homestead:tileInfo(i)
       }
       lines[#lines + 1] = text[mode]
     end
-    if obj.drip then
+    if Water.irrigationKind(obj) then
       local mode = Water.dripState(world, anchor)
+      lines[#lines + 1] = string.format("Uses %g water per crop", Water.unitsPerWatering(world, anchor))
       local thirsty = Water.dripThirsty(world, anchor)
       if mode == "dry" then
         lines[#lines + 1] = "DRY: cistern empty"

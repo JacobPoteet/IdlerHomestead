@@ -9,6 +9,7 @@ return {
     shallow = 0.7, -- table value (0..1) at or above which the tile is described as "high" in the object card
   },
   dripUnitsPerWatering = 0.5, -- cistern units a drip line spends to water one crop (a bucket spends 1, so drip wastes less)
+  sprinklerUnitsPerWatering = 1.0, -- cistern units a sprinkler spends to water one crop (a full bucket slot, twice the drip line: it is cheap and wasteful, D118)
   pumpBatch = 1, -- cistern units a pump accumulates before it adds them (keeps the ledger from changing every tick)
   lowFraction = 0.2, -- cistern fill fraction (0..1) below which it is shown as low
 }

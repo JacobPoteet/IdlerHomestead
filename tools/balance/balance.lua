@@ -338,11 +338,12 @@ local function playRun(ctx, session, policyName, seed, years, features)
   -- Per-run facts read through public accessors.
   local water = Features.waterStats(world)
   result.counters.waterHand, result.counters.waterDrip = water.hand, water.drip
+  result.counters.waterSprinkler = water.sprinkler
   result.counters.waterPumped, result.counters.waterRained = water.pumped, water.rained
   result.counters.standUnits = Stand.total(world).units
   result.counters.machineHarvests = Machines.done(world)
   result.owned = {}
-  for _, id in ipairs({ "camp", "shack", "shelter_cat", "chicken_coop", "chicken_fence", "goat_pen", "goat_trailer", "cheese_press", "roadside_stand", "stand_sign", "stand_cooler", "stand_display", "well", "cistern", "dc_pump", "drip_line", "hand_pump", "solar_array", "battery_bank", "wind_turbine", "micro_hydro", "generator", "electric_heater", "lamp", "chest_freezer", "auto_harvester" }) do
+  for _, id in ipairs({ "camp", "shack", "shelter_cat", "chicken_coop", "chicken_fence", "goat_pen", "goat_trailer", "cheese_press", "roadside_stand", "stand_sign", "stand_cooler", "stand_display", "well", "cistern", "dc_pump", "sprinkler", "drip_line", "hand_pump", "solar_array", "battery_bank", "wind_turbine", "micro_hydro", "generator", "electric_heater", "lamp", "chest_freezer", "auto_harvester" }) do
     if Inventory.owns(world, id) then
       result.owned[id] = true
     end
@@ -762,8 +763,9 @@ function Balance.printFeatures(summary, years)
   )
   line(
     string.format(
-      "Water per run (mean): waterings by hand %.0f, by drip %.0f; cistern units pumped %.0f, rained %.0f; rain days %.1f, cloudy days %.1f",
+      "Water per run (mean): waterings by hand %.0f, by sprinkler %.0f, by drip %.0f; cistern units pumped %.0f, rained %.0f; rain days %.1f, cloudy days %.1f",
       q("waterHand").mean,
+      q("waterSprinkler").mean,
       q("waterDrip").mean,
       q("waterPumped").mean,
       q("waterRained").mean,
