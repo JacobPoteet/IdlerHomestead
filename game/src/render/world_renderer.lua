@@ -24,6 +24,7 @@ local Lighting = require("src.render.lighting")
 local WeatherFx = require("src.render.weather_fx")
 local Lights = require("src.render.lights")
 local EffectClock = require("src.render.effect_clock")
+local Wetness = require("src.render.wetness")
 local Ambient = require("src.render.ambient")
 local Settings = require("src.core.settings")
 
@@ -51,6 +52,7 @@ function Renderer.new(world)
     uiTime = 0, -- effect clock, real time
     clock = EffectClock.new(world.tuning.visuals.effectClock),
     fx = WeatherFx.new(world),
+    wetTint = { 1, 1, 1 }, -- this frame's colour multiplier for objects on wet land (rewritten in place, D124)
   }, Renderer)
   self:buildGround()
   self:buildWater()
@@ -387,6 +389,9 @@ function Renderer:draw(alpha, visible, daylight)
       frost = frost,
       frostReach = v.frostReach,
       frostColor = v.frostColor,
+      frostSnowColor = v.frostSnowColor,
+      frostSparkle = v.frostSparkle,
+      frostSparkleColor = v.frostSparkleColor,
       groundSize = { self.ground:getWidth(), self.ground:getHeight() },
     })
     love.graphics.setShader(groundShader)
@@ -411,8 +416,12 @@ function Renderer:draw(alpha, visible, daylight)
     end
   end
 
+  -- Rain darkens and cools everything standing on the wet land, then it dries with the ground (D124).
+  local tint = Wetness.objectTint(v.weather.wet, wet, self.wetTint)
+
   -- Fields
   local fields, crops = world.state.fields, world.state.crops
+  love.graphics.setColor(tint[1], tint[2], tint[3], 1)
   for i in pairs(fields.tilled) do
     if onScreen(i) then
       local x, y = Grid.coords(grid, i)
@@ -421,6 +430,7 @@ function Renderer:draw(alpha, visible, daylight)
       Assets.draw(wet and "tilled_wet" or "tilled_dry", (x - 1) * tile, (y - 1) * tile)
     end
   end
+  love.graphics.setColor(1, 1, 1, 1)
   local risky = {} -- crop id -> would a crop planted today be caught by the frost? (one answer per crop per frame)
   for i, cropId in pairs(fields.plan) do
     if not crops[i] and onScreen(i) then
@@ -475,9 +485,9 @@ function Renderer:draw(alpha, visible, daylight)
             return
           end
           if thirsty then
-            love.graphics.setColor(0.86, 0.80, 0.58, 1) -- thirsty
+            love.graphics.setColor(0.86 * tint[1], 0.80 * tint[2], 0.58 * tint[3], 1) -- thirsty
           else
-            love.graphics.setColor(1, 1, 1, 1)
+            love.graphics.setColor(tint[1], tint[2], tint[3], 1)
           end
           love.graphics.draw(sprite.image, sprite.quad, (x - 1) * tile, y * tile - sprite.h)
         end,
@@ -512,7 +522,7 @@ function Renderer:draw(alpha, visible, daylight)
       items[#items + 1] = {
         bottom,
         function()
-          love.graphics.setColor(1, 1, 1, 1)
+          love.graphics.setColor(tint[1], tint[2], tint[3], 1)
           if capShader then
             self:capSprite(capShader, sprite)
           end
@@ -525,8 +535,10 @@ function Renderer:draw(alpha, visible, daylight)
             love.graphics.setShader()
           end
           for _, look in ipairs(looks and looks[obj.id] or NO_LOOKS) do
+            love.graphics.setColor(tint[1], tint[2], tint[3], 1)
             love.graphics.draw(look.image, look.quad, (x - 1) * tile, bottom - look.h)
           end
+          love.graphics.setColor(1, 1, 1, 1) -- the tint is for the sprite itself, not the lamps and markers
           if obj.id == "truck" and TripMarker.visible(Market.canTrip(world), world.state.market.inTown) then
             local cfg = world.tuning.visuals.tripMarker
             local arrow = Assets.sprite("trip_marker")
@@ -640,6 +652,7 @@ function Renderer:swayShader()
     lean = cfg.lean,
     gust = cfg.gust,
     thirsty = cfg.thirsty,
+    wetTint = self.wetTint, -- set by draw() just before this runs (D124)
   })
   self.swayLast = nil -- the per-sprite uniforms (bounds, weight) are sent again when the sprite changes
   return shader
