@@ -505,6 +505,147 @@ T.test("drip: nothing is watered while the ground is frozen", function()
   T.eq(Ledger.get(world, "water"), 20)
 end)
 
+-- Sprinklers (D118) -----------------------------------------------------------------------------
+
+local SPRINKLER_COST = tun.water.sprinklerUnitsPerWatering
+
+local function sprinklerWorld(seed, stock)
+  local world = newWorld(seed)
+  local cistern = place(world, "cistern")
+  Ledger.add(world, "water", stock)
+  local sprinkler = place(world, "sprinkler", cistern)
+  return world, sprinkler
+end
+
+T.test("sprinkler: content, gate and cost (a full bucket slot, twice the drip line)", function()
+  local def, item = reg:get("objects", "sprinkler"), reg:get("catalog", "sprinkler")
+  T.eq(def.sprinkler.radius, reg:get("objects", "drip_line").drip.radius, "same 5x5 patch")
+  T.eq(SPRINKLER_COST, 1)
+  T.eq(SPRINKLER_COST, 2 * COST)
+  T.eq(#item.needs, 1)
+  T.eq(item.needs[1], "well_water")
+  T.eq(item.page, "water_soil")
+  T.eq(item.studyNights, 1)
+  T.falsy(item.unique, "repeatable (D114)")
+  T.falsy(def.replaces, "no upgrade chain with the drip line")
+  T.eq(reg:get("catalog", "drip_line").needs[1], "tank_filled", "the drip line keeps its own gate")
+  T.eq(Water.irrigationKind(def), "sprinkler")
+  T.eq(Water.irrigationKind(reg:get("objects", "drip_line")), "drip")
+  T.eq(Water.irrigationKind(reg:get("objects", "cistern")), nil)
+end)
+
+T.test("sprinkler: spends a full unit per crop, counted apart from drip lines", function()
+  local world, sprinkler = sprinklerWorld(9, 20)
+  local tile = freeTiles(world, sprinkler, 1)[1]
+  plantThirsty(world, tile)
+  local seen = collect(world, "water.dripped")
+  run(world, 0.5)
+  T.truthy(world.state.crops[tile].moisture > 0.9)
+  T.near(Ledger.get(world, "water"), 20 - SPRINKLER_COST, 1e-9)
+  T.eq(Water.stats(world).sprinkler, 1)
+  T.eq(Water.stats(world).drip, 0)
+  T.eq(#seen, 1)
+  T.eq(seen[1].kind, "sprinkler")
+  T.eq(Water.unitsPerWatering(world, sprinkler), 1)
+  T.eq(Water.dripState(world, sprinkler), "ok")
+end)
+
+T.test("sprinkler: only reaches its 5x5 patch", function()
+  local world, sprinkler = sprinklerWorld(9, 20)
+  T.eq(#Water.dripTiles(world, sprinkler) <= 25, true)
+  local covered = {}
+  for _, i in ipairs(Water.dripTiles(world, sprinkler)) do
+    covered[i] = true
+  end
+  local outside
+  for _, i in ipairs(freeTiles(world, sprinkler, 80)) do
+    if not outside and Grid.distance(world.state.grid, i, sprinkler) > 3 then
+      outside = i
+    end
+  end
+  plantThirsty(world, outside)
+  run(world, 0.5)
+  T.eq(world.state.crops[outside].moisture, 0)
+  T.eq(Water.stats(world).sprinkler, 0)
+end)
+
+-- A tile both `a` and `b` cover that can hold a crop.
+local function sharedTile(world, a, b)
+  local mine = {}
+  for _, i in ipairs(Water.dripTiles(world, a)) do
+    mine[i] = true
+  end
+  for _, i in ipairs(Water.dripTiles(world, b)) do
+    if mine[i] and not world.occupancy[i] and Grid.terrain(world, i).tillable then
+      return i
+    end
+  end
+end
+
+T.test("sprinkler: overlapping sprinklers, or a sprinkler and a drip line, water a crop once", function()
+  for _, other in ipairs({ "sprinkler", "drip_line" }) do
+    local world, sprinkler = sprinklerWorld(9, 20)
+    local second = place(world, other, sprinkler)
+    local tile = sharedTile(world, sprinkler, second)
+    T.truthy(tile, "a tile both cover")
+    plantThirsty(world, tile)
+    run(world, 1)
+    local firstAnchor = math.min(sprinkler, second)
+    local paid = Water.unitsPerWatering(world, firstAnchor)
+    T.near(20 - Ledger.get(world, "water"), paid, 1e-9, "paid once, by the first anchor (" .. other .. ")")
+    local s = Water.stats(world)
+    T.eq(s.sprinkler + s.drip, 1)
+  end
+end)
+
+T.test("sprinkler: a stock under one unit is dry for it, but not for a drip line", function()
+  local world, sprinkler = sprinklerWorld(9, 0.7)
+  local drip = place(world, "drip_line", sprinkler)
+  T.eq(Water.dripState(world, sprinkler), "dry", "0.7 is under a full unit")
+  T.eq(Water.dripState(world, drip), "ok", "but over the drip line's half unit")
+  local tile = freeTiles(world, sprinkler, 1)[1]
+  plantThirsty(world, tile)
+  local dry, restored = collect(world, "water.dry"), collect(world, "water.restored")
+  -- Only the sprinkler covers this crop? Both do (they stand together), so the drip line, which comes later
+  -- or earlier by anchor, may water it. Move the drip line out of the picture to test the sprinkler alone.
+  Grid.removeObject(world, drip)
+  run(world, 2)
+  T.eq(world.state.crops[tile].moisture, 0)
+  T.eq(Water.dripThirsty(world, sprinkler), 1)
+  T.eq(#dry, 1, "announced once")
+  T.eq(dry[1].kind, "sprinkler")
+  T.near(Ledger.get(world, "water"), 0.7, 1e-9, "nothing spent")
+  Ledger.add(world, "water", 5)
+  run(world, 0.5)
+  T.truthy(world.state.crops[tile].moisture > 0.9)
+  local other = freeTiles(world, sprinkler, 3)[3]
+  plantThirsty(world, other)
+  run(world, 0.5)
+  T.eq(#restored, 1)
+  T.eq(restored[1].kind, "sprinkler")
+  T.eq(Water.dripState(world, sprinkler), "ok")
+end)
+
+T.test("sprinkler: nothing is sprayed while the ground is frozen", function()
+  local world, sprinkler = sprinklerWorld(9, 20)
+  setTime(world, 22, 12)
+  plantThirsty(world, freeTiles(world, sprinkler, 1)[1])
+  run(world, 1)
+  T.eq(Water.dripState(world, sprinkler), "frozen")
+  T.eq(Ledger.get(world, "water"), 20)
+end)
+
+T.test("sprinkler: can be picked up and put back (D98)", function()
+  local Placement = require("src.sim.systems.placement")
+  local world, sprinkler = sprinklerWorld(9, 20)
+  T.truthy(Placement.pickUp(world, sprinkler))
+  T.falsy(Grid.object(world, sprinkler))
+  T.eq(Inventory.objectCount(world, "sprinkler"), 1)
+  T.truthy(Inventory.canPlace(world, "sprinkler", sprinkler))
+  T.truthy(Inventory.place(world, "sprinkler", sprinkler))
+  T.eq(Water.irrigationKind(Grid.object(world, sprinkler)), "sprinkler")
+end)
+
 -- Whole ladder -----------------------------------------------------------------------------------
 
 -- A world with the whole ladder built a few tiles from the start (so the homesteader is not boxed

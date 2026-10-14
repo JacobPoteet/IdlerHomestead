@@ -905,6 +905,15 @@ function P.drip_line(p)
   end
 end
 
+function P.sprinkler(p)
+  p:rect(7, 7, 2, 5, C.metal) -- riser
+  p:rect(5, 12, 6, 2, C.metal) -- base
+  p:rect(6, 5, 4, 2, HOSE) -- head
+  for _, e in ipairs({ { 3, 3 }, { 12, 3 }, { 4, 5 }, { 11, 5 }, { 2, 6 }, { 13, 6 }, { 8, 2 }, { 6, 3 }, { 10, 3 } }) do -- spray
+    p:px(e[1], e[2], C.water)
+  end
+end
+
 -- Chickens (GDD §7.7, D63) ----------------------------------------------------------------
 
 local HEN_BODY = { 0.80, 0.50, 0.28 }
@@ -1328,6 +1337,15 @@ function P.icon_drip_line(p)
   p:rect(1, 6, 10, 1, HOSE)
   p:rect(5, 2, 1, 5, HOSE)
   for _, e in ipairs({ { 2, 7 }, { 9, 7 }, { 5, 3 }, { 2, 5 }, { 9, 5 } }) do
+    p:px(e[1], e[2], C.water)
+  end
+end
+
+function P.icon_sprinkler(p)
+  p:rect(5, 5, 2, 5, C.metal)
+  p:rect(3, 9, 6, 2, C.metal)
+  p:rect(4, 3, 4, 2, HOSE)
+  for _, e in ipairs({ { 1, 2 }, { 10, 2 }, { 2, 4 }, { 9, 4 }, { 5, 1 }, { 6, 1 } }) do
     p:px(e[1], e[2], C.water)
   end
 end

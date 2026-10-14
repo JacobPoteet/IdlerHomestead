@@ -135,6 +135,7 @@ local SHOPPING = {
       return nearWinter(world, 2)
     end,
   },
+  { id = "sprinkler", feature = "water", count = 2 },
   { id = "dc_pump", feature = "water" },
   { id = "drip_line", feature = "water", count = 2 },
   { id = "lamp", feature = "power" },
@@ -267,7 +268,7 @@ local function centroid(world, tiles)
 end
 
 -- Which objects go by the field instead of by the truck.
-local BY_FIELD = { well = true, hand_pump = true, cistern = true, dc_pump = true, drip_line = true, auto_harvester = true }
+local BY_FIELD = { well = true, hand_pump = true, cistern = true, dc_pump = true, sprinkler = true, drip_line = true, auto_harvester = true }
 
 --- An upgrade object (the shack, D115) goes over the building it replaces. Returns nil when `id` is not an
 --- upgrade of something standing (place it like any other object), else whether it was placed.
@@ -320,7 +321,7 @@ function Features.place(world, id, ringFrom)
       local d = math.max(math.abs(x - cx), math.abs(y - cy))
       if BY_FIELD[id] or d >= ringFrom then
         local score = d
-        local reach = (def.drip and def.drip.radius) or (def.machine and def.machine.radius)
+        local reach = (def.sprinkler and def.sprinkler.radius) or (def.drip and def.drip.radius) or (def.machine and def.machine.radius)
         if reach then
           local covered, r = 0, reach
           for dy = -r, r do
@@ -460,7 +461,7 @@ end
 --- Water facts for the report: waterings by hand / drip, units pumped / rained, cistern owned.
 function Features.waterStats(world)
   local s = Water.stats(world)
-  return { hand = s.hand, drip = s.drip, pumped = s.pumped, rained = s.rained, cistern = Water.hasCistern(world) and 1 or 0 }
+  return { hand = s.hand, drip = s.drip, sprinkler = s.sprinkler or 0, pumped = s.pumped, rained = s.rained, cistern = Water.hasCistern(world) and 1 or 0 }
 end
 
 return Features

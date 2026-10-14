@@ -14,6 +14,7 @@ local RangePreview = {}
 local KINDS = {
   { field = "machine", tiles = Machines.areaTiles },
   { field = "drip", tiles = Water.dripTiles },
+  { field = "sprinkler", tiles = Water.dripTiles },
 }
 
 --- The range kind of an object definition and its radius in tiles, or nil when it has no range.
