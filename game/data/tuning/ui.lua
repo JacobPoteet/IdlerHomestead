@@ -78,7 +78,7 @@ return {
   },
   captions = { -- one line saying what the tool in hand does on the next tap (D72, #168); %s is the seed or object name
     rod = "Rod: tap the water to fish",
-    untill = "Untill: tap tilled soil to turn it back to grass",
+    untill = "Untill: tap a crop to pull it, tap bare tilled soil to turn it back to grass",
     seed = "%s in hand: tap open ground to till and plant",
     plan = "Plan field: tap two corners",
     planSeed = "Plan %s: tap two corners (double-tap Plan to keep on)",
@@ -136,7 +136,9 @@ return {
     cancelled = "Cancelled the %s order",
     done = "Built the %s",
     lostItem = "The %s order was dropped",
-    noUntill = "Only tilled soil without a crop can be untilled",
+    noUntill = "Only tilled soil can be untilled",
+    pullCrop = "Pulling the %s. Nothing is refunded", -- toast when Untill is aimed at a planted crop (%s: crop name, lower case, #254)
+    pulledCrop = "Pulled the %s", -- toast when the homesteader finishes pulling it (#254)
     moveTitle = "Move %s here?", -- move preview/confirmation card (D98, #15)
     moveOrderTitle = "Waiting to move: %s",
     moveSteps = "The homesteader clears the way, then the %s moves. It stays where it is until then.",

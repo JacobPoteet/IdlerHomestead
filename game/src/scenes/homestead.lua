@@ -241,6 +241,12 @@ function Homestead:subscribe()
         self:queueToast(string.format("%s: %s", what, p.orderUnreachable))
       end
     end),
+    -- The Untill tool pulled a planted crop (#254).
+    events:on("crop.removed", function(e)
+      if e.cause == "untill" then
+        self:queueToast(string.format(self.app.ctx.tuning.ui.placement.pulledCrop, name("crops", e.crop):lower()))
+      end
+    end),
     events:on("placement.done", function(e)
       self:queueToast(string.format(self.app.ctx.tuning.ui.placement.done, name("objects", e.object):lower()))
     end),
@@ -1814,6 +1820,10 @@ function Homestead:tap(i)
       -- Tilling or planting a crop that cannot ripen in time says so (D70, #165), once a day per crop;
       -- the order still goes ahead.
       local late = (taskType.id == "till" or taskType.id == "plant") and self:frostWarning(self.seed)
+      local crop = taskType.id == "untill" and world.state.crops[i]
+      if crop then
+        late = string.format(self.app.ctx.tuning.ui.placement.pullCrop, world.registry:get("crops", crop.id).name:lower())
+      end
       self:showToast(late or taskType.verb)
     end
   elseif full then

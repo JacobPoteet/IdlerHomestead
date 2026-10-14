@@ -505,18 +505,24 @@ local function registerTasks(world)
       end
     end,
     canDo = function(w, _, i, order)
-      if not fields.tilled[i] or w.state.crops[i] or w.occupancy[i] then
+      if not fields.tilled[i] or w.occupancy[i] then
         return false
       end
       if order then
-        return order.tool == "untill"
+        return order.tool == "untill" -- the player's tool also pulls a planted crop (#254)
       end
-      return w.tuning.farming.routineUntill and not fields.plan[i] and not fields.held[i]
+      return w.tuning.farming.routineUntill and not w.state.crops[i] and not fields.plan[i] and not fields.held[i]
     end,
     workTime = function(w)
       return w.tuning.farming.untillTime
     end,
     complete = function(w, _, i)
+      if w.state.crops[i] then
+        -- A planted crop (#254): pull it and drop the plan, leaving bare tilled soil (the prepared state);
+        -- no refund, same as covering it with a building. Untill again turns the soil back to grass.
+        Crops.cover(w, i, "untill", true)
+        return
+      end
       fields.tilled[i] = nil
       fields.plan[i] = nil
       w.events:emit("field.untilled", { tile = i })
