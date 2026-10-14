@@ -4,11 +4,14 @@
 -- shape as the save backends) so tests and the screenshot driver use memory and never touch the
 -- player's real settings file.
 --
--- File: { version = 1, values = { id = value }, window = { w, h, x, y } | nil }. A missing, corrupt or
+-- File: { version = 1, values = { id = value }, window = { w, h, x, y } | nil, keys = { action = key } | nil }.
+-- `keys` are the key rebinding overrides (D121); they are not options and are merged over the defaults by
+-- src/core/key_bindings.lua. A missing, corrupt or
 -- partly bad file never errors: bad entries fall back to the default.
 
 local serialize = require("src.core.serialize")
 local Options = require("src.core.settings_options")
+local KeyBindings = require("src.core.key_bindings")
 
 local Settings = {}
 Settings.__index = Settings
@@ -26,6 +29,7 @@ function Settings.new(backend, tuning)
     options = Options.build(tuning),
     values = {},
     window = nil,
+    keys = {}, -- key rebinding overrides { action = key }, always sanitized (src/core/key_bindings.lua)
     listeners = {},
   }, Settings)
   self.byId = {}
@@ -156,12 +160,31 @@ function Settings:setWindow(w, h, x, y)
   end
 end
 
+--- The key rebinding overrides { action = key } (a copy; empty when everything is at its default).
+function Settings:keyOverrides()
+  local out = {}
+  for action, key in pairs(self.keys) do
+    out[action] = key
+  end
+  return out
+end
+
+--- Replace the key overrides (cleaned first). Listeners are told with id "keyBindings".
+function Settings:setKeyOverrides(overrides, silent)
+  self.keys = KeyBindings.sanitize(self.tuning.input, overrides)
+  if not silent then
+    for _, fn in ipairs(self.listeners) do
+      fn("keyBindings", self:keyOverrides())
+    end
+  end
+end
+
 function Settings:encode()
   local values = {}
   for id, v in pairs(self.values) do
     values[id] = v
   end
-  return serialize.encode({ version = Settings.FORMAT_VERSION, values = values, window = self.window })
+  return serialize.encode({ version = Settings.FORMAT_VERSION, values = values, window = self.window, keys = next(self.keys) and self.keys or nil })
 end
 
 --- Apply file contents (a string) over the defaults. Returns true if it was usable.
@@ -179,6 +202,7 @@ function Settings:decode(text)
       end
     end
   end
+  self.keys = KeyBindings.sanitize(self.tuning.input, data.keys)
   local w = data.window
   if type(w) == "table" then
     self:setWindow(w.w, w.h, w.x, w.y)

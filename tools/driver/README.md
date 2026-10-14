@@ -120,3 +120,5 @@ Also `money` (D88: the first-junk money card and the Catalog line when money is 
 Also `topbar` (D112, #267: the top-bar chips with their fill bars, level marks, trend arrows and weather glyphs in a mixed, a fine and a short state, and the short modal of every chip; finals are `docs/screens/topbar_*`).
 
 Also `greatwinter` (D117, #277: the full, named forecast pill on the first day of autumn of the Great Winter's year, the winter itself, and the one-time Established card on the first thaw; finals are `docs/screens/greatwinter-*`).
+
+Also `controls` (D121, #237: Settings > Controls, a rebind with "Press a key...", a reserved key, a conflict with Swap and Keep, per-row and global reset; finals are `docs/screens/controls-*`).

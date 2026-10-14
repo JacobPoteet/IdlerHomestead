@@ -354,5 +354,12 @@ return {
     tomorrowLabel = "Tomorrow", -- weather modal: the second day
     inDaysLabel = "In %d days", -- weather modal: later days
   },
+  controls = { -- Settings > Controls screen (D121)
+    bandHeight = 54, -- virtual pixels: the message strip under the title (hint, "Press a key...", conflict question)
+    rowGap = 6, -- virtual pixels between binding rows
+    keyWidth = 76, -- virtual pixels: the key button of a row (shows the current key, or "Press a key...")
+    resetWidth = 48, -- virtual pixels: the per-row Reset button
+    buttonGap = 4, -- virtual pixels between a row's buttons
+  },
   startRoutineHint ="Starts the routine now. It waters, plants, harvests and chops for you; any tap ends it.", -- toast when the routine starts
 }

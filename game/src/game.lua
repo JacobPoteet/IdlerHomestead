@@ -76,7 +76,11 @@ function Game.new(opts)
   Assets.load()
   self:resize(love.graphics.getDimensions())
   ctx.settings:applyAll(platform, self:settingsEnv())
-  ctx.settings:onChange(function(id)
+  input:setKeyOverrides(ctx.settings:keyOverrides())
+  ctx.settings:onChange(function(id, value)
+    if id == "keyBindings" then
+      input:setKeyOverrides(value)
+    end
     ctx.settings:apply(id, self:settingsEnv())
     ctx.settings:save()
   end)
