@@ -91,6 +91,11 @@ return {
     planGhostAlpha = 0.5, -- 0..1 opacity of the faint sprout drawn on a planned tile (a plant it is not yet)
     nightLift = 0.4, -- 0..1 extra brightness added to crop sprites at full darkness, so a graded sprout keeps contrast against the dark soil
   },
+  rangePreview = { -- placement range preview (#268, D108): the ranges of placed items of the same kind, and where they overlap the one being placed
+    others = { 0.75, 0.80, 0.85, 0.10 }, -- dimmed tint over a placed item's range (rgba)
+    othersEdge = { 0.75, 0.80, 0.85, 0.45 }, -- outline of each placed item's range (rgba), so touching ranges stay distinct
+    overlap = { 1.00, 0.30, 0.25, 0.45 }, -- tint over tiles that two ranges both cover (rgba); strong enough to read over the other tints
+  },
   shelter = { -- shelter ladder (D82)
     zone = { 1.00, 0.62, 0.22, 0.20 }, -- warm tint over the heater slot of a shelter (selected, being placed, or while placing a heat source)
   },
