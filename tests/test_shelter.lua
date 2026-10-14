@@ -94,11 +94,12 @@ T.test("shelter: insulation scales tonight's warmth need and winter readiness re
   T.near(Needs.warmthNeeded(world), raw, 1e-9)
   local aheadTruck = Readiness.warmthAhead(world)
   local winterTruck = Readiness.winter(world)
-  placeNear(world, "camp", 3)
+  local campAt = placeNear(world, "camp", 3)
   T.eq(Shelter.id(world), "camp")
   T.near(Needs.warmthNeeded(world), raw * reg:get("objects", "camp").insulation, 1e-9)
   T.near(Readiness.warmthAhead(world), aheadTruck * reg:get("objects", "camp").insulation, 1e-6)
-  placeNear(world, "shack", 6)
+  Inventory.addObject(world, "shack") -- the upgrade goes over the camp (D115)
+  T.truthy(Inventory.place(world, "shack", campAt))
   T.eq(Shelter.id(world), "shack")
   local shackInsulation = reg:get("objects", "shack").insulation
   T.near(Needs.warmthNeeded(world), raw * shackInsulation, 1e-9)
@@ -167,7 +168,16 @@ T.test("sleep: the best reachable shelter is the bed, and the night's event name
   T.eq(Sleep.bedJob(world, actor).target, truck, "only the truck at first")
   local camp = placeNear(world, "camp", 3)
   T.eq(Sleep.bedJob(world, actor).target, camp, "a camp beats the truck")
-  local shack = placeNear(world, "shack", 6)
+  -- A camp and a shack side by side cannot be built through the shop (D115); set the shack down directly.
+  local shack, shackD
+  for i = 1, #world.state.grid.terrain do
+    local check = Inventory.check(world, "shack", i)
+    local d = Grid.distance(world.state.grid, truck, i)
+    if check.rule == "replace" and #check.clear == 0 and #check.crops == 0 and d >= 6 and (not shackD or d < shackD) then
+      shack, shackD = i, d
+    end
+  end
+  T.truthy(shack and Grid.placeObject(world, "shack", Grid.coords(world.state.grid, shack)), "a shack beside the camp")
   local job = Sleep.bedJob(world, actor)
   T.eq(job.target, shack, "a shack beats the camp, however near the camp is")
   local started = {}

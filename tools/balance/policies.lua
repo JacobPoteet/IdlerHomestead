@@ -117,6 +117,10 @@ end
 --- Place `id` from the inventory on the nearest free tile in the rings around the truck.
 --- (Heat sources go around the best shelter instead, so they sit in its heater slot, D82.)
 local function placeNearTruck(world, id)
+  local upgraded = Features.placeUpgrade(world, id)
+  if upgraded ~= nil then
+    return upgraded
+  end
   local grid = world.state.grid
   local def = world.registry:get("objects", id)
   local center = world.state.land.truck

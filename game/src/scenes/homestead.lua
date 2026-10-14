@@ -1768,7 +1768,7 @@ function Homestead:tap(i)
       self.placeCard = nil
       self:showToast(PlaceText.reason(world, preview.reason, preview.rule))
       self:layoutCard()
-    elseif preview.immediate then
+    elseif preview.immediate and #preview.replaces == 0 then
       self.placeCard = nil
       local name = world.registry:get("objects", self.placing).name:lower()
       if self:requestHere(i) == "placed" then
@@ -2170,8 +2170,11 @@ function Homestead:drawOverlays()
     local sprite = Assets.sprite(self.placing)
     local x, y = Grid.coords(grid, target)
     local preview = Placement.preview(world, self.placing, target, self.moving)
+    local replaceTag = PlaceText.replaceTag(world, self.placing, preview)
     if not preview.ok then
       love.graphics.setColor(1, 0.45, 0.45, 0.7)
+    elseif replaceTag then
+      love.graphics.setColor(0.65, 0.85, 1, 0.75) -- an upgrade over the old building (D115): cool tint, the old one outlined
     elseif preview.immediate then
       love.graphics.setColor(0.6, 1, 0.6, 0.7)
     else
@@ -2180,6 +2183,25 @@ function Homestead:drawOverlays()
     local bottom = (y - 1 + (def.footprintH or 1)) * tile
     love.graphics.draw(sprite.image, sprite.quad, (x - 1) * tile, bottom - sprite.h)
     if preview.ok then
+      for _, old in ipairs(preview.replaces) do
+        local odef = world.registry:get("objects", grid.objects[old].id)
+        local ox, oy = Grid.coords(grid, old)
+        for _, t in ipairs(Grid.footprintTiles(grid, odef, ox, oy)) do
+          outlineTile(camera, t, grid, theme.colors.accent, 3) -- the building that goes away
+        end
+      end
+      if replaceTag then
+        local wx, wy = camera:tileToWorld(x, y)
+        local z = camera:zoom()
+        love.graphics.push()
+        love.graphics.translate(wx, bottom - sprite.h)
+        love.graphics.scale(1 / z, 1 / z)
+        local tw, th = Text.measure(replaceTag, "small")
+        love.graphics.setColor(0, 0, 0, 0.7)
+        love.graphics.rectangle("fill", 0, -th - 4, tw + 6, th + 2)
+        Text.draw(replaceTag, 3, -th - 3, { size = "small", color = theme.colors.accent })
+        love.graphics.pop()
+      end
       for _, c in ipairs(preview.clear) do
         outlineTile(camera, c.anchor, grid, theme.colors.accent, 2)
       end
@@ -2583,6 +2605,15 @@ function Homestead:tileInfo(i)
       local cap, today = Stand.cap(world), Stand.todayCap(world)
       lines[#lines + 1] = today < cap and string.format("Up to %d today (cap %d)", today, cap) or string.format("Sells up to %d a day", cap)
       lines[#lines + 1] = string.format("Pays %d%% of town price", math.floor(world.tuning.stand.priceFraction * 100 + 0.5))
+      local have, missing = {}, {}
+      for _, tier in ipairs(Stand.tiers(world)) do
+        local list = tier.owned and have or missing
+        list[#list + 1] = tier.name:lower()
+      end
+      lines[#lines + 1] = string.format("Upgrades: %s", #have > 0 and table.concat(have, ", ") or "none yet")
+      if #missing > 0 then
+        lines[#lines + 1] = "Can add: " .. table.concat(missing, ", ")
+      end
       local last = Stand.last(world)
       if last then
         lines[#lines + 1] = string.format("Day %d: %d sold, $%d", last.day, last.units, last.earned)

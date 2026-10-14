@@ -5,6 +5,11 @@
 --   gives: resources added on arrival. object: a placeable object added to your inventory.
 --   equipment: an item kept for the run whose `modifiers` adjust stats (see src/sim/stats.lua).
 --   pickupOnly: can only be bought on a truck trip.
+--   unique: one ever (D114). Equipment is always one per run; a unique object counts from the order until it
+--   is lost (ordered, in the inventory, or placed), so a second purchase is refused with a reason. Items with
+--   neither flag are repeatable (pens, cisterns, power gear, ...) or consumables (`gives` only).
+--   replaces / replacesLabel: an upgrade that supersedes another item (D115). upgrades + overlay: equipment that
+--   changes the look of a building (the roadside stand tiers, D116).
 return {
   { id = "radish_seeds", name = "Radish seeds x5", line = "Fast crop, a light meal.", page = "seeds", price = 4, starter = true, gives = { seed_radish = 5 } },
   { id = "potato_seeds", name = "Seed potatoes x3", line = "Slow crop that keeps for winter.", page = "seeds", price = 6, starter = true, gives = { seed_potato = 3 } },
@@ -18,6 +23,7 @@ return {
     price = 10,
     starter = true,
     equipment = true,
+    unique = true,
     modifiers = { rod = 1 },
   },
   {
@@ -30,6 +36,7 @@ return {
     needs = { "first_catch", "fish_spoil" },
     studyNights = 2,
     object = "smoker",
+    unique = true,
   },
   {
     id = "sturdy_rod",
@@ -40,6 +47,8 @@ return {
     needs = { "first_catch", "one_got_away" },
     studyNights = 1,
     equipment = true,
+    unique = true,
+    replaces = "basic_rod",
     modifiers = { rod = 1, maxTension = 0.25, reelSpeed = 0.15 },
   },
   {
@@ -51,6 +60,8 @@ return {
     needs = { "bucket_hauling" },
     studyNights = 1,
     equipment = true,
+    unique = true,
+    replacesLabel = "plain bucket",
     modifiers = { bucketCapacity = 4 },
   },
   {
@@ -63,6 +74,7 @@ return {
     needs = { "felled_tree" },
     studyNights = 1,
     equipment = true,
+    unique = true,
     modifiers = { chopSpeed = 1 },
   },
   {
@@ -74,6 +86,7 @@ return {
     needs = { "first_fire" },
     studyNights = 2,
     object = "woodshed",
+    unique = true,
   },
   {
     id = "wood_stove",
@@ -84,6 +97,7 @@ return {
     needs = { "first_fire", "cold_night" },
     studyNights = 3,
     object = "wood_stove",
+    unique = true,
   },
   -- Shelter ladder (D82). The truck is the first rung; each night spent on a rung writes the note that
   -- makes the next one an idea. Prices are tuned so the harness can afford the camp by the first
@@ -97,6 +111,7 @@ return {
     needs = { "truck_cold" },
     studyNights = 2,
     object = "camp",
+    unique = true,
   },
   {
     id = "shack",
@@ -107,6 +122,8 @@ return {
     needs = { "camp_cold" },
     studyNights = 3,
     object = "shack",
+    unique = true,
+    replaces = "camp",
   },
   {
     id = "used_panel",
@@ -190,6 +207,7 @@ return {
     needs = { "cold_night", "full_battery" },
     studyNights = 2,
     object = "electric_heater",
+    unique = true,
   },
   {
     id = "lamp",
@@ -210,6 +228,7 @@ return {
     needs = { "produce_spoils", "fish_spoil" },
     studyNights = 2,
     object = "chest_freezer",
+    unique = true,
   },
   -- Water ladder (GDD §5.3). Each rung needs the one before it: a well and a hand pump need a spot
   -- with a high water table; the cistern, solar pump and drip lines turn that into hands-off water.
@@ -273,6 +292,7 @@ return {
     needs = { "mice_raid" },
     studyNights = 1,
     equipment = true,
+    unique = true,
   },
   -- Chickens (GDD §7.7, D63). The coop comes with a first sack of feed; hens are pickup only (animals
   -- ride home in the truck) and need a placed coop with room. Feed refills and the fence are learned
@@ -344,6 +364,7 @@ return {
     needs = { "first_egg", "first_trip" },
     studyNights = 2,
     equipment = true,
+    unique = true,
   },
   {
     id = "goats",
@@ -376,6 +397,7 @@ return {
     needs = { "first_milk", "produce_spoils" },
     studyNights = 2,
     object = "cheese_press",
+    unique = true,
   },
   -- Machines (GDD §5.3 rung 3, §7.4, D65): a mid-game goal once the field is big and the power is up.
   {
@@ -400,6 +422,7 @@ return {
     needs = { "first_trip", "produce_spoils" },
     studyNights = 2,
     object = "roadside_stand",
+    unique = true,
   },
   {
     id = "stand_sign",
@@ -410,6 +433,9 @@ return {
     needs = { "stand_sale" },
     studyNights = 1,
     equipment = true,
+    unique = true,
+    upgrades = "roadside_stand",
+    overlay = "stand_sign_look",
     modifiers = { standCap = 3 },
   },
   {
@@ -421,6 +447,9 @@ return {
     needs = { "stand_sale", "fish_spoil" },
     studyNights = 2,
     equipment = true,
+    unique = true,
+    upgrades = "roadside_stand",
+    overlay = "stand_cooler_look",
     modifiers = { standCap = 4 },
   },
   {
@@ -432,6 +461,9 @@ return {
     needs = { "stand_sale", "regulars" },
     studyNights = 2,
     equipment = true,
+    unique = true,
+    upgrades = "roadside_stand",
+    overlay = "stand_display_look",
     modifiers = { standCap = 5 },
   },
   -- Threat countermeasures (D67): each is learned from the note its threat writes when it strikes,

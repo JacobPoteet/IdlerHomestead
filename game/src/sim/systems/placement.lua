@@ -251,6 +251,20 @@ local function lift(world, anchor)
   return obj
 end
 
+--- Take the building at `anchor` off the land because an upgrade goes up over it (D115): nothing returns to the
+--- inventory and nothing is refunded. Called by Inventory.place after its `check` allowed the replacement.
+--- Returns the removed object's record ({ id, tilled? }); its soil is the caller's to hand on.
+function Placement.replaceLift(world, anchor)
+  dropMoves(world, anchor, "pickedup")
+  local def, obj = placedDef(world, anchor)
+  local x, y = Grid.coords(world.state.grid, anchor)
+  dropJobsOn(world, Grid.footprintTiles(world.state.grid, def, x, y))
+  Grid.removeObject(world, anchor)
+  Power.forget(world, anchor)
+  Power.refresh(world)
+  return obj
+end
+
 --- Put the object at `anchor` back in the inventory (instant: placing on clear ground is too). Returns true, or
 --- nil plus the `pickUpCheck` result when refused. A finished batch waiting in a station is discarded (the UI
 --- asks first); a battery's charge is lost; tilled soil it covered is tilled again, everything else is grass.
@@ -535,6 +549,8 @@ function Placement.tick(world)
     end
     if gone then
       drop(world, index, "item")
+    elseif check.rule == "replaceAsleep" then
+      index = index + 1 -- the old bed is in use tonight: the order waits until the homesteader is up (D115)
     elseif not check.ok then
       drop(world, index, check.reason) -- something that can't be cleared now stands there
     else
