@@ -96,6 +96,10 @@ return {
     othersEdge = { 0.75, 0.80, 0.85, 0.45 }, -- outline of each placed item's range (rgba), so touching ranges stay distinct
     overlap = { 1.00, 0.30, 0.25, 0.45 }, -- tint over tiles that two ranges both cover (rgba); strong enough to read over the other tints
   },
+  replacePreview = { -- planning over growing crops (D110, #257): tiles whose crop the plan would pull
+    fill = { 0.90, 0.20, 0.15, 0.40 }, -- red tint over a tile that will be replaced (rgba)
+    edge = { 1.00, 0.85, 0.80, 0.90 }, -- the X drawn on it (rgba), readable over the tint on any soil
+  },
   shelter = { -- shelter ladder (D82)
     zone = { 1.00, 0.62, 0.22, 0.20 }, -- warm tint over the heater slot of a shelter (selected, being placed, or while placing a heat source)
   },

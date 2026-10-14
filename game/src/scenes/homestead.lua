@@ -1603,20 +1603,47 @@ function Homestead:inWorldArea(y)
   return y > self.topH and y < self.app.view.h - self.bottomH
 end
 
-function Homestead:applyPlan(a, b)
+-- The tiles of the rectangle between tiles a and b, row by row.
+function Homestead:rectTiles(a, b)
   local grid = self.world.state.grid
   local ax, ay = Grid.coords(grid, a)
   local bx, by = Grid.coords(grid, b)
-  local count = 0
+  local tiles = {}
   for y = math.min(ay, by), math.max(ay, by) do
     for x = math.min(ax, bx), math.max(ax, bx) do
-      if Crops.setPlan(self.world, Grid.index(grid, x, y), self.seed) and self.seed then
-        count = count + 1
-      end
+      tiles[#tiles + 1] = Grid.index(grid, x, y)
     end
   end
+  return tiles
+end
+
+--- Plan the rectangle a..b with the seed in hand. Every tile growing a crop (the same kind too) is replaced (D110, #257): the
+--- player confirms once, and the card says what is lost. Clearing never pulls a crop.
+function Homestead:applyPlan(a, b)
+  local tiles = self:rectTiles(a, b)
+  local preview = self.seed and Crops.replacePreview(self.world, tiles, self.seed)
+  if preview and #preview.tiles > 0 then
+    local p = self.app.ctx.tuning.ui.placement
+    local text = PlaceText.replaceConfirm(self.world, preview, self.seed)
+    self.app:push(require("src.scenes.confirm").new({
+      title = text.title,
+      message = text.text,
+      confirmLabel = p.replaceLabel,
+      danger = true,
+      onConfirm = function()
+        self:finishPlan(tiles)
+      end,
+    }))
+    return
+  end
+  self:finishPlan(tiles)
+end
+
+function Homestead:finishPlan(tiles)
+  local result = Crops.planReplacing(self.world, tiles, self.seed)
+  local count = result.planned
   if self.seed then
-    self:showToast(string.format("Planned %d tiles of %s. Tilling and planting start now", count,self.world.registry:get("crops", self.seed).name))
+    self:showToast(string.format("Planned %d tiles of %s. Tilling and planting start now", count, self.world.registry:get("crops", self.seed).name))
     local late = count > 0 and AlertText.frost(self.world, self.seed)
     if late then
       self:queueToast(late) -- planned anyway; the tiles are tinted amber on the map (#165)
@@ -1712,6 +1739,57 @@ function Homestead:askPickUp(anchor)
   else
     pick()
   end
+end
+
+--- Destroy the object at `anchor` after a confirmation that says what is lost (D110, #255). No refund.
+function Homestead:askDestroy(anchor)
+  local world = self.world
+  local p = self.app.ctx.tuning.ui.placement
+  local check = Placement.destroyCheck(world, anchor)
+  if not check.ok then
+    self:showToast(PlaceText.pickUpRefusal(world, check))
+    return
+  end
+  local name = world.registry:get("objects", world.state.grid.objects[anchor].id).name:lower()
+  local text = PlaceText.destroyConfirm(world, anchor, check.lose)
+  self.app:push(require("src.scenes.confirm").new({
+    title = text.title,
+    message = text.text,
+    confirmLabel = p.destroyConfirmLabel,
+    danger = true,
+    onConfirm = function()
+      local ok, refused = Placement.destroy(world, anchor)
+      if ok then
+        self:showToast(string.format(p.destroyedObject, name))
+        self:layout()
+      elseif refused then
+        self:showToast(PlaceText.pickUpRefusal(world, refused))
+      end
+    end,
+  }))
+end
+
+--- Destroy the crop on tile i after a confirmation (D110, #255). No refund; the soil stays tilled.
+function Homestead:askDestroyCrop(i)
+  local world = self.world
+  local p = self.app.ctx.tuning.ui.placement
+  local crop = world.state.crops[i]
+  if not crop then
+    return
+  end
+  local name = world.registry:get("crops", crop.id).name:lower()
+  local text = PlaceText.destroyCropConfirm(world, i)
+  self.app:push(require("src.scenes.confirm").new({
+    title = text.title,
+    message = text.text,
+    confirmLabel = p.destroyConfirmLabel,
+    danger = true,
+    onConfirm = function()
+      if Crops.remove(world, i) then
+        self:showToast(string.format(p.destroyedCrop, name))
+      end
+    end,
+  }))
 end
 
 function Homestead:tap(i)
@@ -1982,6 +2060,21 @@ function Homestead:drawOverlays()
       (math.abs(ax - bx) + 1) * tile,
       (math.abs(ay - by) + 1) * tile
     )
+    -- Tiles whose crop this plan would replace (D110, #257): a red tint and an X, so the loss is visible before the second tap.
+    if self.seed then
+      local replaced = Crops.replacePreview(world, self:rectTiles(self.planStart, target), self.seed)
+      local look = world.tuning.visuals.replacePreview
+      for _, i in ipairs(replaced.tiles) do
+        local x, y = Grid.coords(grid, i)
+        local wx, wy = camera:tileToWorld(x, y)
+        love.graphics.setColor(look.fill)
+        love.graphics.rectangle("fill", wx, wy, tile, tile)
+        love.graphics.setColor(look.edge)
+        love.graphics.setLineWidth(1 / camera:zoom())
+        love.graphics.line(wx + 2, wy + 2, wx + tile - 2, wy + tile - 2)
+        love.graphics.line(wx + tile - 2, wy + 2, wx + 2, wy + tile - 2)
+      end
+    end
   end
   local visuals = world.tuning.visuals
   if self.mode == "place" and world.registry:get("objects", self.placing).placeOn == "waterTable" then
@@ -2677,7 +2770,9 @@ function Homestead:drawInfo(view)
     local def, placed = Grid.object(self.world, self.selected)
     -- A player-placed object (not the truck) can be picked up or moved from its card (D98, #15).
     local movable = def and def.placeable and self.mode ~= "place" and not Placement.orderAt(self.world, self.selected)
-    local rows = (anchor and 1 or 0) + (movable and 1 or 0)
+    -- Destroy (D110, #255): any player-placed object (not the truck) and any growing crop; asks first.
+    local cropHere = self.mode ~= "place" and self.world.state.crops[self.selected] ~= nil
+    local rows = (anchor and 1 or 0) + (movable and 2 or 0) + (cropHere and 1 or 0)
     local btnH = rows * (minSize + 4) -- room for the buttons under the lines
     local h = #lines * 11 + 8 + btnH
     local y = (self.card and self.card.y or self.captionTop or view.h - self.bottomH) - h - 4 -- above the tip card (or the tool caption) when one is up
@@ -2731,6 +2826,35 @@ function Homestead:drawInfo(view)
         size = "small",
         onPress = function()
           self:startMove(placed)
+        end,
+      })
+      rowY = rowY + minSize + 4
+      self.infoButtons:add({
+        x = 10,
+        y = rowY,
+        w = w - 12,
+        h = minSize,
+        label = p.destroy,
+        size = "small",
+        style = "danger",
+        onPress = function()
+          self:askDestroy(placed)
+        end,
+      })
+      rowY = rowY + minSize + 4
+    end
+    if cropHere then
+      local selected = self.selected
+      self.infoButtons:add({
+        x = 10,
+        y = rowY,
+        w = w - 12,
+        h = minSize,
+        label = self.app.ctx.tuning.ui.placement.destroy,
+        size = "small",
+        style = "danger",
+        onPress = function()
+          self:askDestroyCrop(selected)
         end,
       })
     end

@@ -104,6 +104,14 @@ function Processing.discard(world, anchor)
   return batch.count
 end
 
+--- Drop whatever batch the station at `anchor` holds, running or waiting (its station was destroyed, D110).
+--- Returns the batch or nil.
+function Processing.scrap(world, anchor)
+  local batch = world.state.processing[anchor]
+  world.state.processing[anchor] = nil
+  return batch
+end
+
 --- Carry the batch of the station at `from` to the station now at `to` (it was moved, D98).
 function Processing.relocate(world, from, to)
   local batches = world.state.processing
