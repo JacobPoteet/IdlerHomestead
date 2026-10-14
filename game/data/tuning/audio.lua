@@ -15,7 +15,7 @@ return {
   pausedDuck = 0.35, -- 0..1; ambience level while game time is paused (player pause, tip card, town); it never hard-stops
   duckSeconds = 0.6, -- seconds; how fast ambience eases to or from the paused level
   muteFadeSeconds = 0.4, -- seconds; fade when the window loses or regains focus (Mute when unfocused)
-  maxEventSpeed = 4, -- game speed multiplier above which world one-shots stop (sleep and skip-night would be a din)
+  maxEventSpeed = 4, -- game speed multiplier above which world one-shots stop (sleep would be a din)
   minBedLevel = 0.01, -- 0..1; a bed below this and heading for silence is stopped to free its voice
   birdSeasons = { spring = 1, summer = 1, autumn = 0.4, winter = 0 }, -- season -> 0..1 level of the daytime bird bed
   cricketSeasons = { spring = 0.6, summer = 1, autumn = 0.5, winter = 0 }, -- season -> 0..1 level of the night cricket bed

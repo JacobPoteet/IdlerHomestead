@@ -192,16 +192,13 @@ T.test("tip card: game time stands still, the chosen speed is kept, and it retur
   T.truthy(world.state.tick > before, "time runs again")
 end)
 
-T.test("tip card: sleep cannot be skipped or sped up under one", function()
+T.test("tip card: sleep cannot be sped up under one", function()
   local session = newSession()
   local world = session.world
   setHour(world, Sleep.bedtimeHours(world) + 0.5)
   Actors.homesteader(world).asleep = true
   session:setTipUp(true)
   T.eq(session:effectiveSpeed(), 0, "no sleep fast-forward under a card")
-  T.falsy(session:skipNight(), "the skip is refused")
-  T.falsy(session:skippingNight())
   session:setTipUp(false)
   T.eq(session:effectiveSpeed(), tun.time.sleepSpeed, "sleep speed is back with the card closed")
-  T.truthy(session:skipNight())
 end)

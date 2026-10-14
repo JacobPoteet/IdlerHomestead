@@ -73,7 +73,7 @@ return {
     id = "bedtime",
     title = "Bedtime",
     trigger = "sleep.started",
-    text = "The homesteader sleeps in the truck until sunrise. Sleeping is when the Journal studies. Tap Skip night to jump ahead. Anything you order wakes them.",
+    text = "The homesteader sleeps in the truck until sunrise. Sleeping is when the Journal studies. Anything you order wakes them.",
   },
   {
     id = "idea",

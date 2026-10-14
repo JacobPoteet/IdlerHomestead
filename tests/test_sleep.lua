@@ -72,11 +72,8 @@ T.test("sleep speed: a pause stays paused and ticks scale with the speed", funct
 end)
 
 --- Run until the homesteader wakes; returns the encoded world state.
-local function wakeFast(session, frame, skip)
+local function wakeFast(session, frame)
   local world = session.world
-  if skip then
-    T.truthy(session:skipNight())
-  end
   for _ = 1, 100000 do
     session:update(frame)
     if not Actors.homesteader(world).asleep then
@@ -86,7 +83,7 @@ local function wakeFast(session, frame, skip)
   error("never woke")
 end
 
-T.test("sleep speed: fast sleep, skip and plain 1x ticking give the identical morning", function()
+T.test("sleep speed: fast sleep and plain 1x ticking give the identical morning", function()
   local slow = inBed(7)
   local world = slow.world
   for _ = 1, 100000 do
@@ -97,17 +94,13 @@ T.test("sleep speed: fast sleep, skip and plain 1x ticking give the identical mo
   end
   local reference = serialize.encode(world.state)
   T.eq(wakeFast(inBed(7), FRAME), reference, "automatic sleep speed")
-  T.eq(wakeFast(inBed(7), 1 / 30, true), reference, "skip")
   T.eq(wakeFast(inBed(7), 0.2), reference, "a big frame")
 end)
 
-T.test("skip night: lands on the morning tick and returns to normal speed", function()
+T.test("sleep speed: lands on the morning tick and returns to normal speed", function()
   local session = inBed(2)
   local world = session.world
-  T.falsy(session:skippingNight())
-  T.truthy(session:skipNight())
-  T.truthy(session:skippingNight())
-  T.eq(session:effectiveSpeed(), tun.time.skipSpeed)
+  T.eq(session:effectiveSpeed(), tun.time.sleepSpeed)
   local _, wake = Sleep.bedtimeHours(world)
   local frames = 0
   while Actors.homesteader(world).asleep and frames < 100000 do
@@ -116,26 +109,24 @@ T.test("skip night: lands on the morning tick and returns to normal speed", func
   end
   local hour = Calendar.now(world).hour
   T.truthy(hour >= wake and hour < wake + 2 * STEP * 24 / tun.time.dayLength, "woke on the morning tick, hour " .. hour)
-  T.falsy(session:skippingNight())
   T.eq(session:effectiveSpeed(), tun.time.defaultSpeed)
-  T.truthy(frames * (1 / 30) < 10, "a night takes a few real seconds to skip")
-  T.falsy(session:skipNight(), "nothing to skip when awake")
+  T.falsy(session.skipNight, "there is no skip-the-night control (D105)")
 end)
 
-T.test("study: a night in bed yields the same whether fast, skipped or at 1x (per in-bed hour)", function()
-  local function night(skip)
+T.test("study: a night in bed yields the same whether fast or at 1x (per in-bed hour)", function()
+  local function night(frame)
     local session = inBed(1, 0)
     local world = session.world
     world.meta.journal.notes.first_catch = { day = 1 }
     world.meta.journal.notes.fish_spoil = { day = 1 }
     Journal.study(world, "smoker")
-    wakeFast(session, FRAME, skip)
+    wakeFast(session, frame)
     return Journal.progress(world, "smoker")
   end
   local nights = reg:get("catalog", "smoker").studyNights
   local expected = 1 / nights -- a spring night is tuning.study.nightHours in bed
-  T.near(night(false), expected, 0.01)
-  T.near(night(true), expected, 0.01)
+  T.near(night(FRAME), expected, 0.01)
+  T.near(night(0.2), expected, 0.01)
 end)
 
 T.test("sleep speed: saving and loading mid-sleep keeps sleeping fast and wakes on time", function()
@@ -149,7 +140,6 @@ T.test("sleep speed: saving and loading mid-sleep keeps sleeping fast and wakes 
   local loaded = Session.new({ store = store, slot = 1, data = data, registry = reg, tuning = tun })
   T.truthy(loaded:sleeping(), "still asleep after the load")
   T.eq(loaded:effectiveSpeed(), tun.time.sleepSpeed)
-  T.falsy(loaded:skippingNight(), "a skip is not saved; the player asks again")
   T.eq(wakeFast(loaded, FRAME), wakeFast(session, FRAME), "both wake into the same morning")
 end)
 

@@ -172,7 +172,6 @@ return function(d)
   end
   d:shot("bedtime_toast")
   dismissFinds(d)
-  d:press("Skip night")
   guard = 0
   while Actors.homesteader(world).asleep do
     d:frames(10)

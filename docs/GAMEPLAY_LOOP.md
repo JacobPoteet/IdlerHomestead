@@ -20,7 +20,7 @@ What the player sees on arrival (`docs/screens/overview_*`): a top bar of icon-a
 
 ### First day and night
 
-- Evening: the sky darkens and at 22:00 (spring) the homesteader walks to the truck and sleeps. The routine never runs at bedtime (D35). The `Start routine` slot becomes `Skip night` (key N, 60x). A banner reads `Zzz Sleeping, 8 h to morning, 8x`. A tap on the world wakes the homesteader ("stay up", costs study time) and they go back to bed when idle.
+- Evening: the sky darkens and at 22:00 (spring) the homesteader walks to the truck and sleeps. The routine never runs at bedtime (D35). A banner reads `Zzz Sleeping, 8 h to morning, 8x`. A tap on the world wakes the homesteader ("stay up", costs study time) and they go back to bed when idle.
 - At midnight `calendar.newDay` fires. In system order (`systems/init.lua`): spoilage runs first (`Spoilage.daily`), then needs (`Needs.daily`: eat, then burn fuel for the night's warmth). The player is asleep and sees none of it except toasts that flash by during the fast-forward.
 - Study only progresses while the homesteader is in bed (`tuning.study.nightHours` 8 hours in bed is one night). On night one there is usually nothing to study: an idea needs a note, and notes need events (section 2).
 - Morning: the routine resumes by itself if it was running (D55).
@@ -148,7 +148,7 @@ Each step shows at most once. Text is short and friendly; draft strings below.
 | 3 | `water` | `crop.planted` first time | "Planted. Crops grow only while they are wet: tap a thirsty crop and the homesteader fetches water from the creek." |
 | 4 | `food_clock` | `needs.ate` first time (day 2 morning), shown with the shortfall if any | "You ate 3000 calories a day. The food chip is days of food left. At zero your health (heart) drops. Harvest radishes (2 days) or catch fish." |
 | 5 | `routine` | `routine.idleHint`, or the first time the takeover badge counts down | "Stop tapping for 30 seconds and the Routine takes over: watering, harvesting, planting, clearing, fishing. Tap anywhere to take over again. It will not sell, buy, drive or choose what to study." |
-| 6 | `bedtime` | `sleep.started` first time | "Bedtime. The homesteader sleeps in the truck until sunrise. Sleeping is when the Journal studies. Tap Skip night to jump ahead. Anything you order wakes them." |
+| 6 | `bedtime` | `sleep.started` first time | "Bedtime. The homesteader sleeps in the truck until sunrise. Sleeping is when the Journal studies. Anything you order wakes them." |
 | 7 | `idea` | `journal.idea` first time | "A new idea! Open the Journal, pick one to study, and it finishes while you sleep. Then buy it in the Catalog." |
 | 8 | `harvest` | `crop.harvested` first time | "First harvest. Food goes to the Pantry first, the extra to the sell crate. Open the Pantry to see the rules." |
 | 9 | `spoil` | `food.spoiled` first time | "Fresh food spoils: fish about half a night, radishes a quarter, potatoes a twentieth. Eat it, sell it or smoke it. A powered chest freezer slows it." (text from #151's real rates) |

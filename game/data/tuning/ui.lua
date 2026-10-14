@@ -63,8 +63,6 @@ return {
     routineOn = "Routine on",
     resting = "Resting",
     speed = "Speed %gx", -- speed button; %g is the sim speed multiplier
-    skipNight = "Skip night",
-    skipping = "Skipping...",
     pantry = "Pantry",
     catalog = "Catalog",
     fishGuide = "Fish guide",
