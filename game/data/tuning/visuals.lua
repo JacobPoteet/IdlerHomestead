@@ -229,6 +229,16 @@ return {
     contactMaxWidth = 26, -- art pixels, the widest contact shadow
     contactWidth = 0.8, -- share of the sprite's width the contact shadow spans
   },
+  bloom = { -- glow round bright pixels (shaders/bloom_*.glsl, D129): lamps, fires, lit windows, snow in the sun
+    enabled = true,
+    threshold = 0.66, -- 0..1 brightness (of the brightest channel) where glow starts
+    knee = 0.22, -- 0..1 softness of that start
+    strength = 0.18, -- 0..1 how much glow is added back in full daylight
+    nightBoost = 5.5, -- extra strength at full darkness, as a multiple of `strength` (the glow matters most at night)
+    wide = 0.7, -- 0..1 share of the glow that comes from the wide, soft layer (the rest is the tight halo)
+    tightDivisor = 4, -- the tight layer is rendered at 1/this of the screen size
+    wideDivisor = 10, -- the wide layer is rendered at 1/this of the screen size
+  },
   lights = { -- night lights over the graded world (shaders/light.glsl, D84); which objects glow is the `light` field in data/content/objects.lua
     fadeStart = 0.7, -- daylight level (0 night .. 1 day) below which the lights begin to come on
     fadeEnd = 0.25, -- daylight level at which they are at full strength
@@ -239,6 +249,8 @@ return {
     falloff = 1.6, -- exponent of the falloff (higher = tighter, brighter core)
     dither = 0.12, -- 0..1 ordered dither between bands, on the art-pixel grid
     flickerSpeed = 7, -- flicker steps per second (the glow radius jumps in whole art pixels)
+    coreSize = 3, -- art pixels, the bright core drawn at the centre of a light that has no window (flame, bulb)
+    coreGlow = 0.4, -- 0..1 brightness of that core at full darkness
     windowGlow = 0.85, -- 0..1 brightness of lit window and stove-door pixels at full darkness
     margin = 4, -- tiles past the screen edge whose lights still count (at least the biggest radius in tiles)
     heatNeedMin = 0.01, -- a heat source glows when the night's warmth need is at least this (warmth units; it burns fuel for it)

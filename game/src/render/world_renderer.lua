@@ -831,6 +831,19 @@ function Renderer:drawEmissive()
   love.graphics.setBlendMode("add")
   for _, item in ipairs(lit) do
     local light = item.light
+    if not light.windows and cfg.coreSize > 0 then
+      -- A flame or bulb has no window pixels: give it a small hot core, which the bloom then spreads.
+      local sprite = Assets.sprite(item.id)
+      local c, g, s = light.color, cfg.coreGlow * dark, cfg.coreSize
+      love.graphics.setColor(c[1] * g, c[2] * g, c[3] * g, 1)
+      love.graphics.rectangle(
+        "fill",
+        (item.tileX - 1) * tile + light.at[1] - math.floor(s / 2),
+        item.bottom - sprite.h + light.at[2] - math.floor(s / 2),
+        s,
+        s
+      )
+    end
     if light.windows then
       local sprite = Assets.sprite(item.id)
       local left, top = (item.tileX - 1) * tile, item.bottom - sprite.h
@@ -1200,6 +1213,83 @@ function Renderer:drawAmbient(visible, daylight)
   end
   local snow = self:winterAmounts()
   Ambient.draw(self, visible, daylight, snow)
+end
+
+--- A screen-sized canvas for the graded frame, so the bloom can read it (D129).
+function Renderer:gradedBuffer(w, h)
+  if not self.gradedCanvas or self.gradedCanvas:getWidth() ~= w or self.gradedCanvas:getHeight() ~= h then
+    self.gradedCanvas = love.graphics.newCanvas(w, h)
+    self.gradedCanvas:setFilter("linear", "linear")
+  end
+  return self.gradedCanvas
+end
+
+--- Is the bloom pass available and switched on?
+function Renderer:bloomOn()
+  return self.world.tuning.visuals.bloom.enabled and Shaders.get("bloom_bright") ~= nil and Shaders.get("bloom_blur") ~= nil
+end
+
+local function layer(self, key, w, h)
+  local canvas = self[key]
+  if not canvas or canvas:getWidth() ~= w or canvas:getHeight() ~= h then
+    canvas = love.graphics.newCanvas(w, h)
+    canvas:setFilter("linear", "linear")
+    canvas:setWrap("clamp", "clamp")
+    self[key] = canvas
+  end
+  return canvas
+end
+
+--- Blur `src` (drawn at the size of `dst`) into `dst`, using `tmp` for the horizontal pass.
+local function blur(shader, src, tmp, dst, w, h)
+  love.graphics.setCanvas(tmp)
+  love.graphics.setShader(shader)
+  shader:send("step", { 1 / w, 0 })
+  love.graphics.draw(src, 0, 0, 0, w / src:getWidth(), h / src:getHeight())
+  love.graphics.setCanvas(dst)
+  shader:send("step", { 0, 1 / h })
+  love.graphics.draw(tmp, 0, 0)
+end
+
+--- Draw the graded frame to the screen with bloom: the bright pixels are cut out, blurred at two sizes
+--- and added back. Call with the identity transform and the screen as the target.
+function Renderer:drawBloom(graded, daylight)
+  local cfg = self.world.tuning.visuals.bloom
+  local g = Settings.read("gradeStrength", 1)
+  local dark = 1 - math.min(1, math.max(0, daylight))
+  local strength = cfg.strength * (1 + cfg.nightBoost * dark) * g
+  love.graphics.setColor(1, 1, 1, 1)
+  love.graphics.draw(graded, 0, 0)
+  if strength <= 0.001 then
+    return
+  end
+  local bright, blurShader = Shaders.get("bloom_bright"), Shaders.get("bloom_blur")
+  local w, h = graded:getDimensions()
+  local tw, th = math.max(1, math.floor(w / cfg.tightDivisor)), math.max(1, math.floor(h / cfg.tightDivisor))
+  local ww, wh = math.max(1, math.floor(w / cfg.wideDivisor)), math.max(1, math.floor(h / cfg.wideDivisor))
+  local tight, tightTmp = layer(self, "bloomTight", tw, th), layer(self, "bloomTightTmp", tw, th)
+  local wide, wideTmp = layer(self, "bloomWide", ww, wh), layer(self, "bloomWideTmp", ww, wh)
+  love.graphics.push("all")
+  Shaders.send(bright, { threshold = cfg.threshold, knee = cfg.knee })
+  love.graphics.setCanvas(tight)
+  love.graphics.clear(0, 0, 0, 1)
+  love.graphics.setShader(bright)
+  love.graphics.draw(graded, 0, 0, 0, tw / w, th / h)
+  love.graphics.setShader()
+  love.graphics.setCanvas(wideTmp) -- the wide layer starts from the tight one, already small
+  love.graphics.draw(tight, 0, 0, 0, ww / tw, wh / th)
+  love.graphics.setCanvas(wide)
+  love.graphics.draw(wideTmp, 0, 0)
+  blur(blurShader, tight, tightTmp, tight, tw, th)
+  blur(blurShader, wide, wideTmp, wide, ww, wh)
+  love.graphics.pop()
+  love.graphics.setBlendMode("add")
+  love.graphics.setColor(strength * (1 - cfg.wide), strength * (1 - cfg.wide), strength * (1 - cfg.wide), 1)
+  love.graphics.draw(tight, 0, 0, 0, w / tw, h / th)
+  love.graphics.setColor(strength * cfg.wide, strength * cfg.wide, strength * cfg.wide, 1)
+  love.graphics.draw(wide, 0, 0, 0, w / ww, h / wh)
+  love.graphics.setBlendMode("alpha")
+  love.graphics.setColor(1, 1, 1, 1)
 end
 
 --- Apply the colour grade while drawing `canvas` (the rendered world) to the screen.
