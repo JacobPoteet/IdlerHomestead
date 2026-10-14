@@ -5,6 +5,7 @@
 
 local Grid = require("src.sim.grid")
 local Weather = require("src.sim.systems.weather")
+local Wetness = require("src.render.wetness")
 
 local Fx = {}
 Fx.__index = Fx
@@ -31,9 +32,8 @@ local function target(world)
   return look, rain
 end
 
---- How wet the ground wants to be for this much rain (0..1).
 local function wetTarget(cfg, rain)
-  return math.min(1, rain / cfg.wet.fullRain)
+  return Wetness.target(cfg.wet, rain)
 end
 
 function Fx.new(world)
@@ -68,13 +68,9 @@ function Fx:update(dt, step)
   self.rain = lerp(self.rain, rain, k)
   self.time = (self.time + step) % 3600
 
-  -- Wet ground soaks in quickly and dries slowly.
-  local wetWant = wetTarget(cfg, rain)
-  if wetWant > self.wet then
-    self.wet = math.min(wetWant, self.wet + dt / cfg.wet.riseSeconds)
-  else
-    self.wet = math.max(wetWant, self.wet - dt / cfg.wet.drySeconds)
-  end
+  -- Wet land soaks in quickly and dries slowly, on game time (the effect-clock step, D124): paused it
+  -- holds, and at 2x and 4x it dries at the capped rate instead of in real seconds.
+  self.wet = Wetness.advance(cfg.wet, self.wet, wetTarget(cfg, rain), step)
 
   -- Cloud shadows drift downwind; the speed eases toward the day's wind so a gust never jumps them.
   local clouds = cfg.clouds
