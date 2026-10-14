@@ -80,6 +80,10 @@ return function(d)
   local function pair(name, frames)
     settle()
     dismissFinds()
+    -- The trip-ready arrow over the truck (D101) bobs on the real-time UI clock on purpose, so keep the
+    -- truck below a trip's charge for the comparison; only effect-clock motion may differ.
+    world.state.power.charge[world.state.land.truck] = 0
+    d:frames(4, 0.05)
     local a = d:shot(name .. "_a")
     d:frames(frames, 0.05)
     local b = d:shot(name .. "_b")
