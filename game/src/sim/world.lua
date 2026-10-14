@@ -17,7 +17,7 @@ World.__index = World
 
 --- Fresh state for a new run.
 function World.newState(seed)
-  return { seed = seed, tick = 0, rng = {} }
+  return { seed = seed, tick = 0, rng = {}, log = {} } -- `log`: the message log's lines, written by the scene, never read by a system (D120)
 end
 
 --- ctx: { registry, tuning, events?, meta? }. state: from World.newState or a loaded save.
