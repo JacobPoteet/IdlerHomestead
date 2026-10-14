@@ -295,12 +295,86 @@ function Renderer:winterAmounts()
   return 0, 0
 end
 
-function Renderer:drawWater(daylight, ice)
+--- Is any tile in the `rows` rows just below the footprint (x .. x + fw - 1, y + fh) open water?
+local function waterBelow(world, grid, x, y, fw, fh, rows)
+  for dy = 0, rows - 1 do
+    for dx = 0, fw - 1 do
+      local tx, ty = x + dx, y + fh + dy
+      if Grid.inBounds(grid, tx, ty) and Grid.terrain(world, Grid.index(grid, tx, ty)).water == true then
+        return true
+      end
+    end
+  end
+  return false
+end
+
+--- Mirror the objects standing on the creek bank into a canvas the size of the world canvas (call with the
+--- camera transform on). The water shader reads it by screen position, so only water shows it (D130).
+--- Returns the canvas, or nil when nothing is reflected this frame.
+function Renderer:drawReflections(visible)
+  local world, tile = self.world, self.tile
+  local cfg = world.tuning.visuals.reflections
+  local target = love.graphics.getCanvas()
+  if not cfg.enabled or not target then
+    return nil
+  end
+  local grid, registry = world.state.grid, world.registry
+  local x1, y1, x2, y2 = visible[1], visible[2], visible[3], visible[4]
+  local list
+  for anchor, obj in pairs(grid.objects) do
+    local def = registry:get("objects", obj.id)
+    local x, y = Grid.coords(grid, anchor)
+    local fw, fh = def.footprintW or 1, def.footprintH or 1
+    if not def.flat and x + fw >= x1 and x <= x2 and y + fh + cfg.reach >= y1 and y <= y2 and waterBelow(world, grid, x, y, fw, fh, cfg.reach) then
+      list = list or {}
+      list[#list + 1] = { Assets.sprite(obj.id), (x - 1) * tile, (y - 1 + fh) * tile }
+    end
+  end
+  if not list then
+    return nil
+  end
+  local w, h = target:getDimensions()
+  if not self.reflectCanvas or self.reflectCanvas:getWidth() ~= w or self.reflectCanvas:getHeight() ~= h then
+    self.reflectCanvas = love.graphics.newCanvas(w, h)
+    self.reflectCanvas:setFilter("nearest", "nearest")
+  end
+  love.graphics.push("all")
+  love.graphics.setCanvas(self.reflectCanvas) -- the camera transform stays on
+  love.graphics.clear(0, 0, 0, 0)
+  love.graphics.setColor(1, 1, 1, 1)
+  for _, e in ipairs(list) do
+    local sprite = e[1]
+    love.graphics.draw(sprite.image, sprite.quad, e[2], e[3], 0, 1, -cfg.squash, 0, sprite.h)
+  end
+  love.graphics.pop()
+  return self.reflectCanvas
+end
+
+function Renderer:drawWater(daylight, ice, visible)
   local shader = Shaders.get("water")
   local v = self.world.tuning.visuals
   local land = self.world.state.land
   local grid = self.world.state.grid
   if shader then
+    local refl = visible and shader:hasUniform("reflection") and self:drawReflections(visible) or nil
+    local rc = v.reflections
+    local px0 = love.graphics.transformPoint(0, 0)
+    local px1 = love.graphics.transformPoint(1, 0)
+    Shaders.send(shader, {
+      reflectionOn = refl and 1 or 0,
+      reflectionSize = refl and { refl:getWidth(), refl:getHeight() } or { 1, 1 },
+      pixelSize = px1 - px0,
+      reflectOpacity = rc.opacity,
+      reflectDistort = rc.distort,
+      reflectTint = rc.tint,
+      skyColor = rc.skyColor,
+      skyAmount = rc.enabled and rc.skyAmount or 0,
+    })
+    if refl then
+      shader:send("reflection", refl)
+    else
+      shader:send("reflection", self:whiteImage()) -- the sampler still needs something bound
+    end
     Shaders.send(shader, {
       time = self.time,
       depthMap = self.depthMap,
@@ -399,7 +473,7 @@ function Renderer:draw(alpha, visible, daylight)
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(self.ground, 0, 0)
   love.graphics.setShader()
-  self:drawWater(daylight, ice)
+  self:drawWater(daylight, ice, visible)
   -- Ice holes: dark open water in the frozen creek.
   love.graphics.setColor(v.iceHoleColor)
   for i in pairs(ice > 0 and world.state.weather.holes or {}) do

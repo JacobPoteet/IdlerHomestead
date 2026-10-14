@@ -229,6 +229,16 @@ return {
     contactMaxWidth = 26, -- art pixels, the widest contact shadow
     contactWidth = 0.8, -- share of the sprite's width the contact shadow spans
   },
+  reflections = { -- the creek mirrors what stands on its bank (shaders/water.glsl, D130)
+    enabled = true,
+    opacity = 0.55, -- 0..1 how much of a reflection shows at the bank (it fades toward deep water and with ice)
+    distort = 1.6, -- art pixels the ripples shove the reflection sideways at most
+    tint = { 0.72, 0.84, 1.00 }, -- colour multiplier on the mirrored picture: darker and bluer than the real thing
+    squash = 0.85, -- vertical scale of the mirror image (1 = as tall as the object)
+    skyColor = { 0.62, 0.78, 0.92 }, -- what open water mirrors of the sky (graded afterwards, so it warms at dawn and dusk)
+    skyAmount = 0.30, -- 0..1 how much sky colour the water takes on in full daylight
+    reach = 1, -- tiles below an object's feet that may be water for it to cast a reflection
+  },
   bloom = { -- glow round bright pixels (shaders/bloom_*.glsl, D129): lamps, fires, lit windows, snow in the sun
     enabled = true,
     threshold = 0.66, -- 0..1 brightness (of the brightest channel) where glow starts

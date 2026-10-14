@@ -26,6 +26,15 @@ uniform float daylight;      // 0..1 from the lighting system
 uniform float ice;           // 0 = open water .. 1 = frozen solid
 uniform vec3 iceColor;
 uniform vec3 iceDeepColor;
+uniform Image reflection;   // the bank's objects mirrored below their feet, in the world canvas's own pixels (transparent elsewhere)
+uniform float reflectionOn;  // 0 = no reflections this frame (the image is not read)
+uniform vec2 reflectionSize; // the reflection canvas in pixels (the same size as the world canvas)
+uniform float pixelSize;     // canvas pixels per art pixel, so the ripple shifts the reflection by whole art pixels
+uniform float reflectOpacity; // 0..1 how much of a reflection shows at the bank
+uniform float reflectDistort; // art pixels the ripples push the reflection sideways at most
+uniform vec3 reflectTint;    // colour multiplier on the reflected picture (darker and bluer than the real thing)
+uniform vec3 skyColor;       // what the water mirrors of the open sky
+uniform float skyAmount;     // 0..1 how much sky colour the water takes on in full daylight
 uniform float rain;          // 0..1 how hard it rains (0 = dry)
 uniform float rainCell;      // art pixels per rain ring cell (one ring at a time per cell)
 uniform float rainSeconds;   // seconds a ring takes to spread and fade
@@ -78,6 +87,19 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     float ripple = n1 * 0.6 + n2 * 0.4;
     float band = floor(ripple * 4.0) / 4.0;                // pixel-art banding
     col *= 0.9 + band * 0.2;
+
+    // The sky in the water: ripple crests catch more of it, and it fades with the daylight.
+    col = mix(col, skyColor, skyAmount * daylight * (0.35 + 0.65 * band) * (1.0 - ice));
+
+    // Things on the bank, mirrored: shifted sideways by whole art pixels along rippled rows, fading with depth.
+    if (reflectionOn > 0.0 && ice < 1.0) {
+        float row = floor(sin(px.y * 0.9 + time * 1.7) * 1.4 + 0.5);
+        float push = floor((ripple - 0.5) * reflectDistort * 2.0 + 0.5);
+        vec2 ruv = (screen + vec2((row + push) * pixelSize, 0.0)) / reflectionSize;
+        vec4 r = Texel(reflection, ruv);
+        float fade = 1.0 - 0.5 * smoothstep(bankDepth, 0.9, depth);
+        col = mix(col, r.rgb * reflectTint, step(0.5, r.a) * reflectOpacity * fade * (1.0 - ice));
+    }
 
     // Sparkles on ripple crests, only in daylight.
     float crest = step(0.86 - 0.08 * rain, ripple) * step(0.5, hash(px + floor(time * 4.0)));
