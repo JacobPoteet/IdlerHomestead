@@ -56,6 +56,7 @@ return {
     studySpeed = "number?", -- shelter: study speed added while resting there (a desk)
     heatSource = "table?", -- burns wood for warmth (D104): { efficiency = share of the wood's heat that reaches the night; the best placed fire counts }
     light = "table?", -- night light (D84, shaders/light.glsl): { on = "heat" | "power" | "shelter", radius = art pixels, color, flicker = 0..1, at = { x, y } pixel on the sprite, windows? = { { x, y, w, h } } sprite pixels that glow }
+    flat = "boolean?", -- lies on the ground, so it casts no shadow (drip lines, sprinklers)
     sway = "table?", -- wind sway (D84, shaders/sway.glsl): { weight = multiplier on the wind amplitude, root = 0..1 share of the sprite height from the bottom that stays still }
     chop = "boolean?", -- an axe (chopSpeed) speeds up clearing it
     storage = "table?", -- resource -> extra storage capacity while placed

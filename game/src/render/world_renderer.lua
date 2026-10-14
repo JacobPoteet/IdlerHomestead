@@ -472,9 +472,11 @@ function Renderer:draw(alpha, visible, daylight)
   -- Mist is a low layer: it hazes the ground and the creek but sits under crops, objects and tree canopies (#219).
   self:drawMist(visible, ice)
   local items = {}
+  local shadows = {}
   for i, crop in pairs(crops) do
     if onScreen(i) then
       local x, y = Grid.coords(grid, i)
+      self:castShadow(shadows, Assets.sprite(crop.id .. "_" .. cropStage(crop)), (x - 0.5) * tile, y * tile, 1, false)
       items[#items + 1] = {
         y * tile - 0.5,
         function()
@@ -519,6 +521,9 @@ function Renderer:draw(alpha, visible, daylight)
       local bottom = (y - 1 + fh) * tile
       local batch = def.station and Processing.batch(world, anchor)
       local smoking = batch and world.registry:get("recipes", batch.recipe).fuel ~= nil
+      if not def.flat then
+        self:castShadow(shadows, sprite, (x - 1) * tile + sprite.w / 2, bottom, 1, true)
+      end
       items[#items + 1] = {
         bottom,
         function()
@@ -588,6 +593,9 @@ function Renderer:draw(alpha, visible, daylight)
     local ax = actor.prevX + (actor.x - actor.prevX) * alpha
     local ay = actor.prevY + (actor.y - actor.prevY) * alpha
     local feetX, feetY = (ax - 0.5) * tile, (ay - 0.5) * tile + 6
+    if not actor.asleep then
+      self:castShadow(shadows, Assets.sprite(actor.kind), math.floor(feetX + 0.5), math.floor(feetY + 0.5), 1, true)
+    end
     items[#items + 1] = {
       feetY,
       function()
@@ -615,6 +623,8 @@ function Renderer:draw(alpha, visible, daylight)
   if cx then
     local feetX = (cpx + (cx - cpx) * alpha - 0.5) * tile
     local feetY = (cpy + (cy - cpy) * alpha - 0.5) * tile + 6
+    local resting = cmode == "nap" or cmode == "sleep"
+    self:castShadow(shadows, Assets.sprite(resting and "cat_nap" or "cat"), math.floor(feetX + 0.5), math.floor(feetY + 0.5), 1, true)
     items[#items + 1] = {
       feetY,
       function()
@@ -631,6 +641,7 @@ function Renderer:draw(alpha, visible, daylight)
   table.sort(items, function(a, b)
     return a[1] < b[1]
   end)
+  self:drawShadows(shadows)
   for _, item in ipairs(items) do
     item[2]()
   end
@@ -1079,6 +1090,73 @@ function Renderer:drawCropCues(visible, daylight)
         love.graphics.setColor(1, 1, 1, a * alpha)
         love.graphics.draw(star.image, star.quad, left + tile - star.w - 1, top - 2)
       end
+    end
+  end
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
+--- Queue a sprite for the shadow pass: `footX`, `footY` is where it stands (world art pixels), `flip` -1
+--- when the sprite is drawn mirrored. Sprites under the tuned minimum height cast no shadow, only contact.
+function Renderer:castShadow(list, sprite, footX, footY, flip, contact)
+  list[#list + 1] = { sprite, footX, footY, flip, contact }
+end
+
+--- Sun shadows under the y-sorted sprites (call with the camera transform on, before the sprites).
+--- Cast shadows are each sprite's silhouette flipped onto the ground and sheared away from the sun,
+--- drawn solid into a mask and composited once, so overlapping shadows never double up. The sun's
+--- height sets the length, its place along the day sets the lean, cloud and low sun thin it out.
+--- A small contact shadow sits under everything and stays through the night.
+function Renderer:drawShadows(list)
+  local world = self.world
+  local cfg = world.tuning.visuals.shadows
+  if #list == 0 then
+    return
+  end
+  local sunrise, sunset = Calendar.daylight(world)
+  local side, height = Lighting.sun(Calendar.now(world).hour, sunrise, sunset)
+  local cover = self.fx:clouds()
+  local strength = 0
+  if side then
+    local fade = math.min(1, height / cfg.fadeElevation)
+    strength = cfg.castStrength * fade * fade * (3 - 2 * fade) * (1 - cfg.cloudDim * cover)
+  end
+  local shader = Shaders.get("shadow")
+  local target = love.graphics.getCanvas()
+  local c = cfg.color
+  if shader and target and strength > 0.005 then
+    local w, h = target:getDimensions()
+    if not self.shadowMask or self.shadowMask:getWidth() ~= w or self.shadowMask:getHeight() ~= h then
+      self.shadowMask = love.graphics.newCanvas(w, h)
+      self.shadowMask:setFilter("nearest", "nearest")
+    end
+    local len = cfg.lengthLow + (cfg.lengthNoon - cfg.lengthLow) * height
+    local shear = -side * cfg.maxShear -- love's kx moves a point by kx * its y; the sprite is flipped, so this is minus the lean
+    love.graphics.push("all")
+    love.graphics.setCanvas(self.shadowMask) -- the camera transform stays on, so the mask lines up with the world canvas
+    love.graphics.clear(0, 0, 0, 0)
+    love.graphics.setShader(shader)
+    love.graphics.setColor(1, 1, 1, 1)
+    for _, e in ipairs(list) do
+      local sprite = e[1]
+      if e[5] and sprite.h >= cfg.minHeight then
+        love.graphics.draw(sprite.image, sprite.quad, e[2], e[3], 0, e[4], -len, sprite.w / 2, sprite.h, shear * e[4], 0)
+      end
+    end
+    love.graphics.pop()
+    love.graphics.push("all")
+    love.graphics.origin()
+    love.graphics.setColor(c[1], c[2], c[3], strength)
+    love.graphics.draw(self.shadowMask, 0, 0)
+    love.graphics.pop()
+  end
+  love.graphics.setColor(c[1], c[2], c[3], cfg.contactStrength)
+  for _, e in ipairs(list) do
+    local sprite = e[1]
+    if e[5] then
+      local w = math.min(cfg.contactMaxWidth, math.floor(sprite.w * cfg.contactWidth))
+      local x, y = math.floor(e[2]), math.floor(e[3])
+      love.graphics.rectangle("fill", x - math.floor(w * 0.35), y - 1, math.floor(w * 0.7) * 1, 3)
+      love.graphics.rectangle("fill", x - math.floor(w / 2), y, w, 1)
     end
   end
   love.graphics.setColor(1, 1, 1, 1)

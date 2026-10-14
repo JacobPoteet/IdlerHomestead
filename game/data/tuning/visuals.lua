@@ -208,6 +208,19 @@ return {
     drift = 2.5, -- art pixels per second the banks drift downwind at wind strength 1
     direction = { 1.0, 0.25 }, -- drift direction (x east, y south)
   },
+  shadows = { -- sun shadows (shaders/shadow.glsl): each sprite's silhouette is flipped onto the ground and sheared away from the sun, plus a small contact shadow underneath
+    color = { 0.06, 0.08, 0.20 }, -- shadow tint (cool, not black); the grade tints it afterwards
+    castStrength = 0.42, -- 0..1 alpha of cast shadows at full sun
+    contactStrength = 0.30, -- 0..1 alpha of the contact shadow under a sprite; it stays at night and in cloud
+    maxShear = 1.1, -- sideways art pixels of shadow per art pixel of height at sunrise/sunset (west at dawn, east at dusk)
+    lengthNoon = 0.28, -- vertical squash of the cast shadow at noon (1 = as long as the sprite is tall)
+    lengthLow = 1.0, -- the same at sunrise and sunset
+    fadeElevation = 0.2, -- 0..1 sun height (0 horizon, 1 noon) below which cast shadows fade out
+    cloudDim = 0.7, -- 0..1 share of the cast shadow lost under full cloud cover (an overcast sky has none)
+    minHeight = 7, -- art pixels: sprites shorter than this cast no shadow
+    contactMaxWidth = 26, -- art pixels, the widest contact shadow
+    contactWidth = 0.8, -- share of the sprite's width the contact shadow spans
+  },
   lights = { -- night lights over the graded world (shaders/light.glsl, D84); which objects glow is the `light` field in data/content/objects.lua
     fadeStart = 0.7, -- daylight level (0 night .. 1 day) below which the lights begin to come on
     fadeEnd = 0.25, -- daylight level at which they are at full strength
