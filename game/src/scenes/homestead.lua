@@ -1361,13 +1361,6 @@ function Homestead:speedLabel()
   return speed == 0 and "Paused" or string.format(self.app.ctx.tuning.ui.labels.speed, speed)
 end
 
---- Skip the rest of the night (D56): only while asleep.
-function Homestead:skipNight()
-  if self.session:skipNight() then
-    self:layout()
-  end
-end
-
 local HINT_TEXT = {
   idle = "Homesteader is idle: press R or tap Start routine",
   nothing = "Nothing to do: check the Routine priorities",
@@ -1393,9 +1386,6 @@ function Homestead:resume()
 end
 
 function Homestead:routineLabel()
-  if self.session:sleeping() then
-    return self.session:skippingNight() and self.app.ctx.tuning.ui.labels.skipping or self.app.ctx.tuning.ui.labels.skipNight
-  end
   if not self.session:canStartRoutine() then
     return self.app.ctx.tuning.ui.labels.resting
   end
@@ -1457,31 +1447,22 @@ function Homestead:layoutControls(view)
       self:cycleSpeed()
     end,
   })
-  if self.session:sleeping() then
-    addCol(routineLabel, { -- the routine rests at night, so its slot becomes the skip control
-      enabled = routineLabel == self.app.ctx.tuning.ui.labels.skipNight,
-      style = "accent",
-      onPress = function()
-        self:skipNight()
-      end,
-    })
-  else
-    -- A gentle pulse on the button while a nudge applies, so it survives panels and phone layouts (D93).
-    -- With the routine on and idle ("nothing"), the button opens the priorities instead.
-    local hint = self:hintKind()
-    local nothing = hint == "nothing"
-    addCol(routineLabel, {
-      enabled = nothing or routineLabel == self.app.ctx.tuning.ui.labels.startRoutine,
-      pulse = hint ~= nil,
-      onPress = function()
-        if nothing then
-          self.app:push(require("src.scenes.routine").new(self.world))
-        else
-          self:startRoutine()
-        end
-      end,
-    })
-  end
+  -- A gentle pulse on the button while a nudge applies, so it survives panels and phone layouts (D93).
+  -- With the routine on and idle ("nothing"), the button opens the priorities instead. Asleep it reads
+  -- "Resting" and is disabled.
+  local hint = self:hintKind()
+  local nothing = hint == "nothing"
+  addCol(routineLabel, {
+    enabled = nothing or routineLabel == self.app.ctx.tuning.ui.labels.startRoutine,
+    pulse = hint ~= nil,
+    onPress = function()
+      if nothing then
+        self.app:push(require("src.scenes.routine").new(self.world))
+      else
+        self:startRoutine()
+      end
+    end,
+  })
   addCol(ui.labels.power, {
     style = Power.satisfaction(self.world) < 1 and "danger" or nil, -- lit while the homestead is short of power
     onPress = function()
@@ -1923,8 +1904,6 @@ function Homestead:action(name, data)
     self:cycleSpeed()
   elseif name == "routine" then
     self:startRoutine()
-  elseif name == "skipNight" then
-    self:skipNight()
   elseif name == "cancel" then
     if self.palette then
       self.palette = nil
@@ -2356,7 +2335,7 @@ function Homestead:untilMorningText()
 end
 
 --- A centred pill under the top bar while the homesteader sleeps: what is happening, how long
---- is left and how fast time is passing (D56). The Skip night button sits in the control column.
+--- is left and how fast time is passing (D56).
 function Homestead:drawSleepBanner(view)
   if not self.session:sleeping() then
     return

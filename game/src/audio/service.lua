@@ -3,7 +3,7 @@
 -- It owns no game state and never touches the sim RNG (variation comes from its own seeded stream).
 --
 --   one-shots   Audio:play(cueId)             UI sounds play always; cues with `world = true` are silent
---                                              while game time is paused or racing (sleep, skip-night)
+--                                              while game time is paused or racing (sleep)
 --   beds        looping ambience, level eased toward the target from src/audio/cues.lua
 --   pause       beds duck to tuning.audio.pausedDuck while time is paused; they never hard-stop
 --   volumes     master / music / ambience / effects sliders from the settings store, applied live

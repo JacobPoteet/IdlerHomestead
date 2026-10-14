@@ -115,20 +115,6 @@ function Session:sleeping()
   return Actors.homesteader(self.world).asleep == true
 end
 
---- Skip the rest of the night: the sim runs at tuning.time.skipSpeed until the homesteader wakes.
---- Returns false when nobody is asleep (D56).
-function Session:skipNight()
-  if not self:sleeping() or self.tipUp then -- no fast-forward under a tip card (D92)
-    return false
-  end
-  self.skipping = true
-  return true
-end
-
-function Session:skippingNight()
-  return self.skipping == true and self:sleeping()
-end
-
 --- Is the player on a town trip (the town menu is open)? Game time stands still meanwhile (D78).
 function Session:inTown()
   return self.world.state.market.inTown == true
@@ -157,17 +143,16 @@ function Session:effectiveSpeed()
     return chosen
   end
   local time = self.tuning.time
-  return math.max(chosen, self.skipping and time.skipSpeed or time.sleepSpeed)
+  return math.max(chosen, time.sleepSpeed)
 end
 
 --- Run the due ticks at the effective speed. The tick that wakes the homesteader ends a fast
---- stretch there and then, so a skip lands on the morning tick whatever the frame size (D56).
+--- stretch there and then, so sleep lands on the morning tick whatever the frame size (D56).
 function Session:advanceSim(dt)
   local clock = self.clock
   local chosen = clock.timeScale
   local effective = self:effectiveSpeed()
   if effective == chosen then
-    self.skipping = false
     clock:advance(dt, self.tick)
     return
   end
@@ -180,9 +165,6 @@ function Session:advanceSim(dt)
     end
   end)
   clock.timeScale = chosen
-  if not self:sleeping() then
-    self.skipping = false
-  end
 end
 
 --- Advance real time: runs due sim ticks, accrues playtime, autosaves on the interval.

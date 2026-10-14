@@ -158,7 +158,7 @@ Not yet profiled on a phone GPU: the tight loops are fixed-bound for GLSL ES, bu
 `src/render/effect_clock.lua` gives the renderer two clocks, both fed in `Renderer:update(dt, speed)` with the session's
 `effectiveSpeed()`. **World time** (`renderer.time`, `fx.time`) advances by `dt * min(speed, effectClock.maxSpeed)`: it
 stands still while paused (player pause, tip card D92, town D78), runs 2x/4x with the speed button and is capped during
-sleep or skip-night fast-forward (8x, 60x) so nothing strobes. **Real time** (`renderer.uiTime`) always runs. Only the
+sleep fast-forward (8x) so nothing strobes. **Real time** (`renderer.uiTime`) always runs. Only the
 rate changes, never the value, so pausing and speed changes cause no jump. Tuning: `visuals.effectClock` (`maxSpeed`,
 `wrap`); `Renderer:update` re-reads it every frame, so F6 applies at once.
 

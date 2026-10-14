@@ -1,6 +1,5 @@
--- Fast sleep and skip-the-night (D56, #112): the homesteader goes to bed, time speeds up on its
--- own with a "Sleeping" banner and a countdown, "Skip night" runs the rest of the night, and the
--- morning is back at normal speed.
+-- Fast sleep (D56, #112): the homesteader goes to bed, time speeds up on its own with a "Sleeping"
+-- banner and a countdown, and the morning is back at normal speed. There is no skip control (D105).
 local Actors = require("src.sim.systems.actors")
 
 return function(d)
@@ -18,16 +17,11 @@ return function(d)
   assert(session:effectiveSpeed() > session:speed(), "sleep should run faster than the chosen speed")
   d:shot("sleeping")
 
-  d:press("Skip night")
-  d:frames(4)
-  assert(session:skippingNight(), "the skip should be running")
-  d:shot("skipping")
-
   guard = 0
   while Actors.homesteader(world).asleep do
     d:frames(10)
     guard = guard + 1
-    assert(guard < 2000, "the skip never reached morning")
+    assert(guard < 2000, "sleep never reached morning")
   end
   d:frames(2)
   assert(session:effectiveSpeed() == session:speed(), "normal speed again in the morning")

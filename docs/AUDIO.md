@@ -31,7 +31,7 @@ To add a **new cue**: add one entry in `sounds.lua` (bus, volume, placeholder ge
 ## Behaviour
 
 - **Buses**: `master` x (`music`, `ambience`, `sfx`), sliders in Settings (Master volume, Effects, Ambience, Music), curve `audio.volumeCurve`. "Mute when unfocused" (desktop) fades the game out when the window is in the background.
-- **Pause**: while game time is paused (player pause, tip card, town) ambience and music **duck** to `audio.pausedDuck` and keep playing; one-shots tagged `world = true` (chores, deliveries, alerts...) stay silent while paused or while time races past (`audio.maxEventSpeed`: sleep and skip-night). Interface sounds (tap, toast) always play.
+- **Pause**: while game time is paused (player pause, tip card, town) ambience and music **duck** to `audio.pausedDuck` and keep playing; one-shots tagged `world = true` (chores, deliveries, alerts...) stay silent while paused or while time races past (`audio.maxEventSpeed`: sleep). Interface sounds (tap, toast) always play.
 - **Weather**: the rain and wind beds ease with the same easing as the visual look (they read the eased values in `src/render/weather_fx.lua`). Thunder rolls on storm days.
 - **Variation** (pitch, which variant, thunder timing) comes from the audio's own seeded RNG (`audio.seed`), never the sim RNG, so the sim stays deterministic.
 - **Not available**: mixing with other apps' audio (LÖVE only reads `t.audio.mixwithsystem` in `conf.lua` at start-up, so it cannot be a live option; it stays false there).

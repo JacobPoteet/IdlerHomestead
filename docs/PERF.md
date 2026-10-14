@@ -33,7 +33,7 @@ Sim, 12000 ticks (about 10 in-game minutes) of the typical state; 6000 ticks of 
 
 Timing varies run to run (the worst tick moves by several ms between identical runs: it is the idle job search
 on a recheck tick and the new-day work, not a steady cost), so read the means, p95 and allocation, which are
-stable. The sim was never the bottleneck at 20 ticks a second: even 60x skip-night is 1200 ticks a second at
+stable. The sim was never the bottleneck at 20 ticks a second: even 8x sleep is 160 ticks a second at
 about 0.03 ms. The mean is about 1 percent of a 60 fps frame at 1x.
 
 Balance harness, `policy=scripted,active seeds=5 years=1 jobs=1`: 52.8 s before, 28.9 s after (1.8x), results
@@ -112,7 +112,7 @@ looking at the F3 overlay and `tools/perf` on a real device.
 ## Measure on a phone (not possible here)
 
 1. Install a build on a mid-range Android phone, open F3 (double tap, see the overlay hint), start a new game and
-   let the Routine run. Read, at zoom 1, 2 and 3 and at speeds 1x, 4x and during skip-night (60x): FPS, the
+   let the Routine run. Read, at zoom 1, 2 and 3 and at speeds 1x, 4x and during sleep (8x): FPS, the
    `Sim`, `Worst tick`, `Update` and `Draw` lines. Report any "OVER".
 2. Note the same with rain and with winter snow (the ground and weather shaders), at night (lights), and with the
    Pantry/Journal open.
