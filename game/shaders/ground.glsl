@@ -31,6 +31,11 @@ uniform vec3 frostSnowColor;     // frost over snow: deeper than the snow so it 
 uniform float frostSparkle;      // 0..1 share of the frost pixels over snow that glint
 uniform vec3 frostSparkleColor;
 
+uniform float glint;         // 0..1 how much sun there is to catch: single pixels of snow and puddle flash white
+uniform float glintDensity;  // 0..1 share of the snow and puddle pixels that flash at once
+uniform float glintSteps;    // how many times a second the flashing pixels move on
+uniform float time;
+
 uniform vec2 groundSize;     // ground canvas size in pixels: one pixel per world art pixel
 
 #ifdef PIXEL
@@ -99,6 +104,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
             float above = noise((px - vec2(0.0, 1.0)) * puddleScale) * 0.7
                 + noise((px - vec2(0.0, 1.0)) * puddleScale * 2.7 + 11.0) * 0.3;
             col = mix(col, puddleGlint, step(above, edge) * 0.8);
+            col = mix(col, vec3(1.0), glint * step(1.0 - glintDensity * 2.0, hash(px + floor(time * glintSteps) * vec2(13.1, 7.7))) * 0.8);
         }
     }
 
@@ -115,6 +121,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
         float luma = dot(base.rgb, vec3(0.299, 0.587, 0.114));
         snow *= 0.92 + luma * 0.15;
         col = mix(col, snow, covered);
+        col = mix(col, vec3(1.0), covered * glint * step(1.0 - glintDensity, hash(px + floor(time * glintSteps) * vec2(13.1, 7.7))));
     }
 
     // Frost creeping inward from the bank over bare ground and snow alike, ragged so it reads as

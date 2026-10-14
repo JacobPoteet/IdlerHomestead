@@ -466,6 +466,10 @@ function Renderer:draw(alpha, visible, daylight)
       frostSnowColor = v.frostSnowColor,
       frostSparkle = v.frostSparkle,
       frostSparkleColor = v.frostSparkleColor,
+      glint = self:sunGlint(),
+      glintDensity = v.sparkle.density,
+      glintSteps = Settings.read("reduceMotion", false) and 0 or v.sparkle.steps,
+      time = self.time,
       groundSize = { self.ground:getWidth(), self.ground:getHeight() },
     })
     love.graphics.setShader(groundShader)
@@ -1217,6 +1221,72 @@ end
 --- when the sprite is drawn mirrored. Sprites under the tuned minimum height cast no shadow, only contact.
 function Renderer:castShadow(list, sprite, footX, footY, flip, contact)
   list[#list + 1] = { sprite, footX, footY, flip, contact }
+end
+
+--- Where the sun is: `side` -1 at sunrise to +1 at sunset, `height` 0 on the horizon to 1 at noon (both nil at
+--- night), and today's cloud cover 0..1.
+function Renderer:sun()
+  local world = self.world
+  local sunrise, sunset = Calendar.daylight(world)
+  local side, height = Lighting.sun(Calendar.now(world).hour, sunrise, sunset)
+  return side, height, (self.fx:clouds())
+end
+
+--- 0..1 how much direct sun there is to flash on snow and puddles (D131): high sun, clear sky.
+function Renderer:sunGlint()
+  local side, height, cover = self:sun()
+  if not side then
+    return 0
+  end
+  local cfg = self.world.tuning.visuals
+  local rain = self.fx:rainAndWet()
+  return math.min(1, height * 3) * (1 - cfg.sparkle.cloudKill * cover) * (1 - math.min(1, rain * 2))
+end
+
+--- Slanted shafts of warm light at low sun (D131), additive over the graded frame (camera transform on,
+--- visible = the tile range). They run the way the shadows fall, show on a clear sky and thicken in morning mist.
+function Renderer:drawSunbeams(visible)
+  local shader = Shaders.get("sunbeams")
+  local world = self.world
+  local cfg = world.tuning.visuals.sunbeams
+  if not shader or not Settings.read("ambientFx", true) then
+    return
+  end
+  local side, height, cover = self:sun()
+  if not side then
+    return
+  end
+  local low = math.min(1, math.max(0, (cfg.lowSun - height) / (cfg.lowSun - cfg.horizon)))
+  local rise = math.min(1, height / cfg.horizon)
+  local mist = self:mistStrength(0)
+  local strength = cfg.strength * low * rise * (1 - cfg.cloudKill * cover) * (1 + cfg.mistBoost * mist)
+  strength = strength * Settings.read("gradeStrength", 1)
+  if strength <= 0.002 then
+    return
+  end
+  local sh = world.tuning.visuals.shadows
+  local dx, dy = side * sh.maxShear, sh.lengthLow + (sh.lengthNoon - sh.lengthLow) * height
+  local norm = math.sqrt(dx * dx + dy * dy)
+  local grid, tile = world.state.grid, self.tile
+  local x1, y1 = math.max(1, visible[1] - 1), math.max(1, visible[2] - 1)
+  local x2, y2 = math.min(grid.w, visible[3] + 1), math.min(grid.h, visible[4] + 2)
+  local rx, ry, rw, rh = (x1 - 1) * tile, (y1 - 1) * tile, (x2 - x1 + 1) * tile, (y2 - y1 + 1) * tile
+  Shaders.send(shader, {
+    rect = { rx, ry, rw, rh },
+    dir = { dx / norm, dy / norm },
+    time = Settings.read("reduceMotion", false) and 0 or self.time,
+    strength = strength,
+    scale = cfg.scale,
+    patch = cfg.patch,
+    block = cfg.block,
+    beamColor = cfg.color,
+  })
+  love.graphics.setBlendMode("add")
+  love.graphics.setShader(shader)
+  love.graphics.setColor(1, 1, 1, 1)
+  love.graphics.draw(self:whiteImage(), rx, ry, 0, rw, rh)
+  love.graphics.setShader()
+  love.graphics.setBlendMode("alpha")
 end
 
 --- Sun shadows under the y-sorted sprites (call with the camera transform on, before the sprites).

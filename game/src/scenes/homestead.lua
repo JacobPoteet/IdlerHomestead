@@ -2986,6 +2986,7 @@ function Homestead:draw()
   if bloom then
     love.graphics.push("all")
     self.camera:attach(view)
+    self.renderer:drawSunbeams({ x1, y1, x2, y2 })
     self.renderer:drawEmissive()
     self.renderer:drawAmbient({ x1, y1, x2, y2 }, daylight)
     love.graphics.pop() -- the camera transform
@@ -2998,6 +2999,7 @@ function Homestead:draw()
   love.graphics.push("all")
   self.camera:attach(view)
   if not bloom then
+    self.renderer:drawSunbeams({ x1, y1, x2, y2 })
     self.renderer:drawEmissive()
     self.renderer:drawAmbient({ x1, y1, x2, y2 }, daylight)
   end

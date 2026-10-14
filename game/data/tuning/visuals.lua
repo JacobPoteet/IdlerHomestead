@@ -239,6 +239,22 @@ return {
     skyAmount = 0.30, -- 0..1 how much sky colour the water takes on in full daylight
     reach = 1, -- tiles below an object's feet that may be water for it to cast a reflection
   },
+  sunbeams = { -- slanted shafts of warm light at low sun (shaders/sunbeams.glsl, D131); world-anchored, subtle
+    strength = 0.34, -- 0..1 brightness of the brightest band, added over the graded frame at the lowest sun
+    lowSun = 0.75, -- 0..1 sun height (0 horizon, 1 noon) at and above which there are no shafts
+    horizon = 0.12, -- 0..1 sun height below which the shafts fade out with the light
+    cloudKill = 0.85, -- 0..1 share of the shafts lost under full cloud cover (they need a clear sky)
+    mistBoost = 0.5, -- extra strength (a share of `strength`) while morning mist hangs in the air
+    scale = 0.035, -- stripe frequency across the shafts, 1/art pixels (0.035 = shafts about 30 art pixels apart)
+    patch = 0.006, -- frequency of the broad patches that break the shafts up, 1/art pixels
+    block = 2, -- art pixels per beam pixel, so the edges stay chunky pixel art
+    color = { 1.00, 0.80, 0.52 }, -- warm light (graded afterwards)
+  },
+  sparkle = { -- single pixels of snow and puddle that flash in the sun (shaders/ground.glsl, D131)
+    density = 0.006, -- 0..1 share of the snow pixels flashing at once in full sun (puddles get twice that)
+    steps = 3, -- times a second the flashing pixels move on
+    cloudKill = 0.8, -- 0..1 share of the sparkle lost under full cloud cover
+  },
   bloom = { -- glow round bright pixels (shaders/bloom_*.glsl, D129): lamps, fires, lit windows, snow in the sun
     enabled = true,
     threshold = 0.66, -- 0..1 brightness (of the brightest channel) where glow starts
