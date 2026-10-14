@@ -1,7 +1,8 @@
 name: CI
 
-# Runs the headless test suite on every push to main and on every pull request.
-# Kept separate from build.yml (tag-triggered release build).
+# Runs the headless test suite (tests.yml), the StyLua format check and luacheck on every push to main
+# and on every pull request. build.yml calls tests.yml directly, so only the tests gate a release;
+# format and lint stay informational here.
 
 on:
   push:
@@ -16,62 +17,57 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  tests:
-    name: Tests (LÖVE 11.5)
+  format:
+    name: Format (StyLua)
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 5
+    # Informational until the tree is formatted with StyLua (about 140 files differ today, mostly aligned
+    # `=` padding). Remove this line to make it block merges once that pass lands.
+    continue-on-error: true
     env:
-      LOVE_VERSION: "11.5"
-      # The test runner disables the window, graphics and audio modules, but make any stray SDL
-      # initialisation harmless on a display-less runner.
-      SDL_VIDEODRIVER: dummy
-      SDL_AUDIODRIVER: dummy
+      # Pinned so a new StyLua release cannot reformat the tree under us. Keep in step with local installs.
+      STYLUA_VERSION: "2.0.2"
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Cache LÖVE AppImage
-        id: cache-love
-        uses: actions/cache@v4
-        with:
-          path: ~/love-cache
-          key: love-${{ env.LOVE_VERSION }}-x86_64-appimage
-
-      - name: Download LÖVE
-        if: steps.cache-love.outputs.cache-hit != 'true'
+      - name: Install StyLua
         run: |
-          mkdir -p ~/love-cache
-          curl -fsSL --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 300 \
-            "https://github.com/love2d/love/releases/download/${LOVE_VERSION}/love-${LOVE_VERSION}-x86_64.AppImage" \
-            -o ~/love-cache/love.AppImage
-          chmod +x ~/love-cache/love.AppImage
-
-      - name: Extract LÖVE (no FUSE needed)
-        run: |
-          mkdir -p ~/love-extract
-          cd ~/love-extract
-          ~/love-cache/love.AppImage --appimage-extract > /dev/null
-          # A small wrapper that runs the AppImage's own AppRun (sets up its bundled libraries).
+          curl -fsSL --retry 5 --retry-delay 10 \
+            "https://github.com/JohnnyMorganz/StyLua/releases/download/v${STYLUA_VERSION}/stylua-linux-x86_64.zip" \
+            -o stylua.zip
           mkdir -p ~/bin
-          printf '#!/bin/sh\nexec "%s/love-extract/squashfs-root/AppRun" "$@"\n' "$HOME" > ~/bin/love
-          chmod +x ~/bin/love
+          unzip -o stylua.zip -d ~/bin
+          chmod +x ~/bin/stylua
           echo "$HOME/bin" >> "$GITHUB_PATH"
 
-      - name: Show LÖVE version
-        run: love --version
+      - name: Show StyLua version
+        run: stylua --version
 
-      - name: Run tests
-        # tests/main.lua exits 1 if any test fails or a test file errors, which fails this step.
-        # shell: bash enables pipefail, so love's exit code survives the pipe to tee.
-        shell: bash
-        run: love tests | tee test-output.txt
+      - name: Check formatting
+        # Config comes from .stylua.toml at the repo root (2-space indent, 120 columns).
+        run: stylua --check game tests tools
 
-      - name: Summarise results
-        if: always()
+  lint:
+    name: Lint (luacheck, informational)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    # Informational until the existing warnings are cleared. Remove this line to make it block merges.
+    continue-on-error: true
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Install luacheck
         run: |
-          {
-            echo '### Test output'
-            echo '```'
-            tail -n 40 test-output.txt || true
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          # Runner images ship stale package lists; refresh them or the install can 404.
+          sudo apt-get update
+          sudo apt-get -y install luarocks
+          sudo luarocks install luacheck
+
+      - name: Run luacheck
+        # Config comes from .luacheckrc at the repo root.
+        run: luacheck game tests tools
+
+  tests:
+    uses: ./.github/workflows/tests.yml
