@@ -4,7 +4,12 @@
 std = "luajit"
 
 -- LÖVE injects `love` as a global; the game and tests reach everything else through require.
-globals = { "love" }
+-- The two game globals are deliberate: product_config (game/conf.lua, read from product.env) and
+-- https (game/main.lua, the optional native HTTPS module).
+globals = { "love", "product_config", "https" }
+
+-- Third-party code kept as shipped (also listed in .styluaignore).
+exclude_files = { "game/lib/**" }
 
 max_line_length = false
 
