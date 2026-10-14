@@ -26,6 +26,7 @@ local Placement = require("src.sim.systems.placement")
 local PlaceCard = require("src.ui.place_card")
 local Highlight = require("src.ui.highlight")
 local PlaceText = require("src.ui.place_text")
+local RangePreview = require("src.ui.range_preview")
 local Journal = require("src.sim.systems.journal")
 local Weather = require("src.sim.systems.weather")
 local Nightly = require("src.sim.systems.nightly")
@@ -1883,7 +1884,15 @@ function Homestead:action(name, data)
     self:openReadiness()
     return true
   end
+  if name == "press" then
+    -- A finger held on a tile while placing shows the item's preview and range there (#268); a drag pans
+    -- instead, and letting go places or not as before.
+    self.pressTile = self.mode == "place" and self:inWorldArea(data.y) and self:tileAt(data.x, data.y) or nil
+  elseif name == "release" then
+    self.pressTile = nil
+  end
   if name == "pan" then
+    self.pressTile = nil -- a drag moves the view; the held preview would point at the wrong ground
     self.camera:pan(data.dx, data.dy, view)
   elseif name == "zoom" then
     self.camera:zoomBy(data.steps, data.x, data.y, view)
@@ -1935,6 +1944,18 @@ local function outlineTile(camera, i, grid, color, width)
   love.graphics.rectangle("line", wx + 0.5 / z, wy + 0.5 / z, camera.tileSize - 1 / z, camera.tileSize - 1 / z)
 end
 
+--- The tile the item being placed would go on: the confirmation card's tile, else the tile held under a finger
+--- (touch has no hover, #268), else the one under the mouse. Nil when not placing.
+function Homestead:placeTarget()
+  if self.mode ~= "place" then
+    return nil
+  end
+  if self.placeCard and self.placeCard.kind == "confirm" then
+    return self.placeCard.tile
+  end
+  return self.pressTile or self.hover
+end
+
 function Homestead:drawOverlays()
   local world = self.world
   local grid, camera, tile = world.state.grid, self.camera, self.camera.tileSize
@@ -1974,9 +1995,32 @@ function Homestead:drawOverlays()
       end
     end
   end
+  -- Range preview while placing (#268): the ranges of placed items of the same kind, dimmed, drawn first so the
+  -- range being placed and its overlaps sit on top; touch shows it while the finger is held on a tile.
+  local rangePreview
+  local placeTile = self:placeTarget()
+  if placeTile then
+    rangePreview = RangePreview.build(world, self.placing, placeTile, self.moving)
+  end
+  if rangePreview then
+    local look = visuals.rangePreview
+    for _, other in ipairs(rangePreview.others) do
+      love.graphics.setColor(look.others)
+      local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
+      for _, i in ipairs(other.tiles) do
+        local x, y = Grid.coords(grid, i)
+        local wx, wy = camera:tileToWorld(x, y)
+        love.graphics.rectangle("fill", wx, wy, tile, tile)
+        minX, minY, maxX, maxY = math.min(minX, wx), math.min(minY, wy), math.max(maxX, wx + tile), math.max(maxY, wy + tile)
+      end
+      love.graphics.setColor(look.othersEdge)
+      love.graphics.setLineWidth(1 / camera:zoom())
+      love.graphics.rectangle("line", minX, minY, maxX - minX, maxY - minY)
+    end
+  end
   -- Drip zones: the selected line's, or the one being placed under the pointer.
   local zoneAnchor
-  if self.selected then
+  if self.selected and self.mode ~= "place" then
     local obj, anchor = Grid.object(world, self.selected)
     zoneAnchor = obj and obj.drip and anchor or nil
   end
@@ -1987,45 +2031,31 @@ function Homestead:drawOverlays()
       local wx, wy = camera:tileToWorld(x, y)
       love.graphics.rectangle("fill", wx, wy, tile, tile)
     end
-  elseif self.mode == "place" and self.hover and world.registry:get("objects", self.placing).drip then
-    local radius = world.registry:get("objects", self.placing).drip.radius
-    local hx, hy = Grid.coords(grid, self.hover)
+  elseif rangePreview and rangePreview.kind == "drip" then
     love.graphics.setColor(visuals.waterZone.ok)
-    for y = hy - radius, hy + radius do
-      for x = hx - radius, hx + radius do
-        if Grid.inBounds(grid, x, y) then
-          local wx, wy = camera:tileToWorld(x, y)
-          love.graphics.rectangle("fill", wx, wy, tile, tile)
-        end
-      end
+    for _, i in ipairs(rangePreview.mine) do
+      local x, y = Grid.coords(grid, i)
+      local wx, wy = camera:tileToWorld(x, y)
+      love.graphics.rectangle("fill", wx, wy, tile, tile)
     end
   end
   -- Machine reach (D65): the selected machine's area, or the one being placed under the pointer.
   local reach, reachColor
-  if self.selected then
+  if self.selected and self.mode ~= "place" then
     local obj, anchor = Grid.object(world, self.selected)
     if obj and obj.machine then
       reach = Machines.areaTiles(world, anchor)
       local unit = Machines.at(world, anchor)
       reachColor = unit and unit.status == "unpowered" and visuals.machine.zoneUnpowered or visuals.machine.zone
     end
-  elseif self.mode == "place" and self.hover and world.registry:get("objects", self.placing).machine then
-    local r = world.registry:get("objects", self.placing).machine.radius
-    local hx, hy = Grid.coords(grid, self.hover)
-    reach, reachColor = {}, visuals.machine.zone
-    for y = hy - r, hy + r do
-      for x = hx - r, hx + r do
-        if Grid.inBounds(grid, x, y) then
-          reach[#reach + 1] = Grid.index(grid, x, y)
-        end
-      end
-    end
+  elseif rangePreview and rangePreview.kind == "machine" then
+    reach, reachColor = rangePreview.mine, visuals.machine.zone
   end
   -- Heater slot (D82): a shelter's own slot when it is selected or being placed, and the sleeping
   -- shelter's slot while a heat source is being placed, so the player sees where a fire counts in full.
   if not reach then
     local slotDef, sx, sy
-    if self.selected then
+    if self.selected and self.mode ~= "place" then
       local obj, anchor = Grid.object(world, self.selected)
       if obj and obj.shelter then
         slotDef = obj
@@ -2063,6 +2093,14 @@ function Homestead:drawOverlays()
     love.graphics.setLineWidth(1 / camera:zoom())
     love.graphics.rectangle("line", minX, minY, maxX - minX, maxY - minY)
   end
+  if rangePreview and #rangePreview.overlap > 0 then
+    love.graphics.setColor(visuals.rangePreview.overlap)
+    for _, i in ipairs(rangePreview.overlap) do
+      local x, y = Grid.coords(grid, i)
+      local wx, wy = camera:tileToWorld(x, y)
+      love.graphics.rectangle("fill", wx, wy, tile, tile)
+    end
+  end
   -- Buildings waiting for the way to be cleared (D79): a faint ghost with an accent outline on the footprint.
   for _, order in ipairs(Placement.orders(world)) do
     local def = world.registry:get("objects", order.object)
@@ -2082,7 +2120,7 @@ function Homestead:drawOverlays()
       outlineTile(camera, t, grid, theme.colors.accent, 2)
     end
   end
-  local target = self.mode == "place" and (self.placeCard and self.placeCard.kind == "confirm" and self.placeCard.tile or self.hover)
+  local target = self:placeTarget()
   if target then
     -- Ghost of the object being placed: green where it fits now, amber where trees, rocks or crops must go
     -- first (those tiles are outlined: orange to clear, red to remove), red where it can't go.
