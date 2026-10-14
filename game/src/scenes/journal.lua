@@ -17,6 +17,8 @@ local Buttons = require("src.ui.buttons")
 local Focus = require("src.ui.journal_focus")
 local Layout = require("src.ui.journal_layout")
 local Nav = require("src.ui.journal_nav")
+local Search = require("src.ui.journal_search")
+local TextField = require("src.ui.text_field")
 local Overview = require("src.ui.journal_overview")
 local NodeView = require("src.ui.node_view")
 local Panel = require("src.ui.panel")
@@ -61,6 +63,13 @@ local ORDER_REASONS = { owned = "Owned", ordered = "Ordered", ["pickup only"] = 
 -- show a grown journal). Nil in the game.
 JournalScene.chapterSource = nil
 
+-- The chapter the Journal was last left in, by chapter id, so the next visit reopens on it (D120, #208). It
+-- lives here, in memory for the session, on purpose: it is a convenience and not game state, so it is
+-- not in the slot save (no SAVE_COMPAT change) and not one of the settings (those are typed options, D96).
+-- { world, id }: set whenever a chapter is on show, and only honoured for that same world, so a new game or
+-- a loaded slot starts on the default. A chapter that is gone is ignored.
+JournalScene.lastChapter = nil
+
 function JournalScene.new(world, onToast)
   return setmetatable({ world = world, onToast = onToast, selected = nil, selectedNote = nil, nav = Nav.new() }, JournalScene)
 end
@@ -71,6 +80,11 @@ function JournalScene:enter()
   self.spec = self.app.ctx.tuning.ui.journal
   self.pendingFocus = true
   self.refresh = 0
+  self.field = TextField.new(self.spec.search.maxLength)
+end
+
+function JournalScene:exit()
+  self.field:blur()
 end
 
 local function inRect(r, x, y)
@@ -120,7 +134,21 @@ function JournalScene:resize(view)
       self.nav.cur = index
       Nav.revealTile(self.nav, index, self.spec)
     end
+    -- Back where you left off, when that chapter still exists.
+    local last = Search.rememberedIndex(self.chapters, self:lastChapterId())
+    if last then
+      self.nav.cur = last
+      Nav.revealTile(self.nav, last, self.spec)
+      Nav.openChapter(self.nav, last)
+      self:layoutButtons()
+    end
   end
+end
+
+--- The id of the chapter to reopen on: the one last viewed in this world, or nil.
+function JournalScene:lastChapterId()
+  local last = JournalScene.lastChapter
+  return last and last.world == self.world and last.id or nil
 end
 
 function JournalScene:chapterList()
@@ -177,6 +205,16 @@ function JournalScene:select(id, keepChapter)
     Nav.openChapter(self.nav, index)
   end
   self:layoutButtons()
+  if id then
+    Nav.revealNode(self.nav, id, keepChapter)
+  end
+end
+
+--- Jump to a search result: leave the search, show the node's chapter and open its card.
+function JournalScene:pickResult(result)
+  self.field:clear()
+  self.field:blur()
+  self:select(result.id)
 end
 
 function JournalScene:selectNote(id)
@@ -192,9 +230,35 @@ function JournalScene:layoutNav()
   end
   local ideas = self:ideaIds()
   self.stats = Layout.allStats(self.chapters, statusOf)
-  local data = { chapters = self.chapters, stats = self.stats, groups = self.groups, ideaCount = #ideas }
+  self.results = Search.find(self.chapters, statusOf, self.field.text)
+  local data = {
+    chapters = self.chapters,
+    stats = self.stats,
+    groups = self.groups,
+    ideaCount = #ideas,
+    results = self.results,
+    showField = self.field.focused or not self.field:isEmpty(),
+    selected = self.selected,
+  }
+  self.resultData = data
   local free = Layout.freeRect(self.mapRect, self.selected and self.cardRect or nil, self.cardSide, self.spec)
   Nav.layout(nav, data, free, self.spec, self.app.ctx.tuning.input.minTouchTarget)
+  if nav.view == "focus" and self.chapters[nav.cur] then
+    JournalScene.lastChapter = { world = self.world, id = self.chapters[nav.cur].id } -- the chapter last viewed, for the next visit
+  end
+  -- The search field takes the keyboard when tapped; Clear empties it and shows the chapters again.
+  if nav.field then
+    nav.field.onPress = function()
+      self.field:focus(nav.field, self.app.view.scale)
+    end
+    self.hits[#self.hits + 1] = nav.field
+  end
+  if nav.clear then
+    nav.clear.onPress = function()
+      self:endSearch()
+    end
+    self.hits[#self.hits + 1] = nav.clear
+  end
   for _, chip in ipairs(nav.chips) do
     local kind = chip.kind
     chip.onPress = function()
@@ -207,6 +271,8 @@ function JournalScene:layoutNav()
         if id then
           self:select(id)
         end
+      elseif kind == "search" then
+        self:startSearch()
       elseif kind == "study" then
         local id = Layout.nextIdea(self:ideaIds(), self.selected)
         if id then
@@ -219,6 +285,20 @@ function JournalScene:layoutNav()
     end
     self.hits[#self.hits + 1] = chip
   end
+end
+
+--- Open the search field (a row under the top of the map) and give it the keyboard.
+function JournalScene:startSearch()
+  self.field.focused = true
+  self:layoutButtons()
+  self.field:focus(self.nav.field, self.app.view.scale)
+end
+
+--- Empty the search field and hand the keyboard back.
+function JournalScene:endSearch()
+  self.field:clear()
+  self.field:blur()
+  self:layoutButtons()
 end
 
 -- Buttons and tap targets. Chips and note stamps are plain hit rectangles (drawn by hand);
@@ -328,6 +408,7 @@ function JournalScene:layoutButtons()
 end
 
 function JournalScene:update(dt)
+  self.field:update(dt)
   -- Study progresses and money changes while the panel is open; keep the buttons honest.
   self.refresh = self.refresh - dt
   if self.refresh <= 0 then
@@ -344,6 +425,13 @@ end
 
 function JournalScene:tapMap(x, y)
   local nav = self.nav
+  if nav.list then
+    local index = Nav.resultAt(nav, x, y)
+    if index then
+      self:pickResult(self.results[index])
+    end
+    return
+  end
   if nav.view == "overview" then
     local index = Nav.tileAt(nav, x, y)
     if index then
@@ -353,7 +441,10 @@ function JournalScene:tapMap(x, y)
     end
     return
   end
-  local kind, id = Layout.hit(nav.fit, x, y)
+  if not inRect(nav.body, x, y) then
+    return
+  end
+  local kind, id = Layout.hit(nav.fit, x, y, nav.focusOffset)
   if kind == "node" then
     self:select(id, true)
   elseif kind == "note" then
@@ -377,7 +468,8 @@ function JournalScene:action(name, data)
   if name == "press" then
     self.dragInMap = not consumed and inRect(self.mapRect, data.x, data.y) and not (self:cardOpen() and inRect(self.cardRect, data.x, data.y))
   elseif name == "pan" then
-    if data.keys or self.dragInMap then
+    -- Typing "a", "s", "d" or "w" must not scroll the list under the search field.
+    if (data.keys and not self.field.focused) or (self.dragInMap and not data.keys) then
       Nav.drag(self.nav, data.dy)
     end
   elseif name == "zoom" then
@@ -408,7 +500,9 @@ function JournalScene:action(name, data)
       end
     end
   elseif name == "cancel" then
-    if self.selected or self.selectedNote then
+    if self.field.focused or not self.field:isEmpty() then
+      self:endSearch()
+    elseif self.selected or self.selectedNote then
       self.selected, self.selectedNote = nil, nil
       self:layoutButtons()
     elseif self.nav.view == "focus" then
@@ -419,6 +513,30 @@ function JournalScene:action(name, data)
     end
   end
   return true
+end
+
+--- Typed text goes to the search field once it has the keyboard.
+function JournalScene:textinput(text)
+  if self.field.focused then
+    self.field:insert(text)
+    self.nav.resultOffset = 0
+    self:layoutButtons()
+  end
+end
+
+--- Backspace edits the query, Enter opens the first match, Ctrl+F puts the keyboard in the search field.
+function JournalScene:keypressed(key)
+  if self.field.focused then
+    if key == "backspace" then
+      self.field:backspace()
+      self.nav.resultOffset = 0
+      self:layoutButtons()
+    elseif (key == "return" or key == "kpenter") and self.results and self.results[1] then
+      self:pickResult(self.results[1])
+    end
+  elseif key == "f" and (love.keyboard.isDown("lctrl", "rctrl")) then
+    self:startSearch()
+  end
 end
 
 -- Drawing -------------------------------------------------------------------------------------
@@ -584,8 +702,17 @@ function JournalScene:drawMap()
   local r, scale = self.mapRect, self.app.view.scale
   love.graphics.setColor(COLOR.mapBg)
   love.graphics.rectangle("fill", r.x, r.y, r.w, r.h, 4, 4)
+  local search = self.spec.search
+  if self.nav.field then
+    self.field:draw(self.nav.field, { placeholder = search.labels.placeholder, pad = search.textPad, blink = search.caretBlink })
+  end
+  if self.nav.clear then
+    Overview.drawClear(self.nav, self.spec)
+  end
   Overview.drawChips(self.nav, self.spec)
-  if self.nav.view == "focus" then
+  if self.nav.list then
+    Overview.drawResults(self.nav, self.resultData, self.spec, scale)
+  elseif self.nav.view == "focus" then
     Focus.draw(self, self.nav, self.spec)
   else
     Overview.draw(self.nav, { chapters = self.chapters, stats = self.stats }, self.spec, scale)

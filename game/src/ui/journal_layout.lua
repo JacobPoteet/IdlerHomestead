@@ -189,6 +189,9 @@ end
 --- { map, scale, w, h, ox, oy, columns } with (ox, oy) the map's top-left in the same space as `body`.
 function Layout.fit(chapter, body, spec)
   local nodes = chapter.nodes
+  if #nodes > spec.scrollNodes then
+    return Layout.fitScrolling(chapter, body, spec)
+  end
   local best
   for k = 1, math.min(#nodes, spec.fitMaxColumns) do
     local per = math.ceil(#nodes / k)
@@ -211,7 +214,52 @@ function Layout.fit(chapter, body, spec)
   best.w, best.h = best.map.w * best.scale, best.map.h * best.scale
   best.ox = body.x + math.floor((body.w - best.w) / 2)
   best.oy = body.y + math.floor((body.h - best.h) / 2)
+  best.contentH = best.h
   return best
+end
+
+--- A very large chapter (more than spec.scrollNodes nodes) is not shrunk: it is drawn at spec.readScale and
+--- scrolls up and down (D120, #208). The nodes are split over as many side-by-side columns as fit the body's
+--- width at that scale (up to spec.fitMaxColumns), which keeps the scroll as short as it can be. Same result
+--- shape as the fitted layout, with `contentH` the full height (taller than `body.h` when it scrolls); (ox, oy)
+--- is the map's top-left at scroll offset 0.
+function Layout.fitScrolling(chapter, body, spec)
+  local nodes, scale = chapter.nodes, spec.readScale
+  local best
+  for k = 1, math.min(#nodes, spec.fitMaxColumns) do
+    local per = math.ceil(#nodes / k)
+    local parts, i = {}, 1
+    while i <= #nodes do
+      local slice = {}
+      for j = i, math.min(i + per - 1, #nodes) do
+        slice[#slice + 1] = nodes[j]
+      end
+      local name = #parts == 0 and chapter.name or (chapter.name .. spec.labels.continued)
+      parts[#parts + 1] = { id = chapter.id .. "#" .. #parts, name = name, nodes = slice }
+      i = i + per
+    end
+    local map = JournalMap.build(parts, 0)
+    -- Keep the most columns that still fit the width (the first column count always counts).
+    if k == 1 or map.w * scale <= body.w then
+      best = { map = map, scale = scale, columns = #parts }
+    end
+  end
+  best.w, best.h = best.map.w * scale, best.map.h * scale
+  best.ox = body.x + math.floor((body.w - best.w) / 2)
+  best.contentH = best.h
+  best.oy = best.h < body.h and body.y + math.floor((body.h - best.h) / 2) or body.y
+  return best
+end
+
+--- The scroll offset that puts node `id` in the middle of a body of height `viewH` showing `fit` (clamped
+--- to the content). 0 when the chapter does not scroll or the node is not in it.
+function Layout.offsetForNode(fit, id, viewH)
+  local node = fit.map.nodes[id]
+  if not node or fit.contentH <= viewH then
+    return 0
+  end
+  local middle = (node.y + node.h / 2) * fit.scale
+  return math.max(0, math.min(middle - viewH / 2, fit.contentH - viewH))
 end
 
 local function inside(r, x, y)
@@ -219,8 +267,8 @@ local function inside(r, x, y)
 end
 
 --- What a tap at (x, y) hits in a fitted chapter: "node", id or "note", id, else nil.
-function Layout.hit(fit, x, y)
-  local mx, my = (x - fit.ox) / fit.scale, (y - fit.oy) / fit.scale
+function Layout.hit(fit, x, y, offset)
+  local mx, my = (x - fit.ox) / fit.scale, (y - fit.oy + (offset or 0)) / fit.scale
   for _, region in ipairs(fit.map.regions) do
     for _, node in ipairs(region.nodes) do
       if inside(node, mx, my) then
