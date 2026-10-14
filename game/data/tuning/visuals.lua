@@ -41,6 +41,14 @@ return {
     { hour = 24, tint = { 0.52, 0.58, 0.88 }, light = 0.56 },
   },
   saturation = 0.92, -- 1 = unchanged; lower is more muted
+  tone = { -- split toning and contrast in the colour grade (D128); gradeStrength scales all of it toward neutral
+    shadowTone = { 0.93, 0.98, 1.07 }, -- colour multiplier for dark pixels (cool)
+    highlightTone = { 1.06, 1.01, 0.93 }, -- colour multiplier for bright pixels (warm)
+    mid = 0.42, -- luma (0..1) where the tone swings from the shadow to the highlight colour
+    width = 0.32, -- luma span either side of `mid` over which it swings
+    contrast = 0.22, -- 0..1 strength of the S-curve (0 = none)
+    blackLift = { 0.010, 0.014, 0.026 }, -- light added to the darkest pixels, so black reads as deep blue instead of mud
+  },
   seasonGrade = { -- season id -> { tint multiplier, saturation multiplier } on top of the day/night grade
     spring = { tint = { 1.00, 1.00, 1.00 }, saturation = 1.00 },
     summer = { tint = { 1.02, 1.00, 0.96 }, saturation = 1.05 },
@@ -224,7 +232,9 @@ return {
   lights = { -- night lights over the graded world (shaders/light.glsl, D84); which objects glow is the `light` field in data/content/objects.lua
     fadeStart = 0.7, -- daylight level (0 night .. 1 day) below which the lights begin to come on
     fadeEnd = 0.25, -- daylight level at which they are at full strength
-    intensity = 0.75, -- 0..1 brightness at the centre of a light at full darkness (added on top of the graded image)
+    intensity = 1.0, -- 0..1 brightness at the centre of a light at full darkness, in the light buffer
+    gain = 1.15, -- how strongly the light brightens and warms the picture it reaches (multiplies the lit pixels, D128)
+    glow = 0.16, -- how much of the light is also added flat, so a lamp core stays bright and dark ground still shows it
     bands = 4, -- number of pixel-art brightness steps in the falloff
     falloff = 1.6, -- exponent of the falloff (higher = tighter, brighter core)
     dither = 0.12, -- 0..1 ordered dither between bands, on the art-pixel grid

@@ -761,12 +761,24 @@ function Renderer:drawMist(visible, ice)
   love.graphics.setShader()
 end
 
---- Night lights, additive over the GRADED world (call with the camera transform on, after drawGraded).
---- Which objects glow is the `light` field of their definition and whether it is on is read from the sim
---- (Lights.visible); here we only paint. Returns how many lights were drawn (for the perf notes).
+--- The light buffer: a canvas the size of the world canvas that the night lights are painted into
+--- (D128). The colour grade reads it, so lights brighten what they reach. Created on demand.
+function Renderer:lightBuffer(w, h)
+  if not self.lightCanvas or self.lightCanvas:getWidth() ~= w or self.lightCanvas:getHeight() ~= h then
+    self.lightCanvas = love.graphics.newCanvas(w, h)
+    self.lightCanvas:setFilter("nearest", "nearest")
+  end
+  return self.lightCanvas
+end
+
+--- Night light pools, painted additively into the current canvas (the light buffer: cleared black, with
+--- the camera transform on). Which objects glow is the `light` field of their definition and whether it is
+--- on is read from the sim (Lights.visible); here we only paint. Returns how many lights were drawn, and
+--- remembers them for `drawEmissive`.
 function Renderer:drawLights(visible, daylight)
   local world, tile = self.world, self.tile
   local cfg = world.tuning.visuals.lights
+  self.litNow, self.darkNow = nil, 0
   local dark = math.min(1, math.max(0, (cfg.fadeStart - daylight) / (cfg.fadeStart - cfg.fadeEnd)))
   if dark <= 0.001 then
     return 0
@@ -776,6 +788,7 @@ function Renderer:drawLights(visible, daylight)
   if #lit == 0 then
     return 0
   end
+  self.litNow, self.darkNow = lit, dark
   love.graphics.setBlendMode("add")
   local step = math.floor(self.time * cfg.flickerSpeed)
   for n, item in ipairs(lit) do
@@ -801,7 +814,26 @@ function Renderer:drawLights(visible, daylight)
       love.graphics.draw(self:whiteImage(), cx - radius, cy - radius * 0.8, 0, radius * 2, radius * 1.6)
       love.graphics.setShader()
     end
+  end
+  love.graphics.setBlendMode("alpha")
+  love.graphics.setColor(1, 1, 1, 1)
+  return #lit
+end
+
+--- Lit window and stove-door pixels at full brightness, additive over the GRADED world (camera transform
+--- on, after drawGraded): they are light sources themselves, not things the light falls on.
+function Renderer:drawEmissive()
+  local lit, dark = self.litNow, self.darkNow
+  if not lit or dark <= 0.001 then
+    return
+  end
+  local cfg, tile = self.world.tuning.visuals.lights, self.tile
+  love.graphics.setBlendMode("add")
+  for _, item in ipairs(lit) do
+    local light = item.light
     if light.windows then
+      local sprite = Assets.sprite(item.id)
+      local left, top = (item.tileX - 1) * tile, item.bottom - sprite.h
       local c, g = light.color, cfg.windowGlow * dark
       love.graphics.setColor(c[1] * g, c[2] * g, c[3] * g, 1)
       for _, w in ipairs(light.windows) do
@@ -811,7 +843,6 @@ function Renderer:drawLights(visible, daylight)
   end
   love.graphics.setBlendMode("alpha")
   love.graphics.setColor(1, 1, 1, 1)
-  return #lit
 end
 
 --- Switch to the snow-cap shader for one sprite: tell it where the sprite's cell sits in its atlas, so
@@ -1172,7 +1203,7 @@ function Renderer:drawAmbient(visible, daylight)
 end
 
 --- Apply the colour grade while drawing `canvas` (the rendered world) to the screen.
-function Renderer:drawGraded(canvas, tint, light, pixelSize, haze)
+function Renderer:drawGraded(canvas, tint, light, pixelSize, haze, lightMap)
   local v = self.world.tuning.visuals
   local shader = Shaders.get("grade")
   if Settings.read("reduceMotion", false) then
@@ -1201,6 +1232,21 @@ function Renderer:drawGraded(canvas, tint, light, pixelSize, haze)
     })
     if #sources > 0 and shader:hasUniform("heatSources") then
       shader:send("heatSources", unpack(sources))
+    end
+    local tone = v.tone
+    Shaders.send(shader, {
+      lightAmount = lightMap and 1 or 0,
+      lightGain = v.lights.gain,
+      lightGlow = v.lights.glow,
+      shadowTone = { toward(1, tone.shadowTone[1]), toward(1, tone.shadowTone[2]), toward(1, tone.shadowTone[3]) },
+      highlightTone = { toward(1, tone.highlightTone[1]), toward(1, tone.highlightTone[2]), toward(1, tone.highlightTone[3]) },
+      toneMid = tone.mid,
+      toneWidth = tone.width,
+      contrast = tone.contrast * g,
+      blackLift = { tone.blackLift[1] * g, tone.blackLift[2] * g, tone.blackLift[3] * g },
+    })
+    if lightMap and shader:hasUniform("lightMap") then
+      shader:send("lightMap", lightMap)
     end
     Shaders.send(shader, {
       tint = tint,
