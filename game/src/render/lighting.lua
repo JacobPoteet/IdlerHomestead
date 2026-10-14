@@ -39,4 +39,14 @@ function Lighting.at(hour, keys)
   return tint, light, daylight
 end
 
+--- The sun's place for shadows: `side` runs -1 at sunrise to +1 at sunset (shadows fall away from it) and
+--- `elevation` is 0 on the horizon to 1 at noon. Returns nil at night.
+function Lighting.sun(hour, sunrise, sunset)
+  if hour <= sunrise or hour >= sunset then
+    return nil
+  end
+  local t = (hour - sunrise) / (sunset - sunrise)
+  return (t - 0.5) * 2, math.sin(math.pi * t)
+end
+
 return Lighting

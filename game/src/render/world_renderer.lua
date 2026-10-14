@@ -295,12 +295,86 @@ function Renderer:winterAmounts()
   return 0, 0
 end
 
-function Renderer:drawWater(daylight, ice)
+--- Is any tile in the `rows` rows just below the footprint (x .. x + fw - 1, y + fh) open water?
+local function waterBelow(world, grid, x, y, fw, fh, rows)
+  for dy = 0, rows - 1 do
+    for dx = 0, fw - 1 do
+      local tx, ty = x + dx, y + fh + dy
+      if Grid.inBounds(grid, tx, ty) and Grid.terrain(world, Grid.index(grid, tx, ty)).water == true then
+        return true
+      end
+    end
+  end
+  return false
+end
+
+--- Mirror the objects standing on the creek bank into a canvas the size of the world canvas (call with the
+--- camera transform on). The water shader reads it by screen position, so only water shows it (D130).
+--- Returns the canvas, or nil when nothing is reflected this frame.
+function Renderer:drawReflections(visible)
+  local world, tile = self.world, self.tile
+  local cfg = world.tuning.visuals.reflections
+  local target = love.graphics.getCanvas()
+  if not cfg.enabled or not target then
+    return nil
+  end
+  local grid, registry = world.state.grid, world.registry
+  local x1, y1, x2, y2 = visible[1], visible[2], visible[3], visible[4]
+  local list
+  for anchor, obj in pairs(grid.objects) do
+    local def = registry:get("objects", obj.id)
+    local x, y = Grid.coords(grid, anchor)
+    local fw, fh = def.footprintW or 1, def.footprintH or 1
+    if not def.flat and x + fw >= x1 and x <= x2 and y + fh + cfg.reach >= y1 and y <= y2 and waterBelow(world, grid, x, y, fw, fh, cfg.reach) then
+      list = list or {}
+      list[#list + 1] = { Assets.sprite(obj.id), (x - 1) * tile, (y - 1 + fh) * tile }
+    end
+  end
+  if not list then
+    return nil
+  end
+  local w, h = target:getDimensions()
+  if not self.reflectCanvas or self.reflectCanvas:getWidth() ~= w or self.reflectCanvas:getHeight() ~= h then
+    self.reflectCanvas = love.graphics.newCanvas(w, h)
+    self.reflectCanvas:setFilter("nearest", "nearest")
+  end
+  love.graphics.push("all")
+  love.graphics.setCanvas(self.reflectCanvas) -- the camera transform stays on
+  love.graphics.clear(0, 0, 0, 0)
+  love.graphics.setColor(1, 1, 1, 1)
+  for _, e in ipairs(list) do
+    local sprite = e[1]
+    love.graphics.draw(sprite.image, sprite.quad, e[2], e[3], 0, 1, -cfg.squash, 0, sprite.h)
+  end
+  love.graphics.pop()
+  return self.reflectCanvas
+end
+
+function Renderer:drawWater(daylight, ice, visible)
   local shader = Shaders.get("water")
   local v = self.world.tuning.visuals
   local land = self.world.state.land
   local grid = self.world.state.grid
   if shader then
+    local refl = visible and shader:hasUniform("reflection") and self:drawReflections(visible) or nil
+    local rc = v.reflections
+    local px0 = love.graphics.transformPoint(0, 0)
+    local px1 = love.graphics.transformPoint(1, 0)
+    Shaders.send(shader, {
+      reflectionOn = refl and 1 or 0,
+      reflectionSize = refl and { refl:getWidth(), refl:getHeight() } or { 1, 1 },
+      pixelSize = px1 - px0,
+      reflectOpacity = rc.opacity,
+      reflectDistort = rc.distort,
+      reflectTint = rc.tint,
+      skyColor = rc.skyColor,
+      skyAmount = rc.enabled and rc.skyAmount or 0,
+    })
+    if refl then
+      shader:send("reflection", refl)
+    else
+      shader:send("reflection", self:whiteImage()) -- the sampler still needs something bound
+    end
     Shaders.send(shader, {
       time = self.time,
       depthMap = self.depthMap,
@@ -392,6 +466,10 @@ function Renderer:draw(alpha, visible, daylight)
       frostSnowColor = v.frostSnowColor,
       frostSparkle = v.frostSparkle,
       frostSparkleColor = v.frostSparkleColor,
+      glint = self:sunGlint(),
+      glintDensity = v.sparkle.density,
+      glintSteps = Settings.read("reduceMotion", false) and 0 or v.sparkle.steps,
+      time = self.time,
       groundSize = { self.ground:getWidth(), self.ground:getHeight() },
     })
     love.graphics.setShader(groundShader)
@@ -399,7 +477,7 @@ function Renderer:draw(alpha, visible, daylight)
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(self.ground, 0, 0)
   love.graphics.setShader()
-  self:drawWater(daylight, ice)
+  self:drawWater(daylight, ice, visible)
   -- Ice holes: dark open water in the frozen creek.
   love.graphics.setColor(v.iceHoleColor)
   for i in pairs(ice > 0 and world.state.weather.holes or {}) do
@@ -472,9 +550,16 @@ function Renderer:draw(alpha, visible, daylight)
   -- Mist is a low layer: it hazes the ground and the creek but sits under crops, objects and tree canopies (#219).
   self:drawMist(visible, ice)
   local items = {}
+  local shadows = self.shadowList -- five values per sprite, in one table reused every frame (no allocation per sprite)
+  if not shadows then
+    shadows = { n = 0 }
+    self.shadowList = shadows
+  end
+  shadows.n = 0
   for i, crop in pairs(crops) do
     if onScreen(i) then
       local x, y = Grid.coords(grid, i)
+      self:castShadow(shadows, Assets.sprite(crop.id .. "_" .. cropStage(crop)), (x - 0.5) * tile, y * tile, 1, false)
       items[#items + 1] = {
         y * tile - 0.5,
         function()
@@ -519,6 +604,9 @@ function Renderer:draw(alpha, visible, daylight)
       local bottom = (y - 1 + fh) * tile
       local batch = def.station and Processing.batch(world, anchor)
       local smoking = batch and world.registry:get("recipes", batch.recipe).fuel ~= nil
+      if not def.flat then
+        self:castShadow(shadows, sprite, (x - 1) * tile + sprite.w / 2, bottom, 1, true)
+      end
       items[#items + 1] = {
         bottom,
         function()
@@ -588,6 +676,9 @@ function Renderer:draw(alpha, visible, daylight)
     local ax = actor.prevX + (actor.x - actor.prevX) * alpha
     local ay = actor.prevY + (actor.y - actor.prevY) * alpha
     local feetX, feetY = (ax - 0.5) * tile, (ay - 0.5) * tile + 6
+    if not actor.asleep then
+      self:castShadow(shadows, Assets.sprite(actor.kind), math.floor(feetX + 0.5), math.floor(feetY + 0.5), 1, true)
+    end
     items[#items + 1] = {
       feetY,
       function()
@@ -615,6 +706,8 @@ function Renderer:draw(alpha, visible, daylight)
   if cx then
     local feetX = (cpx + (cx - cpx) * alpha - 0.5) * tile
     local feetY = (cpy + (cy - cpy) * alpha - 0.5) * tile + 6
+    local resting = cmode == "nap" or cmode == "sleep"
+    self:castShadow(shadows, Assets.sprite(resting and "cat_nap" or "cat"), math.floor(feetX + 0.5), math.floor(feetY + 0.5), 1, true)
     items[#items + 1] = {
       feetY,
       function()
@@ -631,6 +724,7 @@ function Renderer:draw(alpha, visible, daylight)
   table.sort(items, function(a, b)
     return a[1] < b[1]
   end)
+  self:drawShadows(shadows)
   for _, item in ipairs(items) do
     item[2]()
   end
@@ -750,12 +844,24 @@ function Renderer:drawMist(visible, ice)
   love.graphics.setShader()
 end
 
---- Night lights, additive over the GRADED world (call with the camera transform on, after drawGraded).
---- Which objects glow is the `light` field of their definition and whether it is on is read from the sim
---- (Lights.visible); here we only paint. Returns how many lights were drawn (for the perf notes).
+--- The light buffer: a canvas the size of the world canvas that the night lights are painted into
+--- (D128). The colour grade reads it, so lights brighten what they reach. Created on demand.
+function Renderer:lightBuffer(w, h)
+  if not self.lightCanvas or self.lightCanvas:getWidth() ~= w or self.lightCanvas:getHeight() ~= h then
+    self.lightCanvas = love.graphics.newCanvas(w, h)
+    self.lightCanvas:setFilter("nearest", "nearest")
+  end
+  return self.lightCanvas
+end
+
+--- Night light pools, painted additively into the current canvas (the light buffer: cleared black, with
+--- the camera transform on). Which objects glow is the `light` field of their definition and whether it is
+--- on is read from the sim (Lights.visible); here we only paint. Returns how many lights were drawn, and
+--- remembers them for `drawEmissive`.
 function Renderer:drawLights(visible, daylight)
   local world, tile = self.world, self.tile
   local cfg = world.tuning.visuals.lights
+  self.litNow, self.darkNow = nil, 0
   local dark = math.min(1, math.max(0, (cfg.fadeStart - daylight) / (cfg.fadeStart - cfg.fadeEnd)))
   if dark <= 0.001 then
     return 0
@@ -765,6 +871,7 @@ function Renderer:drawLights(visible, daylight)
   if #lit == 0 then
     return 0
   end
+  self.litNow, self.darkNow = lit, dark
   love.graphics.setBlendMode("add")
   local step = math.floor(self.time * cfg.flickerSpeed)
   for n, item in ipairs(lit) do
@@ -790,7 +897,39 @@ function Renderer:drawLights(visible, daylight)
       love.graphics.draw(self:whiteImage(), cx - radius, cy - radius * 0.8, 0, radius * 2, radius * 1.6)
       love.graphics.setShader()
     end
+  end
+  love.graphics.setBlendMode("alpha")
+  love.graphics.setColor(1, 1, 1, 1)
+  return #lit
+end
+
+--- Lit window and stove-door pixels at full brightness, additive over the GRADED world (camera transform
+--- on, after drawGraded): they are light sources themselves, not things the light falls on.
+function Renderer:drawEmissive()
+  local lit, dark = self.litNow, self.darkNow
+  if not lit or dark <= 0.001 then
+    return
+  end
+  local cfg, tile = self.world.tuning.visuals.lights, self.tile
+  love.graphics.setBlendMode("add")
+  for _, item in ipairs(lit) do
+    local light = item.light
+    if not light.windows and cfg.coreSize > 0 then
+      -- A flame or bulb has no window pixels: give it a small hot core, which the bloom then spreads.
+      local sprite = Assets.sprite(item.id)
+      local c, g, s = light.color, cfg.coreGlow * dark, cfg.coreSize
+      love.graphics.setColor(c[1] * g, c[2] * g, c[3] * g, 1)
+      love.graphics.rectangle(
+        "fill",
+        (item.tileX - 1) * tile + light.at[1] - math.floor(s / 2),
+        item.bottom - sprite.h + light.at[2] - math.floor(s / 2),
+        s,
+        s
+      )
+    end
     if light.windows then
+      local sprite = Assets.sprite(item.id)
+      local left, top = (item.tileX - 1) * tile, item.bottom - sprite.h
       local c, g = light.color, cfg.windowGlow * dark
       love.graphics.setColor(c[1] * g, c[2] * g, c[3] * g, 1)
       for _, w in ipairs(light.windows) do
@@ -800,7 +939,6 @@ function Renderer:drawLights(visible, daylight)
   end
   love.graphics.setBlendMode("alpha")
   love.graphics.setColor(1, 1, 1, 1)
-  return #lit
 end
 
 --- Switch to the snow-cap shader for one sprite: tell it where the sprite's cell sits in its atlas, so
@@ -1084,6 +1222,142 @@ function Renderer:drawCropCues(visible, daylight)
   love.graphics.setColor(1, 1, 1, 1)
 end
 
+--- Queue a sprite for the shadow pass: `footX`, `footY` is where it stands (world art pixels), `flip` -1
+--- when the sprite is drawn mirrored. Sprites under the tuned minimum height cast no shadow, only contact.
+function Renderer:castShadow(list, sprite, footX, footY, flip, contact)
+  local n = list.n
+  list[n + 1], list[n + 2], list[n + 3], list[n + 4], list[n + 5] = sprite, footX, footY, flip, contact
+  list.n = n + 5
+end
+
+--- Where the sun is: `side` -1 at sunrise to +1 at sunset, `height` 0 on the horizon to 1 at noon (both nil at
+--- night), and today's cloud cover 0..1.
+function Renderer:sun()
+  local world = self.world
+  local sunrise, sunset = Calendar.daylight(world)
+  local side, height = Lighting.sun(Calendar.now(world).hour, sunrise, sunset)
+  return side, height, (self.fx:clouds())
+end
+
+--- 0..1 how much direct sun there is to flash on snow and puddles (D131): high sun, clear sky.
+function Renderer:sunGlint()
+  local side, height, cover = self:sun()
+  if not side then
+    return 0
+  end
+  local cfg = self.world.tuning.visuals
+  local rain = self.fx:rainAndWet()
+  return math.min(1, height * 3) * (1 - cfg.sparkle.cloudKill * cover) * (1 - math.min(1, rain * 2))
+end
+
+--- Slanted shafts of warm light at low sun (D131), additive over the graded frame (camera transform on,
+--- visible = the tile range). They run the way the shadows fall, show on a clear sky and thicken in morning mist.
+function Renderer:drawSunbeams(visible)
+  local shader = Shaders.get("sunbeams")
+  local world = self.world
+  local cfg = world.tuning.visuals.sunbeams
+  if not shader or not cfg.enabled or not Settings.read("ambientFx", true) then
+    return
+  end
+  local side, height, cover = self:sun()
+  if not side then
+    return
+  end
+  local low = math.min(1, math.max(0, (cfg.lowSun - height) / (cfg.lowSun - cfg.horizon)))
+  local rise = math.min(1, height / cfg.horizon)
+  local mist = self:mistStrength(0)
+  local strength = cfg.strength * low * rise * (1 - cfg.cloudKill * cover) * (1 + cfg.mistBoost * mist)
+  strength = strength * Settings.read("gradeStrength", 1)
+  if strength <= 0.002 then
+    return
+  end
+  local sh = world.tuning.visuals.shadows
+  local dx, dy = side * sh.maxShear, sh.lengthLow + (sh.lengthNoon - sh.lengthLow) * height
+  local norm = math.sqrt(dx * dx + dy * dy)
+  local grid, tile = world.state.grid, self.tile
+  local x1, y1 = math.max(1, visible[1] - 1), math.max(1, visible[2] - 1)
+  local x2, y2 = math.min(grid.w, visible[3] + 1), math.min(grid.h, visible[4] + 2)
+  local rx, ry, rw, rh = (x1 - 1) * tile, (y1 - 1) * tile, (x2 - x1 + 1) * tile, (y2 - y1 + 1) * tile
+  Shaders.send(shader, {
+    rect = { rx, ry, rw, rh },
+    dir = { dx / norm, dy / norm },
+    time = Settings.read("reduceMotion", false) and 0 or self.time,
+    strength = strength,
+    scale = cfg.scale,
+    patch = cfg.patch,
+    block = cfg.block,
+    beamColor = cfg.color,
+  })
+  love.graphics.setBlendMode("add")
+  love.graphics.setShader(shader)
+  love.graphics.setColor(1, 1, 1, 1)
+  love.graphics.draw(self:whiteImage(), rx, ry, 0, rw, rh)
+  love.graphics.setShader()
+  love.graphics.setBlendMode("alpha")
+end
+
+--- Sun shadows under the y-sorted sprites (call with the camera transform on, before the sprites).
+--- Cast shadows are each sprite's silhouette flipped onto the ground and sheared away from the sun,
+--- drawn solid into a mask and composited once, so overlapping shadows never double up. The sun's
+--- height sets the length, its place along the day sets the lean, cloud and low sun thin it out.
+--- A small contact shadow sits under everything and stays through the night.
+function Renderer:drawShadows(list)
+  local world = self.world
+  local cfg = world.tuning.visuals.shadows
+  if list.n == 0 or not cfg.enabled then
+    return
+  end
+  local sunrise, sunset = Calendar.daylight(world)
+  local side, height = Lighting.sun(Calendar.now(world).hour, sunrise, sunset)
+  local cover = self.fx:clouds()
+  local strength = 0
+  if side then
+    local fade = math.min(1, height / cfg.fadeElevation)
+    strength = cfg.castStrength * fade * fade * (3 - 2 * fade) * (1 - cfg.cloudDim * cover)
+  end
+  local shader = Shaders.get("shadow")
+  local target = love.graphics.getCanvas()
+  local c = cfg.color
+  if shader and target and strength > 0.005 then
+    local w, h = target:getDimensions()
+    if not self.shadowMask or self.shadowMask:getWidth() ~= w or self.shadowMask:getHeight() ~= h then
+      self.shadowMask = love.graphics.newCanvas(w, h)
+      self.shadowMask:setFilter("nearest", "nearest")
+    end
+    local len = cfg.lengthLow + (cfg.lengthNoon - cfg.lengthLow) * height
+    local shear = -side * cfg.maxShear -- love's kx moves a point by kx * its y; the sprite is flipped, so this is minus the lean
+    love.graphics.push("all")
+    love.graphics.setCanvas(self.shadowMask) -- the camera transform stays on, so the mask lines up with the world canvas
+    love.graphics.clear(0, 0, 0, 0)
+    love.graphics.setShader(shader)
+    love.graphics.setColor(1, 1, 1, 1)
+    for k = 1, list.n, 5 do
+      local sprite = list[k]
+      if list[k + 4] and sprite.h >= cfg.minHeight then
+        local flip = list[k + 3]
+        love.graphics.draw(sprite.image, sprite.quad, list[k + 1], list[k + 2], 0, flip, -len, sprite.w / 2, sprite.h, shear * flip, 0)
+      end
+    end
+    love.graphics.pop()
+    love.graphics.push("all")
+    love.graphics.origin()
+    love.graphics.setColor(c[1], c[2], c[3], strength)
+    love.graphics.draw(self.shadowMask, 0, 0)
+    love.graphics.pop()
+  end
+  love.graphics.setColor(c[1], c[2], c[3], cfg.contactStrength)
+  for k = 1, list.n, 5 do
+    local sprite = list[k]
+    if list[k + 4] then
+      local w = math.min(cfg.contactMaxWidth, math.floor(sprite.w * cfg.contactWidth))
+      local x, y = math.floor(list[k + 1]), math.floor(list[k + 2])
+      love.graphics.rectangle("fill", x - math.floor(w * 0.35), y - 1, math.floor(w * 0.7) * 1, 3)
+      love.graphics.rectangle("fill", x - math.floor(w / 2), y, w, 1)
+    end
+  end
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
 --- Fireflies and dust motes over the graded world (world space, camera transform on).
 function Renderer:drawAmbient(visible, daylight)
   if not Settings.read("ambientFx", true) then
@@ -1093,8 +1367,85 @@ function Renderer:drawAmbient(visible, daylight)
   Ambient.draw(self, visible, daylight, snow)
 end
 
+--- A screen-sized canvas for the graded frame, so the bloom can read it (D129).
+function Renderer:gradedBuffer(w, h)
+  if not self.gradedCanvas or self.gradedCanvas:getWidth() ~= w or self.gradedCanvas:getHeight() ~= h then
+    self.gradedCanvas = love.graphics.newCanvas(w, h)
+    self.gradedCanvas:setFilter("linear", "linear")
+  end
+  return self.gradedCanvas
+end
+
+--- Is the bloom pass available and switched on?
+function Renderer:bloomOn()
+  return self.world.tuning.visuals.bloom.enabled and Shaders.get("bloom_bright") ~= nil and Shaders.get("bloom_blur") ~= nil
+end
+
+local function layer(self, key, w, h)
+  local canvas = self[key]
+  if not canvas or canvas:getWidth() ~= w or canvas:getHeight() ~= h then
+    canvas = love.graphics.newCanvas(w, h)
+    canvas:setFilter("linear", "linear")
+    canvas:setWrap("clamp", "clamp")
+    self[key] = canvas
+  end
+  return canvas
+end
+
+--- Blur `src` (drawn at the size of `dst`) into `dst`, using `tmp` for the horizontal pass.
+local function blur(shader, src, tmp, dst, w, h)
+  love.graphics.setCanvas(tmp)
+  love.graphics.setShader(shader)
+  shader:send("step", { 1 / w, 0 })
+  love.graphics.draw(src, 0, 0, 0, w / src:getWidth(), h / src:getHeight())
+  love.graphics.setCanvas(dst)
+  shader:send("step", { 0, 1 / h })
+  love.graphics.draw(tmp, 0, 0)
+end
+
+--- Draw the graded frame to the screen with bloom: the bright pixels are cut out, blurred at two sizes
+--- and added back. Call with the identity transform and the screen as the target.
+function Renderer:drawBloom(graded, daylight)
+  local cfg = self.world.tuning.visuals.bloom
+  local g = Settings.read("gradeStrength", 1)
+  local dark = 1 - math.min(1, math.max(0, daylight))
+  local strength = cfg.strength * (1 + cfg.nightBoost * dark) * g
+  love.graphics.setColor(1, 1, 1, 1)
+  love.graphics.draw(graded, 0, 0)
+  if strength <= 0.001 then
+    return
+  end
+  local bright, blurShader = Shaders.get("bloom_bright"), Shaders.get("bloom_blur")
+  local w, h = graded:getDimensions()
+  local tw, th = math.max(1, math.floor(w / cfg.tightDivisor)), math.max(1, math.floor(h / cfg.tightDivisor))
+  local ww, wh = math.max(1, math.floor(w / cfg.wideDivisor)), math.max(1, math.floor(h / cfg.wideDivisor))
+  local tight, tightTmp = layer(self, "bloomTight", tw, th), layer(self, "bloomTightTmp", tw, th)
+  local wide, wideTmp = layer(self, "bloomWide", ww, wh), layer(self, "bloomWideTmp", ww, wh)
+  love.graphics.push("all")
+  Shaders.send(bright, { threshold = cfg.threshold, knee = cfg.knee })
+  love.graphics.setCanvas(tight)
+  love.graphics.clear(0, 0, 0, 1)
+  love.graphics.setShader(bright)
+  love.graphics.draw(graded, 0, 0, 0, tw / w, th / h)
+  love.graphics.setShader()
+  love.graphics.setCanvas(wideTmp) -- the wide layer starts from the tight one, already small
+  love.graphics.draw(tight, 0, 0, 0, ww / tw, wh / th)
+  love.graphics.setCanvas(wide)
+  love.graphics.draw(wideTmp, 0, 0)
+  blur(blurShader, tight, tightTmp, tight, tw, th)
+  blur(blurShader, wide, wideTmp, wide, ww, wh)
+  love.graphics.pop()
+  love.graphics.setBlendMode("add")
+  love.graphics.setColor(strength * (1 - cfg.wide), strength * (1 - cfg.wide), strength * (1 - cfg.wide), 1)
+  love.graphics.draw(tight, 0, 0, 0, w / tw, h / th)
+  love.graphics.setColor(strength * cfg.wide, strength * cfg.wide, strength * cfg.wide, 1)
+  love.graphics.draw(wide, 0, 0, 0, w / ww, h / wh)
+  love.graphics.setBlendMode("alpha")
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
 --- Apply the colour grade while drawing `canvas` (the rendered world) to the screen.
-function Renderer:drawGraded(canvas, tint, light, pixelSize, haze)
+function Renderer:drawGraded(canvas, tint, light, pixelSize, haze, lightMap)
   local v = self.world.tuning.visuals
   local shader = Shaders.get("grade")
   if Settings.read("reduceMotion", false) then
@@ -1123,6 +1474,21 @@ function Renderer:drawGraded(canvas, tint, light, pixelSize, haze)
     })
     if #sources > 0 and shader:hasUniform("heatSources") then
       shader:send("heatSources", unpack(sources))
+    end
+    local tone = v.tone
+    Shaders.send(shader, {
+      lightAmount = lightMap and 1 or 0,
+      lightGain = v.lights.gain,
+      lightGlow = v.lights.glow,
+      shadowTone = { toward(1, tone.shadowTone[1]), toward(1, tone.shadowTone[2]), toward(1, tone.shadowTone[3]) },
+      highlightTone = { toward(1, tone.highlightTone[1]), toward(1, tone.highlightTone[2]), toward(1, tone.highlightTone[3]) },
+      toneMid = tone.mid,
+      toneWidth = tone.width,
+      contrast = tone.contrast * g,
+      blackLift = { tone.blackLift[1] * g, tone.blackLift[2] * g, tone.blackLift[3] * g },
+    })
+    if lightMap and shader:hasUniform("lightMap") then
+      shader:send("lightMap", lightMap)
     end
     Shaders.send(shader, {
       tint = tint,

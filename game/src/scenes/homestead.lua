@@ -2961,13 +2961,48 @@ function Homestead:draw()
   love.graphics.setCanvas()
   love.graphics.origin()
   local haze = self.renderer:heatHaze(self.camera, view, { x1, y1, x2, y2 }, daylight)
-  self.renderer:drawGraded(self.canvas, tint, light, view.scale * self.camera:zoom(), haze)
+  -- Night lights are painted into the light buffer, which the grade reads (D128).
+  local lightMap
+  love.graphics.push("all")
+  local buffer = self.renderer:lightBuffer(self.canvas:getWidth(), self.canvas:getHeight())
+  love.graphics.setCanvas(buffer)
+  love.graphics.clear(0, 0, 0, 1)
+  self.camera:attach(view)
+  if self.renderer:drawLights({ x1, y1, x2, y2 }, daylight) > 0 then
+    lightMap = buffer
+  end
+  love.graphics.pop() -- the camera transform
   love.graphics.pop()
-  -- Night lights, fireflies, dust and the selection outline sit over the graded world, in world space again.
+  local bloom = self.renderer:bloomOn()
+  local graded
+  if bloom then
+    -- The graded frame, lit windows, flame cores and fireflies go into one canvas so the bloom can glow round them (D129).
+    graded = self.renderer:gradedBuffer(self.canvas:getWidth(), self.canvas:getHeight())
+    love.graphics.push("all")
+    love.graphics.setCanvas(graded)
+    love.graphics.clear(0, 0, 0, 1)
+  end
+  self.renderer:drawGraded(self.canvas, tint, light, view.scale * self.camera:zoom(), haze, lightMap)
+  if bloom then
+    love.graphics.push("all")
+    self.camera:attach(view)
+    self.renderer:drawSunbeams({ x1, y1, x2, y2 })
+    self.renderer:drawEmissive()
+    self.renderer:drawAmbient({ x1, y1, x2, y2 }, daylight)
+    love.graphics.pop() -- the camera transform
+    love.graphics.pop()
+    love.graphics.pop() -- back from the graded canvas to the screen
+    self.renderer:drawBloom(graded, daylight)
+  end
+  love.graphics.pop()
+  -- Lit windows, fireflies, dust and the selection outline sit over the graded world, in world space again.
   love.graphics.push("all")
   self.camera:attach(view)
-  self.renderer:drawLights({ x1, y1, x2, y2 }, daylight)
-  self.renderer:drawAmbient({ x1, y1, x2, y2 }, daylight)
+  if not bloom then
+    self.renderer:drawSunbeams({ x1, y1, x2, y2 })
+    self.renderer:drawEmissive()
+    self.renderer:drawAmbient({ x1, y1, x2, y2 }, daylight)
+  end
   self.renderer:drawCropCues({ x1, y1, x2, y2 }, daylight)
   if self.selected then
     self.renderer:drawSelection(self.selected, view.scale * self.camera:zoom())

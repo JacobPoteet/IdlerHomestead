@@ -249,6 +249,7 @@ return {
     blocks = false,
     clearable = false,
     placeable = true,
+    flat = true,
     drip = { radius = 2 }, -- tiles each way, so a 5x5 patch
   },
   {
@@ -257,6 +258,7 @@ return {
     blocks = false,
     clearable = false,
     placeable = true,
+    flat = true,
     sprinkler = { radius = 2 }, -- tiles each way, so a 5x5 patch, like the drip line; it just wastes more water (D118)
   },
   -- Machines (GDD §7.4, D65): stationary actors on the task board. `machine`: which task categories

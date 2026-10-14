@@ -1,5 +1,9 @@
 // Screen-wide colour grade applied to the rendered world (not the HUD).
 //  - time-of-day tint and light level (from tuning.visuals.lightKeys)
+//  - the light buffer (D128): night lights are painted into `lightMap`, and they LIGHT the picture, so a
+//    fire brightens and warms the grass and walls it reaches (the texture still shows) instead of a flat
+//    glow sitting on top. A little of the light is also added flat, so a lamp's core stays bright.
+//  - split toning: cool shadows, warm highlights; an S-curve contrast; a tinted lift in the blacks
 //  - saturation
 //  - vignette
 //  - film grain on the art-pixel grid, updated at a low frame rate for a hand-made feel
@@ -10,6 +14,16 @@
 uniform vec3 tint;
 uniform float light;
 uniform float saturation;
+uniform Image lightMap;      // night lights painted in the world canvas's own pixels (black where unlit)
+uniform float lightAmount;   // 0 when no light is on (the map is not read), else 1
+uniform float lightGain;     // how strongly the lights brighten what they reach (multiplies the picture)
+uniform float lightGlow;     // how much of the light is added flat on top
+uniform vec3 shadowTone;     // colour multiplier for the darks
+uniform vec3 highlightTone;  // colour multiplier for the brights
+uniform float toneMid;       // luma where the tone swings from shadowTone to highlightTone
+uniform float toneWidth;     // luma span of that swing
+uniform float contrast;      // 0..1 strength of the S-curve
+uniform vec3 blackLift;      // light added to the darkest pixels (a tinted, milky black)
 uniform float vignette;
 uniform float grain;
 uniform float time;
@@ -78,7 +92,19 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     float luma = dot(c, vec3(0.299, 0.587, 0.114));
     c = mix(vec3(luma), c, saturation);
 
-    c *= tint * light;
+    vec3 lit = tint * light;
+    if (lightAmount > 0.0) {
+        vec3 pool = Texel(lightMap, uv).rgb;
+        c = c * (lit + pool * lightGain) + pool * lightGlow;
+    } else {
+        c *= lit;
+    }
+
+    float tone = smoothstep(toneMid - toneWidth, toneMid + toneWidth, dot(c, vec3(0.299, 0.587, 0.114)));
+    c *= mix(shadowTone, highlightTone, tone);
+    c = clamp(c, 0.0, 1.0);
+    c = mix(c, c * c * (3.0 - 2.0 * c), contrast);
+    c += blackLift * (1.0 - c);
 
     vec2 d = uv - 0.5;
     c *= 1.0 - vignette * smoothstep(0.15, 0.6, dot(d, d) * 2.0);
