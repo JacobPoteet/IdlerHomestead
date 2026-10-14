@@ -33,7 +33,7 @@ Also `wood` (D104: the wood chip in summer, late autumn and a cold winter, the w
 
 Also `smallbatch` (D76-D78: a long Power list scrolled by wheel and drag with a switch pressed while paused, the Plan button lit then plain after a plan, the town menu with game time paused and the drive home).
 
-Also `place` (D79: the Untill tool and caption, a tilled tile turning back to grass, the placement preview and confirmation card over a tree and over a ripe crop with its warning, the queued order working and the finished building, a cancelled order).
+Also `effectspeed` (#265: the effect clock moves 1, 2 and 2 seconds per real second at 1x, 2x and 4x, with shots), `place` (D79: the Untill tool and caption, a tilled tile turning back to grass, the placement preview and confirmation card over a tree and over a ripe crop with its warning, the queued order working and the finished building, a cancelled order).
 
 Also `journal` (D81: the Journal overview grouped by area, a focused chapter, a node card beside the chapter on landscape, the filter, the Queue jump, and a 108-chapter journal scrolled by wheel and drag through the scene's test-only `chapterSource` hook).
 

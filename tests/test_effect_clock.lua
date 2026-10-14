@@ -39,3 +39,16 @@ T.test("effect clock treats a missing speed as 1 and wraps", function()
   c:advance(3599, 1)
   T.near(c.world, 1, 1e-6)
 end)
+
+T.test("effect clock: with the shipped tuning 4x play and 8x sleep run effects at the 2x rate (#265)", function()
+  local cfg = require("src.core.tuning").load().visuals.effectClock
+  local function rate(speed)
+    local c = EffectClock.new(cfg)
+    return c:advance(1, speed)
+  end
+  T.near(rate(1), 1, 1e-9)
+  T.near(rate(2), 2, 1e-9)
+  T.near(rate(4), rate(2), 1e-9, "4x looks like 2x")
+  T.near(rate(8), rate(2), 1e-9, "sleep looks like 2x")
+  T.eq(rate(0), 0)
+end)
