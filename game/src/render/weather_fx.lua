@@ -76,9 +76,9 @@ function Fx:update(dt, step)
   local clouds = cfg.clouds
   self.wind = lerp(self.wind, Weather.windStrength(self.world), math.min(1, dt / clouds.windBlendSeconds))
   local dx, dy = clouds.direction[1], clouds.direction[2]
-  local step = clouds.speed * self.wind * step / math.sqrt(dx * dx + dy * dy)
-  self.drift[1] = (self.drift[1] + dx * step) % DRIFT_WRAP
-  self.drift[2] = (self.drift[2] + dy * step) % DRIFT_WRAP
+  local cstep = clouds.speed * self.wind * step / math.sqrt(dx * dx + dy * dy)
+  self.drift[1] = (self.drift[1] + dx * cstep) % DRIFT_WRAP
+  self.drift[2] = (self.drift[2] + dy * cstep) % DRIFT_WRAP
 
   -- Wind sway: a clock in radians that speeds up with the (eased) wind, so a gust never jumps the pose.
   -- The wrap is a whole number of turns, so the sine carries on unbroken.

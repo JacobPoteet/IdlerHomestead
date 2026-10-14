@@ -296,9 +296,12 @@ T.test("minigame: holding nonstop snaps a strong fish off; never pressing misses
     return m.phase ~= "wait"
   end
   T.eq(play("golden_trout", always, 3), "slipped")
-  T.eq(play("creek_chub", function()
-    return false
-  end, 3), "missed")
+  T.eq(
+    play("creek_chub", function()
+      return false
+    end, 3),
+    "missed"
+  )
 end)
 
 T.test("minigame: hooking then letting go lets the fish escape", function()
@@ -353,7 +356,11 @@ T.test("power: first truck trip is possible within a few days", function()
     waits[#waits + 1] = days
   end
   table.sort(waits)
-  local median, worst = waits[5], waits[#waits]  T.truthy(median >= 2 and median <= 5, "median first trip after " .. median .. " days (" .. table.concat(waits, ",") .. ")")
+  local median, worst = waits[5], waits[#waits]
+  T.truthy(
+    median >= 2 and median <= 5,
+    "median first trip after " .. median .. " days (" .. table.concat(waits, ",") .. ")"
+  )
   T.truthy(worst <= 8, "worst first trip after " .. worst .. " days (" .. table.concat(waits, ",") .. ")")
 end)
 
@@ -406,7 +413,9 @@ T.test("market: a truck trip sells the load, limited by cargo", function()
   T.eq(Ledger.get(world, "scrap"), 10, "what was not loaded stayed home")
   T.eq(Market.loadUnits(world), 0, "the truck is empty after the sale")
   T.eq(Ledger.get(world, "money"), earned + tun.run.startingResources.money)
-  T.truthy(Market.buyInTown(world, "radish_seeds") or Ledger.get(world, "money") < Market.itemPrice(world, "radish_seeds"))
+  T.truthy(
+    Market.buyInTown(world, "radish_seeds") or Ledger.get(world, "money") < Market.itemPrice(world, "radish_seeds")
+  )
   Market.endTrip(world)
   T.eq(Market.sellLoad(world), 0, "can't sell from home")
 end)

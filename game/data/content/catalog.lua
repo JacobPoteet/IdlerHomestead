@@ -11,10 +11,42 @@
 --   replaces / replacesLabel: an upgrade that supersedes another item (D115). upgrades + overlay: equipment that
 --   changes the look of a building (the roadside stand tiers, D116).
 return {
-  { id = "radish_seeds", name = "Radish seeds x5", line = "Fast crop, a light meal.", page = "seeds", price = 4, starter = true, gives = { seed_radish = 5 } },
-  { id = "potato_seeds", name = "Seed potatoes x3", line = "Slow crop that keeps for winter.", page = "seeds", price = 6, starter = true, gives = { seed_potato = 3 } },
-  { id = "canned_food", name = "Canned food x2", line = "Keeps forever. Emergency food.", page = "supplies", price = 7, starter = true, gives = { canned_food = 2 } },
-  { id = "bait", name = "Bait x6", line = "Faster bites; better idle catches.", page = "fishing", price = 3, starter = true, gives = { bait = 6 } },
+  {
+    id = "radish_seeds",
+    name = "Radish seeds x5",
+    line = "Fast crop, a light meal.",
+    page = "seeds",
+    price = 4,
+    starter = true,
+    gives = { seed_radish = 5 },
+  },
+  {
+    id = "potato_seeds",
+    name = "Seed potatoes x3",
+    line = "Slow crop that keeps for winter.",
+    page = "seeds",
+    price = 6,
+    starter = true,
+    gives = { seed_potato = 3 },
+  },
+  {
+    id = "canned_food",
+    name = "Canned food x2",
+    line = "Keeps forever. Emergency food.",
+    page = "supplies",
+    price = 7,
+    starter = true,
+    gives = { canned_food = 2 },
+  },
+  {
+    id = "bait",
+    name = "Bait x6",
+    line = "Faster bites; better idle catches.",
+    page = "fishing",
+    price = 3,
+    starter = true,
+    gives = { bait = 6 },
+  },
   {
     id = "basic_rod",
     name = "Basic rod",

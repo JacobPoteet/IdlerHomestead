@@ -67,7 +67,9 @@ end
 function Truck:enter()
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
   self.shopButtons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
-  local relayout = function() self:layout() end
+  local relayout = function()
+    self:layout()
+  end
   self.shop, self.loadList = ScrollList.new(relayout), ScrollList.new(relayout)
   self.card = ItemCard.new(self.app.ctx.tuning.input.minTouchTarget)
 end
@@ -196,10 +198,20 @@ function Truck:layout()
   local ui = self.app.ctx.tuning.ui
   self.shopButtons:clear()
   local shopTop = b.y + 50
-  self.shop:fit({ x = x - 6, y = shopTop, w = b.x + b.w - x + 6, h = b.y + b.h - 56 - shopTop }, #known * ROW_H, ui.scrollHintHeight, ROW_H)
+  self.shop:fit(
+    { x = x - 6, y = shopTop, w = b.x + b.w - x + 6, h = b.y + b.h - 56 - shopTop },
+    #known * ROW_H,
+    ui.scrollHintHeight,
+    ROW_H
+  )
   local lines = Market.loadQuote(world)
   local loadTop = b.y + 52
-  self.loadList:fit({ x = b.x + 8, y = loadTop, w = b.w / 2 - 16, h = b.y + b.h - 64 - loadTop }, #lines * LOAD_ROW_H, ui.scrollHintHeight, LOAD_ROW_H)
+  self.loadList:fit(
+    { x = b.x + 8, y = loadTop, w = b.w / 2 - 16, h = b.y + b.h - 64 - loadTop },
+    #lines * LOAD_ROW_H,
+    ui.scrollHintHeight,
+    LOAD_ROW_H
+  )
   local barRoom = self.shop.overflow and ui.scrollBarWidth + 2 or 0
   for n, item in ipairs(known) do
     local y = self.shop:origin() + (n - 1) * ROW_H
@@ -213,7 +225,10 @@ function Truck:layout()
       y = y,
       w = 60,
       h = ROW_H - 2,
-      label = (reason == "owned" or reason == "replaced") and "Owned" or reason == "no room" and "No room" or reason == "too big for storage" and "Too big" or ("$" .. Market.itemPrice(world, item.id)),
+      label = (reason == "owned" or reason == "replaced") and "Owned"
+        or reason == "no room" and "No room"
+        or reason == "too big for storage" and "Too big"
+        or ("$" .. Market.itemPrice(world, item.id)),
       enabled = reason == nil,
       style = world.state.market.specials[item.id] and "accent" or nil,
       onPress = function()
@@ -317,16 +332,31 @@ function Truck:draw()
     local mx = b.x + 12 + (b.w - 24) * cost / cap
     love.graphics.setColor(theme.colors.accent)
     love.graphics.rectangle("fill", mx, b.y + 53, 1, 18)
-    Text.draw(string.format("%.1f / %d kWh · a trip uses %d", charge, cap, cost), b.x + 12, b.y + 74, { size = "small" })
+    Text.draw(
+      string.format("%.1f / %d kWh · a trip uses %d", charge, cap, cost),
+      b.x + 12,
+      b.y + 74,
+      { size = "small" }
+    )
     -- The load (D75): what goes to town, and what else could.
-    Text.draw(Truck.loadText(trip), b.x + 12, b.y + 92, { size = "small", width = w, color = trip.units > 0 and theme.colors.accent or nil })
+    Text.draw(
+      Truck.loadText(trip),
+      b.x + 12,
+      b.y + 92,
+      { size = "small", width = w, color = trip.units > 0 and theme.colors.accent or nil }
+    )
     bar(b.x + 12, b.y + 106, b.w - 24, 6, trip.units / trip.cargo, theme.colors.accent)
     Text.draw(Truck.spareText(trip), b.x + 12, b.y + 116, { size = "small", width = w, color = dim })
-    Text.draw(string.format("Making %.2f kW, homestead using %.2f kW", Power.output(world), Power.flow(world).served), b.x + 12, b.y + 132, {
-      size = "small",
-      color = dim,
-      width = w,
-    })
+    Text.draw(
+      string.format("Making %.2f kW, homestead using %.2f kW", Power.output(world), Power.flow(world).served),
+      b.x + 12,
+      b.y + 132,
+      {
+        size = "small",
+        color = dim,
+        width = w,
+      }
+    )
   else
     Panel.frame(self.app.view, b, "Town", string.format("You have $%d", Ledger.get(world, "money")))
     local lines, total, units = Market.loadQuote(world)
@@ -346,13 +376,23 @@ function Truck:draw()
     self.loadList:finish()
     self.loadList:drawCue(self.app.ctx.tuning.ui)
     if units == 0 then
-      Text.draw("Nothing loaded. Load the truck at home before the next trip; unloaded goods stay home.", b.x + 12, b.y + 52, {
-        size = "small",
-        width = b.w / 2 - 24,
-        color = theme.colors.textDim,
-      })
+      Text.draw(
+        "Nothing loaded. Load the truck at home before the next trip; unloaded goods stay home.",
+        b.x + 12,
+        b.y + 52,
+        {
+          size = "small",
+          width = b.w / 2 - 24,
+          color = theme.colors.textDim,
+        }
+      )
     end
-    Text.draw(string.format("Total $%d", total), b.x + 12, b.y + b.h - 50, { size = "small", color = theme.colors.accent })
+    Text.draw(
+      string.format("Total $%d", total),
+      b.x + 12,
+      b.y + b.h - 50,
+      { size = "small", color = theme.colors.accent }
+    )
     -- A trip costs no game time (D78): the clock waits while the town menu is open.
     Text.draw("Game time is paused while you are in town.", b.x + 12, b.y + b.h - 50, {
       size = "small",

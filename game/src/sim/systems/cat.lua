@@ -161,14 +161,9 @@ end
 
 local function startPath(world, c, goal)
   local start = Cat.tile(world)
-  c.path = Pathfind.find(
-    world,
-    start,
-    function(i)
-      return i == goal
-    end,
-    goal
-  ) or {}
+  c.path = Pathfind.find(world, start, function(i)
+    return i == goal
+  end, goal) or {}
   return #c.path > 0
 end
 

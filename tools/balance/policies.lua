@@ -482,7 +482,10 @@ function Active:daily(world)
     for _, crop in ipairs(world.registry:all("crops")) do
       local id = crop.seed:gsub("^seed_", "") .. "_seeds"
       if world.registry:has("catalog", id) and self:canMature(world, crop) and Ledger.get(world, crop.seed) <= 0 then
-        if Ledger.get(world, "money") >= Market.itemPrice(world, id) + world.tuning.economy.deliveryFee + POLICY.seedMoneyReserve then
+        if
+          Ledger.get(world, "money")
+          >= Market.itemPrice(world, id) + world.tuning.economy.deliveryFee + POLICY.seedMoneyReserve
+        then
           if Market.cannotBuy(world, id, false) == nil then
             Market.order(world, id)
           end
@@ -493,7 +496,10 @@ function Active:daily(world)
   self:planField(world, POLICY.maxFieldTiles)
   -- Keep a stock of bait for the rod.
   if Fishing.hasRod(world) and Ledger.get(world, "bait") < 2 and Market.cannotBuy(world, "bait", false) == nil then
-    if Ledger.get(world, "money") >= Market.itemPrice(world, "bait") + world.tuning.economy.deliveryFee + POLICY.seedMoneyReserve then
+    if
+      Ledger.get(world, "money")
+      >= Market.itemPrice(world, "bait") + world.tuning.economy.deliveryFee + POLICY.seedMoneyReserve
+    then
       Market.order(world, "bait")
     end
   end
@@ -607,7 +613,10 @@ local function fuelUrgent(world)
   local t = world.tuning
   local now = Calendar.now(world)
   local upcoming = t.time.seasons[now.seasonIndex % #t.time.seasons + 1]
-  local night = math.max(Weather.baseWarmth(world, now.season, now.dayOfSeason), Weather.baseWarmth(world, upcoming, now.dayOfSeason))
+  local night = math.max(
+    Weather.baseWarmth(world, now.season, now.dayOfSeason),
+    Weather.baseWarmth(world, upcoming, now.dayOfSeason)
+  )
   if Weather.isFrozenSeason(world, upcoming) or Weather.isFrozenSeason(world, now.season) then
     night = night * Weather.severityBound(world, now.year)
   end
@@ -642,9 +651,11 @@ function Active:choose(world, actor)
         end
       end
       -- Wells, pumps and cisterns are closer places to fill the bucket (nearest first).
-      for _, anchor in ipairs(objectAnchors(world, function(def)
-        return def.waterSource ~= nil
-      end)) do
+      for _, anchor in
+        ipairs(objectAnchors(world, function(def)
+          return def.waterSource ~= nil
+        end))
+      do
         candidates[#candidates + 1] = anchor
       end
       if tryOrder(self, world, actor, candidates) then
@@ -677,11 +688,15 @@ function Active:choose(world, actor)
   -- Plant and till the planned field.
   if not Weather.isFrozen(world) then
     local plant = plannedTiles(world, function(i, cropId)
-      return fields.tilled[i] and not world.state.crops[i] and Ledger.get(world, world.registry:get("crops", cropId).seed) > 0
+      return fields.tilled[i]
+        and not world.state.crops[i]
+        and Ledger.get(world, world.registry:get("crops", cropId).seed) > 0
     end)
-    if #plant > 0 and tryOrder(self, world, actor, plant, function(i)
-      return { crop = fields.plan[i] }
-    end) then
+    if
+      #plant > 0 and tryOrder(self, world, actor, plant, function(i)
+        return { crop = fields.plan[i] }
+      end)
+    then
       return true
     end
     local till = plannedTiles(world, function(i)

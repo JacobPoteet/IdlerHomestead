@@ -12,7 +12,9 @@ return function(d)
     world.state.calendar.elapsed = world.state.calendar.elapsed + ((hour - now.hour) % 24) / 24 * dayLength
     d:frames(20, DT)
   end
-  for n = 1, 4 do world.state.weather.sky.days[n] = "clear" end
+  for n = 1, 4 do
+    world.state.weather.sky.days[n] = "clear"
+  end
   for _, hour in ipairs({ 12, 18, 23 }) do
     at(hour)
     for _, zoom in ipairs({ 1, 2, 3 }) do

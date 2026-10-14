@@ -57,21 +57,36 @@ return function(d)
   local tx, ty = Grid.coords(grid, world.state.land.truck)
   for anchor, obj in pairs(grid.objects) do
     local x, y = Grid.coords(grid, anchor)
-    if world.registry:get("objects", obj.id).clearable ~= false and math.abs(x - tx) <= 10 and math.abs(y - ty) <= 8 then
+    if
+      world.registry:get("objects", obj.id).clearable ~= false
+      and math.abs(x - tx) <= 10
+      and math.abs(y - ty) <= 8
+    then
       Grid.removeObject(world, anchor)
     end
   end
-  for _, put in ipairs({ { "shack", 3, -2 }, { "wood_stove", 7, -1 }, { "lamp", 2, 1 }, { "campfire", -2, 2 }, { "tree", -5, -2 }, { "tree", -6, 1 }, { "brush", -3, -2 }, { "brush", 6, 2 } }) do
+  for _, put in ipairs({
+    { "shack", 3, -2 },
+    { "wood_stove", 7, -1 },
+    { "lamp", 2, 1 },
+    { "campfire", -2, 2 },
+    { "tree", -5, -2 },
+    { "tree", -6, 1 },
+    { "brush", -3, -2 },
+    { "brush", 6, 2 },
+  }) do
     Grid.placeObject(world, put[1], tx + put[2], ty + put[3])
   end
   -- A small field of radishes and potatoes, some thirsty.
-  local field = {}
   for fy = 4, 6 do
     for fx = -3, 2 do
       local i = Grid.index(grid, tx + fx, ty + fy)
       world.state.fields.tilled[i] = true
-      world.state.crops[i] = { id = (fx + fy) % 2 == 0 and "radish" or "potato", growth = 0.3 + 0.12 * (fx + 3), moisture = fx == 2 and 0 or 1 }
-      field[#field + 1] = i
+      world.state.crops[i] = {
+        id = (fx + fy) % 2 == 0 and "radish" or "potato",
+        growth = 0.3 + 0.12 * (fx + 3),
+        moisture = fx == 2 and 0 or 1,
+      }
     end
   end
   local yard = { tx, ty + 3 }

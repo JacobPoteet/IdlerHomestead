@@ -258,7 +258,10 @@ local function tickUnit(world, anchor, unit, dt)
     taskType.complete(world, unit, target, nil)
     unit.done = unit.done + 1
     state(world).done = state(world).done + 1
-    world.events:emit("task.completed", { task = taskType.id, target = target, actor = unit.id, ordered = false, machine = unit.kind })
+    world.events:emit(
+      "task.completed",
+      { task = taskType.id, target = target, actor = unit.id, ordered = false, machine = unit.kind }
+    )
   end
 end
 

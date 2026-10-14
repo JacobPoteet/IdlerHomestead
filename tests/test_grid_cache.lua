@@ -54,7 +54,8 @@ T.test("grid cache: anchorsWith follows placing and removing objects", function(
   Grid.removeObject(world, anchor)
   T.same(Grid.anchorsWith(world, "source"), scan(world, "source"), "the removed source is gone")
   -- A replaced grid (a load, a new run) is noticed even without a call through Grid.
-  world.state.grid = { w = world.state.grid.w, h = world.state.grid.h, terrain = world.state.grid.terrain, objects = {} }
+  world.state.grid =
+    { w = world.state.grid.w, h = world.state.grid.h, terrain = world.state.grid.terrain, objects = {} }
   T.eq(#Grid.anchorsWith(world, "battery"), 0, "a new objects table is rescanned")
 end)
 

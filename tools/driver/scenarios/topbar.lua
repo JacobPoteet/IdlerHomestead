@@ -71,7 +71,21 @@ return function(d)
   assert(d:scene().name == "homestead", "expected the homestead, got " .. d:scene().name)
   d:shot("bar_mixed")
 
-  local ids = { "weather", "money", "food", "condition", "battery", "surplus", "wood", "spoiled", "water", "hens", "eggs", "goats", "milk" }
+  local ids = {
+    "weather",
+    "money",
+    "food",
+    "condition",
+    "battery",
+    "surplus",
+    "wood",
+    "spoiled",
+    "water",
+    "hens",
+    "eggs",
+    "goats",
+    "milk",
+  }
   for _, id in ipairs(ids) do
     if tapChip(d, id) then
       d:frames(3)
@@ -115,7 +129,10 @@ return function(d)
     local layout = d:scene():chipLayout()
     local limit = w - world.tuning.ui.menuWidth - world.tuning.ui.log.buttonWidth - 4
     for _, item in ipairs(layout.items) do
-      assert(item.x >= 0 and item.x + item.width <= (layout.rows == 0 and limit or w), "chip " .. item.entry.id .. " off the bar at " .. w)
+      assert(
+        item.x >= 0 and item.x + item.width <= (layout.rows == 0 and limit or w),
+        "chip " .. item.entry.id .. " off the bar at " .. w
+      )
     end
     d:shot("bar_" .. w)
   end

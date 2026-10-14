@@ -123,7 +123,12 @@ end
 --- Remember the window rectangle for the next launch (windowed desktop only).
 function Game:rememberWindow()
   local s = self.app.ctx.settings
-  if self.app.ctx.liveWindow and platform.has("resizableWindow") and s:get("rememberWindow") and not love.window.getFullscreen() then
+  if
+    self.app.ctx.liveWindow
+    and platform.has("resizableWindow")
+    and s:get("rememberWindow")
+    and not love.window.getFullscreen()
+  then
     local w, h = love.window.getMode()
     local x, y = love.window.getPosition()
     s:setWindow(w, h, x, y)

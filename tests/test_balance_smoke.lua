@@ -44,7 +44,7 @@ end)
 local Parallel = require("parallel")
 
 T.test("balance parallel: results survive the thread boundary exactly", function()
-  local value = { 0.1, 1 / 3, -2.5e-300, 2 ^ 60 + 1, 0, 7, "a\tb\n\"c\"", true, { [3] = false, x = { y = math.huge } } }
+  local value = { 0.1, 1 / 3, -2.5e-300, 2 ^ 60 + 1, 0, 7, 'a\tb\n"c"', true, { [3] = false, x = { y = math.huge } } }
   local back = Parallel.decode(Parallel.encode(value))
   T.same(back, value)
   T.eq(Parallel.decode(Parallel.encode(-math.huge)), -math.huge)
@@ -54,7 +54,15 @@ end)
 
 T.test("balance parallel: worker threads give the same results as playing in this thread", function()
   local years, all = 0.125, require("features").parse("all")
-  local played = Parallel.play({ names = { "idle", "scripted" }, seeds = 2, seed0 = 3, years = years, runs = 1, sets = {}, jobs = 2 })
+  local played = Parallel.play({
+    names = { "idle", "scripted" },
+    seeds = 2,
+    seed0 = 3,
+    years = years,
+    runs = 1,
+    sets = {},
+    jobs = 2,
+  })
   for _, name in ipairs({ "idle", "scripted" }) do
     for seed = 3, 4 do
       local here = Balance.playSeed(ctx, name, seed, years, 1, all)
@@ -175,7 +183,11 @@ T.test("balance features: finds are chosen by need", function()
   Inventory.addEquipment(world, "shelter_cat")
   pick = Features.chooseFind(world, { choices = { "loose_cash", "stray_cat", "rusty_axe" } }, h)
   T.eq(pick, "rusty_axe", "the owned cat is worthless, the axe is lacking")
-  T.eq(Features.chooseFind(world, { choices = { "nothing_known", "also_unknown" } }, h), "nothing_known", "unknown finds keep the offer's order")
+  T.eq(
+    Features.chooseFind(world, { choices = { "nothing_known", "also_unknown" } }, h),
+    "nothing_known",
+    "unknown finds keep the offer's order"
+  )
 end)
 
 T.test("balance harness: policies play a season with every feature on, deterministically", function()

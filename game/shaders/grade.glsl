@@ -1,12 +1,17 @@
 // Screen-wide colour grade applied to the rendered world (not the HUD).
 //  - time-of-day tint and light level (from tuning.visuals.lightKeys)
-//  - the light buffer (D128): night lights are painted into `lightMap`, and they LIGHT the picture, so a
-//    fire brightens and warms the grass and walls it reaches (the texture still shows) instead of a flat
-//    glow sitting on top. A little of the light is also added flat, so a lamp's core stays bright.
+//  - the light buffer (D128): night lights are painted into `lightMap` (one texel per world art pixel),
+//    and they LIGHT the picture, so a fire brightens and warms the grass and walls it reaches (the texture
+//    still shows) instead of a flat glow sitting on top. The lit colour is first pulled toward grey, so
+//    firelight on green grass reads warm rather than olive. A little is also added flat, so a lamp's core
+//    stays bright.
 //  - split toning: cool shadows, warm highlights; an S-curve contrast; a tinted lift in the blacks
 //  - saturation
 //  - vignette
 //  - film grain on the art-pixel grid, updated at a low frame rate for a hand-made feel
+//  - depth of field (#283, off by default): toward the top and bottom of the view the picture is softened
+//    a step at a time, each art pixel averaged with its neighbours one or two art pixels away. Every
+//    screen pixel in an art pixel computes the same average, so it stays blocky pixel art, never a smear.
 //  - heat shimmer (D85): the picture is sampled a whole art pixel to the left or right in patches that
 //    climb, over the land on a hot clear noon and in a column above a burning stove or campfire. The
 //    patches are laid on the world's art-pixel grid (gridOrigin, worldCell), so they stay with the land.
@@ -14,10 +19,13 @@
 uniform vec3 tint;
 uniform float light;
 uniform float saturation;
-uniform Image lightMap;      // night lights painted in the world canvas's own pixels (black where unlit)
+uniform Image lightMap;      // night lights, one texel per world art pixel (black where unlit)
 uniform float lightAmount;   // 0 when no light is on (the map is not read), else 1
+uniform vec2 lightOrigin;    // screen pixel where the light map's first texel starts
+uniform vec2 lightSize;      // the light map in texels
 uniform float lightGain;     // how strongly the lights brighten what they reach (multiplies the picture)
 uniform float lightGlow;     // how much of the light is added flat on top
+uniform float lightNeutral;  // 0..1 how far a lit colour is pulled toward grey before the light tints it
 uniform vec3 shadowTone;     // colour multiplier for the darks
 uniform vec3 highlightTone;  // colour multiplier for the brights
 uniform float toneMid;       // luma where the tone swings from shadowTone to highlightTone
@@ -28,6 +36,10 @@ uniform float vignette;
 uniform float grain;
 uniform float time;
 uniform float pixelSize;     // screen pixels per art pixel, so grain matches the pixel art
+
+uniform float dof;           // 0 = no depth of field, else 0..1 strength of the softening at the edges
+uniform float dofClear;      // 0..1 share of the half-height (out from the middle) that stays sharp
+uniform float dofSteps;      // how many steps the softening takes toward the edge
 
 uniform vec2 canvasSize;     // the world canvas in screen pixels
 uniform vec2 gridOrigin;     // screen pixel where an art pixel starts (the camera's rounded translation)
@@ -82,20 +94,44 @@ float shimmer(vec2 p) {
     return shift;
 }
 
+// The picture averaged over the art pixels round this one (`r` art pixels away), sampled at art-pixel
+// centres, so every screen pixel of an art pixel gets the same colour.
+vec3 soften(Image tex, vec2 centre, float r) {
+    vec3 sum = vec3(0.0);
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            vec2 q = centre + vec2(float(x), float(y)) * r * pixelSize;
+            float w = (x == 0 && y == 0) ? 4.0 : ((x == 0 || y == 0) ? 2.0 : 1.0);
+            sum += Texel(tex, clamp(q / canvasSize, vec2(0.0), vec2(1.0))).rgb * w;
+        }
+    }
+    return sum / 16.0;
+}
+
 vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     vec2 suv = uv;
+    vec2 p = uv * canvasSize;
     if (hazeAmount > 0.0 || heatCount > 0.0) {
-        suv.x += shimmer(uv * canvasSize) * pixelSize / canvasSize.x;
+        suv.x += shimmer(p) * pixelSize / canvasSize.x;
     }
     vec3 c = Texel(tex, suv).rgb;
+    if (dof > 0.0) {
+        vec2 centre = gridOrigin + (floor((p - gridOrigin) / pixelSize) + 0.5) * pixelSize;
+        float off = abs(centre.y / canvasSize.y * 2.0 - 1.0);
+        float e = floor(smoothstep(dofClear, 1.0, off) * dofSteps + 0.5) / dofSteps;
+        if (e > 0.0) {
+            c = mix(c, soften(tex, centre, e > 0.5 ? 2.0 : 1.0), min(1.0, e * 2.0) * dof);
+        }
+    }
 
     float luma = dot(c, vec3(0.299, 0.587, 0.114));
     c = mix(vec3(luma), c, saturation);
 
     vec3 lit = tint * light;
     if (lightAmount > 0.0) {
-        vec3 pool = Texel(lightMap, uv).rgb;
-        c = c * (lit + pool * lightGain) + pool * lightGlow;
+        vec3 pool = Texel(lightMap, (floor((p - lightOrigin) / pixelSize) + 0.5) / lightSize).rgb;
+        vec3 surface = mix(c, vec3(dot(c, vec3(0.299, 0.587, 0.114))), lightNeutral * min(1.0, dot(pool, vec3(0.333)) * 3.0));
+        c = c * lit + surface * pool * lightGain + pool * lightGlow;
     } else {
         c *= lit;
     }

@@ -37,7 +37,11 @@ return function(d)
   local siteX, siteY = Grid.coords(grid, site)
   for anchor, obj in pairs(grid.objects) do
     local x, y = Grid.coords(grid, anchor)
-    if world.registry:get("objects", obj.id).clearable ~= false and math.abs(x - siteX) <= 7 and math.abs(y - siteY) <= 6 then
+    if
+      world.registry:get("objects", obj.id).clearable ~= false
+      and math.abs(x - siteX) <= 7
+      and math.abs(y - siteY) <= 6
+    then
       Grid.removeObject(world, anchor)
     end
   end
@@ -65,7 +69,12 @@ return function(d)
   for y = hy - 3, hy + 3 do
     for x = hx - 3, hx + 3 do
       local i = Grid.index(grid, x, y)
-      if Grid.inBounds(grid, x, y) and Grid.terrain(world, i).tillable and not world.occupancy[i] and math.abs(x - hx) + math.abs(y - hy) > 1 then
+      if
+        Grid.inBounds(grid, x, y)
+        and Grid.terrain(world, i).tillable
+        and not world.occupancy[i]
+        and math.abs(x - hx) + math.abs(y - hy) > 1
+      then
         n = n + 1
         world.state.fields.tilled[i] = true
         world.state.fields.plan[i] = n % 3 == 0 and "potato" or "radish"
@@ -82,7 +91,9 @@ return function(d)
     frames = frames + 10
   end
   assert(Machines.done(world) >= 3, "the harvester never worked")
-  while not (Machines.at(world, harvester).job and Machines.at(world, harvester).job.progress > 0.6) and frames < 3000 do
+  while
+    not (Machines.at(world, harvester).job and Machines.at(world, harvester).job.progress > 0.6) and frames < 3000
+  do
     d:frames(1)
     frames = frames + 1
   end
@@ -102,7 +113,10 @@ return function(d)
       break
     end
   end
-  assert(Machines.at(world, harvester).status == "unpowered", "expected unpowered, got " .. Machines.at(world, harvester).status)
+  assert(
+    Machines.at(world, harvester).status == "unpowered",
+    "expected unpowered, got " .. Machines.at(world, harvester).status
+  )
   d:frames(4)
   d:shot("unpowered")
 

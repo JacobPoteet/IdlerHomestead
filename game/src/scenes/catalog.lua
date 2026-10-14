@@ -23,7 +23,9 @@ end
 function Catalog:enter()
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
   self.rowButtons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
-  self.list = ScrollList.new(function() self:layout() end)
+  self.list = ScrollList.new(function()
+    self:layout()
+  end)
   self.card = ItemCard.new(self.app.ctx.tuning.input.minTouchTarget)
 end
 
@@ -255,12 +257,18 @@ function Catalog:draw()
   local b, world = self.box, self.world
   local fee = world.tuning.economy.deliveryFee
   local cheat = self.app.ctx.tuning.ui.catalogCheat
-  Panel.frame(self.app.view, b, "Catalog", Market.cheatOn(world) and cheat.subtitle or string.format(
-    "You have $%d · $%d delivery · arrives %02d:00 tomorrow",
-    Ledger.get(world, "money"),
-    fee,
-    world.tuning.economy.deliveryHour
-  ))
+  Panel.frame(
+    self.app.view,
+    b,
+    "Catalog",
+    Market.cheatOn(world) and cheat.subtitle
+      or string.format(
+        "You have $%d · $%d delivery · arrives %02d:00 tomorrow",
+        Ledger.get(world, "money"),
+        fee,
+        world.tuning.economy.deliveryHour
+      )
+  )
   if Market.cheatOn(world) then
     Text.draw(cheat.tag, b.x + 80, b.y + 9, { size = "body", color = theme.colors.danger })
   end

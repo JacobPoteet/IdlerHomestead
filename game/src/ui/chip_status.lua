@@ -66,7 +66,11 @@ end
 
 function status.condition(world)
   local level = Alerts.level(world, "condition")
-  return { level = level, state = levelState(level), frac = clamp01(Needs.condition(world) / world.tuning.needs.conditionMax) }
+  return {
+    level = level,
+    state = levelState(level),
+    frac = clamp01(Needs.condition(world) / world.tuning.needs.conditionMax),
+  }
 end
 
 function status.battery(world)
@@ -78,7 +82,12 @@ function status.battery(world)
   if Market.canTrip(world) and not world.state.market.inTown then
     state = "ready"
   end
-  return { level = 0, state = state, trend = trend, frac = capacity > 0 and clamp01(Power.charge(world, truck) / capacity) or 0 }
+  return {
+    level = 0,
+    state = state,
+    trend = trend,
+    frac = capacity > 0 and clamp01(Power.charge(world, truck) / capacity) or 0,
+  }
 end
 
 function status.surplus(world)

@@ -308,9 +308,10 @@ local function waterBelow(world, grid, x, y, fw, fh, rows)
   return false
 end
 
---- Mirror the objects standing on the creek bank into a canvas the size of the world canvas (call with the
---- camera transform on). The water shader reads it by screen position, so only water shows it (D130).
---- Returns the canvas, or nil when nothing is reflected this frame.
+--- Mirror the objects standing on the creek bank into a canvas with one texel per world art pixel (call
+--- with the camera transform on, drawing into the world canvas). The water shader reads it by world art
+--- pixel, so only water shows it (D130), and the mirror image steps on the art grid like the sprites.
+--- Returns the canvas and the world art pixel at its top-left, or nil when nothing is reflected.
 function Renderer:drawReflections(visible)
   local world, tile = self.world, self.tile
   local cfg = world.tuning.visuals.reflections
@@ -325,7 +326,14 @@ function Renderer:drawReflections(visible)
     local def = registry:get("objects", obj.id)
     local x, y = Grid.coords(grid, anchor)
     local fw, fh = def.footprintW or 1, def.footprintH or 1
-    if not def.flat and x + fw >= x1 and x <= x2 and y + fh + cfg.reach >= y1 and y <= y2 and waterBelow(world, grid, x, y, fw, fh, cfg.reach) then
+    if
+      not def.flat
+      and x + fw >= x1
+      and x <= x2
+      and y + fh + cfg.reach >= y1
+      and y <= y2
+      and waterBelow(world, grid, x, y, fw, fh, cfg.reach)
+    then
       list = list or {}
       list[#list + 1] = { Assets.sprite(obj.id), (x - 1) * tile, (y - 1 + fh) * tile }
     end
@@ -333,21 +341,20 @@ function Renderer:drawReflections(visible)
   if not list then
     return nil
   end
-  local w, h = target:getDimensions()
-  if not self.reflectCanvas or self.reflectCanvas:getWidth() ~= w or self.reflectCanvas:getHeight() ~= h then
-    self.reflectCanvas = love.graphics.newCanvas(w, h)
-    self.reflectCanvas:setFilter("nearest", "nearest")
-  end
+  local ox, oy, w, h = self:artGrid(target:getDimensions())
+  local canvas = self:artCanvas("reflectCanvas", w, h)
   love.graphics.push("all")
-  love.graphics.setCanvas(self.reflectCanvas) -- the camera transform stays on
+  love.graphics.setCanvas(canvas)
   love.graphics.clear(0, 0, 0, 0)
+  love.graphics.origin()
+  love.graphics.translate(-ox, -oy)
   love.graphics.setColor(1, 1, 1, 1)
   for _, e in ipairs(list) do
     local sprite = e[1]
     love.graphics.draw(sprite.image, sprite.quad, e[2], e[3], 0, 1, -cfg.squash, 0, sprite.h)
   end
   love.graphics.pop()
-  return self.reflectCanvas
+  return canvas, ox, oy
 end
 
 function Renderer:drawWater(daylight, ice, visible)
@@ -356,14 +363,15 @@ function Renderer:drawWater(daylight, ice, visible)
   local land = self.world.state.land
   local grid = self.world.state.grid
   if shader then
-    local refl = visible and shader:hasUniform("reflection") and self:drawReflections(visible) or nil
+    local refl, rx, ry
+    if visible and shader:hasUniform("reflection") then
+      refl, rx, ry = self:drawReflections(visible)
+    end
     local rc = v.reflections
-    local px0 = love.graphics.transformPoint(0, 0)
-    local px1 = love.graphics.transformPoint(1, 0)
     Shaders.send(shader, {
       reflectionOn = refl and 1 or 0,
+      reflectionOrigin = refl and { rx, ry } or { 0, 0 },
       reflectionSize = refl and { refl:getWidth(), refl:getHeight() } or { 1, 1 },
-      pixelSize = px1 - px0,
       reflectOpacity = rc.opacity,
       reflectDistort = rc.distort,
       reflectTint = rc.tint,
@@ -504,8 +512,8 @@ function Renderer:draw(alpha, visible, daylight)
     if onScreen(i) then
       local x, y = Grid.coords(grid, i)
       local crop = crops[i]
-      local wet = crop and crop.moisture > 0
-      Assets.draw(wet and "tilled_wet" or "tilled_dry", (x - 1) * tile, (y - 1) * tile)
+      local watered = crop and crop.moisture > 0
+      Assets.draw(watered and "tilled_wet" or "tilled_dry", (x - 1) * tile, (y - 1) * tile)
     end
   end
   love.graphics.setColor(1, 1, 1, 1)
@@ -545,12 +553,15 @@ function Renderer:draw(alpha, visible, daylight)
 
   -- Wind sway (sway.glsl): crops, brush and tree canopies lean with the weather's wind.
   local sway = self:swayShader()
+  -- Autumn rim light (rim.glsl, and inside sway.glsl): the plain sprites are drawn through it while it shows.
+  local rim = self:rimShader(sway)
+  self.spriteShader = rim
 
   -- Y-sorted sprites: { sortY, draw function }
   -- Mist is a low layer: it hazes the ground and the creek but sits under crops, objects and tree canopies (#219).
   self:drawMist(visible, ice)
   local items = {}
-  local shadows = self.shadowList -- five values per sprite, in one table reused every frame (no allocation per sprite)
+  local shadows = self.shadowList -- SHADOW_STRIDE values per sprite, in one table reused every frame (no allocation per sprite)
   if not shadows then
     shadows = { n = 0 }
     self.shadowList = shadows
@@ -566,7 +577,15 @@ function Renderer:draw(alpha, visible, daylight)
           local thirsty = crop.moisture <= 0 and crop.growth < 1
           local sprite = Assets.sprite(crop.id .. "_" .. cropStage(crop))
           if sway then
-            self:drawSwaying(sway, sprite, (x - 1) * tile, y * tile - sprite.h, v.wind.crop, self:swayPhase(x, y), thirsty)
+            self:drawSwaying(
+              sway,
+              sprite,
+              (x - 1) * tile,
+              y * tile - sprite.h,
+              v.wind.crop,
+              self:swayPhase(x, y),
+              thirsty
+            )
             return
           end
           if thirsty then
@@ -605,7 +624,7 @@ function Renderer:draw(alpha, visible, daylight)
       local batch = def.station and Processing.batch(world, anchor)
       local smoking = batch and world.registry:get("recipes", batch.recipe).fuel ~= nil
       if not def.flat then
-        self:castShadow(shadows, sprite, (x - 1) * tile + sprite.w / 2, bottom, 1, true)
+        self:castShadow(shadows, sprite, (x - 1) * tile + sprite.w / 2, bottom, 1, true, def.dapple)
       end
       items[#items + 1] = {
         bottom,
@@ -620,7 +639,7 @@ function Renderer:draw(alpha, visible, daylight)
             love.graphics.draw(sprite.image, sprite.quad, (x - 1) * tile, bottom - sprite.h)
           end
           if capShader then
-            love.graphics.setShader()
+            love.graphics.setShader(self.spriteShader)
           end
           for _, look in ipairs(looks and looks[obj.id] or NO_LOOKS) do
             love.graphics.setColor(tint[1], tint[2], tint[3], 1)
@@ -670,8 +689,8 @@ function Renderer:draw(alpha, visible, daylight)
       }
     end
   end
-  self:addHens(items, x1, x2, y1, y2)
-  self:addGoats(items, x1, x2, y1, y2)
+  self:addHens(items, shadows, x1, x2, y1, y2)
+  self:addGoats(items, shadows, x1, x2, y1, y2)
   for _, actor in ipairs(world.state.actors) do
     local ax = actor.prevX + (actor.x - actor.prevX) * alpha
     local ay = actor.prevY + (actor.y - actor.prevY) * alpha
@@ -688,7 +707,12 @@ function Renderer:draw(alpha, visible, daylight)
         end
         local sprite = Assets.sprite(actor.kind)
         love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.draw(sprite.image, sprite.quad, math.floor(feetX - sprite.w / 2 + 0.5), math.floor(feetY - sprite.h + 0.5))
+        love.graphics.draw(
+          sprite.image,
+          sprite.quad,
+          math.floor(feetX - sprite.w / 2 + 0.5),
+          math.floor(feetY - sprite.h + 0.5)
+        )
         if actor.bucket and actor.bucket > 0 then
           -- Tiny water gauge beside the homesteader while carrying water.
           local frac = math.min(1, actor.bucket / Water.bucketCapacity(world))
@@ -707,14 +731,25 @@ function Renderer:draw(alpha, visible, daylight)
     local feetX = (cpx + (cx - cpx) * alpha - 0.5) * tile
     local feetY = (cpy + (cy - cpy) * alpha - 0.5) * tile + 6
     local resting = cmode == "nap" or cmode == "sleep"
-    self:castShadow(shadows, Assets.sprite(resting and "cat_nap" or "cat"), math.floor(feetX + 0.5), math.floor(feetY + 0.5), 1, true)
+    self:castShadow(
+      shadows,
+      Assets.sprite(resting and "cat_nap" or "cat"),
+      math.floor(feetX + 0.5),
+      math.floor(feetY + 0.5),
+      1,
+      true
+    )
     items[#items + 1] = {
       feetY,
       function()
-        local resting = cmode == "nap" or cmode == "sleep"
         local sprite = Assets.sprite(resting and "cat_nap" or "cat")
         love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.draw(sprite.image, sprite.quad, math.floor(feetX - sprite.w / 2 + 0.5), math.floor(feetY - sprite.h + 0.5))
+        love.graphics.draw(
+          sprite.image,
+          sprite.quad,
+          math.floor(feetX - sprite.w / 2 + 0.5),
+          math.floor(feetY - sprite.h + 0.5)
+        )
         if cmode == "sleep" then
           self:drawSleep(feetX, feetY - 8)
         end
@@ -725,9 +760,11 @@ function Renderer:draw(alpha, visible, daylight)
     return a[1] < b[1]
   end)
   self:drawShadows(shadows)
+  love.graphics.setShader(rim)
   for _, item in ipairs(items) do
     item[2]()
   end
+  love.graphics.setShader()
   love.graphics.setColor(1, 1, 1, 1)
   self:drawCloudShadows(visible, daylight)
 end
@@ -750,6 +787,56 @@ function Renderer:swayShader()
   })
   self.swayLast = nil -- the per-sprite uniforms (bounds, weight) are sent again when the sprite changes
   return shader
+end
+
+--- The autumn rim light for this frame (#283): sends its uniforms to the rim shader and to `sway` (which
+--- draws the rim on crops and canopies itself) and returns the rim shader, or nil while there is no rim
+--- (another season, night, an overcast sky). The season sets how much there is; low sun and a clear sky
+--- bring out the most.
+function Renderer:rimShader(sway)
+  local shader = Shaders.get("rim")
+  local cfg = self.world.tuning.visuals.rim
+  local strength, side = 0, 0
+  local season = cfg.seasons[Calendar.now(self.world).season] or 0
+  local sunSide, height, cover = self:sun()
+  if shader and cfg.enabled and season > 0 and sunSide then
+    local rise = math.min(1, height / cfg.horizon)
+    local low = cfg.noonShare + (1 - cfg.noonShare) * (1 - height)
+    strength = cfg.strength * season * rise * low * (1 - cfg.cloudKill * cover)
+    side = -sunSide -- the sun is east (+x) in the morning, when the shadows fall west
+  end
+  local on = strength > 0.005
+  local values = {
+    rimStrength = on and strength or 0,
+    rimColor = cfg.color,
+    rimSide = side >= 0 and 1 or -1,
+    rimSideWeight = math.min(1, math.abs(side) * cfg.sideGain),
+    rimTop = cfg.top,
+    inkLuma = cfg.inkLuma,
+  }
+  if sway then
+    Shaders.send(sway, values) -- sway sends its own texel per sprite
+  end
+  if not on then
+    self.rimSide = nil
+    return nil
+  end
+  values.texel = { 1 / Assets.atlasWidth(), 1 / Assets.atlasHeight() }
+  Shaders.send(shader, values)
+  self.rimSide, self.rimSent = values.rimSide, values.rimSide
+  return shader
+end
+
+--- Point the rim light the right way for a sprite drawn facing `facing` (-1 = mirrored), while it shows.
+function Renderer:rimFacing(facing)
+  if not self.rimSide then
+    return
+  end
+  local want = self.rimSide * facing
+  if want ~= self.rimSent then
+    self.spriteShader:send("rimSide", want)
+    self.rimSent = want
+  end
 end
 
 --- A plant's sway phase 0..1 (the shader's vertex colour): the tile's place in the gust that rolls across
@@ -787,7 +874,7 @@ function Renderer:drawSwaying(shader, sprite, x, y, cfg, phase, thirsty)
   love.graphics.setShader(shader)
   love.graphics.setColor(phase, thirsty and 1 or 0, 0, 1)
   love.graphics.draw(sprite.image, sprite.swayQuad, x - pad, y)
-  love.graphics.setShader()
+  love.graphics.setShader(self.spriteShader)
   love.graphics.setColor(1, 1, 1, 1)
 end
 
@@ -844,18 +931,30 @@ function Renderer:drawMist(visible, ice)
   love.graphics.setShader()
 end
 
---- The light buffer: a canvas the size of the world canvas that the night lights are painted into
---- (D128). The colour grade reads it, so lights brighten what they reach. Created on demand.
-function Renderer:lightBuffer(w, h)
-  if not self.lightCanvas or self.lightCanvas:getWidth() ~= w or self.lightCanvas:getHeight() ~= h then
-    self.lightCanvas = love.graphics.newCanvas(w, h)
-    self.lightCanvas:setFilter("nearest", "nearest")
+--- Paint the night lights into the light buffer (D128), which the colour grade reads so the lights
+--- brighten what they reach. The buffer has one texel per world art pixel (the light pools are already
+--- snapped to art pixels, so nothing is lost and it is pixelSize² times smaller than the screen). Call
+--- with the camera transform on; `w`, `h` = the world canvas. Returns { image, origin = screen pixel of its
+--- first texel, size }, or nil when no light is on.
+function Renderer:paintLights(visible, daylight, w, h)
+  local ox, oy, lw, lh = self:artGrid(w, h)
+  local sx, sy = love.graphics.transformPoint(ox, oy)
+  local buffer = self:artCanvas("lightCanvas", lw, lh)
+  love.graphics.push("all")
+  love.graphics.setCanvas(buffer)
+  love.graphics.clear(0, 0, 0, 1)
+  love.graphics.origin()
+  love.graphics.translate(-ox, -oy)
+  local n = self:drawLights(visible, daylight)
+  love.graphics.pop()
+  if n == 0 then
+    return nil
   end
-  return self.lightCanvas
+  return { image = buffer, origin = { sx, sy }, size = { lw, lh } }
 end
 
---- Night light pools, painted additively into the current canvas (the light buffer: cleared black, with
---- the camera transform on). Which objects glow is the `light` field of their definition and whether it is
+--- Night light pools, painted additively into the current canvas (the light buffer: cleared black, in
+--- world art pixels). Which objects glow is the `light` field of their definition and whether it is
 --- on is read from the sim (Lights.visible); here we only paint. Returns how many lights were drawn, and
 --- remembers them for `drawEmissive`.
 function Renderer:drawLights(visible, daylight)
@@ -995,10 +1094,10 @@ function Renderer:whiteImage()
   return self.white
 end
 
---- Queue the flock for the y-sorted pass. Hens roam the run in front of each coop by day (they roost
+--- Queue the flock for the y-sorted pass (and their shadows on `shadows`). Hens roam the run in front of each coop by day (they roost
 --- inside at night and in a storm); their drift is a pure function of the render clock and their
 --- number, so drawing never touches the sim.
-function Renderer:addHens(items, x1, x2, y1, y2)
+function Renderer:addHens(items, shadows, x1, x2, y1, y2)
   local world, tile = self.world, self.tile
   local cfg = world.tuning.visuals.hens
   local hens = math.min(Animals.hens(world), cfg.maxDrawn)
@@ -1020,6 +1119,7 @@ function Renderer:addHens(items, x1, x2, y1, y2)
         local feetY = (ay - 1 + fh + 0.4 + depth * cfg.runDepth) * tile
         local facing = math.cos(self.time * cfg.speed + phase) >= 0 and 1 or -1
         local pecking = math.sin(self.time * cfg.peckSpeed + phase * 3) > cfg.peckAbove
+        self:castShadow(shadows, Assets.sprite("hen"), math.floor(feetX + 0.5), math.floor(feetY + 0.5), facing, true)
         items[#items + 1] = {
           feetY,
           function()
@@ -1028,6 +1128,7 @@ function Renderer:addHens(items, x1, x2, y1, y2)
             local dy = pecking and 1 or 0
             local x = math.floor(feetX + 0.5)
             local y = math.floor(feetY - sprite.h + 0.5) + dy
+            self:rimFacing(facing)
             if facing > 0 then
               love.graphics.draw(sprite.image, sprite.quad, x - math.floor(sprite.w / 2), y)
             else
@@ -1040,9 +1141,9 @@ function Renderer:addHens(items, x1, x2, y1, y2)
   end
 end
 
---- Queue the herd for the y-sorted pass. Goats browse the yard of each pen by day (they stay in the
+--- Queue the herd for the y-sorted pass (and their shadows on `shadows`). Goats browse the yard of each pen by day (they stay in the
 --- shed at night and in a storm); like the hens, their drift is a pure function of the render clock.
-function Renderer:addGoats(items, x1, x2, y1, y2)
+function Renderer:addGoats(items, shadows, x1, x2, y1, y2)
   local world, tile = self.world, self.tile
   local cfg = world.tuning.visuals.goats
   local goats = math.min(Animals.goats(world), cfg.maxDrawn)
@@ -1063,6 +1164,7 @@ function Renderer:addGoats(items, x1, x2, y1, y2)
         local feetY = (ay - 1 + fh - cfg.yardDepth + depth * cfg.yardDepth * 0.8) * tile
         local facing = math.cos(self.time * cfg.speed + phase) >= 0 and 1 or -1
         local grazing = math.sin(self.time * cfg.grazeSpeed + phase * 3) > cfg.grazeAbove
+        self:castShadow(shadows, Assets.sprite("goat"), math.floor(feetX + 0.5), math.floor(feetY + 0.5), facing, true)
         items[#items + 1] = {
           (ay - 1 + fh) * tile + 0.5 + depth, -- sorted just in front of the pen, so the herd shows inside the fence
           function()
@@ -1071,6 +1173,7 @@ function Renderer:addGoats(items, x1, x2, y1, y2)
             local dy = grazing and 1 or 0
             local x = math.floor(feetX + 0.5)
             local y = math.floor(feetY - sprite.h + 0.5) + dy
+            self:rimFacing(facing)
             if facing > 0 then
               love.graphics.draw(sprite.image, sprite.quad, x - math.floor(sprite.w / 2), y)
             else
@@ -1100,6 +1203,13 @@ function Renderer:drawSleep(x, y)
   end
 end
 
+--- The canvas pixel where an art pixel starts: the camera's rounded translation (Camera:attach).
+function Renderer.screenGrid(camera, view)
+  local s = view.scale * camera:zoom()
+  return math.floor(view.w * view.scale / 2 - camera.x * s + 0.5),
+    math.floor(view.h * view.scale / 2 - camera.y * s + 0.5)
+end
+
 --- Heat shimmer inputs for the grade pass: how hot the day is (hot clear summer noon) and the lit fires
 --- (stove, campfire) in view as shimmer columns, all in canvas pixels. nil when there is nothing to show.
 function Renderer:heatHaze(camera, view, visible, daylight)
@@ -1108,8 +1218,7 @@ function Renderer:heatHaze(camera, view, visible, daylight)
   local snow = self:winterAmounts()
   local amount = Ambient.heatAmount(world, daylight, snow)
   local s = view.scale * camera:zoom()
-  local ox = math.floor(view.w * view.scale / 2 - camera.x * s + 0.5)
-  local oy = math.floor(view.h * view.scale / 2 - camera.y * s + 0.5)
+  local ox, oy = Renderer.screenGrid(camera, view)
   local sources = {}
   for _, item in ipairs(Lights.visible(world, visible, 1)) do
     if item.light.on == "heat" and #sources < cfg.maxSources then
@@ -1222,12 +1331,40 @@ function Renderer:drawCropCues(visible, daylight)
   love.graphics.setColor(1, 1, 1, 1)
 end
 
+local SHADOW_STRIDE = 6 -- values per sprite in the shadow list
+
 --- Queue a sprite for the shadow pass: `footX`, `footY` is where it stands (world art pixels), `flip` -1
---- when the sprite is drawn mirrored. Sprites under the tuned minimum height cast no shadow, only contact.
-function Renderer:castShadow(list, sprite, footX, footY, flip, contact)
+--- when the sprite is drawn mirrored, `contact` whether it gets a contact shadow, `canopy` whether sun
+--- flecks show through its cast shadow (leaf dapple). Sprites under the tuned minimum height cast no
+--- shadow, only contact.
+function Renderer:castShadow(list, sprite, footX, footY, flip, contact, canopy)
   local n = list.n
-  list[n + 1], list[n + 2], list[n + 3], list[n + 4], list[n + 5] = sprite, footX, footY, flip, contact
-  list.n = n + 5
+  list[n + 1], list[n + 2], list[n + 3], list[n + 4], list[n + 5], list[n + 6] =
+    sprite, footX, footY, flip, contact, canopy or false
+  list.n = n + SHADOW_STRIDE
+end
+
+--- The world's art-pixel grid under the current camera transform (call with it on), for a target `w` x `h`
+--- screen pixels: the world art pixel at the target's top-left and how many art pixels cover it (with a
+--- pixel to spare each side). The art-resolution buffers (shadow mask, light buffer, reflections) use it,
+--- so one texel is one art pixel: their edges step like the sprites, and each is pixelSize² times smaller
+--- than a screen-sized canvas, which matters on phones.
+function Renderer:artGrid(w, h)
+  local x0, y0 = love.graphics.inverseTransformPoint(0, 0)
+  local x1 = love.graphics.inverseTransformPoint(1, 0)
+  local perScreenPixel = x1 - x0 -- art pixels per screen pixel
+  return math.floor(x0), math.floor(y0), math.ceil(w * perScreenPixel) + 2, math.ceil(h * perScreenPixel) + 2
+end
+
+--- A nearest-filtered canvas kept on `self[key]`, made again only when the size changes (a zoom or resize).
+function Renderer:artCanvas(key, w, h)
+  local canvas = self[key]
+  if not canvas or canvas:getWidth() ~= w or canvas:getHeight() ~= h then
+    canvas = love.graphics.newCanvas(w, h)
+    canvas:setFilter("nearest", "nearest")
+    self[key] = canvas
+  end
+  return canvas
 end
 
 --- Where the sun is: `side` -1 at sunrise to +1 at sunset, `height` 0 on the horizon to 1 at noon (both nil at
@@ -1297,65 +1434,107 @@ function Renderer:drawSunbeams(visible)
 end
 
 --- Sun shadows under the y-sorted sprites (call with the camera transform on, before the sprites).
---- Cast shadows are each sprite's silhouette flipped onto the ground and sheared away from the sun,
---- drawn solid into a mask and composited once, so overlapping shadows never double up. The sun's
---- height sets the length, its place along the day sets the lean, cloud and low sun thin it out.
---- A small contact shadow sits under everything and stays through the night.
+--- Cast shadows are each sprite's silhouette flipped onto the ground and sheared away from the sun. They
+--- and the contact shadows are drawn solid into a mask with one texel per world art pixel (so the edges
+--- step on the art grid) and composited once, so overlapping shadows never double up. The sun's height
+--- sets the length, its place along the day sets the lean, cloud and low sun thin it out. Sun flecks
+--- show through a tree's shadow (leaf dapple). The contact shadow stays through the night.
 function Renderer:drawShadows(list)
   local world = self.world
   local cfg = world.tuning.visuals.shadows
-  if list.n == 0 or not cfg.enabled then
+  local composite = Shaders.get("shadow_composite")
+  local target = love.graphics.getCanvas()
+  if list.n == 0 or not cfg.enabled or not composite or not target then
     return
   end
-  local sunrise, sunset = Calendar.daylight(world)
-  local side, height = Lighting.sun(Calendar.now(world).hour, sunrise, sunset)
-  local cover = self.fx:clouds()
+  local side, height, cover = self:sun()
   local strength = 0
   if side then
     local fade = math.min(1, height / cfg.fadeElevation)
     strength = cfg.castStrength * fade * fade * (3 - 2 * fade) * (1 - cfg.cloudDim * cover)
   end
   local shader = Shaders.get("shadow")
-  local target = love.graphics.getCanvas()
-  local c = cfg.color
-  if shader and target and strength > 0.005 then
-    local w, h = target:getDimensions()
-    if not self.shadowMask or self.shadowMask:getWidth() ~= w or self.shadowMask:getHeight() ~= h then
-      self.shadowMask = love.graphics.newCanvas(w, h)
-      self.shadowMask:setFilter("nearest", "nearest")
-    end
+  local cast = shader and strength > 0.005
+  local ox, oy, mw, mh = self:artGrid(target:getDimensions())
+  local mask = self:artCanvas("shadowMask", mw, mh)
+  love.graphics.push("all")
+  love.graphics.setCanvas(mask)
+  love.graphics.clear(0, 0, 0, 0)
+  love.graphics.origin()
+  love.graphics.translate(-ox, -oy)
+  if cast then
     local len = cfg.lengthLow + (cfg.lengthNoon - cfg.lengthLow) * height
     local shear = -side * cfg.maxShear -- love's kx moves a point by kx * its y; the sprite is flipped, so this is minus the lean
-    love.graphics.push("all")
-    love.graphics.setCanvas(self.shadowMask) -- the camera transform stays on, so the mask lines up with the world canvas
-    love.graphics.clear(0, 0, 0, 0)
     love.graphics.setShader(shader)
-    love.graphics.setColor(1, 1, 1, 1)
-    for k = 1, list.n, 5 do
-      local sprite = list[k]
-      if list[k + 4] and sprite.h >= cfg.minHeight then
-        local flip = list[k + 3]
-        love.graphics.draw(sprite.image, sprite.quad, list[k + 1], list[k + 2], 0, flip, -len, sprite.w / 2, sprite.h, shear * flip, 0)
+    love.graphics.setColorMask(true, false, true, true)
+    -- Canopies first, flagged blue for the dapple; anything solid drawn over one clears the flag.
+    for pass = 1, 2 do
+      love.graphics.setColor(1, 0, pass == 1 and 1 or 0, 1)
+      for k = 1, list.n, SHADOW_STRIDE do
+        local sprite = list[k]
+        if sprite.h >= cfg.minHeight and list[k + 5] == (pass == 1) then
+          local flip = list[k + 3]
+          love.graphics.draw(
+            sprite.image,
+            sprite.quad,
+            list[k + 1],
+            list[k + 2],
+            0,
+            flip,
+            -len,
+            sprite.w / 2,
+            sprite.h,
+            shear * flip,
+            0
+          )
+        end
       end
     end
-    love.graphics.pop()
-    love.graphics.push("all")
-    love.graphics.origin()
-    love.graphics.setColor(c[1], c[2], c[3], strength)
-    love.graphics.draw(self.shadowMask, 0, 0)
-    love.graphics.pop()
+    love.graphics.setShader()
   end
-  love.graphics.setColor(c[1], c[2], c[3], cfg.contactStrength)
-  for k = 1, list.n, 5 do
+  love.graphics.setColorMask(false, true, false, true)
+  love.graphics.setColor(1, 1, 1, 1)
+  for k = 1, list.n, SHADOW_STRIDE do
     local sprite = list[k]
     if list[k + 4] then
       local w = math.min(cfg.contactMaxWidth, math.floor(sprite.w * cfg.contactWidth))
       local x, y = math.floor(list[k + 1]), math.floor(list[k + 2])
-      love.graphics.rectangle("fill", x - math.floor(w * 0.35), y - 1, math.floor(w * 0.7) * 1, 3)
+      local inner = math.floor(w * 0.7)
+      love.graphics.rectangle("fill", x - math.floor(inner / 2), y - 1, inner, 3)
       love.graphics.rectangle("fill", x - math.floor(w / 2), y, w, 1)
     end
   end
+  love.graphics.pop()
+
+  local d = cfg.dapple
+  local shift = { 0, 0 }
+  local dapple = 0
+  if cast and d.strength > 0 then
+    dapple = d.strength
+    if not Settings.read("reduceMotion", false) then
+      -- The leaves sway with the wind (the same clock as sway.glsl), so the flecks shuffle by whole art pixels.
+      local clock, wind = self.fx:windSway()
+      local amp = d.sway * (d.calmSway + (1 - d.calmSway) * math.min(1, wind))
+      shift =
+        { math.floor(math.sin(clock * 0.8) * amp + 0.5), math.floor(math.sin(clock * 0.53 + 1.7) * amp * 0.5 + 0.5) }
+    end
+  end
+  Shaders.send(composite, {
+    shadowColor = cfg.color,
+    castStrength = cast and strength or 0,
+    contactStrength = cfg.contactStrength,
+    origin = { ox, oy },
+    maskSize = { mw, mh },
+    dapple = dapple,
+    dappleCover = d.cover,
+    dappleShade = d.shade,
+    dappleScale = d.scale,
+    dappleShift = shift,
+  })
+  love.graphics.setShader(composite)
   love.graphics.setColor(1, 1, 1, 1)
+  love.graphics.draw(mask, ox, oy)
+  love.graphics.setShader()
 end
 
 --- Fireflies and dust motes over the graded world (world space, camera transform on).
@@ -1378,7 +1557,9 @@ end
 
 --- Is the bloom pass available and switched on?
 function Renderer:bloomOn()
-  return self.world.tuning.visuals.bloom.enabled and Shaders.get("bloom_bright") ~= nil and Shaders.get("bloom_blur") ~= nil
+  return self.world.tuning.visuals.bloom.enabled
+    and Shaders.get("bloom_bright") ~= nil
+    and Shaders.get("bloom_blur") ~= nil
 end
 
 local function layer(self, key, w, h)
@@ -1444,8 +1625,9 @@ function Renderer:drawBloom(graded, daylight)
   love.graphics.setColor(1, 1, 1, 1)
 end
 
---- Apply the colour grade while drawing `canvas` (the rendered world) to the screen.
-function Renderer:drawGraded(canvas, tint, light, pixelSize, haze, lightMap)
+--- Apply the colour grade while drawing `canvas` (the rendered world) to the screen. `lights` is what
+--- paintLights returned (or nil), `origin` the canvas pixel where an art pixel starts (screenGrid).
+function Renderer:drawGraded(canvas, tint, light, pixelSize, haze, lights, origin)
   local v = self.world.tuning.visuals
   local shader = Shaders.get("grade")
   if Settings.read("reduceMotion", false) then
@@ -1469,26 +1651,36 @@ function Renderer:drawGraded(canvas, tint, light, pixelSize, haze, lightMap)
       hazeSpeed = v.heat.speed,
       sourceSpeed = v.heat.sourceSpeed,
       heatCount = #sources,
-      gridOrigin = haze and haze.origin or { 0, 0 },
+      gridOrigin = origin,
       worldCell = haze and haze.world or { 0, 0 },
     })
     if #sources > 0 and shader:hasUniform("heatSources") then
       shader:send("heatSources", unpack(sources))
     end
-    local tone = v.tone
+    local tone, dof = v.tone, v.depthOfField
     Shaders.send(shader, {
-      lightAmount = lightMap and 1 or 0,
+      dof = Settings.read("depthOfField", false) and dof.strength or 0,
+      dofClear = dof.clear,
+      dofSteps = dof.steps,
+      lightAmount = lights and 1 or 0,
+      lightOrigin = lights and lights.origin or { 0, 0 },
+      lightSize = lights and lights.size or { 1, 1 },
       lightGain = v.lights.gain,
       lightGlow = v.lights.glow,
+      lightNeutral = v.lights.neutral,
       shadowTone = { toward(1, tone.shadowTone[1]), toward(1, tone.shadowTone[2]), toward(1, tone.shadowTone[3]) },
-      highlightTone = { toward(1, tone.highlightTone[1]), toward(1, tone.highlightTone[2]), toward(1, tone.highlightTone[3]) },
+      highlightTone = {
+        toward(1, tone.highlightTone[1]),
+        toward(1, tone.highlightTone[2]),
+        toward(1, tone.highlightTone[3]),
+      },
       toneMid = tone.mid,
       toneWidth = tone.width,
       contrast = tone.contrast * g,
       blackLift = { tone.blackLift[1] * g, tone.blackLift[2] * g, tone.blackLift[3] * g },
     })
-    if lightMap and shader:hasUniform("lightMap") then
-      shader:send("lightMap", lightMap)
+    if lights and shader:hasUniform("lightMap") then
+      shader:send("lightMap", lights.image)
     end
     Shaders.send(shader, {
       tint = tint,

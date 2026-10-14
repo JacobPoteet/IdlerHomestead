@@ -70,9 +70,17 @@ T.test("a button with onRepeat: tap steps once, a hold repeats and swallows the 
   local function build()
     set:clear()
     set:add({
-      x = 0, y = 0, w = 30, h = 30, label = "+",
-      onPress = function() taps = taps + 1 end,
-      onRepeat = function(n) units = units + n end,
+      x = 0,
+      y = 0,
+      w = 30,
+      h = 30,
+      label = "+",
+      onPress = function()
+        taps = taps + 1
+      end,
+      onRepeat = function(n)
+        units = units + n
+      end,
     })
   end
   build()

@@ -15,7 +15,11 @@ return function(d)
   -- Tidy the clutter around the truck so the shots show only the ladder.
   for anchor, obj in pairs(grid.objects) do
     local x, y = Grid.coords(grid, anchor)
-    if world.registry:get("objects", obj.id).clearable ~= false and math.abs(x - tx) <= 12 and math.abs(y - ty) <= 10 then
+    if
+      world.registry:get("objects", obj.id).clearable ~= false
+      and math.abs(x - tx) <= 12
+      and math.abs(y - ty) <= 10
+    then
       Grid.removeObject(world, anchor)
     end
   end

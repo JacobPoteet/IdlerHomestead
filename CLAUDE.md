@@ -35,4 +35,5 @@ Idle / roguelite homestead game in LÖVE 11.5 (LuaJIT). The design source of tru
 
 ## Style
 - Follow `.editorconfig` and `.stylua.toml` (2-space indent).
+- CI blocks merges on format and lint: run `stylua game tests tools` (StyLua 2.0.2, the version pinned in `.github/workflows/ci.yml`; other versions format differently) and `luacheck game tests tools` (config in `.luacheckrc`) before pushing.
 - Modules return a table; prefer `local M = {}` ... `return M`.

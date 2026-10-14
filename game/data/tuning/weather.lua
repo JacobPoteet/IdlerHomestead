@@ -28,10 +28,37 @@ return {
     -- threat: multiplier on mice, predator and weather-driven threat (hail) odds (GDD §7.9, D54, D64, D67).
     -- days: shortest and longest spell of this kind, in whole days.
     clear = { label = "Clear", cloud = 0, wind = 1, flow = 1, fish = 1, rainfall = 0, threat = 1, days = { 1, 3 } },
-    cloudy = { label = "Cloudy", cloud = 0.4, wind = 1, flow = 1, fish = 1.15, rainfall = 0, threat = 1, days = { 1, 2 } },
+    cloudy = {
+      label = "Cloudy",
+      cloud = 0.4,
+      wind = 1,
+      flow = 1,
+      fish = 1.15,
+      rainfall = 0,
+      threat = 1,
+      days = { 1, 2 },
+    },
     rain = { label = "Rain", cloud = 0.6, wind = 1, flow = 1.3, fish = 1.4, rainfall = 1, threat = 1, days = { 1, 2 } },
-    windy = { label = "Windy", cloud = 0.15, wind = 1.5, flow = 1, fish = 0.8, rainfall = 0, threat = 1.2, days = { 1, 2 } },
-    storm = { label = "Storm", cloud = 0.8, wind = 1.7, flow = 1.5, fish = 0.6, rainfall = 1.5, threat = 2, days = { 1, 1 } },
+    windy = {
+      label = "Windy",
+      cloud = 0.15,
+      wind = 1.5,
+      flow = 1,
+      fish = 0.8,
+      rainfall = 0,
+      threat = 1.2,
+      days = { 1, 2 },
+    },
+    storm = {
+      label = "Storm",
+      cloud = 0.8,
+      wind = 1.7,
+      flow = 1.5,
+      fish = 0.6,
+      rainfall = 1.5,
+      threat = 2,
+      days = { 1, 1 },
+    },
   },
   order = { "clear", "cloudy", "rain", "windy", "storm" }, -- kinds in rolling order (keeps rolls deterministic)
   seasonWeights = { -- season id -> kind -> relative chance a new spell is this kind (0 = never)

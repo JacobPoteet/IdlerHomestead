@@ -1,4 +1,4 @@
-﻿-- Early money made visible (GDD D88, #161): the first junk cleared brings a "where money comes from"
+-- Early money made visible (GDD D88, #161): the first junk cleared brings a "where money comes from"
 -- card, and the Catalog says how to earn when money is under its cheapest order. Then the starter
 -- field (#137): the toast when the routine plans it, and the compact block it lays out.
 return function(d)

@@ -105,7 +105,8 @@ T.test("cat: mice leave fish, cans and seed alone, and skip an empty larder or t
     Ledger.add(world, "canned_food", 5)
     Ledger.add(world, "sunfish", 5)
     Ledger.add(world, "seed_potato", 5)
-    local cans, fish, seed = Ledger.get(world, "canned_food"), Ledger.get(world, "sunfish"), Ledger.get(world, "seed_potato")
+    local cans, fish, seed =
+      Ledger.get(world, "canned_food"), Ledger.get(world, "sunfish"), Ledger.get(world, "seed_potato")
     T.eq(Cat.raid(world), nil)
     T.eq(Ledger.get(world, "canned_food"), cans)
     T.eq(Ledger.get(world, "sunfish"), fish)
@@ -206,13 +207,12 @@ T.test("cat: it wanders on walkable ground near home and naps in the sun", funct
   giveCat(world)
   clear(world)
   setTime(world, 3, 12)
-  local seen, napped, moved = {}, false, false
+  local napped, moved = false, false
   local x0, y0 = world.state.cat.x, world.state.cat.y
   for _ = 1, 600 do
     Cat.tick(world, 4)
     local tile = Cat.tile(world)
     T.truthy(Grid.walkable(world, tile), "cat on a walkable tile")
-    seen[tile] = true
     napped = napped or world.state.cat.mode == "nap"
     moved = moved or world.state.cat.x ~= x0 or world.state.cat.y ~= y0
   end

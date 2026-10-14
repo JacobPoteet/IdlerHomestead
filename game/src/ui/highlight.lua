@@ -63,7 +63,15 @@ function Highlight.draw(rect, cfg, color, t, view)
   love.graphics.setColor(color[1], color[2], color[3], 1)
   love.graphics.rectangle("line", rect.x - pad, rect.y - pad, rect.w + 2 * pad, rect.h + 2 * pad, 4, 4)
   love.graphics.setColor(color[1], color[2], color[3], 1 - p)
-  love.graphics.rectangle("line", rect.x - pad - grow, rect.y - pad - grow, rect.w + 2 * (pad + grow), rect.h + 2 * (pad + grow), 5, 5)
+  love.graphics.rectangle(
+    "line",
+    rect.x - pad - grow,
+    rect.y - pad - grow,
+    rect.w + 2 * (pad + grow),
+    rect.h + 2 * (pad + grow),
+    5,
+    5
+  )
   local s = cfg.highlightArrow
   local cx = math.max(s, math.min(view.w - s, rect.x + rect.w / 2))
   love.graphics.setColor(color[1], color[2], color[3], 1)

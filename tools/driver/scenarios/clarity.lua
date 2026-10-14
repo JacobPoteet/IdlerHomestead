@@ -21,7 +21,7 @@ end
 
 return function(d)
   d:newGame()
-  local world, scene = d:world(), d:scene()
+  local world = d:world()
   local truck = Land.truck(world)
   d:frames(10)
   d:shot("toolbar")

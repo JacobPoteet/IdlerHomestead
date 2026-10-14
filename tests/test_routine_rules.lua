@@ -296,7 +296,7 @@ T.test("clear trees: Off never fells; On fells like the hand order, with the woo
     end
     return n
   end
-  local before, wood = trees(), Ledger.get(world, "wood")
+  local before = trees()
   T.eq(Tasks.chooseIdleJob(world, hs), nil, "Off: nothing to do")
   entry(world.state, "trees").enabled = true
   local job = Tasks.chooseIdleJob(world, hs)
@@ -306,7 +306,7 @@ T.test("clear trees: Off never fells; On fells like the hand order, with the woo
   Ledger.add(world, "wood", Ledger.capacity(world, "wood") - Ledger.get(world, "wood"))
   T.eq(Tasks.chooseIdleJob(world, hs), nil, "full store: waits")
   Ledger.remove(world, "wood", Ledger.get(world, "wood"))
-  wood = Ledger.get(world, "wood")
+  local wood = Ledger.get(world, "wood")
   run(world, HOUR * 3)
   T.truthy(trees() < before, "trees were felled")
   T.truthy(Ledger.get(world, "wood") > wood, "and the wood went to the store")

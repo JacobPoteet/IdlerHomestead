@@ -19,7 +19,14 @@ local FRAME = 1 / 60
 
 local function newSession(seed)
   local store = Save.new(Save.memoryBackend(), { slotCount = 1 })
-  return Session.new({ store = store, slot = 1, data = Save.newSlotData("Sleep"), registry = reg, tuning = tun, seed = seed or 3 })
+  return Session.new({
+    store = store,
+    slot = 1,
+    data = Save.newSlotData("Sleep"),
+    registry = reg,
+    tuning = tun,
+    seed = seed or 3,
+  })
 end
 
 local function setTime(world, hour)

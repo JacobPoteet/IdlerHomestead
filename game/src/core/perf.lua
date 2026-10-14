@@ -98,7 +98,12 @@ function Perf.lines(budget)
       flag(s.tickMs, budget and budget.simMsPerTick)
     ),
     string.format("Worst tick: %.2f ms%s", s.worstTickMs, flag(s.worstTickMs, budget and budget.worstTickMs)),
-    string.format("Update: %.2f ms  Draw: %.2f ms (CPU)%s", s.updateMs, s.drawMs, flag(s.drawMs, budget and budget.drawMs)),
+    string.format(
+      "Update: %.2f ms  Draw: %.2f ms (CPU)%s",
+      s.updateMs,
+      s.drawMs,
+      flag(s.drawMs, budget and budget.drawMs)
+    ),
   }
 end
 

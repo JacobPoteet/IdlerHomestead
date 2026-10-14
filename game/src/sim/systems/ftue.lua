@@ -190,9 +190,11 @@ end
 
 --- A step's text with its {domain.key} tokens read from tuning.
 function Ftue.text(world, def)
-  return (def.text:gsub("{([%w_]+)%.([%w_]+)}", function(domain, key)
-    return tostring(world.tuning[domain][key])
-  end))
+  return (
+    def.text:gsub("{([%w_]+)%.([%w_]+)}", function(domain, key)
+      return tostring(world.tuning[domain][key])
+    end)
+  )
 end
 
 --- The player closed the current card.

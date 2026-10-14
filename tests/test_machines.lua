@@ -91,7 +91,13 @@ local function tilesAround(world, center, minD, maxD, count)
   local list = {}
   for i = 1, #grid.terrain do
     local d = Grid.distance(grid, center, i)
-    if d >= minD and d <= maxD and Grid.terrain(world, i).tillable and not world.occupancy[i] and not Crops.tileInUse(world, i) then
+    if
+      d >= minD
+      and d <= maxD
+      and Grid.terrain(world, i).tillable
+      and not world.occupancy[i]
+      and not Crops.tileInUse(world, i)
+    then
       list[#list + 1] = { i = i, d = d }
     end
   end
@@ -200,7 +206,10 @@ T.test("harvester: picks every ripe crop in reach, nearest first, at its work sp
   T.eq(done[1].machine, HARVESTER)
   local grid = world.state.grid
   for n = 2, #harvested do
-    T.truthy(Grid.distance(grid, anchor, harvested[n - 1].tile) <= Grid.distance(grid, anchor, harvested[n].tile), "nearest first")
+    T.truthy(
+      Grid.distance(grid, anchor, harvested[n - 1].tile) <= Grid.distance(grid, anchor, harvested[n].tile),
+      "nearest first"
+    )
   end
   T.truthy(Ledger.get(world, "radish") > 0, "produce reached the ledger")
   T.eq(Machines.at(world, anchor).status, "idle")

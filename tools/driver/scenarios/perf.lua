@@ -68,10 +68,30 @@ return function(d)
   end
   -- The lighting passes (D127-D131): all on, then each one off in turn, at dusk (shadows, beams) and at night (lights, bloom).
   local passes = {
-    { "shadows", function(on) v.shadows.enabled = on end },
-    { "reflections", function(on) v.reflections.enabled = on end },
-    { "bloom", function(on) v.bloom.enabled = on end },
-    { "sunbeams", function(on) v.sunbeams.enabled = on end },
+    {
+      "shadows",
+      function(on)
+        v.shadows.enabled = on
+      end,
+    },
+    {
+      "reflections",
+      function(on)
+        v.reflections.enabled = on
+      end,
+    },
+    {
+      "bloom",
+      function(on)
+        v.bloom.enabled = on
+      end,
+    },
+    {
+      "sunbeams",
+      function(on)
+        v.sunbeams.enabled = on
+      end,
+    },
   }
   v.sunbeams.enabled = true
   for n = 1, 4 do

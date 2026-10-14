@@ -372,5 +372,5 @@ return {
     resetWidth = 48, -- virtual pixels: the per-row Reset button
     buttonGap = 4, -- virtual pixels between a row's buttons
   },
-  startRoutineHint ="Starts the routine now. It waters, plants, harvests and chops for you; any tap ends it.", -- toast when the routine starts
+  startRoutineHint = "Starts the routine now. It waters, plants, harvests and chops for you; any tap ends it.", -- toast when the routine starts
 }

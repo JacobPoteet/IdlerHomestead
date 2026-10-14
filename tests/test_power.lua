@@ -4,7 +4,6 @@ local tuningLoader = require("src.core.tuning")
 local Registry = require("src.core.registry")
 local serialize = require("src.core.serialize")
 local World = require("src.sim.world")
-local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
 local Land = require("src.sim.systems.land")
@@ -133,7 +132,16 @@ T.test("power content: sinks and sources are well formed and have art", function
 end)
 
 T.test("power content: the catalog offers every network object", function()
-  for _, id in ipairs({ "solar_array", "battery_bank", "wind_turbine", "micro_hydro", "generator", "electric_heater", "lamp", "chest_freezer" }) do
+  for _, id in ipairs({
+    "solar_array",
+    "battery_bank",
+    "wind_turbine",
+    "micro_hydro",
+    "generator",
+    "electric_heater",
+    "lamp",
+    "chest_freezer",
+  }) do
     T.eq(reg:get("catalog", id).object, id)
     T.truthy(reg:get("catalog", id).price > 0)
   end
@@ -282,7 +290,7 @@ T.test("power: homestead load competes with charging the truck", function()
       end
       if truckFirst then
         while Power.order(world)[1] ~= "truck" do
-          for i, id in ipairs(Power.order(world)) do
+          for _, id in ipairs(Power.order(world)) do
             if id == "truck" then
               Power.moveTier(world, "truck", -1)
               break

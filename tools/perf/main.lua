@@ -67,7 +67,8 @@ function love.load(args)
 
     local data = Save.newSlotData("perf")
     local store = Save.new(Save.memoryBackend(), { slotCount = 1 })
-    local session = Session.new({ store = store, slot = 1, data = data, registry = ctx.registry, tuning = tuning, seed = seed })
+    local session =
+      Session.new({ store = store, slot = 1, data = data, registry = ctx.registry, tuning = tuning, seed = seed })
     local world = session.world
     local step = 1 / tuning.time.tickRate
     local policy = Policies.new(policyName, world, seed, Features.parse(nil))
@@ -97,7 +98,16 @@ function love.load(args)
     for _ = 1, warmTicks do
       play(plain)
     end
-    io.write(string.format("warm-up: %s seed %d, %d days (%d ticks) in %.1fs\n", policyName, seed, warmDays, warmTicks, now() - started))
+    io.write(
+      string.format(
+        "warm-up: %s seed %d, %d days (%d ticks) in %.1fs\n",
+        policyName,
+        seed,
+        warmDays,
+        warmTicks,
+        now() - started
+      )
+    )
 
     -- State size.
     local grid = world.state.grid
@@ -114,7 +124,15 @@ function love.load(args)
     for _, id in ipairs(ids) do
       parts[#parts + 1] = id .. "=" .. owned[id]
     end
-    io.write(string.format("state: map %dx%d, %d objects: %s\n", grid.w, grid.h, countKeys(grid.objects), table.concat(parts, " ")))
+    io.write(
+      string.format(
+        "state: map %dx%d, %d objects: %s\n",
+        grid.w,
+        grid.h,
+        countKeys(grid.objects),
+        table.concat(parts, " ")
+      )
+    )
 
     -- Window A: wall time per tick, total and per system (GC running as in play).
     local systems = world.systems

@@ -22,7 +22,8 @@ Load.__index = Load
 
 local ROW_H = 36 -- name line plus the spare / keep / price line; clears the touch target with a gap
 local HELP_Y = 64 -- virtual pixels from the panel top to the help line; the list starts under it
-local HELP = "Spare = stock above what you keep (set in the Pantry). Auto-load takes the best price first. Hold - + or +5 to go faster."
+local HELP =
+  "Spare = stock above what you keep (set in the Pantry). Auto-load takes the best price first. Hold - + or +5 to go faster."
 -- Row controls, measured from the panel's right edge.
 local COL = { all = 44, five = 78, plus = 106, count = 132, minus = 156 }
 
@@ -35,7 +36,11 @@ function Load.warningText(world, warning)
   if warning.kind == "fuel" then
     local text
     if ready then
-      text = string.format("Your wood covers %d of the %d nights to the end of winter.", ready.fuel.covered, ready.fuel.nights)
+      text = string.format(
+        "Your wood covers %d of the %d nights to the end of winter.",
+        ready.fuel.covered,
+        ready.fuel.nights
+      )
     else
       local nights = Needs.fuelNights(world)
       text = nights == math.huge and "No fire is needed tonight, but winter will need wood."
@@ -59,7 +64,9 @@ function Load.new(world, onToast)
 end
 
 function Load:enter()
-  self.list.onMove = function() self:layout() end
+  self.list.onMove = function()
+    self:layout()
+  end
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
   self.rowButtons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
 end
@@ -198,8 +205,15 @@ function Load:layout()
       local by = y + 6
       local function add(x, w, label, enabled, onPress, onRepeat)
         self.rowButtons:add({
-          x = right - x, y = by, w = w, h = 24, label = label, size = "small",
-          enabled = enabled and not town, onPress = onPress, onRepeat = onRepeat,
+          x = right - x,
+          y = by,
+          w = w,
+          h = 24,
+          label = label,
+          size = "small",
+          enabled = enabled and not town,
+          onPress = onPress,
+          onRepeat = onRepeat,
         })
       end
       add(COL.minus, 24, "-", loaded > 0, function()
@@ -268,7 +282,12 @@ function Load:draw()
   local dim = theme.colors.textDim
   local _, value, units = Market.loadQuote(world)
   local cargo = Market.cargoCapacity(world)
-  Panel.frame(self.app.view, b, "Load the truck", string.format("Cargo %d / %d units, worth $%d in town", units, cargo, value))
+  Panel.frame(
+    self.app.view,
+    b,
+    "Load the truck",
+    string.format("Cargo %d / %d units, worth $%d in town", units, cargo, value)
+  )
   -- Cargo bar.
   local barW = b.w - 24 - 56 - 6 - 76 - 8
   love.graphics.setColor(theme.colors.background)
@@ -304,7 +323,12 @@ function Load:draw()
     Text.draw("Nothing to sell in stock yet.", b.x + 12, self.view.y + 4, { size = "small", color = dim })
   end
   self.list:drawCue(self.app.ctx.tuning.ui)
-  Text.draw(self:footerText(), b.x + 12, b.y + b.h - 6 - self.footH + 4, { size = "small", width = b.w - 24, color = dim })
+  Text.draw(
+    self:footerText(),
+    b.x + 12,
+    b.y + b.h - 6 - self.footH + 4,
+    { size = "small", width = b.w - 24, color = dim }
+  )
   self.buttons:draw()
 end
 

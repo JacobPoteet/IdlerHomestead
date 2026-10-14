@@ -489,7 +489,10 @@ local function registerTasks(world)
       if Weather.isFrozen(w) then
         return false
       end
-      return fields.tilled[i] == true and not w.state.crops[i] and not fields.held[i] and hasSeed(w, cropFor(w, i, order))
+      return fields.tilled[i] == true
+        and not w.state.crops[i]
+        and not fields.held[i]
+        and hasSeed(w, cropFor(w, i, order))
     end,
     workTime = function(w)
       return w.tuning.farming.plantTime

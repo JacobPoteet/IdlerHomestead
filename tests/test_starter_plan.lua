@@ -146,7 +146,8 @@ T.test("starter plan: one compact block the homesteader can reach, on every seed
     end
     T.truthy((x1 - x0 + 1) * (y1 - y0 + 1) <= 2 * #tiles, "seed " .. seed .. " bounding box stays tight")
     T.truthy(math.min(x1 - x0, y1 - y0) >= 1, "seed " .. seed .. " is not a one-tile strip")
-    local start = Grid.index(grid, math.floor(Actors.homesteader(world).x + 0.5), math.floor(Actors.homesteader(world).y + 0.5))
+    local start =
+      Grid.index(grid, math.floor(Actors.homesteader(world).x + 0.5), math.floor(Actors.homesteader(world).y + 0.5))
     for _, i in ipairs(tiles) do
       T.truthy(Pathfind.toWorkSpot(world, start, i), "seed " .. seed .. " tile " .. i .. " is reachable")
     end

@@ -92,7 +92,13 @@ function Readiness.warmthAhead(world)
       local need = base
       if frozen then
         need = base * severity
-        if known and forecast.snapStart and forecast.snapDays and d >= forecast.snapStart and d < forecast.snapStart + forecast.snapDays then
+        if
+          known
+          and forecast.snapStart
+          and forecast.snapDays
+          and d >= forecast.snapStart
+          and d < forecast.snapStart + forecast.snapDays
+        then
           need = need * cfg.snapMultiplier
         end
       end

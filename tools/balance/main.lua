@@ -131,10 +131,11 @@ function love.load(args)
       return Balance.playSeed(ctx, name, seed, years, runs, features)
     end
 
-    local all, report = {}, {
-      config = { seeds = seeds, seed0 = seed0, years = years, runs = runs, overrides = opts.sets, features = Features.label(features) },
-      policies = {},
-    }
+    local all, report =
+      {}, {
+        config = { seeds = seeds, seed0 = seed0, years = years, runs = runs, overrides = opts.sets, features = Features.label(features) },
+        policies = {},
+      }
     for _, name in ipairs(names) do
       local byRun = {}
       for s = 0, seeds - 1 do
@@ -163,9 +164,18 @@ function love.load(args)
       report.policies[name] = entry
     end
     if Profile then
-      io.write("\n", Profile.stop(tonumber(opts.profile) and tonumber(opts.profile) > 1 and tonumber(opts.profile) or 25))
+      io.write(
+        "\n",
+        Profile.stop(tonumber(opts.profile) and tonumber(opts.profile) > 1 and tonumber(opts.profile) or 25)
+      )
     end
-    io.write(string.format("\nTotal: %.1fs%s\n", clock() - started, played and string.format(" (%d worker threads)", jobs) or ""))
+    io.write(
+      string.format(
+        "\nTotal: %.1fs%s\n",
+        clock() - started,
+        played and string.format(" (%d worker threads)", jobs) or ""
+      )
+    )
 
     if opts.out then
       if opts.out:lower():match("%.json$") then

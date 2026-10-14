@@ -11,7 +11,12 @@ local Focus = {}
 function Focus.draw(scene, nav, spec)
   local fit, b = nav.fit, nav.body
   local scale = scene.app.view.scale
-  love.graphics.setScissor(math.floor(b.x * scale), math.floor(b.y * scale), math.ceil(b.w * scale), math.ceil(b.h * scale))
+  love.graphics.setScissor(
+    math.floor(b.x * scale),
+    math.floor(b.y * scale),
+    math.ceil(b.w * scale),
+    math.ceil(b.h * scale)
+  )
   love.graphics.push()
   love.graphics.translate(fit.ox, fit.oy - nav.focusOffset)
   love.graphics.scale(fit.scale, fit.scale)

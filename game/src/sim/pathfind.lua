@@ -239,7 +239,17 @@ function Pathfind.flood(world, start)
   local grid = world.state.grid
   ensureScratch(grid.w * grid.h)
   scratch.stamp = scratch.stamp + 1
-  local self = setmetatable({ world = world, grid = grid, w = grid.w, h = grid.h, start = start, stamp = scratch.stamp, size = 0, popped = scratch.popped, count = 0 }, Flood)
+  local self = setmetatable({
+    world = world,
+    grid = grid,
+    w = grid.w,
+    h = grid.h,
+    start = start,
+    stamp = scratch.stamp,
+    size = 0,
+    popped = scratch.popped,
+    count = 0,
+  }, Flood)
   scratch.owner = self
   scratch.mark[start], scratch.g[start] = self.stamp, 0
   self.size = push(scratch.nodes, scratch.keys, 0, start, 0)

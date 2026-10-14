@@ -78,7 +78,28 @@ size) are a roughly fixed cost that does not shrink when zoomed in. CPU submit t
 2.3 to 3.6 ms (clear), mostly the one extra pass over the objects for the shadows and reflections and the
 canvas switches; the sway shader's per-sprite draws (1.4 ms of it) were already there. On a phone expect the
 canvases to matter most: `bloom.enabled`, `bloom.tightDivisor` and `bloom.wideDivisor`, `reflections.enabled`
-and `shadows.enabled` are the levers; none of this has been measured on a phone.
+and `shadows.enabled` are the levers; none of this has been measured on a phone. (D132 has since shrunk the shadow
+mask, light buffer and reflection canvas to art resolution; see below.)
+
+## Lighting polish (D132, #283), desktop
+
+The shadow mask, light buffer and reflection canvas went from one texel per screen pixel to one per world art pixel
+(`Renderer:artGrid`). On a 1280x720 window at UI scale 2 that is 921,600 texels each before, and about 232,000 /
+58,000 / 26,000 at zoom 1 / 2 / 3 after (pixelSize² fewer). Same wall probe, same machine, before (this branch's
+base, 9622cfd) and after, which also adds leaf dapple, animal shadows and the pool and rim changes:
+
+| | before | after |
+|---|---|---|
+| noon, zoom 1 / 2 / 3 | 6.03 / 3.24 / 3.13 | 6.13 / 3.40 / 3.26 |
+| dusk, zoom 1 / 2 / 3 | 5.88 / 4.05 / 3.30 | 6.38 / 3.99 / 3.39 |
+| night, zoom 1 / 2 / 3 | 6.55 / 4.04 / 3.46 | 6.76 / 4.01 / 3.59 |
+
+Within run-to-run noise (0.1 to 0.5 ms): this desktop GPU is not limited by fill rate, so smaller canvases do not
+show, and the extra work (the composite, rim and dapple) costs about as little. The win is for phones, where fill
+rate and memory bandwidth are the limit: three of the five full-screen canvases are gone. What is left at screen
+size is the world canvas, the graded canvas for the bloom (`bloom.enabled` off removes it) and the bloom layers at
+1/4 and 1/10. The autumn rim light keeps the plain sprites on one shader for the whole y-sorted pass, so they still
+batch. Still to do on a device: the checklist below, with `bloom.enabled` on and off.
 
 ## What changed (no behaviour change)
 

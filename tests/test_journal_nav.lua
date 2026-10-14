@@ -19,7 +19,12 @@ local function fake(count, size, perArea)
     for n = 1, size do
       nodes[n] = { id = "c" .. c .. "n" .. n, needs = { "note" .. ((c + n) % 5) } }
     end
-    chapters[c] = { id = "c" .. c, name = "Chapter " .. c, nodes = nodes, area = perArea and ("Area " .. math.ceil(c / perArea)) or nil }
+    chapters[c] = {
+      id = "c" .. c,
+      name = "Chapter " .. c,
+      nodes = nodes,
+      area = perArea and ("Area " .. math.ceil(c / perArea)) or nil,
+    }
   end
   return chapters
 end
@@ -251,7 +256,12 @@ end)
 
 T.test("journal nav: phone, landscape and desktop chip rows fit and leave room for the body", function()
   local chapters = fake(10, 5, 5)
-  local data = { chapters = chapters, stats = Layout.allStats(chapters, statusOf), groups = Layout.groups(chapters, "Other"), ideaCount = 3 }
+  local data = {
+    chapters = chapters,
+    stats = Layout.allStats(chapters, statusOf),
+    groups = Layout.groups(chapters, "Other"),
+    ideaCount = 3,
+  }
   for _, size in ipairs({ { 366, 380 }, { 820, 150 }, { 700, 300 } }) do
     local nav = Nav.new()
     Nav.openChapter(nav, 1)

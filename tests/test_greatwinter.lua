@@ -253,5 +253,8 @@ T.test("great winter: deterministic per seed", function()
   T.eq(serialize.encode(a.state.weather.revealed), serialize.encode(b.state.weather.revealed))
   local c = newWorld(12)
   walkTo(c, GREAT + 1, 1)
-  T.truthy(serialize.encode(a.state.weather.winters) ~= serialize.encode(c.state.weather.winters), "another seed differs")
+  T.truthy(
+    serialize.encode(a.state.weather.winters) ~= serialize.encode(c.state.weather.winters),
+    "another seed differs"
+  )
 end)

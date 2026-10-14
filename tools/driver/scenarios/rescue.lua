@@ -16,7 +16,6 @@ return function(d)
 
   d:press("Head out")
   d:frames(4)
-  world = d:world()
   d:advance(0.1)
   d:frames(120)
   d:shot("run2") -- the "New land, same knowledge" card

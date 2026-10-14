@@ -2,7 +2,7 @@
 -- and snow pans and zooms with the land. Shots: rain at three zooms, then snow at two zooms and
 -- after a pan.
 local Calendar = require("src.sim.systems.calendar")
-local Weather =require("src.sim.systems.weather")
+local Weather = require("src.sim.systems.weather")
 
 return function(d)
   d:newGame()

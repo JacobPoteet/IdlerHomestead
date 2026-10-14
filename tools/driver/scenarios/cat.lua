@@ -2,7 +2,6 @@
 -- sunny spot, and being petted by a tap. The scenario sets the stores and the clock directly (as if
 -- days had passed) and forces the raid roll, then lets the sim and input do the rest.
 local Cat = require("src.sim.systems.cat")
-local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
 local Ledger = require("src.sim.systems.ledger")
 

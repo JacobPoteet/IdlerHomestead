@@ -1,8 +1,8 @@
 name: CI
 
 # Runs the headless test suite (tests.yml), the StyLua format check and luacheck on every push to main
-# and on every pull request. build.yml calls tests.yml directly, so only the tests gate a release;
-# format and lint stay informational here.
+# and on every pull request. All three must pass to merge. build.yml calls tests.yml directly, so only
+# the tests gate a release.
 
 on:
   push:
@@ -21,9 +21,6 @@ jobs:
     name: Format (StyLua)
     runs-on: ubuntu-22.04
     timeout-minutes: 5
-    # Informational until the tree is formatted with StyLua (about 140 files differ today, mostly aligned
-    # `=` padding). Remove this line to make it block merges once that pass lands.
-    continue-on-error: true
     env:
       # Pinned so a new StyLua release cannot reformat the tree under us. Keep in step with local installs.
       STYLUA_VERSION: "2.0.2"
@@ -49,11 +46,9 @@ jobs:
         run: stylua --check game tests tools
 
   lint:
-    name: Lint (luacheck, informational)
+    name: Lint (luacheck)
     runs-on: ubuntu-22.04
     timeout-minutes: 5
-    # Informational until the existing warnings are cleared. Remove this line to make it block merges.
-    continue-on-error: true
     steps:
       - name: Check out
         uses: actions/checkout@v7

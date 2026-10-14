@@ -143,7 +143,12 @@ function Recovery:drawProgress(x, y)
     end
   end
   if p.first then
-    Text.draw(t.firstRun, x, y + (#p.rows + 1) * TABLE_ROW + 2, { size = "small", color = dim, width = self.box.w - 24 })
+    Text.draw(
+      t.firstRun,
+      x,
+      y + (#p.rows + 1) * TABLE_ROW + 2,
+      { size = "small", color = dim, width = self.box.w - 24 }
+    )
   end
 end
 
@@ -157,8 +162,12 @@ function Recovery:draw()
   love.graphics.rectangle("fill", 0, 0, view.w, view.h)
   Draw.panel(b.x, b.y, b.w, b.h)
   Text.draw("Recovering in town", b.x + 12, b.y + 10, { size = "heading" })
-  Text.draw(string.format("Run %d · lasted %d days · reached %s, year %d", s.run, s.days, capitalize(s.season), s.year),
-    b.x + 12, b.y + 34, { size = "small", color = dim })
+  Text.draw(
+    string.format("Run %d · lasted %d days · reached %s, year %d", s.run, s.days, capitalize(s.season), s.year),
+    b.x + 12,
+    b.y + 34,
+    { size = "small", color = dim }
+  )
 
   self:drawProgress(b.x + 12, b.y + TABLE_Y)
 

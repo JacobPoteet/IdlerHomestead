@@ -29,7 +29,8 @@ function App:resize(pixelW, pixelH)
   local tuning = self.ctx.tuning
   local settings = self.ctx.settings
   -- Auto, or the player's smaller whole scale clamped to what this window fits (D96).
-  local scale = UiScale.effective(settings and settings:get("uiScale") or "auto", pixelW, pixelH, tuning.display, tuning.settings)
+  local scale =
+    UiScale.effective(settings and settings:get("uiScale") or "auto", pixelW, pixelH, tuning.display, tuning.settings)
   self.pixelW, self.pixelH = pixelW, pixelH
   self.view = { w = pixelW / scale, h = pixelH / scale, scale = scale }
   for _, scene in ipairs(self.stack) do

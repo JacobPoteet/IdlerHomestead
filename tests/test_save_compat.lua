@@ -134,9 +134,9 @@ T.test("compat: the saved-state shape matches the SAVE_COMPAT it was stamped wit
     now,
     EXPECTED.fingerprint,
     "the new-game saved-state shape changed: bump Save.SAVE_COMPAT in game/src/core/save.lua and set "
-      .. "EXPECTED in tests/test_save_compat.lua to { compat = <new stamp>, fingerprint = \""
+      .. 'EXPECTED in tests/test_save_compat.lua to { compat = <new stamp>, fingerprint = "'
       .. now
-      .. "\" }"
+      .. '" }'
   )
   T.eq(Save.SAVE_COMPAT, EXPECTED.compat, "SAVE_COMPAT changed: update EXPECTED.compat with the fingerprint")
 end)

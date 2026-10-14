@@ -67,7 +67,11 @@ function PlaceText.destroyConfirm(world, anchor, lose)
   local name = world.registry:get("objects", world.state.grid.objects[anchor].id).name:lower()
   local parts = { p.destroyNoRefund }
   if lose.batch then
-    parts[#parts + 1] = string.format(p.destroyBatch, lose.batch.count, world.registry:get("resources", world.registry:get("recipes", lose.batch.recipe).output).name:lower())
+    parts[#parts + 1] = string.format(
+      p.destroyBatch,
+      lose.batch.count,
+      world.registry:get("resources", world.registry:get("recipes", lose.batch.recipe).output).name:lower()
+    )
   end
   if lose.charge then
     parts[#parts + 1] = string.format(p.destroyCharge, lose.charge)
@@ -82,7 +86,8 @@ end
 function PlaceText.goodsList(world, goods)
   local parts = {}
   for _, g in ipairs(goods) do
-    parts[#parts + 1] = string.format("%d %s", math.floor(g.count + 0.5), world.registry:get("resources", g.resource).name:lower())
+    parts[#parts + 1] =
+      string.format("%d %s", math.floor(g.count + 0.5), world.registry:get("resources", g.resource).name:lower())
   end
   return table.concat(parts, ", ")
 end
@@ -92,7 +97,8 @@ function PlaceText.destroyCropConfirm(world, i)
   local p = world.tuning.ui.placement
   local crop = world.state.crops[i]
   local name = world.registry:get("crops", crop.id).name:lower()
-  local state = crop.growth >= 1 and p.destroyCropRipe or string.format(p.destroyCropGrowing, math.floor(crop.growth * 100))
+  local state = crop.growth >= 1 and p.destroyCropRipe
+    or string.format(p.destroyCropGrowing, math.floor(crop.growth * 100))
   return { title = string.format(p.destroyTitle, name), text = string.format(p.destroyCrop, name, state) }
 end
 
@@ -108,7 +114,8 @@ function PlaceText.replaceConfirm(world, preview, cropId)
   local parts = {}
   for n, id in ipairs(ids) do
     local count, name = preview.byCrop[id], world.registry:get("crops", id).name:lower()
-    parts[#parts + 1] = n == 1 and string.format("%d tile%s of %s", count, plural(count), name) or string.format("%d of %s", count, name)
+    parts[#parts + 1] = n == 1 and string.format("%d tile%s of %s", count, plural(count), name)
+      or string.format("%d of %s", count, name)
   end
   local text = string.format(p.replaceText, table.concat(parts, ", "), newName)
   if preview.ripe > 0 then
@@ -152,7 +159,8 @@ function PlaceText.confirm(world, objectId, preview, colors, moving)
   end
   local full = Placement.shortage(world, preview)
   if full then
-    lines[#lines + 1] = { text = string.format(p.full, world.registry:get("resources", full).name:lower()), color = colors.warn }
+    lines[#lines + 1] =
+      { text = string.format(p.full, world.registry:get("resources", full).name:lower()), color = colors.warn }
   end
   if #preview.clear > 0 then
     lines[#lines + 1] = { text = string.format(moving and p.moveSteps or p.steps, name), color = colors.dim }

@@ -63,15 +63,27 @@ T.test("layout: every node is placed once, inside its region, with no overlaps",
   local map = JournalMap.build(Journal.chapters(content), 200)
   local all = {}
   for _, region in ipairs(map.regions) do
-    T.truthy(region.x >= 0 and region.y >= 0 and region.x + region.w <= map.w and region.y + region.h <= map.h, region.id .. " is inside the map")
+    T.truthy(
+      region.x >= 0 and region.y >= 0 and region.x + region.w <= map.w and region.y + region.h <= map.h,
+      region.id .. " is inside the map"
+    )
     for _, node in ipairs(region.nodes) do
-      T.truthy(node.x >= region.x and node.x + node.w <= region.x + region.w, node.id .. " fits its region horizontally")
+      T.truthy(
+        node.x >= region.x and node.x + node.w <= region.x + region.w,
+        node.id .. " fits its region horizontally"
+      )
       T.truthy(node.y >= region.y and node.y + node.h <= region.y + region.h, node.id .. " fits its region vertically")
       all[#all + 1] = node
     end
     for _, stamp in ipairs(region.stamps) do
-      T.truthy(stamp.x >= region.x and stamp.x + stamp.w <= region.x + region.w, "stamp " .. stamp.note .. " fits its region horizontally")
-      T.truthy(stamp.y >= region.y and stamp.y + stamp.h <= region.y + region.h, "stamp " .. stamp.note .. " fits its region vertically")
+      T.truthy(
+        stamp.x >= region.x and stamp.x + stamp.w <= region.x + region.w,
+        "stamp " .. stamp.note .. " fits its region horizontally"
+      )
+      T.truthy(
+        stamp.y >= region.y and stamp.y + stamp.h <= region.y + region.h,
+        "stamp " .. stamp.note .. " fits its region vertically"
+      )
       all[#all + 1] = stamp
     end
   end

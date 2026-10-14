@@ -104,8 +104,18 @@ function Rescue:draw()
 
   local textAlpha = math.min(1, math.max(0, (t - 1.6) / 1))
   local color = { theme.colors.text[1], theme.colors.text[2], theme.colors.text[3], textAlpha }
-  Text.draw("Lights in the snow.", 0, view.h * 0.22, { size = "heading", width = view.w, align = "center", color = color })
-  Text.draw('"' .. self.line .. '"', 0, view.h * 0.22 + 26, { size = "body", width = view.w, align = "center", color = color })
+  Text.draw(
+    "Lights in the snow.",
+    0,
+    view.h * 0.22,
+    { size = "heading", width = view.w, align = "center", color = color }
+  )
+  Text.draw(
+    '"' .. self.line .. '"',
+    0,
+    view.h * 0.22 + 26,
+    { size = "body", width = view.w, align = "center", color = color }
+  )
   if self.summary then
     local s = self.summary
     local season = s.season:gsub("^%l", string.upper)

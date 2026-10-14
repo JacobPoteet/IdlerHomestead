@@ -155,7 +155,10 @@ local function work(world, actor, dt)
     local target, order = job.target, job.order
     dropJob(world, actor)
     taskType.complete(world, actor, target, order)
-    world.events:emit("task.completed", { task = taskType.id, target = target, actor = actor.id, ordered = order ~= nil })
+    world.events:emit(
+      "task.completed",
+      { task = taskType.id, target = target, actor = actor.id, ordered = order ~= nil }
+    )
   end
 end
 

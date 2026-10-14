@@ -399,7 +399,8 @@ function Journal.tick(world, dt)
   end
   local cfg = world.tuning.study
   local hours = dt / Calendar.hourLength(world)
-  local rate = (1 + Stats.modifier(world, "studySpeed") + Power.effect(world, "studySpeed") + Shelter.studySpeed(world)) / cfg.nightHours -- a powered lamp helps, and so does a desk (D82)
+  local rate = (1 + Stats.modifier(world, "studySpeed") + Power.effect(world, "studySpeed") + Shelter.studySpeed(world))
+    / cfg.nightHours -- a powered lamp helps, and so does a desk (D82)
   j.progress[head] = (j.progress[head] or 0) + hours * rate
   if j.progress[head] >= item(world, head).studyNights - cfg.finishSlack then
     learn(world, head)

@@ -9,6 +9,7 @@ local Assets = {}
 
 local sprites = {}
 local images = {}
+local atlasSize = { 1, 1 } -- the placeholder atlas in pixels (the rim shader steps one texel at a time)
 
 -- Pixel-drawing helper handed to placeholder painters.
 local Painter = {}
@@ -130,6 +131,7 @@ function Assets.load(manifest)
     rowH = math.max(rowH, e.h)
   end
   local atlasH = y + rowH
+  atlasSize = { atlasW, math.max(1, atlasH) }
   if #pending > 0 then
     local canvas = love.graphics.newCanvas(atlasW, math.max(1, atlasH))
     canvas:setFilter("nearest", "nearest")
@@ -188,6 +190,15 @@ function Assets.sprite(id)
     error("Unknown sprite '" .. tostring(id) .. "'", 2)
   end
   return s
+end
+
+--- Size of the placeholder atlas every placeholder sprite is cut from, in pixels.
+function Assets.atlasWidth()
+  return atlasSize[1]
+end
+
+function Assets.atlasHeight()
+  return atlasSize[2]
 end
 
 function Assets.has(id)

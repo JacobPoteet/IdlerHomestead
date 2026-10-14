@@ -105,10 +105,13 @@ end
 --- failed and where the night was spent, `hint` points at the journal page or the next rung.
 function Run.failureText(registry, tuning, cause)
   local t = tuning.ui.failure
-  local shelter = cause.shelter and registry:has("objects", cause.shelter) and registry:get("objects", cause.shelter).name:lower()
+  local shelter = cause.shelter
+    and registry:has("objects", cause.shelter)
+    and registry:get("objects", cause.shelter).name:lower()
   if cause.kind == "cold" or cause.kind == "both" then
     local next = Run.nextRung(registry, cause.shelter)
-    local line = shelter and string.format(cause.kind == "both" and t.bothIn or t.coldIn, shelter) or (cause.kind == "both" and t.both or t.cold)
+    local line = shelter and string.format(cause.kind == "both" and t.bothIn or t.coldIn, shelter)
+      or (cause.kind == "both" and t.both or t.cold)
     local hint = next and string.format(t.coldNext, next.name:lower()) or t.coldTop
     return { icon = "icon_cold", line = line, hint = hint, page = "shelter" }
   elseif cause.kind == "hunger" then
