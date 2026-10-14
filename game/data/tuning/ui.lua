@@ -31,6 +31,14 @@ return {
   flingFriction = 4, -- per second; a coast slows by this rate (the speed falls to a third in about a quarter second)
   flingStopSpeed = 12, -- virtual pixels per second under which a coast ends cleanly, so the list never creeps
   scrollBarWidth = 3, -- virtual pixels wide the scroll thumb drawn at the edge of a scrolling list
+  catalogCheat = { -- the Catalog's debug cheat mode (D126): only offered while the F1 debug overlay is on, or while cheating
+    button = "Debug", -- label of the toggle beside Close
+    buttonWidth = 48, -- view px
+    tag = "CHEAT", -- the on-screen mark while cheat mode is on
+    subtitle = "Every item listed - free, handed over at once", -- replaces the money line while cheating
+    row = "Get", -- the row button's label in cheat mode
+    granted = "Cheat: got %s", -- toast after a grant
+  },
   scrollHintHeight = 12, -- virtual pixels reserved under a scrolling list for its "drag or scroll" hint
   buttonWidths = { -- toolbar button widths
     hand = 40,
@@ -164,6 +172,9 @@ return {
       ["not enough money"] = "Not enough money",
       ["no room"] = "No room in storage for it",
     },
+    priceCheat = "Free in cheat mode (debug)", -- the price line while Market cheat mode is on (D126)
+    nowCheat = "Cheat mode: free, and it goes straight to your inventory", -- the "Right now" line of a grantable item in cheat mode
+    cheatGet = "Get (free)", -- the card's buy button in cheat mode
     order = "Order $%d", -- the card's buy button for a delivery
     buy = "Buy $%d", -- the same in town
     owned = "Owned", -- the buy button of an item you already have (or that a better one covers), disabled

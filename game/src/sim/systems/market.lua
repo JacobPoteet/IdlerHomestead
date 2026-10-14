@@ -18,6 +18,8 @@
 --       "market.cancelled" { item, amount } (player cancelled a held order, refunded),
 --       "market.refunded" { item, amount } (an order that could never fit its store, refunded).
 -- Orders: { item, arriveDay, paid (money charged), held (due but no room) }.
+-- Debug cheat mode (D126): `world.debugCheat` (a runtime flag, never saved) lists every catalog item and makes
+-- Market.debugGrant hand an item over free and at once; it spends and earns nothing and emits no sale event.
 
 local Calendar = require("src.sim.systems.calendar")
 local Ledger = require("src.sim.systems.ledger")
@@ -125,10 +127,37 @@ function Market.cheapestOrder(world)
   return best
 end
 
---- Why an item can't be bought right now (nil if it can). pickup = buying in town.
+--- Is debug cheat mode on (D126)? A runtime flag on the world: not in the state, so never saved.
+function Market.cheatOn(world)
+  return world.debugCheat == true
+end
+
+--- Turn debug cheat mode on or off (D126).
+function Market.setCheat(world, on)
+  world.debugCheat = on and true or nil
+end
+
+--- The items the Catalog lists: the known ones, or every catalog item in cheat mode (D126).
+function Market.catalogList(world)
+  local list = {}
+  local cheat = Market.cheatOn(world)
+  for _, item in ipairs(world.registry:all("catalog")) do
+    if cheat or Market.isKnown(world, item.id) then
+      list[#list + 1] = item
+    end
+  end
+  return list
+end
+
+--- Why an item can't be bought right now (nil if it can). pickup = buying in town. Cheat mode (D126) skips the
+--- journal gate, the town-only rule and the money check, and counts as an on-the-spot handover.
 function Market.cannotBuy(world, id, pickup)
   local item = world.registry:get("catalog", id)
-  if not Market.isKnown(world, id) then
+  local cheat = Market.cheatOn(world)
+  if cheat then
+    pickup = true
+  end
+  if not cheat and not Market.isKnown(world, id) then
     return "unknown"
   end
   if item.pickupOnly and not pickup then
@@ -169,7 +198,7 @@ function Market.cannotBuy(world, id, pickup)
     return "too big for storage"
   end
   local cost = Market.itemPrice(world, id) + (pickup and 0 or world.tuning.economy.deliveryFee)
-  if Ledger.get(world, "money") < cost then
+  if not cheat and Ledger.get(world, "money") < cost then
     return "not enough money"
   end
   -- Pickups are handed over on the spot, so they need room now; deliveries just wait for it.
@@ -205,8 +234,26 @@ local function deliver(world, id)
   return true
 end
 
+--- Debug cheat (D126): hand `id` over free and at once, as a delivery would (storage limits, unique items and
+--- upgrade chains behave as for a purchase). No money moves, so the income stats and sale events stay untouched.
+--- Returns true, or false + the reason. Only works while cheat mode is on.
+function Market.debugGrant(world, id)
+  if not Market.cheatOn(world) then
+    return false, "cheat off"
+  end
+  local reason = Market.cannotBuy(world, id, true)
+  if reason then
+    return false, reason
+  end
+  deliver(world, id)
+  return true
+end
+
 --- Order from the catalog for delivery tomorrow morning. Returns true, or false + reason.
 function Market.order(world, id)
+  if Market.cheatOn(world) then
+    return Market.debugGrant(world, id) -- free and at once (D126)
+  end
   local reason = Market.cannotBuy(world, id, false)
   if reason then
     return false, reason
@@ -515,6 +562,9 @@ end
 function Market.buyInTown(world, id)
   if not world.state.market.inTown then
     return false, "not in town"
+  end
+  if Market.cheatOn(world) then
+    return Market.debugGrant(world, id)
   end
   local reason = Market.cannotBuy(world, id, true)
   if reason then

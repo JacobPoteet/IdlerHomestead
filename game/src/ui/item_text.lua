@@ -41,12 +41,15 @@ function ItemText.build(world, id, pickup)
   end
 
   local priceText
-  if pickup then
+  local cheat = Market.cheatOn(world)
+  if cheat then
+    fee, priceText = 0, t.priceCheat
+  elseif pickup then
     priceText = string.format(t.priceTown, price)
   else
     priceText = string.format(t.priceDelivery, price, fee)
   end
-  if world.state.market.specials[id] then
+  if not cheat and world.state.market.specials[id] then
     priceText = priceText .. " " .. t.sale
   end
 
@@ -102,6 +105,8 @@ function ItemText.build(world, id, pickup)
 
   if reason and reason ~= "unknown" then
     add(t.now, rawget(t.reasons, reason) or reason, "warn")
+  elseif cheat then
+    add(t.now, t.nowCheat, "dim")
   end
   return {
     title = item.name,
@@ -110,7 +115,8 @@ function ItemText.build(world, id, pickup)
     lines = lines,
     reason = reason,
     owned = owned,
-    cost = price + fee,
+    cost = cheat and 0 or price + fee,
+    cheat = cheat,
   }
 end
 
