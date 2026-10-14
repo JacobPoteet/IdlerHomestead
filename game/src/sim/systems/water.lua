@@ -7,6 +7,8 @@
 --   "fill", tier "pumps"); while powered it adds `pump.rate` units an hour, scaled by how well the
 --   pumps tier is served (Power.sinkRatio), to the resource "water". The cistern is what gives
 --   "water" a capacity (`storage`), and is also a bucket-filling place that draws on the stock.
+-- Sprinklers (D118) are the same, at `tuning.water.sprinklerUnitsPerWatering` per crop (a full bucket
+--   slot, so they waste more than drip), and unlock earlier.
 -- Rung 3, drip lines: not an actor. Every tick a drip line waters thirsty crops within its radius,
 --   spending `tuning.water.dripUnitsPerWatering` from the stock, so the routine never has to haul.
 --   With the stock empty the zone is dry: crops thirst as before and the actor hauls by hand.
@@ -15,11 +17,12 @@
 --
 -- Systems talk through the ledger (the "water" stock), the task board (fetch_water) and events.
 -- State: world.state.water = { acc = { [pump anchor] = fraction of a batch }, dry = { [drip anchor] =
---   true while announced dry }, hand, drip, pumped = totals of waterings by hand / by drip lines /
---   units pumped, pumpedDay = last day "water.pumped" was announced }
+--   true while announced dry }, hand, drip, sprinkler (absent until the first one waters), pumped =
+--   totals of waterings by hand / by drip lines / by sprinklers / units pumped, pumpedDay = last day "water.pumped" was announced }
 -- Emits "water.drawn" { source, tile } when the bucket is filled somewhere other than the creek,
--- "water.pumped" { amount } at most once a day while pumps run, "water.dripped" { tile, drip },
--- "water.dry" { drip } when a drip line has a thirsty crop and no water, and "water.restored" { drip }.
+-- "water.pumped" { amount } at most once a day while pumps run, "water.dripped" { tile, drip, kind },
+-- "water.dry" { drip, kind } when a drip line or sprinkler has a thirsty crop and no water, and
+-- "water.restored" { drip, kind } (`drip` is the anchor in all three; `kind` is "drip" or "sprinkler").
 
 local Calendar = require("src.sim.systems.calendar")
 local Crops = require("src.sim.systems.crops")
@@ -71,11 +74,11 @@ function Water.fraction(world)
   return capacity > 0 and units / capacity or 0
 end
 
---- Waterings made so far this run: { hand = by the actor, drip = by drip lines, pumped = units
---- pumped into cisterns, rained = units the rain put in cisterns }.
+--- Waterings made so far this run: { hand = by the actor, drip = by drip lines, sprinkler = by
+--- sprinklers, pumped = units pumped into cisterns, rained = units the rain put in cisterns }.
 function Water.stats(world)
   local s = state(world)
-  return { hand = s.hand, drip = s.drip, pumped = s.pumped, rained = s.rained }
+  return { hand = s.hand, drip = s.drip, sprinkler = s.sprinkler or 0, pumped = s.pumped, rained = s.rained }
 end
 
 -- Pumps -----------------------------------------------------------------------------------------
@@ -137,12 +140,45 @@ local function tickRain(world, hours)
   end
 end
 
--- Drip lines ------------------------------------------------------------------------------------
+-- Drip lines and sprinklers ---------------------------------------------------------------------
 
--- Covered tiles per drip line: runtime only (derived from the grid), never saved.
+-- The two passive waterers (D50, D118). Both are objects with a `{ radius }` table under their kind's
+-- field, and both spend the cistern stock per crop watered; only the price per crop differs (a sprinkler
+-- wastes more, so it is cheap to unlock). `cost` names the tuning key, `stat` the counter in state.water.
+local KINDS = {
+  { field = "drip", cost = "dripUnitsPerWatering", stat = "drip" },
+  { field = "sprinkler", cost = "sprinklerUnitsPerWatering", stat = "sprinkler" },
+}
+
+--- The irrigation kind of an object definition ("drip" or "sprinkler"), or nil for anything else.
+function Water.irrigationKind(def)
+  for _, kind in ipairs(KINDS) do
+    if def[kind.field] then
+      return kind.field
+    end
+  end
+  return nil
+end
+
+local function kindOf(world, anchor)
+  local def = defAt(world, anchor)
+  for _, kind in ipairs(KINDS) do
+    if def[kind.field] then
+      return kind, def[kind.field]
+    end
+  end
+  error("not an irrigation object: " .. def.id)
+end
+
+--- Cistern units the waterer at `anchor` spends to water one crop.
+function Water.unitsPerWatering(world, anchor)
+  return world.tuning.water[(kindOf(world, anchor)).cost]
+end
+
+-- Covered tiles per waterer: runtime only (derived from the grid), never saved.
 local coverage = setmetatable({}, { __mode = "k" })
 
---- Tiles a drip line at `anchor` covers (ascending tile indices, inside the map).
+--- Tiles a drip line or sprinkler at `anchor` covers (ascending tile indices, inside the map).
 function Water.dripTiles(world, anchor)
   local byAnchor = coverage[world]
   if not byAnchor then
@@ -156,7 +192,8 @@ function Water.dripTiles(world, anchor)
   end
   local grid = world.state.grid
   local ax, ay = Grid.coords(grid, anchor)
-  local radius, tiles = def.drip.radius, {}
+  local _, spec = kindOf(world, anchor)
+  local radius, tiles = spec.radius, {}
   for y = ay - radius, ay + radius do
     for x = ax - radius, ax + radius do
       if Grid.inBounds(grid, x, y) then
@@ -169,21 +206,22 @@ function Water.dripTiles(world, anchor)
   return tiles
 end
 
---- Can a drip line water a crop right now (is there a unit's worth in the stock)?
-function Water.dripHasWater(world)
-  return Ledger.get(world, STOCK) >= world.tuning.water.dripUnitsPerWatering
+--- Can the waterer at `anchor` water a crop right now (is there a crop's worth in the stock)?
+function Water.dripHasWater(world, anchor)
+  return Ledger.get(world, STOCK) >= Water.unitsPerWatering(world, anchor)
 end
 
---- A drip line's state: "ok" (water to give), "dry" (the stock is empty, so crops in its zone
---- go thirsty and the actor hauls by hand) or "frozen" (nothing grows, so nothing is watered).
+--- A waterer's state: "ok" (water to give), "dry" (the stock is short of one watering for this kind, so
+--- crops in its zone go thirsty and the actor hauls by hand) or "frozen" (nothing grows, so nothing is
+--- watered).
 function Water.dripState(world, anchor)
   if Weather.isFrozen(world) then
     return "frozen"
   end
-  return Water.dripHasWater(world) and "ok" or "dry"
+  return Water.dripHasWater(world, anchor) and "ok" or "dry"
 end
 
---- Thirsty crops in a drip line's zone.
+--- Thirsty crops in a waterer's zone.
 function Water.dripThirsty(world, anchor)
   local n = 0
   for _, i in ipairs(Water.dripTiles(world, anchor)) do
@@ -194,19 +232,34 @@ function Water.dripThirsty(world, anchor)
   return n
 end
 
-local function tickDrip(world, drips)
+-- Anchors of every drip line and sprinkler, ascending (a merge of the two cached lists), so overlapping
+-- pieces of either kind are served in one deterministic anchor-then-tile order.
+local function irrigators(world)
+  local all = {}
+  for _, kind in ipairs(KINDS) do
+    for _, anchor in ipairs(Grid.anchorsWith(world, kind.field)) do
+      all[#all + 1] = anchor
+    end
+  end
+  table.sort(all)
+  return all
+end
+
+local function tickIrrigation(world)
   if Weather.isFrozen(world) then
     return
   end
-  local s, cost = state(world), world.tuning.water.dripUnitsPerWatering
-  for _, anchor in ipairs(drips) do
+  local s = state(world)
+  for _, anchor in ipairs(irrigators(world)) do
+    local kind = kindOf(world, anchor)
+    local cost = world.tuning.water[kind.cost]
     local unmet = false
     for _, i in ipairs(Water.dripTiles(world, anchor)) do
       if Crops.needsWaterAt(world, i) then
-        if Ledger.remove(world, STOCK, cost, "drip") then
+        if Ledger.remove(world, STOCK, cost, kind.field) then
           Crops.waterTile(world, i)
-          s.drip = s.drip + 1
-          world.events:emit("water.dripped", { tile = i, drip = anchor })
+          s[kind.stat] = (s[kind.stat] or 0) + 1
+          world.events:emit("water.dripped", { tile = i, drip = anchor, kind = kind.field })
         else
           unmet = true
         end
@@ -214,10 +267,10 @@ local function tickDrip(world, drips)
     end
     if unmet and not s.dry[anchor] then
       s.dry[anchor] = true
-      world.events:emit("water.dry", { drip = anchor })
-    elseif not unmet and s.dry[anchor] and Water.dripHasWater(world) then
+      world.events:emit("water.dry", { drip = anchor, kind = kind.field })
+    elseif not unmet and s.dry[anchor] and Water.dripHasWater(world, anchor) then
       s.dry[anchor] = nil
-      world.events:emit("water.restored", { drip = anchor })
+      world.events:emit("water.restored", { drip = anchor, kind = kind.field })
     end
   end
 end
@@ -325,7 +378,7 @@ function Water.tick(world, dt)
   -- Ascending anchors (so every run is the same), from Grid's cached index.
   tickPumps(world, Grid.anchorsWith(world, "pump"), dt / Calendar.hourLength(world))
   tickRain(world, dt / Calendar.hourLength(world))
-  tickDrip(world, Grid.anchorsWith(world, "drip"))
+  tickIrrigation(world)
 end
 
 return Water

@@ -273,6 +273,16 @@ return {
     object = "dc_pump",
   },
   {
+    id = "sprinkler",
+    name = "Sprinkler",
+    line = "Waters a 5x5 patch, but wastes water.",
+    page = "water_soil",
+    price = 15, -- placeholder until the balance pass (D95)
+    needs = { "well_water" },
+    studyNights = 1,
+    object = "sprinkler",
+  },
+  {
     id = "drip_line",
     name = "Drip line",
     line = "Waters a 5x5 patch from the cistern.",

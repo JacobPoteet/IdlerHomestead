@@ -44,6 +44,7 @@ return {
     waterSource = "table?", -- a place to fill the bucket: { fillTime = seconds, stored? = draws on the cistern stock }
     pump = "table?", -- pumps water into cisterns: { rate = units per in-game hour at full power }; also needs a `sink`
     drip = "table?", -- drip line: { radius = tiles }; waters thirsty crops in range from the cistern stock, no actor
+    sprinkler = "table?", -- sprinkler: { radius = tiles }; like `drip` but spends tuning.water.sprinklerUnitsPerWatering a crop (D118)
     battery = "number?", -- kWh of storage
     station = "string?", -- processor station id used by recipes (e.g. "smoker")
     shelter = "boolean?", -- the homesteader sleeps here (GDD §5.3 shelter ladder, D82)

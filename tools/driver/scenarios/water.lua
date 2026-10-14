@@ -53,6 +53,8 @@ return function(d)
   local drip = place(world, "drip_line", Grid.index(grid, px + 1, py + 3))
   assert(drip)
   local dx, dy = Grid.coords(grid, drip)
+  -- A sprinkler beside the drip line (D118): the same patch size, a full unit of water per crop.
+  local sprinkler = place(world, "sprinkler", Grid.index(grid, dx - 4, dy))
 
   -- A small planted patch around the drip line: tilled, planted, some of it thirsty.
   local patch = 0
@@ -86,6 +88,7 @@ return function(d)
   end
   card("card_cistern", cistern)
   card("card_drip_zone", drip)
+  card("card_sprinkler_zone", sprinkler)
   card("card_pump", pump)
   card("card_well", well)
 
@@ -108,4 +111,7 @@ return function(d)
   scene.selected = drip
   d:frames(2)
   d:shot("drip_dry")
+  scene.selected = sprinkler
+  d:frames(2)
+  d:shot("sprinkler_dry")
 end

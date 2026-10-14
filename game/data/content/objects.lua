@@ -161,6 +161,7 @@ return {
   -- tuning.farming.fetchWaterTime at the creek); `stored` draws from the cistern stock instead of
   -- the ground. `pump { rate }`: cistern units per in-game hour at full power. `drip { radius }`:
   -- waters thirsty crops within that many tiles from the cistern, with no actor.
+  -- `sprinkler { radius }`: the same, but at tuning.water.sprinklerUnitsPerWatering a crop (D118).
   {
     id = "well",
     name = "Dug well",
@@ -249,6 +250,14 @@ return {
     clearable = false,
     placeable = true,
     drip = { radius = 2 }, -- tiles each way, so a 5x5 patch
+  },
+  {
+    id = "sprinkler",
+    name = "Sprinkler",
+    blocks = false,
+    clearable = false,
+    placeable = true,
+    sprinkler = { radius = 2 }, -- tiles each way, so a 5x5 patch, like the drip line; it just wastes more water (D118)
   },
   -- Machines (GDD §7.4, D65): stationary actors on the task board. `machine`: which task categories
   -- (and optionally which task ids) it may claim, how far it reaches and how fast it works; its
