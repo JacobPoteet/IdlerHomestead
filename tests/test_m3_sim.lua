@@ -649,6 +649,11 @@ T.test("lighting: the authored day stretches to the season's sunrise and sunset"
   T.near(Lighting.remap(17, 8, 17, 6, 20), 20, 1e-9, "winter sunset lands on the authored sunset")
   T.near(Lighting.remap(12.5, 8, 17, 6, 20), 13, 1e-9, "midday stays midday")
   T.near(Lighting.remap(0.5, 8, 17, 6, 20), 1, 1e-9, "midnight-ish maps across the night")
+  local side, height = Lighting.sun(12.5, 8, 17)
+  T.near(side, 0, 1e-9, "the sun is due south at midday")
+  T.near(height, 1, 1e-9, "and at its highest")
+  T.near(Lighting.sun(8.45, 8, 17), -0.9, 1e-9, "shadows point west in the morning")
+  T.eq(Lighting.sun(20, 8, 17), nil, "no sun at night")
   T.near(Lighting.remap(10, 6, 20, 6, 20), 10, 1e-9, "spring is the authored day")
 end)
 

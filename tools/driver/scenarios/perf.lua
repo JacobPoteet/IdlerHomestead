@@ -43,6 +43,67 @@ return function(d)
     )
   end
 
+  --- Wall-clock ms per frame with vsync off, presenting each frame, so the GPU's work is in the number.
+  local function wall(label)
+    d:frames(20, DT)
+    local t0 = love.timer.getTime()
+    for _ = 1, FRAMES do
+      d.game:update(DT)
+      love.graphics.origin()
+      d.game:draw()
+      love.graphics.present()
+    end
+    local ms = (love.timer.getTime() - t0) / FRAMES * 1000
+    print(string.format("wall %s %s: %.2f ms/frame (%.0f fps)", d.prefix, label, ms, 1000 / ms))
+    return ms
+  end
+
+  local Calendar = require("src.sim.systems.calendar")
+  local v = world.tuning.visuals
+  local dayLength = world.tuning.time.dayLength
+  local function at(hour)
+    local now = Calendar.now(world)
+    world.state.calendar.elapsed = world.state.calendar.elapsed + ((hour - now.hour) % 24) / 24 * dayLength
+    d:frames(20, DT)
+  end
+  -- The lighting passes (D127-D131): all on, then each one off in turn, at dusk (shadows, beams) and at night (lights, bloom).
+  local passes = {
+    { "shadows", function(on) v.shadows.enabled = on end },
+    { "reflections", function(on) v.reflections.enabled = on end },
+    { "bloom", function(on) v.bloom.enabled = on end },
+    { "sunbeams", function(on) v.sunbeams.enabled = on end },
+  }
+  v.sunbeams.enabled = true
+  for n = 1, 4 do
+    world.state.weather.sky.days[n] = "clear"
+  end
+  for _, hour in ipairs({ 18, 23 }) do
+    at(hour)
+    for _, zoom in ipairs({ 1, 3 }) do
+      cam.zoomIndex = zoom
+      cam:clamp(view)
+      local label = string.format("h%d zoom%d", hour, zoom)
+      local all = wall(label .. " all passes")
+      for _, p in ipairs(passes) do
+        p[2](false)
+        local off = wall(label .. " without " .. p[1])
+        p[2](true)
+        print(string.format("cost %s %s %s: %.2f ms", d.prefix, label, p[1], all - off))
+      end
+    end
+  end
+  -- The same, as CPU submit time (what a phone's budget in tuning.perf is about), at the widest zoom at dusk.
+  at(18)
+  cam.zoomIndex = 1
+  cam:clamp(view)
+  measure("dusk zoom1 all passes")
+  for _, p in ipairs(passes) do
+    p[2](false)
+    measure("dusk zoom1 without " .. p[1])
+    p[2](true)
+  end
+  at(12)
+
   local days = world.state.weather.sky.days
   for _, weather in ipairs({ "clear", "rain" }) do
     for n = 1, 4 do

@@ -41,6 +41,14 @@ return {
     { hour = 24, tint = { 0.52, 0.58, 0.88 }, light = 0.56 },
   },
   saturation = 0.92, -- 1 = unchanged; lower is more muted
+  tone = { -- split toning and contrast in the colour grade (D128); gradeStrength scales all of it toward neutral
+    shadowTone = { 0.93, 0.98, 1.07 }, -- colour multiplier for dark pixels (cool)
+    highlightTone = { 1.06, 1.01, 0.93 }, -- colour multiplier for bright pixels (warm)
+    mid = 0.42, -- luma (0..1) where the tone swings from the shadow to the highlight colour
+    width = 0.32, -- luma span either side of `mid` over which it swings
+    contrast = 0.22, -- 0..1 strength of the S-curve (0 = none)
+    blackLift = { 0.010, 0.014, 0.026 }, -- light added to the darkest pixels, so black reads as deep blue instead of mud
+  },
   seasonGrade = { -- season id -> { tint multiplier, saturation multiplier } on top of the day/night grade
     spring = { tint = { 1.00, 1.00, 1.00 }, saturation = 1.00 },
     summer = { tint = { 1.02, 1.00, 0.96 }, saturation = 1.05 },
@@ -208,14 +216,69 @@ return {
     drift = 2.5, -- art pixels per second the banks drift downwind at wind strength 1
     direction = { 1.0, 0.25 }, -- drift direction (x east, y south)
   },
+  shadows = { -- sun shadows (shaders/shadow.glsl): each sprite's silhouette is flipped onto the ground and sheared away from the sun, plus a small contact shadow underneath
+    enabled = true,
+    color = { 0.06, 0.08, 0.20 }, -- shadow tint (cool, not black); the grade tints it afterwards
+    castStrength = 0.42, -- 0..1 alpha of cast shadows at full sun
+    contactStrength = 0.30, -- 0..1 alpha of the contact shadow under a sprite; it stays at night and in cloud
+    maxShear = 1.1, -- sideways art pixels of shadow per art pixel of height at sunrise/sunset (west at dawn, east at dusk)
+    lengthNoon = 0.28, -- vertical squash of the cast shadow at noon (1 = as long as the sprite is tall)
+    lengthLow = 1.0, -- the same at sunrise and sunset
+    fadeElevation = 0.2, -- 0..1 sun height (0 horizon, 1 noon) below which cast shadows fade out
+    cloudDim = 0.7, -- 0..1 share of the cast shadow lost under full cloud cover (an overcast sky has none)
+    minHeight = 7, -- art pixels: sprites shorter than this cast no shadow
+    contactMaxWidth = 26, -- art pixels, the widest contact shadow
+    contactWidth = 0.8, -- share of the sprite's width the contact shadow spans
+  },
+  reflections = { -- the creek mirrors what stands on its bank (shaders/water.glsl, D130)
+    enabled = true,
+    opacity = 0.55, -- 0..1 how much of a reflection shows at the bank (it fades toward deep water and with ice)
+    distort = 1.6, -- art pixels the ripples shove the reflection sideways at most
+    tint = { 0.72, 0.84, 1.00 }, -- colour multiplier on the mirrored picture: darker and bluer than the real thing
+    squash = 0.85, -- vertical scale of the mirror image (1 = as tall as the object)
+    skyColor = { 0.62, 0.78, 0.92 }, -- what open water mirrors of the sky (graded afterwards, so it warms at dawn and dusk)
+    skyAmount = 0.30, -- 0..1 how much sky colour the water takes on in full daylight
+    reach = 1, -- tiles below an object's feet that may be water for it to cast a reflection
+  },
+  sunbeams = { -- slanted shafts of warm light at low sun (shaders/sunbeams.glsl, D131); world-anchored, subtle
+    enabled = true,
+    strength = 0.34, -- 0..1 brightness of the brightest band, added over the graded frame at the lowest sun
+    lowSun = 0.75, -- 0..1 sun height (0 horizon, 1 noon) at and above which there are no shafts
+    horizon = 0.12, -- 0..1 sun height below which the shafts fade out with the light
+    cloudKill = 0.85, -- 0..1 share of the shafts lost under full cloud cover (they need a clear sky)
+    mistBoost = 0.5, -- extra strength (a share of `strength`) while morning mist hangs in the air
+    scale = 0.035, -- stripe frequency across the shafts, 1/art pixels (0.035 = shafts about 30 art pixels apart)
+    patch = 0.006, -- frequency of the broad patches that break the shafts up, 1/art pixels
+    block = 2, -- art pixels per beam pixel, so the edges stay chunky pixel art
+    color = { 1.00, 0.80, 0.52 }, -- warm light (graded afterwards)
+  },
+  sparkle = { -- single pixels of snow and puddle that flash in the sun (shaders/ground.glsl, D131)
+    density = 0.006, -- 0..1 share of the snow pixels flashing at once in full sun (puddles get twice that)
+    steps = 3, -- times a second the flashing pixels move on
+    cloudKill = 0.8, -- 0..1 share of the sparkle lost under full cloud cover
+  },
+  bloom = { -- glow round bright pixels (shaders/bloom_*.glsl, D129): lamps, fires, lit windows, snow in the sun
+    enabled = true,
+    threshold = 0.66, -- 0..1 brightness (of the brightest channel) where glow starts
+    knee = 0.22, -- 0..1 softness of that start
+    strength = 0.18, -- 0..1 how much glow is added back in full daylight
+    nightBoost = 5.5, -- extra strength at full darkness, as a multiple of `strength` (the glow matters most at night)
+    wide = 0.7, -- 0..1 share of the glow that comes from the wide, soft layer (the rest is the tight halo)
+    tightDivisor = 4, -- the tight layer is rendered at 1/this of the screen size
+    wideDivisor = 10, -- the wide layer is rendered at 1/this of the screen size
+  },
   lights = { -- night lights over the graded world (shaders/light.glsl, D84); which objects glow is the `light` field in data/content/objects.lua
     fadeStart = 0.7, -- daylight level (0 night .. 1 day) below which the lights begin to come on
     fadeEnd = 0.25, -- daylight level at which they are at full strength
-    intensity = 0.75, -- 0..1 brightness at the centre of a light at full darkness (added on top of the graded image)
+    intensity = 1.0, -- 0..1 brightness at the centre of a light at full darkness, in the light buffer
+    gain = 1.15, -- how strongly the light brightens and warms the picture it reaches (multiplies the lit pixels, D128)
+    glow = 0.16, -- how much of the light is also added flat, so a lamp core stays bright and dark ground still shows it
     bands = 4, -- number of pixel-art brightness steps in the falloff
     falloff = 1.6, -- exponent of the falloff (higher = tighter, brighter core)
     dither = 0.12, -- 0..1 ordered dither between bands, on the art-pixel grid
     flickerSpeed = 7, -- flicker steps per second (the glow radius jumps in whole art pixels)
+    coreSize = 3, -- art pixels, the bright core drawn at the centre of a light that has no window (flame, bulb)
+    coreGlow = 0.4, -- 0..1 brightness of that core at full darkness
     windowGlow = 0.85, -- 0..1 brightness of lit window and stove-door pixels at full darkness
     margin = 4, -- tiles past the screen edge whose lights still count (at least the biggest radius in tiles)
     heatNeedMin = 0.01, -- a heat source glows when the night's warmth need is at least this (warmth units; it burns fuel for it)

@@ -58,6 +58,28 @@ Save file, `Save:write` and `Save:read` of the typical state (mean of 5):
 The grid arrays were 74 percent of the file (terrain 34 KB, soil 62 KB, water table 62 KB at 64x48). What is
 left is mostly `grid.objects` (37 KB at 64x48, 330 KB at 192x128, mostly trees): see follow-ups.
 
+## Lighting and shader pass (D127-D131), desktop
+
+Wall-clock ms per frame with vsync off and every frame presented (so the GPU is in the number), 300 frames, busy
+homestead, clear sky, 1280x720, before the pass (commit 4715bf9) and after. `lovec tools/driver wall size=desktop`;
+`lovec tools/driver perf` also prints the same with each pass switched off in turn (`wall ...` and `cost ...`
+lines; `visuals.<pass>.enabled`), and CPU submit time at dusk.
+
+| | before | after | added |
+|---|---|---|---|
+| noon, zoom 1 / 2 / 3 | 5.29 / 2.75 / 2.48 | 6.15 / 3.84 / 3.68 | 0.9 / 1.1 / 1.2 |
+| dusk, zoom 1 / 2 / 3 | 5.05 / 3.83 / 3.00 | 6.11 / 4.45 / 3.67 | 1.1 / 0.6 / 0.7 |
+| night, zoom 1 / 2 / 3 | 5.32 / 3.35 / 2.76 | 6.76 / 4.06 / 3.51 | 1.4 / 0.7 / 0.8 |
+
+So the whole pass costs about 1 ms a frame on this desktop GPU and the game still runs at 150 to 300 fps. The
+per-pass split is below the noise of the measurement (each pass is 0.2 to 1 ms and the order changes between
+runs), so read it as: the full-screen canvases (shadow mask, light buffer, graded frame, bloom at 1/4 and 1/10
+size) are a roughly fixed cost that does not shrink when zoomed in. CPU submit time at zoom 1 rose from about
+2.3 to 3.6 ms (clear), mostly the one extra pass over the objects for the shadows and reflections and the
+canvas switches; the sway shader's per-sprite draws (1.4 ms of it) were already there. On a phone expect the
+canvases to matter most: `bloom.enabled`, `bloom.tightDivisor` and `bloom.wideDivisor`, `reflections.enabled`
+and `shadows.enabled` are the levers; none of this has been measured on a phone.
+
 ## What changed (no behaviour change)
 
 1. **Shared walking flood for the idle job search** (#77): `Pathfind.flood(world, start)`. A goal-free Dijkstra
