@@ -110,6 +110,38 @@ return {
     firstHunger = "Plant a field in the first days and keep a few days of food.",
     firstUnknown = "Spend the free study below, then plan the first week.",
   },
+  itemCard = { -- the store's item card on a tap or long-press of a Catalog or town shop row (D107, #266); %s / %d are filled in by src/ui/item_text.lua
+    width = 300, -- view px; the card's width (narrower views shrink it to fit)
+    labelWidth = 52, -- view px; the left column of labels ("Gets", "Needs", ...)
+    priceDelivery = "$%d + $%d delivery, arrives tomorrow",
+    priceTown = "$%d, handed over on the spot",
+    sale = "(on sale)",
+    gets = "Gets",
+    object = "A %s to place on your land",
+    equipment = "Gear kept for the whole run",
+    needs = "Needs",
+    needsNothing = "Nothing",
+    needsItem = "the %s",
+    needsHome = "a %s to live in",
+    needsTown = "Bought on a truck trip",
+    replaces = "Replaces",
+    replacesItem = "the %s",
+    limit = "Limit",
+    limitOne = "One per run",
+    limitStore = "Your %s store holds %d (you have %d)",
+    now = "Right now",
+    reasons = { -- why it can't be bought at this moment, by Market.cannotBuy's answer
+      owned = "You already own it",
+      ordered = "Already on its way",
+      ["pickup only"] = "Only sold in town",
+      ["too big for storage"] = "More than your storage can ever hold",
+      ["not enough money"] = "Not enough money",
+      ["no room"] = "No room in storage for it",
+    },
+    order = "Order $%d", -- the card's buy button for a delivery
+    buy = "Buy $%d", -- the same in town
+    close = "Close",
+  },
   placement = { -- placement preview, confirmation and order card (D79, #197); %s / %d are filled in by src/ui/place_text.lua
     cardGap = 10, -- view px kept clear between the placement card and the target footprint (D86); the camera pans to keep it
     title = "Build %s here?",

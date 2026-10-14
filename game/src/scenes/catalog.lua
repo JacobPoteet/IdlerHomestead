@@ -4,6 +4,7 @@
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Buttons = require("src.ui.buttons")
+local ItemCard = require("src.ui.item_card")
 local Panel = require("src.ui.panel")
 local ScrollList = require("src.ui.scroll_list")
 local Text = require("src.ui.text")
@@ -23,6 +24,15 @@ function Catalog:enter()
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
   self.rowButtons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
   self.list = ScrollList.new(function() self:layout() end)
+  self.card = ItemCard.new(self.app.ctx.tuning.input.minTouchTarget)
+end
+
+--- Open the item card for a catalog item (#266).
+function Catalog:showCard(item)
+  self.card:open(self.world, item.id, false, function()
+    return self:order(item)
+  end)
+  self.card:layout(self.app.view)
 end
 
 function Catalog:items()
@@ -70,6 +80,7 @@ function Catalog:resize(view)
   self.hintH = self.moneyHint and HINT_H or 0
   self.box = Panel.box(view, 380, 70 + (#items + self.heldCount) * ROW_H + 30 + self.hintH)
   self:layout()
+  self.card:layout(view)
 end
 
 local REASONS = {
@@ -111,10 +122,7 @@ function Catalog:layout()
       enabled = reason == nil,
       style = world.state.market.specials[item.id] and "accent" or nil,
       onPress = function()
-        if Market.order(world, item.id) then
-          self.onToast("Ordered " .. item.name .. " · arrives tomorrow")
-        end
-        self:layout()
+        self:order(item)
       end,
     })
     ::continue::
@@ -157,10 +165,37 @@ function Catalog:update()
   elseif money ~= self.lastMoney then
     self.lastMoney = money
     self:layout()
+    self.card:layout(self.app.view)
   end
 end
 
+--- The catalog item whose row is under view point (x, y), or nil.
+function Catalog:rowAt(x, y)
+  if not self.list:contains(x, y) then
+    return nil
+  end
+  for _, row in ipairs(self.rows) do
+    if y >= row.y and y < row.y + ROW_H then
+      return row.item
+    end
+  end
+  return nil
+end
+
+--- Order `id` (from a row button or the item card). True when the order went through.
+function Catalog:order(item)
+  local ok = Market.order(self.world, item.id)
+  if ok then
+    self.onToast("Ordered " .. item.name .. " · arrives tomorrow")
+  end
+  self:layout()
+  return ok and true or false
+end
+
 function Catalog:action(name, data)
+  if self.card:isOpen() then -- the item card is modal (#266)
+    return self.card:action(name, data)
+  end
   if name == "press" or name == "release" then -- a drag that ends moving lets the list coast (D94)
     self.list:action(name, data)
   end
@@ -171,6 +206,17 @@ function Catalog:action(name, data)
     -- Row buttons only answer inside the list's window: a half-scrolled row must not reach out of it.
     if self.list:contains(data.x, data.y) and self.rowButtons:action(name, data) then
       return true
+    end
+    -- A tap on the rest of a row shows what the item is before buying (#266).
+    local item = name == "select" and self:rowAt(data.x, data.y)
+    if item then
+      self:showCard(item)
+      return true
+    end
+  elseif name == "context" then -- a long-press or right click shows the same card
+    local item = self:rowAt(data.x, data.y)
+    if item then
+      self:showCard(item)
     end
   elseif name == "release" then
     self.rowButtons:action(name, data)
@@ -238,6 +284,7 @@ function Catalog:draw()
     })
   end
   self.buttons:draw()
+  self.card:draw(self.app.view)
 end
 
 return Catalog

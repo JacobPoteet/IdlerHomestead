@@ -107,6 +107,8 @@ return {
   catalog = {
     name = "string",
     line = "string", -- what it does, for the journal card (<= ~8 words)
+    desc = "string?", -- longer text for the store's item card (#266, D107): what it does and how; the card falls back to `line`
+    replaces = "string?", -- catalog id of the item this one supersedes (the card says "Replaces the ..."); no item uses it yet
     page = "string", -- catalog page / journal chapter grouping
     price = "number", -- $
     starter = "boolean?", -- known from the start; others are learned in the Field Journal
