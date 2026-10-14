@@ -20,6 +20,7 @@ return {
   "processing",
   "market",
   "stand",
+  "income", -- D117: sales income per game year; listens to the sale events
   "finds",
   "cat",
   "animals",

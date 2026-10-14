@@ -117,6 +117,24 @@ function Journal.noteInfo(world, id)
   return journal(world).notes[id]
 end
 
+--- How much of the journal is known: known nodes, and all nodes it can ever offer (catalog items and perks;
+--- starter items count as known). A count only: unknown nodes are never named (D117, #275).
+function Journal.completion(world)
+  local known, total = 0, 0
+  for _, def in ipairs(Journal.nodes(world)) do
+    total = total + 1
+    if Journal.isKnown(world, def.id) then
+      known = known + 1
+    end
+  end
+  return known, total
+end
+
+--- The slot header's journal figures (slot screen): headers carry counts, never names.
+function Journal.summarize(world, out)
+  out.journalKnown, out.journalTotal = Journal.completion(world)
+end
+
 function Journal.isKnown(world, id)
   item(world, id)
   return isStarter(world, id) or journal(world).known[id] == true
