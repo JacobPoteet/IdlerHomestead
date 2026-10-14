@@ -54,14 +54,21 @@ function M.build(tuning)
       kind = "choice",
       group = "Display",
       values = scaleValues,
-      choices = function(_, env)
+      choices = function(settings, env)
         local out = {}
         local auto = UiScale.auto(env.pixelW, env.pixelH, display)
+        -- The untouched default that the window cannot fit (a phone) shows the size it fell back to.
+        local scale, clamped = UiScale.effective(settings:get("uiScale"), env.pixelW, env.pixelH, display, cfg)
+        local fellBack = clamped and settings:get("uiScale") == cfg.defaults.uiScale
         for _, v in ipairs(scaleValues) do
           if v == "auto" then
             out[#out + 1] = { value = v, label = "Auto" }
           else
-            out[#out + 1] = { value = v, label = v .. "x", enabled = v <= math.min(auto, cfg.uiScaleMax) }
+            local entry = { value = v, label = v .. "x", enabled = v <= math.min(auto, cfg.uiScaleMax) }
+            if fellBack then
+              entry.selected = v == scale
+            end
+            out[#out + 1] = entry
           end
         end
         return out
@@ -70,7 +77,7 @@ function M.build(tuning)
         local scale, clamped = UiScale.effective(settings:get("uiScale"), env.pixelW, env.pixelH, display, cfg)
         local auto = UiScale.auto(env.pixelW, env.pixelH, display)
         local text = string.format("Showing %dx%d units at %dx.", math.floor(env.pixelW / scale), math.floor(env.pixelH / scale), scale)
-        if clamped then
+        if clamped and settings:get("uiScale") ~= cfg.defaults.uiScale then -- the untouched default just fits the window (a phone shows 1x)
           text = text .. " The chosen size does not fit this window."
         elseif auto < cfg.uiScaleMax then
           text = text .. " Larger sizes need a bigger window."

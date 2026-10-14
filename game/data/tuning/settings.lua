@@ -3,7 +3,7 @@
 return {
   file = "settings.lua", -- file name in the save directory; separate from the save slots
   defaults = { -- option id -> value on a fresh install (the window options match conf.lua's first-boot window)
-    uiScale = "auto", -- "auto" (largest whole scale that keeps display.minVirtualWidth x Height visible) or a whole number
+    uiScale = 2, -- "auto" (largest whole scale that keeps display.minVirtualWidth x Height visible) or a whole number; 2 is the playtest favourite (#259) and clamps down to what a small window (a phone) fits
     fullscreen = false, -- borderless desktop fullscreen (conf.lua: fullscreen = false)
     vsync = true, -- sync to the monitor refresh (conf.lua: vsync = 1)
     rememberWindow = true, -- reopen at the last window size and position
