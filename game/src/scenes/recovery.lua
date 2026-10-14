@@ -18,6 +18,11 @@ local LEARN_W = 72 -- width of the Learn button
 local STAMP = 18 -- note stamp edge on an idea row
 local STAMP_GAP = 2
 local MAX_IDEAS = 5
+local TABLE_Y = 54 -- progress table top, below the run line
+local TABLE_ROW = 14 -- a table row (small text)
+local TABLE_H = 66 -- vertical space the progress table takes; everything below moves down by it
+local COL_LABEL_W = 138 -- row label column
+local COL_WIDTHS = { 124, 84, 84 } -- this run (cell and marker), previous run, slot best
 
 function Recovery.new()
   return setmetatable({}, Recovery)
@@ -52,10 +57,11 @@ function Recovery:layout()
       and (ctx.tuning.ui.failure.firstChange .. " " .. Run.firstChange(ctx.registry, ctx.tuning, cause))
     or nil
   self.causeW = b.w - 24 - 18
+  self.progress = Run.progressTable(ctx.tuning, self.data.meta.career, recovery.summary)
   local height = Text.wrappedHeight(self.failure.line, "small", self.causeW)
     + Text.wrappedHeight(self.failure.hint, "small", self.causeW)
     + (self.firstChange and Text.wrappedHeight(self.firstChange, "small", self.causeW) + 2 or 0)
-  self.shift = math.max(0, math.ceil(height) - 12) -- the block starts at +108 and the study label sits at +132
+  self.shift = TABLE_H + math.max(0, math.ceil(height) - 12) -- the block starts at +108 and the study label sits at +132, both below the progress table
   self.buttons:add({
     x = b.x + b.w - 136,
     y = b.y + b.h - 36,
@@ -112,6 +118,34 @@ local function capitalize(s)
   return (s:gsub("^%l", string.upper))
 end
 
+-- Years survived and best year's income: this run, and (from the second run) the previous run and the
+-- slot's best, with a marker where this run set a new best (D117, #275).
+function Recovery:drawProgress(x, y)
+  local p, t = self.progress, self.app.ctx.tuning.ui.progress
+  local dim = theme.colors.textDim
+  local colX = { x + COL_LABEL_W }
+  for i = 1, #p.columns - 1 do
+    colX[i + 1] = colX[i] + COL_WIDTHS[i]
+  end
+  for i, label in ipairs(p.columns) do
+    Text.draw(label, colX[i], y, { size = "small", color = dim })
+  end
+  for n, row in ipairs(p.rows) do
+    local ry = y + n * TABLE_ROW
+    Text.draw(row.label, x, ry, { size = "small", color = dim })
+    for i, cell in ipairs(row.cells) do
+      Text.draw(cell, colX[i], ry, { size = "small", color = i == 1 and theme.colors.text or dim })
+    end
+    if row.newBest then
+      local w = Text.measure(row.cells[1], "small")
+      Text.draw(t.newBest, colX[1] + w + 6, ry, { size = "small", color = theme.colors.accent })
+    end
+  end
+  if p.first then
+    Text.draw(t.firstRun, x, y + (#p.rows + 1) * TABLE_ROW + 2, { size = "small", color = dim, width = self.box.w - 24 })
+  end
+end
+
 function Recovery:draw()
   local view, b = self.app.view, self.box
   local recovery = self.data.meta.recovery
@@ -125,20 +159,23 @@ function Recovery:draw()
   Text.draw(string.format("Run %d · lasted %d days · reached %s, year %d", s.run, s.days, capitalize(s.season), s.year),
     b.x + 12, b.y + 34, { size = "small", color = dim })
 
-  Text.draw(string.format("Notes this run (%d)", #s.notes), b.x + 12, b.y + 54, { size = "small", color = dim })
+  self:drawProgress(b.x + 12, b.y + TABLE_Y)
+
+  local top = TABLE_H -- the notes, study and cause blocks sit below the progress table
+  Text.draw(string.format("Notes this run (%d)", #s.notes), b.x + 12, b.y + 54 + top, { size = "small", color = dim })
   local x = b.x + 12
   for _, id in ipairs(s.notes) do
     if x > b.x + b.w - 24 then
       break
     end
-    Panel.icon(registry:get("notes", id).icon, x, b.y + 68)
+    Panel.icon(registry:get("notes", id).icon, x, b.y + 68 + top)
     x = x + 16
   end
   if #s.notes == 0 then
-    Text.draw("None this time.", b.x + 12, b.y + 68, { size = "small", color = dim })
+    Text.draw("None this time.", b.x + 12, b.y + 68 + top, { size = "small", color = dim })
   end
 
-  local y = b.y + 92
+  local y = b.y + 92 + top
   if recovery.finishedStudy then
     Text.draw("Finished studying: " .. Journal.node(self.metaWorld, recovery.finishedStudy).name, b.x + 12, y, {
       size = "small",
@@ -147,9 +184,9 @@ function Recovery:draw()
   end
 
   local f = self.failure
-  Panel.icon(f.icon, b.x + 12, b.y + 108)
-  Text.draw(f.line, b.x + 30, b.y + 108, { size = "small", width = self.causeW })
-  local cy = b.y + 108 + Text.wrappedHeight(f.line, "small", self.causeW)
+  Panel.icon(f.icon, b.x + 12, b.y + 108 + top)
+  Text.draw(f.line, b.x + 30, b.y + 108 + top, { size = "small", width = self.causeW })
+  local cy = b.y + 108 + top + Text.wrappedHeight(f.line, "small", self.causeW)
   Text.draw(f.hint, b.x + 30, cy, { size = "small", width = self.causeW, color = dim })
   if self.firstChange then
     cy = cy + Text.wrappedHeight(f.hint, "small", self.causeW) + 2
