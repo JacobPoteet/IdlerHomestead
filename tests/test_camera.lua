@@ -61,3 +61,27 @@ T.test("camera: world <-> tile is 1-based", function()
   T.eq(wx, 32)
   T.eq(wy, 16)
 end)
+
+-- #260 / D106: at the zoom-out limit the default 2x UI must never show the edge of the map, on 16:9 and 16:10
+-- displays from 1080p to 4K.
+T.test("camera: the map covers the widest view at max zoom-out (default 2x UI)", function()
+  local tun = require("src.core.tuning").load()
+  local tile = tun.display.tileSize
+  local scale = tun.settings.defaults.uiScale
+  local zoom = tun.camera.zoomLevels[1]
+  local mapW, mapH = tun.world.mapWidth * tile, tun.world.mapHeight * tile
+  for _, px in ipairs({ { 1920, 1080 }, { 1920, 1200 }, { 2560, 1440 }, { 2560, 1600 }, { 3840, 2160 }, { 3840, 2400 } }) do
+    local v = { w = px[1] / scale, h = px[2] / scale, scale = scale }
+    T.truthy(v.w / zoom <= mapW, px[1] .. "x" .. px[2] .. " wider than the map")
+    T.truthy(v.h / zoom <= mapH, px[1] .. "x" .. px[2] .. " taller than the map")
+    -- Every pan position keeps the view inside the map.
+    local c = Camera.new({ tileSize = tile, zoomLevels = tun.camera.zoomLevels, zoomIndex = 1 })
+    c:setBounds(mapW, mapH)
+    for _, p in ipairs({ { -1e6, -1e6 }, { 1e6, 1e6 }, { -1e6, 1e6 }, { 1e6, -1e6 } }) do
+      c:pan(p[1], p[2], v)
+      local x1, y1 = c:viewToWorld(0, 0, v)
+      local x2, y2 = c:viewToWorld(v.w, v.h, v)
+      T.truthy(x1 >= -1e-6 and y1 >= -1e-6 and x2 <= mapW + 1e-6 and y2 <= mapH + 1e-6, "edge visible")
+    end
+  end
+end)

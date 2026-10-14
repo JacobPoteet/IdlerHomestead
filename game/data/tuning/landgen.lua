@@ -10,8 +10,9 @@ return {
   roadMinRow = 0.35, -- fraction of map height; highest row the road may enter on
   roadMaxRow = 0.65, -- fraction of map height; lowest row the road may enter on
   roadWobbleChance = 0.15, -- per tile, chance the road steps up or down a row
-  roadMinLength = 10, -- tiles the road runs in from the map edge
-  roadMaxLength = 16, -- tiles
+  roadMinLength = 10, -- tiles; shortest road in from the map edge
+  truckCreekGapMin = 6, -- tiles; nearest the road's end (the truck) may be to the creek
+  truckCreekGapMax = 22, -- tiles; farthest the truck may be from the creek, so water stays a short walk on a wide map (#260)
   truckClearRadius = 3, -- tiles around the truck kept free of clutter
   messRadius = 12, -- tiles around the truck where the messy start is concentrated
   messDensity = 0.45, -- chance of clutter per tile right next to the clear zone (falls off with distance)
