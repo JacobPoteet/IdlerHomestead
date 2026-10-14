@@ -168,11 +168,13 @@ function Fx:drawRain(view, grid)
 
   love.graphics.setColor(c[1], c[2], c[3], c[4] * strength)
   local slant = cfg.slant
+  local wx, wy = math.floor(grid.wx), math.floor(grid.wy)
   for n = 1, math.floor(cfg.drops * self.rain * area) do
     local speed = cfg.speed * lerp(0.7, 1.3, hash(n, 3))
     local len = math.max(2, math.floor(cfg.length * lerp(0.6, 1.2, hash(n, 5)) + 0.5))
-    local y = (hash(n, 2) * (rows + len) + self.time * speed) % (rows + len) - len
-    local x = hash(n, 1) * (cols + slant * rows) - slant * y
+    -- Streaks are anchored to the world, so panning the camera slides them with the land.
+    local y = (hash(n, 2) * (rows + len) + self.time * speed - wy) % (rows + len) - len
+    local x = hash(n, 1) * (cols + slant * rows) - slant * y - wx
     for k = 0, len - 1 do -- one art pixel per row, leaning with the wind
       pixel(math.floor((x - slant * k) % cols), math.floor(y + k))
     end
