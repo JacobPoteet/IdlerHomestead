@@ -14,7 +14,7 @@ Project scaffolding comes from [bootstrap-love2d-project](https://github.com/Ova
 - With the **rod** in hand, tap the creek to fish (hold mouse/finger/Space to reel, let go to ease off).
 - Tap the **truck** to check its charge and drive to town to sell the crate and shop. **Catalog** orders arrive next morning; **Place** puts delivered equipment down. **Pantry** sets how much food to keep, preserve and sell. **Fish** opens the fish guide.
 - Leave the controls alone for 30 seconds and the **routine** takes over; reorder it from the **Routine** button.
-- Debug keys: <kbd>F1</kbd> debug overlay, <kbd>F2</kbd> cycle sim speed, <kbd>F3</kbd> performance overlay, <kbd>F6</kbd> reload tuning & shaders.
+- Debug keys: <kbd>F1</kbd> debug overlay, <kbd>F2</kbd> cycle sim speed, <kbd>F3</kbd> performance overlay, <kbd>F6</kbd> reload tuning & shaders. With F1 on, the Catalog's Debug button toggles cheat mode (every item, free, instant; not saved).
 
 ## Testing
 

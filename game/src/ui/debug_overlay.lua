@@ -45,6 +45,9 @@ function Debug:lines()
       session.world.state.seed
     )
   end
+  if session and require("src.sim.systems.market").cheatOn(session.world) then
+    lines[#lines + 1] = "CHEAT MODE ON (Catalog > Debug): every item free and instant"
+  end
   for name, err in pairs(require("src.render.shaders").errors()) do
     lines[#lines + 1] = "SHADER " .. name .. ": " .. (err:gsub("\n.*", ""))
   end
