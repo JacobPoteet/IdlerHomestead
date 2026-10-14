@@ -65,6 +65,13 @@ return function(d)
   d:advance(2)
   d:shot("routine")
   d:press("Got it")
+  -- The delivery card points at Place; the bar here keeps tools in a palette, so the outline falls back
+  -- to the Tools button that opens it (src/ui/highlight.lua FALLBACK).
+  world.events:emit("market.delivered", { item = "smoker" })
+  d:advance(2)
+  d:frames(3)
+  d:shot("delivery_place_fallback")
+  d:press("Got it")
   world.events:emit("calendar.newSeason", { season = "autumn", year = 1 })
   d:advance(2)
   d:shot("autumn")

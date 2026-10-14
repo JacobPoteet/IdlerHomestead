@@ -11,8 +11,6 @@ local theme = require("src.ui.theme")
 local Tips = { name = "tips" }
 Tips.__index = Tips
 
-local ROW_H, ROW_GAP, PAD, HEADER_H, LEGEND_H = 26, 4, 12, 30, 16
-
 function Tips.new(world)
   return setmetatable({ world = world }, Tips)
 end
@@ -39,19 +37,27 @@ end
 
 function Tips:resize(view)
   self.view = view
-  local cols = self.app.ctx.tuning.ftue.tipsColumns
+  local cfg = self.app.ctx.tuning.ftue
+  local ROW_H, ROW_GAP, PAD, HEADER_H, LEGEND_H =
+    cfg.tipsRowHeight, cfg.tipsRowGap, cfg.tipsPadding, cfg.tipsHeaderHeight, cfg.tipsLegendHeight
+  local margin = cfg.tipsViewMargin
+  local cols = cfg.tipsColumns
   local steps = Ftue.steps(self.world)
   local function heightFor(c)
     return HEADER_H + ROW_H + ROW_GAP + math.ceil(#steps / c) * (ROW_H + ROW_GAP) + LEGEND_H + ROW_H + 2 * PAD
   end
   -- A short view gets more, narrower columns rather than a list that runs off the screen.
-  while heightFor(cols) > view.h - 8 and cols < 4 and (cols + 1) * 120 + 2 * PAD <= view.w - 16 do
+  while
+    heightFor(cols) > view.h - margin
+    and cols < cfg.tipsMaxColumns
+    and (cols + 1) * cfg.tipsMinColumnWidth + 2 * PAD <= view.w - 2 * margin
+  do
     cols = cols + 1
   end
   self.cols = cols
-  local w = math.min(360 + (cols - self.app.ctx.tuning.ftue.tipsColumns) * 130, view.w - 16)
+  local w = math.min(cfg.tipsBaseWidth + (cols - cfg.tipsColumns) * cfg.tipsColumnWidth, view.w - 2 * margin)
   local h = heightFor(cols)
-  self.box = { x = math.floor((view.w - w) / 2), y = math.max(4, math.floor((view.h - h) / 2)), w = w, h = h }
+  self.box = { x = math.floor((view.w - w) / 2), y = math.max(margin / 2, math.floor((view.h - h) / 2)), w = w, h = h }
   local b = self.box
   local inner = b.w - 2 * PAD
   self.buttons:clear()
@@ -120,10 +126,11 @@ end
 function Tips:draw()
   Draw.overlay(self.app.view)
   local b = self.box
+  local cfg = self.app.ctx.tuning.ftue
   Draw.panel(b.x, b.y, b.w, b.h)
-  Text.draw("Tips", b.x, b.y + 10, { size = "body", width = b.w, align = "center", color = theme.colors.text })
+  Text.draw("Tips", b.x, b.y + cfg.tipsTitleTop, { size = "body", width = b.w, align = "center", color = theme.colors.text })
   self.buttons:draw()
-  Text.draw("Dim tips are the ones you have seen.", b.x, b.y + b.h - PAD - ROW_H - LEGEND_H + 2, {
+  Text.draw("Dim tips are the ones you have seen.", b.x, b.y + b.h - cfg.tipsPadding - cfg.tipsRowHeight - cfg.tipsLegendHeight + cfg.tipsLegendNudge, {
     size = "small",
     width = b.w,
     align = "center",
