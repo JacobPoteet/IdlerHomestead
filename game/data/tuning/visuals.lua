@@ -22,7 +22,10 @@ return {
   snowMeltDays = 2, -- in-game days for snow to melt after the thaw
   snowCapDepth = 3, -- art pixels of snow resting on the top of objects at full snow (1..4; shaders/snowcap.glsl)
   frostReach = 3, -- art pixels the frost creeps in from the creek bank when the creek is frozen over (1..4)
-  frostColor = { 0.86, 0.94, 1.00 }, -- frost crust along the bank, over bare ground and snow
+  frostColor = { 0.86, 0.94, 1.00 }, -- frost crust along the bank over bare ground
+  frostSnowColor = { 0.58, 0.77, 0.94 }, -- frost crust over snow: a deeper ice blue than the snow, so it reads on white (#218)
+  frostSparkle = 0.18, -- 0..1 share of the frost pixels over snow that glint white (static, picked per ground pixel)
+  frostSparkleColor = { 1.00, 1.00, 1.00 }, -- the glint pixel
   iceRampDays = 0.5, -- in-game days for the creek to freeze over / break up
   -- Screen grading (shaders/grade.glsl)
   lightKeysSunrise = 6, -- sunrise hour the lightKeys are authored for; stretched to the season's sunrise
@@ -130,9 +133,10 @@ return {
       windy = { tint = { 0.95, 0.97, 1.00 }, light = 0.94, rain = 0 },
       storm = { tint = { 0.68, 0.76, 0.94 }, light = 0.62, rain = 1 },
     },
-    wet = { -- ground soaked by rain (shaders/ground.glsl); eases in with the rain and dries out slowly, in real seconds
-      riseSeconds = 6, -- seconds for the ground to soak through once the rain starts
-      drySeconds = 45, -- seconds for it to dry out after the rain stops
+    wet = { -- land soaked by rain (shaders/ground.glsl, object tint); eases in with the rain and dries out slowly, on the effect clock (game time, D97/D124)
+      riseSeconds = 6, -- effect-clock seconds for the land to soak through once the rain starts (1x game speed = real seconds; paused = frozen; 2x and 4x run at the 2x cap)
+      drySeconds = 45, -- effect-clock seconds for it to dry out after the rain stops
+      objectTint = { 0.80, 0.85, 0.93 }, -- rgb multiplier on objects, crops and tilled soil when fully wet: darker and cooler (1 = unchanged)
       fullRain = 0.7, -- rain intensity (looks.rain) at which the ground is fully wet
       darken = 0.72, -- brightness left on fully wet ground (1 = unchanged)
       saturation = 1.15, -- saturation on fully wet ground (above 1 = richer)

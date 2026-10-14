@@ -27,6 +27,9 @@ uniform vec3 puddleGlint;    // the bright pixel band along a puddle's top edge
 uniform float frost;         // 0..1 how far the frost has crept
 uniform float frostReach;    // art pixels the frost reaches in from the water's edge when fully grown
 uniform vec3 frostColor;
+uniform vec3 frostSnowColor;     // frost over snow: deeper than the snow so it shows
+uniform float frostSparkle;      // 0..1 share of the frost pixels over snow that glint
+uniform vec3 frostSparkleColor;
 
 uniform vec2 groundSize;     // ground canvas size in pixels: one pixel per world art pixel
 
@@ -99,12 +102,13 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
         }
     }
 
+    float covered = 0.0;
     // Snow: covered where the clump noise is below the amount; a thin shaded rim at the edge.
     if (amount > 0.0) {
         float patches = noise(px * patchScale);  // drifts several tiles wide, so the pattern reads as land
         float n = patches * 0.35 + noise(px * clumpScale) * 0.4 + hash(px) * 0.25;
         float threshold = amount * 1.1 - 0.05;
-        float covered = step(n, threshold);
+        covered = step(n, threshold);
         float rim = covered * step(threshold - 0.06, n);
         vec3 snow = mix(snowColor, shadeColor, rim);
         // Let some of the ground's own texture show through as faint shading.
@@ -119,7 +123,12 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
         float reach = frostReach * frost;
         float d = bankDistance(tex, uv, ceil(reach));
         float ragged = 0.35 + 0.9 * hash(px);
-        col = mix(col, frostColor, step(d, reach * ragged + 0.2) * 0.85);
+        float crust = step(d, reach * ragged + 0.2);
+        // Over snow the pale crust vanishes into white, so it turns a deeper ice blue with a few glints.
+        vec3 crustColor = mix(frostColor, frostSnowColor, covered);
+        float glint = covered * step(hash(px + 7.0), frostSparkle);
+        crustColor = mix(crustColor, frostSparkleColor, glint);
+        col = mix(col, crustColor, crust * 0.85);
     }
     return vec4(col, base.a) * color;
 }

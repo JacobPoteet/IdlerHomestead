@@ -11,6 +11,7 @@ uniform float amplitude;     // art pixels the tip leans at weight 1 (already sc
 uniform float lean;          // 0..1 steady downwind share of the sway
 uniform float gust;          // 0..1 slower swell on top
 uniform vec3 thirsty;        // colour multiplier for a thirsty crop
+uniform vec3 wetTint;        // colour multiplier for plants standing on wet land (1 = dry)
 uniform vec4 bounds;         // this sprite's cell in the atlas, uv: left, top, right, bottom
 uniform vec2 texel;          // 1 / atlas size
 uniform float spriteH;       // sprite height, art pixels
@@ -33,6 +34,6 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
         return vec4(0.0);
     }
     vec4 base = Texel(tex, q);
-    return vec4(base.rgb * mix(vec3(1.0), thirsty, color.g), base.a);
+    return vec4(base.rgb * wetTint * mix(vec3(1.0), thirsty, color.g), base.a);
 }
 #endif
