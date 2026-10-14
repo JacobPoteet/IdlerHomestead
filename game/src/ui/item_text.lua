@@ -86,9 +86,12 @@ function ItemText.build(world, id, pickup)
   -- What it replaces (an upgrade names the item it supersedes) and its cap.
   if item.replaces then
     add(t.replaces, string.format(t.replacesItem, world.registry:get("catalog", item.replaces).name:lower()))
+  elseif item.replacesLabel then
+    add(t.replaces, string.format(t.replacesItem, item.replacesLabel))
   end
-  if item.equipment then
-    add(t.limit, t.limitOne, reason == "owned" and "warn" or "text")
+  local owned = reason == "owned" or reason == "replaced"
+  if item.equipment or item.unique then
+    add(t.limit, t.limitOne, owned and "warn" or "text")
   end
   for _, res in ipairs(sortedKeys(item.gives or {})) do
     local cap = Ledger.capacity(world, res)
@@ -106,6 +109,7 @@ function ItemText.build(world, id, pickup)
     desc = item.desc or item.line,
     lines = lines,
     reason = reason,
+    owned = owned,
     cost = price + fee,
   }
 end

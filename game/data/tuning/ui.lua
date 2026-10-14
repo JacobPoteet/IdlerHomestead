@@ -132,6 +132,7 @@ return {
     now = "Right now",
     reasons = { -- why it can't be bought at this moment, by Market.cannotBuy's answer
       owned = "You already own it",
+      replaced = "You already own the better one",
       ordered = "Already on its way",
       ["pickup only"] = "Only sold in town",
       ["too big for storage"] = "More than your storage can ever hold",
@@ -140,6 +141,7 @@ return {
     },
     order = "Order $%d", -- the card's buy button for a delivery
     buy = "Buy $%d", -- the same in town
+    owned = "Owned", -- the buy button of an item you already have (or that a better one covers), disabled
     close = "Close",
   },
   placement = { -- placement preview, confirmation and order card (D79, #197); %s / %d are filled in by src/ui/place_text.lua
@@ -151,6 +153,9 @@ return {
     ripePart = "%d ripe, its harvest is lost",
     plansPart = "%d planned tile%s",
     steps = "The homesteader clears the way, then the %s goes up.",
+    upgradeTitle = "Replace the %s with the %s?", -- upgrade placed over the old building (D115): old name, new name, lower case
+    upgradeLine = "The %s is removed when the %s goes up. Nothing is refunded. Cancelling keeps it.",
+    upgradeTag = "replaces %s", -- label on the ghost of an upgrade over the old building
     full = "Warning: %s storage is full, so clearing waits for room.",
     confirm = "Go ahead",
     cancel = "Cancel",
@@ -217,6 +222,8 @@ return {
       waterTable = "Needs a high water table (blue tiles)",
       road = "Needs a free spot beside the road",
       water = "Needs to touch the creek",
+      replace = "An upgrade goes over the building it replaces: place it on that one",
+      replaceAsleep = "The homesteader is sleeping in the old building: wait for morning",
     },
   },
   log = { -- message log (D90, #167)

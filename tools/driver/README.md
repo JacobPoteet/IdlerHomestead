@@ -39,6 +39,8 @@ Also `journal` (D81: the Journal overview grouped by area, a focused chapter, a 
 
 Also `shelter` (D82: the camp preview with its heater slot, a stove placed beside it, the camp and shack object cards with insulation, rest and heater slot, and the night view).
 
+Also `purchase` (D114-D116: the roadside stand bare and with the sign, cooler and rack as visible tiers with its panel, the Catalog with Owned labels, and the item cards of an owned building, the sturdy rod, the shack, the big bucket and a repeatable coop) and `shack` (D115: the shack held, refused away from the camp, the ghost labelled "replaces camp" with the camp outlined, the confirm card, Cancel keeping the camp, Go ahead putting the shack over it).
+
 Also `weatherworld` (D80: rain at three zooms, snow after a pan) and `shaderpass` (D83: cloud shadows with a pan pair proving they are world-anchored, a clear sky, rain with wet ground, puddles and creek rings, the ground drying, early frost on the creek bank, and a snowy yard with caps on the roofs). `shaderpass2` (D84: wind sway of crops, trees and brush as frame pairs in a breeze and a gale, morning mist at three zooms burning off by mid-morning and blown away on a windy day, and night lights from a campfire, lamp, wood stove and the shack window at dusk and at night).
 
 Also `scroll` (D87: the Tools palette with 42 seeds scrolled by wheel and drag on narrow views, and the Catalog, Fish guide and town menu laid out for a short view so their lists clip and scroll; extra crops are cloned into the registry, and the short view is a real `d:resize` of the window, restored afterwards).

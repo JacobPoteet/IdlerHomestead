@@ -126,6 +126,10 @@ function PlaceText.confirm(world, objectId, preview, colors, moving)
   if #preview.clear > 0 then
     lines[#lines + 1] = { text = string.format(p.clears, countNames(world, preview.clear)), color = colors.text }
   end
+  local replaced = PlaceText.replacedName(world, objectId)
+  if replaced and #preview.replaces > 0 then
+    lines[#lines + 1] = { text = string.format(p.upgradeLine, replaced, name), color = colors.warn }
+  end
   local removes = {}
   if #preview.crops > 0 then
     local ripe = 0
@@ -153,7 +157,26 @@ function PlaceText.confirm(world, objectId, preview, colors, moving)
   if #preview.clear > 0 then
     lines[#lines + 1] = { text = string.format(moving and p.moveSteps or p.steps, name), color = colors.dim }
   end
-  return { title = string.format(moving and p.moveTitle or p.title, name), lines = lines }
+  local title = string.format(moving and p.moveTitle or p.title, name)
+  if replaced and #preview.replaces > 0 then
+    title = string.format(p.upgradeTitle, replaced, name)
+  end
+  return { title = title, lines = lines }
+end
+
+--- Name (lower case) of the building an upgrade object replaces (the camp for the shack, D115), or nil.
+function PlaceText.replacedName(world, objectId)
+  local replaces = world.registry:get("objects", objectId).replaces
+  return replaces and world.registry:get("objects", replaces).name:lower() or nil
+end
+
+--- The ghost's label when the spot is over the building it replaces ("replaces camp"), or nil.
+function PlaceText.replaceTag(world, objectId, preview)
+  local name = PlaceText.replacedName(world, objectId)
+  if name and preview.ok and #preview.replaces > 0 then
+    return string.format(world.tuning.ui.placement.upgradeTag, name)
+  end
+  return nil
 end
 
 --- The card for a queued order: { title, lines }.

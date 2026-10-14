@@ -43,9 +43,30 @@ function Inventory.fillEquipmentIds(world, into)
   return n
 end
 
+--- The owned catalog item that supersedes `id` (its `replaces` names it), or nil. A superseded item is not
+--- bought again and its modifiers no longer count (D115): the sturdy rod is the basic rod, upgraded.
+function Inventory.supersededBy(world, id)
+  for _, item in ipairs(world.registry:all("catalog")) do
+    if item.replaces == id and Inventory.owns(world, item.id) then
+      return item.id
+    end
+  end
+  return nil
+end
+
+--- Keep a piece of equipment for the run. An upgrade drops the equipment it replaces (so both tiers never add
+--- up), and equipment already superseded by an owned upgrade is not added (a perk's starting rod can come
+--- second).
 function Inventory.addEquipment(world, id)
-  world.registry:get("catalog", id)
-  world.state.inventory.equipment[id] = true
+  local item = world.registry:get("catalog", id)
+  local equipment = world.state.inventory.equipment
+  if Inventory.supersededBy(world, id) then
+    return
+  end
+  if item.replaces then
+    equipment[item.replaces] = nil
+  end
+  equipment[id] = true
 end
 
 function Inventory.addObject(world, id, count)
@@ -92,6 +113,16 @@ function Inventory.refreshStorage(world)
   end
 end
 
+-- Is an object of this type standing on the land?
+local function hasPlaced(world, id)
+  for _, obj in pairs(world.state.grid.objects) do
+    if obj.id == id then
+      return true
+    end
+  end
+  return false
+end
+
 local function clearable(def)
   return def.clearable ~= false and def.clearTime ~= nil
 end
@@ -128,13 +159,17 @@ end
 --- `placeOn = "waterTable"`, like wells and pumps, needs a tile with a high enough water table;
 --- `placeNear = "road"`, the roadside stand, must touch the road without covering it.)
 ---
+--- `replaces` (anchors) lists the buildings the object goes up over (an upgrade whose object def has `replaces`, the
+--- shack over the camp, D115). They do not block; with one placed the footprint must overlap it (rule "replace"), and
+--- not while the homesteader sleeps in it (rule "replaceAsleep").
+---
 --- `ignoreAnchor`: an object whose footprint counts as free ground (the object being moved, D98).
 function Inventory.check(world, id, i, ignoreHeld, ignoreAnchor)
   local grid = world.state.grid
   local def = world.registry:get("objects", id)
   local x, y = Grid.coords(grid, i)
   local tiles = Grid.footprintTiles(grid, def, x, y)
-  local result = { ok = false, immediate = false, clear = {}, crops = {}, plans = 0, tilled = 0, actor = false }
+  local result = { ok = false, immediate = false, clear = {}, replaces = {}, crops = {}, plans = 0, tilled = 0, actor = false }
   if not tiles then
     result.reason = "bounds"
     return result
@@ -152,11 +187,14 @@ function Inventory.check(world, id, i, ignoreHeld, ignoreAnchor)
     if anchor and anchor ~= ignoreAnchor and not seen[anchor] then
       seen[anchor] = true
       local other = Grid.object(world, t)
-      if not clearable(other) then
+      if def.replaces and other.id == def.replaces then
+        result.replaces[#result.replaces + 1] = anchor -- an upgrade goes up over the old building (D115)
+      elseif not clearable(other) then
         result.reason = "object"
         return result
+      else
+        result.clear[#result.clear + 1] = { anchor = anchor, id = other.id }
       end
-      result.clear[#result.clear + 1] = { anchor = anchor, id = other.id }
     end
     if def.placeOn == "waterTable" and not Land.hasWaterTable(world, t) then
       result.reason, result.rule = "rule", "waterTable" -- wells and pumps need groundwater close to the surface
@@ -200,6 +238,21 @@ function Inventory.check(world, id, i, ignoreHeld, ignoreAnchor)
     result.reason, result.rule = "rule", "water"
     return result
   end
+  if def.replaces then
+    -- An upgrade with the old building standing must go over it; the bed the homesteader sleeps in stays (D115).
+    if #result.replaces == 0 and hasPlaced(world, def.replaces) then
+      result.reason, result.rule = "rule", "replace"
+      return result
+    end
+    for _, anchor in ipairs(result.replaces) do
+      local held = require("src.sim.systems.placement").moveCheck(world, anchor)
+      if not held.ok then
+        result.reason, result.rule = "rule", "replaceAsleep"
+        return result
+      end
+    end
+    table.sort(result.replaces)
+  end
   table.sort(result.clear, function(a, b)
     return a.anchor < b.anchor
   end)
@@ -217,31 +270,70 @@ end
 --- Place an object from inventory at tile i. Returns true on success. Tilled soil under the footprint is
 --- covered (the object remembers which tiles were tilled, `tilled = { [tile] = true }`, so picking it up
 --- can hand the soil back as it was, #15).
+---
+--- An upgrade (`replaces`, the shack over the camp, D115) removes the building it stands over in the same step: no
+--- refund, the old one's tilled-soil record carries over to the tiles the new one covers (the rest goes back to
+--- tilled soil), and an unplaced copy of the old one waiting in the inventory is dropped too. Emits
+--- "object.replaced" { object, old, tile } for each building removed, before "object.placed".
 function Inventory.place(world, id, i)
-  if Inventory.objectCount(world, id) <= 0 or not Inventory.canPlace(world, id, i) then
+  if Inventory.objectCount(world, id) <= 0 then
+    return false
+  end
+  local check = Inventory.check(world, id, i)
+  if not check.immediate then
     return false
   end
   local grid = world.state.grid
+  local def = world.registry:get("objects", id)
   local x, y = Grid.coords(grid, i)
-  local tiles = Grid.footprintTiles(grid, world.registry:get("objects", id), x, y)
+  local tiles = Grid.footprintTiles(grid, def, x, y)
+  local was
+  local removed = {}
+  for _, old in ipairs(check.replaces) do
+    local record = require("src.sim.systems.placement").replaceLift(world, old)
+    removed[#removed + 1] = record.id
+    for t in pairs(record.tilled or {}) do
+      was = was or {}
+      was[t] = true
+    end
+  end
   local anchor = Grid.placeObject(world, id, x, y)
   if not anchor then
     return false
   end
-  local was
+  local covered = {}
   for _, t in ipairs(tiles) do
+    covered[t] = true
     if Crops.cover(world, t, "placement") then
       was = was or {}
       was[t] = true
     end
   end
-  grid.objects[anchor].tilled = was
+  local own
+  for t in pairs(was or {}) do
+    if covered[t] then
+      own = own or {}
+      own[t] = true
+    else
+      Crops.restoreTilled(world, t) -- soil the old building covered and the new one does not
+    end
+  end
+  grid.objects[anchor].tilled = own
   local objects = world.state.inventory.objects
   objects[id] = objects[id] - 1
   if objects[id] <= 0 then
     objects[id] = nil
   end
+  if def.replaces and objects[def.replaces] then
+    objects[def.replaces] = objects[def.replaces] - 1 -- an unplaced old one is not needed any more
+    if objects[def.replaces] <= 0 then
+      objects[def.replaces] = nil
+    end
+  end
   Inventory.refreshStorage(world)
+  for _, old in ipairs(removed) do
+    world.events:emit("object.replaced", { object = id, old = old, tile = anchor })
+  end
   world.events:emit("object.placed", { object = id, tile = anchor })
   return true
 end

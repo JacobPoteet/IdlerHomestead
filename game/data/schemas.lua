@@ -47,6 +47,7 @@ return {
     battery = "number?", -- kWh of storage
     station = "string?", -- processor station id used by recipes (e.g. "smoker")
     shelter = "boolean?", -- the homesteader sleeps here (GDD §5.3 shelter ladder, D82)
+    replaces = "string?", -- object id this one is placed over and removes (the shack over the camp, D115); with one placed, this must overlap it
     shelterRank = "number?", -- shelter: higher is better; Sleep picks the best reachable (truck 0, camp 1, shack 2)
     insulation = "number?", -- shelter: multiplier on the night's warmth need (1 = none, lower keeps more heat)
     recovery = "number?", -- shelter: multiplier on the daily Condition recovery of a fed, warm day
@@ -109,7 +110,11 @@ return {
     name = "string",
     line = "string", -- what it does, for the journal card (<= ~8 words)
     desc = "string?", -- longer text for the store's item card (#266, D107): what it does and how; the card falls back to `line`
-    replaces = "string?", -- catalog id of the item this one supersedes (the card says "Replaces the ..."); no item uses it yet
+    replaces = "string?", -- catalog id of the item this one supersedes (D115): owning this makes that one unavailable ("Owned"), equipment drops the old one's modifiers, an object replaces the old one at placement (objects.replaces); the card says "Replaces the ..."
+    replacesLabel = "string?", -- what an upgrade supersedes when that is not a catalog item (the plain bucket); the card says "Replaces the ..."
+    unique = "boolean?", -- one ever (D114): a second purchase is refused while the first is owned (in the inventory, placed, or ordered); equipment is always unique
+    upgrades = "string?", -- object id of the building this equipment upgrades (the roadside stand, D116); with `overlay` it changes how that building looks
+    overlay = "string?", -- sprite id drawn over the upgraded building while this is owned (placeholder art until #107)
     page = "string", -- catalog page / journal chapter grouping
     price = "number", -- $
     starter = "boolean?", -- known from the start; others are learned in the Field Journal

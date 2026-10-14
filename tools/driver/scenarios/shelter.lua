@@ -63,7 +63,9 @@ return function(d)
   d:frames(2)
   d:shot("camp_card")
 
-  -- The shack and its card.
+  -- The shack and its card. (A shack goes over a standing camp, D115, and the shack scenario shows that; here the camp is
+  -- cleared first so this one still shows a shack on open ground.)
+  Grid.removeObject(world, Grid.index(grid, cx, cy))
   local hx, hy = spot("shack", tx + 2, cy + 4)
   look(hx + 2, hy)
   build("shack", "shack", hx, hy, "shack_preview")

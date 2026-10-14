@@ -8,6 +8,7 @@ local Grid = require("src.sim.grid")
 local Animals = require("src.sim.systems.animals")
 local Calendar = require("src.sim.systems.calendar")
 local Cat = require("src.sim.systems.cat")
+local Inventory = require("src.sim.systems.inventory")
 local Crops = require("src.sim.systems.crops")
 local Machines = require("src.sim.systems.machines")
 local Market = require("src.sim.systems.market")
@@ -27,6 +28,9 @@ local Ambient = require("src.render.ambient")
 local Settings = require("src.core.settings")
 
 local Renderer = {}
+
+local NO_LOOKS = {} -- no upgrade overlays (D116)
+local equipmentScratch = {} -- reused list of owned equipment ids
 Renderer.__index = Renderer
 
 -- Depth-map value for a water tile `dist` tiles from the nearest bank (land = 0). With linear
@@ -481,6 +485,17 @@ function Renderer:draw(alpha, visible, daylight)
     end
   end
   local defs, registry = {}, world.registry -- id -> definition, looked up once per frame
+  -- Upgrade looks (D116): sprites drawn over a building while the equipment that upgrades it is owned.
+  local looks
+  for k = 1, Inventory.fillEquipmentIds(world, equipmentScratch) do
+    local id = equipmentScratch[k]
+    local item = registry:get("catalog", id)
+    if item.upgrades and item.overlay then
+      looks = looks or {}
+      looks[item.upgrades] = looks[item.upgrades] or {}
+      table.insert(looks[item.upgrades], Assets.sprite(item.overlay))
+    end
+  end
   for anchor, obj in pairs(grid.objects) do
     local def = defs[obj.id]
     if not def then
@@ -508,6 +523,9 @@ function Renderer:draw(alpha, visible, daylight)
           end
           if capShader then
             love.graphics.setShader()
+          end
+          for _, look in ipairs(looks and looks[obj.id] or NO_LOOKS) do
+            love.graphics.draw(look.image, look.quad, (x - 1) * tile, bottom - look.h)
           end
           if obj.id == "truck" and TripMarker.visible(Market.canTrip(world), world.state.market.inTown) then
             local cfg = world.tuning.visuals.tripMarker

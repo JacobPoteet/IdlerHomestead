@@ -134,13 +134,22 @@ function Market.cannotBuy(world, id, pickup)
   if item.pickupOnly and not pickup then
     return "pickup only"
   end
-  if item.equipment and Inventory.hasEquipment(world, id) then
-    return "owned"
-  end
-  if item.equipment then
+  -- Purchase limits (D114): equipment and `unique` items are one per run. Owned counts the inventory, the
+  -- land and the orders still on their way; a better tier already owned (or on its way) makes the lower one
+  -- unavailable too (D115).
+  if item.equipment or item.unique then
+    if Inventory.owns(world, id) then
+      return "owned"
+    end
+    if Inventory.supersededBy(world, id) then
+      return "replaced"
+    end
     for _, order in ipairs(world.state.market.orders) do
       if order.item == id then
         return "ordered"
+      end
+      if world.registry:get("catalog", order.item).replaces == id then
+        return "replaced"
       end
     end
   end
