@@ -550,3 +550,19 @@ T.test("ftue highlight: targets resolve to a rect, fall back, and a missing targ
   T.eq(Highlight.visible(nil, view), nil)
   T.truthy(Highlight.phase(7.3, 1.2) >= 0 and Highlight.phase(7.3, 1.2) < 1)
 end)
+
+T.test("ftue tips list: geometry comes from tuning.ftue, not literals in the scene", function()
+  for _, key in ipairs({
+    "tipsColumns", "tipsMaxColumns", "tipsBaseWidth", "tipsColumnWidth", "tipsMinColumnWidth", "tipsViewMargin",
+    "tipsRowHeight", "tipsRowGap", "tipsPadding", "tipsHeaderHeight", "tipsLegendHeight", "tipsTitleTop", "tipsLegendNudge",
+  }) do
+    T.truthy(type(tun.ftue[key]) == "number" and tun.ftue[key] > 0, "tuning.ftue." .. key .. " is a positive number")
+  end
+  local fh = assert(io.open("game/src/scenes/tips.lua", "r"))
+  local text = fh:read("*a")
+  fh:close()
+  for line in text:gmatch("[^\n]+") do
+    local code = line:gsub("%-%-.*$", ""):gsub('"[^"]*"', '""')
+    T.falsy(code:find("[^%w_.]%d%d+[^%w_.]") or code:find("[^%w_.]%d%d+$"), "numeric literal in tips.lua: " .. line)
+  end
+end)
