@@ -12,6 +12,7 @@ return {
     filmGrain = true, -- film grain over the world
     gradeStrength = 1, -- 0..1 share of the colour grade (tint, saturation, vignette) applied
     ambientFx = true, -- fireflies, dust motes, mist, cloud shadows and rain streaks
+    depthOfField = false, -- soften the top and bottom of the view on the art-pixel grid (a miniature look; #283)
     volumeMaster = 0.8, -- 0..1 slider; scales every sound (the sound is mastered quiet, so 0.8 is a comfortable start)
     volumeMusic = 0.6, -- 0..1 slider; music bus (no tracks yet)
     volumeAmbience = 0.7, -- 0..1 slider; nature beds, weather and fire crackle

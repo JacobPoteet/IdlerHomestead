@@ -229,6 +229,14 @@ return {
     minHeight = 7, -- art pixels: sprites shorter than this cast no shadow
     contactMaxWidth = 26, -- art pixels, the widest contact shadow
     contactWidth = 0.8, -- share of the sprite's width the contact shadow spans
+    dapple = { -- leaf dapple: sun flecks through a tree canopy's cast shadow (shaders/shadow_composite.glsl); trees opt in with `dapple` in data/content/objects.lua
+      strength = 0.9, -- 0..1 share of the shadow a fleck's bright heart takes away (0 = no dapple)
+      shade = 1.5, -- multiplier on a canopy's cast shadow between the flecks (leaves shade deeper than a post or a wall)
+      cover = 0.34, -- 0..1 share of a canopy's shadow that is fleck (its half-lit rim included)
+      scale = 0.32, -- fleck noise frequency, 1/art pixels (0.32 = flecks about 3 art pixels across)
+      sway = 1.6, -- art pixels the flecks shuffle at wind strength 1 (whole pixels, on the sway clock)
+      calmSway = 0.35, -- 0..1 share of that shuffle left on a still day (the leaves never stop quite)
+    },
   },
   reflections = { -- the creek mirrors what stands on its bank (shaders/water.glsl, D130)
     enabled = true,
@@ -257,6 +265,23 @@ return {
     steps = 3, -- times a second the flashing pixels move on
     cloudKill = 0.8, -- 0..1 share of the sparkle lost under full cloud cover
   },
+  rim = { -- warm rim light on the sun side of sprites on golden afternoons (shaders/rim.glsl and sway.glsl, #283)
+    enabled = true,
+    seasons = { spring = 0, summer = 0, autumn = 1, winter = 0 }, -- season id -> 0..1 how much rim light it has (autumn's low golden sun)
+    strength = 0.36, -- 0..1 brightness added on a rim pixel at the lowest sun of a clear autumn day
+    color = { 1.00, 0.70, 0.36 }, -- warm light (graded afterwards)
+    noonShare = 0.35, -- 0..1 share of the rim left at noon (it grows as the sun sinks)
+    horizon = 0.12, -- 0..1 sun height below which the rim fades out with the light
+    cloudKill = 0.9, -- 0..1 share of the rim lost under full cloud cover (it needs direct sun)
+    top = 0.7, -- 0..1 how much the top edges catch (the sun is up-screen, the way the shadows fall)
+    sideGain = 1.6, -- how fast the sunward side's share grows as the sun moves off noon (1 at side 1/sideGain)
+    inkLuma = 0.16, -- brightness below which a pixel is outline: the rim sits just inside it and the outline stays dark
+  },
+  depthOfField = { -- optional softening of the top and bottom of the view (shaders/grade.glsl, #283); the player turns it on in Settings > Visuals
+    strength = 0.85, -- 0..1 how much of the softened picture shows at the very edge
+    clear = 0.5, -- 0..1 share of the half-height, out from the middle of the view, that stays sharp
+    steps = 3, -- steps the softening takes toward the edge (whole art pixels: 1 then 2 pixels of spread)
+  },
   bloom = { -- glow round bright pixels (shaders/bloom_*.glsl, D129): lamps, fires, lit windows, snow in the sun
     enabled = true,
     threshold = 0.66, -- 0..1 brightness (of the brightest channel) where glow starts
@@ -273,9 +298,10 @@ return {
     intensity = 1.0, -- 0..1 brightness at the centre of a light at full darkness, in the light buffer
     gain = 1.15, -- how strongly the light brightens and warms the picture it reaches (multiplies the lit pixels, D128)
     glow = 0.16, -- how much of the light is also added flat, so a lamp core stays bright and dark ground still shows it
-    bands = 4, -- number of pixel-art brightness steps in the falloff
-    falloff = 1.6, -- exponent of the falloff (higher = tighter, brighter core)
-    dither = 0.12, -- 0..1 ordered dither between bands, on the art-pixel grid
+    neutral = 0.6, -- 0..1 how far a lit colour is pulled toward grey before the light tints it, so firelight on grass reads warm, not olive
+    bands = 6, -- number of pixel-art brightness steps in the falloff (more steps = a smaller jump at the pool's edge)
+    falloff = 1.8, -- exponent of the falloff (higher = tighter, brighter core)
+    dither = 0.28, -- 0..1 ordered dither between bands, on the art-pixel grid (it interleaves the steps so no ring reads as a hard edge)
     flickerSpeed = 7, -- flicker steps per second (the glow radius jumps in whole art pixels)
     coreSize = 3, -- art pixels, the bright core drawn at the centre of a light that has no window (flame, bulb)
     coreGlow = 0.4, -- 0..1 brightness of that core at full darkness

@@ -26,10 +26,10 @@ uniform float daylight;      // 0..1 from the lighting system
 uniform float ice;           // 0 = open water .. 1 = frozen solid
 uniform vec3 iceColor;
 uniform vec3 iceDeepColor;
-uniform Image reflection;   // the bank's objects mirrored below their feet, in the world canvas's own pixels (transparent elsewhere)
+uniform Image reflection;   // the bank's objects mirrored below their feet, one texel per world art pixel (transparent elsewhere)
 uniform float reflectionOn;  // 0 = no reflections this frame (the image is not read)
-uniform vec2 reflectionSize; // the reflection canvas in pixels (the same size as the world canvas)
-uniform float pixelSize;     // canvas pixels per art pixel, so the ripple shifts the reflection by whole art pixels
+uniform vec2 reflectionOrigin; // world art pixel at the reflection canvas's top-left
+uniform vec2 reflectionSize; // the reflection canvas in texels
 uniform float reflectOpacity; // 0..1 how much of a reflection shows at the bank
 uniform float reflectDistort; // art pixels the ripples push the reflection sideways at most
 uniform vec3 reflectTint;    // colour multiplier on the reflected picture (darker and bluer than the real thing)
@@ -95,7 +95,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     if (reflectionOn > 0.0 && ice < 1.0) {
         float row = floor(sin(px.y * 0.9 + time * 1.7) * 1.4 + 0.5);
         float push = floor((ripple - 0.5) * reflectDistort * 2.0 + 0.5);
-        vec2 ruv = (screen + vec2((row + push) * pixelSize, 0.0)) / reflectionSize;
+        vec2 ruv = (px - reflectionOrigin + vec2(row + push, 0.0)) / reflectionSize;
         vec4 r = Texel(reflection, ruv);
         float fade = 1.0 - 0.5 * smoothstep(bankDepth, 0.9, depth);
         col = mix(col, r.rgb * reflectTint, step(0.5, r.a) * reflectOpacity * fade * (1.0 - ice));

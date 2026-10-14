@@ -157,6 +157,15 @@ function M.build(tuning)
       end,
     },
     {
+      id = "depthOfField",
+      label = "Depth of field",
+      kind = "toggle",
+      group = "Visuals",
+      note = function()
+        return "Softens the top and bottom of the view, like a miniature."
+      end,
+    },
+    {
       id = "volumeMaster",
       label = "Master volume",
       kind = "slider",

@@ -14,7 +14,7 @@ return {
     yields = { scrap = { 1, 3 }, money = { 2, 6 } },
     autoClear = true,
   },
-  { id = "tree", name = "Tree", blocks = true, clearTime = 14, yields = { wood = { 6, 9 } }, chop = true, fell = true, sway = { weight = 1.2, root = 0.45 } }, -- only the canopy sways: the lower 45% of the sprite (the trunk) stays put
+  { id = "tree", name = "Tree", blocks = true, clearTime = 14, yields = { wood = { 6, 9 } }, chop = true, fell = true, sway = { weight = 1.2, root = 0.45 }, dapple = true }, -- only the canopy sways: the lower 45% of the sprite (the trunk) stays put
   {
     id = "truck",
     name = "Electric truck",

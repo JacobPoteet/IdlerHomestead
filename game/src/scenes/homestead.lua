@@ -2962,15 +2962,9 @@ function Homestead:draw()
   love.graphics.origin()
   local haze = self.renderer:heatHaze(self.camera, view, { x1, y1, x2, y2 }, daylight)
   -- Night lights are painted into the light buffer, which the grade reads (D128).
-  local lightMap
   love.graphics.push("all")
-  local buffer = self.renderer:lightBuffer(self.canvas:getWidth(), self.canvas:getHeight())
-  love.graphics.setCanvas(buffer)
-  love.graphics.clear(0, 0, 0, 1)
   self.camera:attach(view)
-  if self.renderer:drawLights({ x1, y1, x2, y2 }, daylight) > 0 then
-    lightMap = buffer
-  end
+  local lights = self.renderer:paintLights({ x1, y1, x2, y2 }, daylight, self.canvas:getWidth(), self.canvas:getHeight())
   love.graphics.pop() -- the camera transform
   love.graphics.pop()
   local bloom = self.renderer:bloomOn()
@@ -2982,7 +2976,8 @@ function Homestead:draw()
     love.graphics.setCanvas(graded)
     love.graphics.clear(0, 0, 0, 1)
   end
-  self.renderer:drawGraded(self.canvas, tint, light, view.scale * self.camera:zoom(), haze, lightMap)
+  local ox, oy = self.renderer.screenGrid(self.camera, view)
+  self.renderer:drawGraded(self.canvas, tint, light, view.scale * self.camera:zoom(), haze, lights, { ox, oy })
   if bloom then
     love.graphics.push("all")
     self.camera:attach(view)
