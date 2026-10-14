@@ -93,6 +93,7 @@ Helper API (`tools/driver/driver.lua`):
 | `d:labels()` | Labels on the top scene, handy while writing a scenario. |
 | `d:pick(label)` | Press a toolbar button on the bar or inside the Tools / More palette (narrow views). |
 | `d:click(vx, vy)`, `d:clickPixel(px, py)` | Click at a virtual or window position, through the real mouse handler. |
+| `d:hold(vx, vy, seconds)` | Press, hold for scripted seconds, release (hold-to-repeat steppers). |
 | `d:clickTile(tx, ty)` | Click a homestead tile, centring the camera on it if off screen. |
 | `d:drag(x1, y1, x2, y2 [, steps])` | Swipe from one virtual position to another through the mouse handler (scrolls a list, never counts as a tap). |
 | `d:wheel(notches, vx, vy)` | Turn the mouse wheel (positive = up) with the pointer at a virtual position. |

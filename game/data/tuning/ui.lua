@@ -296,6 +296,12 @@ return {
     weatherDays = 3, -- days of weather the weather chip shows as icons, today first (capped by what the forecast reveals)
     iconGap = 1, -- virtual pixels between the weather chip's day icons
   },
+  holdRepeat = { -- hold-to-repeat on the Pantry keep and truck load steppers (D119, #201); real (UI clock) seconds, so it ignores sim speed and pause
+    delay = 0.45, -- seconds a press is held before the first repeat (a quick tap is still exactly one step)
+    rate = 10, -- repeats per second once repeating
+    stageTicks = 6, -- repeats at each step size before the step grows to the next one in stageUnits
+    stageUnits = { 1, 5, 10 }, -- units moved per repeat, stage by stage; the last stage holds until release
+  },
   modal = { -- the short chip modals (D112, #267)
     width = 260, -- virtual pixels: widest a chip modal gets (narrower on small views)
     rowGap = 2, -- virtual pixels between rows

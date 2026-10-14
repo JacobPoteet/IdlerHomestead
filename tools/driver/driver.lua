@@ -105,6 +105,18 @@ function Driver:click(vx, vy)
   self:clickPixel(vx * s, vy * s)
 end
 
+--- Press and hold at a virtual position for `seconds` of scripted frames, then release (hold-to-repeat
+--- steppers, D119). Scripted frames carry no wall-clock time, so the long-press never fires here.
+function Driver:hold(vx, vy, seconds)
+  local s = self.game.app.view.scale
+  local input = self.game.input
+  input:mousemoved(vx * s, vy * s, 0, 0, false)
+  input:mousepressed(vx * s, vy * s, 1, false)
+  self:frames(math.ceil(seconds / FRAME))
+  input:mousereleased(vx * s, vy * s, 1, false)
+  self:frames(2)
+end
+
 --- Drag from one virtual position to another through the mouse handler, in a few steps (a finger
 --- swipe). The release afterwards is a real release, so a drag never counts as a tap.
 function Driver:drag(vx1, vy1, vx2, vy2, steps)

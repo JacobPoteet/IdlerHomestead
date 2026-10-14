@@ -1,6 +1,6 @@
 -- Load the truck (GDD §6.4, D75, #196): choose what goes to town on the next trip. Every sellable good
 -- in stock is listed with its spare (stock above its keep target), its keep and its price; - and +
--- change the load one unit at a time, +5 five, All takes all the spare. Auto-load fills the free cargo
+-- change the load one unit at a time, +5 five, All takes all the spare; holding - + or +5 repeats and speeds up (D119). Auto-load fills the free cargo
 -- (best price per unit first, then what spoils soonest, never below a keep target) and Clear empties
 -- the truck. Loading into a keep target asks first (the reserve guard): the warning reads the winter
 -- readiness and needs accessors, so it says what the homestead would be short of.
@@ -22,7 +22,7 @@ Load.__index = Load
 
 local ROW_H = 36 -- name line plus the spare / keep / price line; clears the touch target with a gap
 local HELP_Y = 64 -- virtual pixels from the panel top to the help line; the list starts under it
-local HELP = "Spare = stock above what you keep (set in the Pantry). Auto-load takes the best price first."
+local HELP = "Spare = stock above what you keep (set in the Pantry). Auto-load takes the best price first. Hold - + or +5 to go faster."
 -- Row controls, measured from the panel's right edge.
 local COL = { all = 44, five = 78, plus = 106, count = 132, minus = 156 }
 
@@ -116,6 +116,29 @@ function Load:request(id, units)
   self:layout()
 end
 
+-- One hold-to-repeat step (D119): move the load of `id` by `delta` units. Never opens the reserve
+-- prompt: a rising hold stops at the spare, and a full truck says so once. Returns false to end the hold.
+function Load:stepLoad(id, delta)
+  local world = self.world
+  local loaded = Market.loaded(world, id)
+  if delta < 0 then
+    Market.setLoad(world, id, loaded + delta)
+    self:layout()
+    return Market.loaded(world, id) > 0
+  end
+  local spare = math.max(0, Ledger.get(world, id) - (Food.keeps(world)[id] or 0))
+  if loaded >= spare then
+    return false
+  end
+  local _, reason = Market.setLoad(world, id, math.min(loaded + delta, spare))
+  self:layout()
+  if reason == "cargo full" then
+    self.onToast(string.format("The truck is full (%d units)", Market.cargoCapacity(world)))
+    return false
+  end
+  return reason == nil
+end
+
 function Load:layout()
   local b, world = self.box, self.world
   local right = b.x + b.w
@@ -173,17 +196,26 @@ function Load:layout()
       local spare = math.max(0, stock - keep)
       self.rows[#self.rows + 1] = { res = res, y = y, stock = stock, keep = keep, loaded = loaded, spare = spare }
       local by = y + 6
-      local function add(x, w, label, enabled, onPress)
-        self.rowButtons:add({ x = right - x, y = by, w = w, h = 24, label = label, size = "small", enabled = enabled and not town, onPress = onPress })
+      local function add(x, w, label, enabled, onPress, onRepeat)
+        self.rowButtons:add({
+          x = right - x, y = by, w = w, h = 24, label = label, size = "small",
+          enabled = enabled and not town, onPress = onPress, onRepeat = onRepeat,
+        })
       end
       add(COL.minus, 24, "-", loaded > 0, function()
         self:request(id, loaded - 1)
+      end, function(units)
+        return self:stepLoad(id, -units)
       end)
       add(COL.plus, 24, "+", loaded < stock, function()
         self:request(id, loaded + 1)
+      end, function(units)
+        return self:stepLoad(id, units)
       end)
       add(COL.five, 30, "+5", loaded < stock, function()
         self:request(id, loaded + 5)
+      end, function(units)
+        return self:stepLoad(id, units * 5)
       end)
       add(COL.all, 32, "All", loaded < spare, function()
         self:request(id, spare)
@@ -201,6 +233,7 @@ function Load:footerText()
 end
 
 function Load:update(dt)
+  self.rowButtons:update(dt, self.app.ctx.tuning.ui.holdRepeat) -- real time: same at any sim speed
   self.refresh = (self.refresh or 0) - dt
   if self.refresh <= 0 then
     self.refresh = 0.5

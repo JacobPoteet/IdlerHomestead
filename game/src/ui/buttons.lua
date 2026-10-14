@@ -4,6 +4,7 @@
 
 local theme = require("src.ui.theme")
 local Text = require("src.ui.text")
+local HoldRepeat = require("src.ui.hold_repeat")
 local Assets = require("src.render.assets")
 
 local Buttons = {}
@@ -29,7 +30,10 @@ function Buttons:clear()
 end
 
 --- b: { x, y, w, h, label, onPress, enabled = true, style = "normal"|"danger"|"accent", size,
----      icon = spriteId, selected = bool }
+---      icon = spriteId, selected = bool, onRepeat = function(units) -> false to stop }
+--- `onRepeat` makes a stepper: a tap still calls onPress, and holding the button calls onRepeat with
+--- the units to move (see Buttons:update and src/ui/hold_repeat.lua); a hold that repeated does not
+--- also fire onPress on release.
 function Buttons:add(b)
   b.w = math.max(b.w, self.minSize)
   b.h = math.max(b.h, self.minSize)
@@ -65,13 +69,21 @@ function Buttons:action(name, data)
   elseif name == "press" then
     local b = self:hit(data.x, data.y)
     self.pressed = b and b.enabled and b or nil
+    self.swallow = false
+    self.hold = self.pressed and self.pressed.onRepeat and { elapsed = 0, fired = false } or nil
     return b ~= nil
   elseif name == "release" then
     self.pressed = nil
+    self.swallow = self.hold ~= nil and self.hold.fired -- the repeats already did the work
+    self.hold = nil
     return false
   elseif name == "select" then
     local b = self:hit(data.x, data.y)
     if b then
+      if self.swallow then
+        self.swallow = false
+        return true
+      end
       if b.enabled and b.onPress then
         if Buttons.onActivate then
           Buttons.onActivate(b) -- the audio service's tap sound (D100); nil in tests
@@ -82,6 +94,32 @@ function Buttons:action(name, data)
     end
   end
   return false
+end
+
+--- Drive hold-to-repeat with real (UI clock) seconds: scenes with steppers call this every frame
+--- with their `tuning.ui.holdRepeat`. Does nothing unless a button with `onRepeat` is held.
+function Buttons:update(dt, cfg)
+  local hold = self.hold
+  if not hold then
+    return
+  end
+  local b = self.pressed
+  if not b or not b.onRepeat then
+    self.hold = nil -- the held button went away (the list scrolled or relaid out)
+    return
+  end
+  if hold.stopped then
+    return
+  end
+  local prev = hold.elapsed
+  hold.elapsed = prev + dt
+  local units = HoldRepeat.units(prev, hold.elapsed, cfg)
+  if units > 0 then
+    hold.fired = true
+    if b.onRepeat(units) == false then
+      hold.stopped = true -- e.g. the number hit its limit; the hold ends quietly
+    end
+  end
 end
 
 function Buttons:draw()
