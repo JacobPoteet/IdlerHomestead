@@ -117,3 +117,5 @@ Also `perf` (D103: no screenshots; prints the CPU milliseconds of a busy frame, 
 Also `money` (D88: the first-junk money card and the Catalog line when money is under the cheapest order); the `starter` scenario now also shoots the starter-field toast.
 
 Also `topbar` (D112, #267: the top-bar chips with their fill bars, level marks, trend arrows and weather glyphs in a mixed, a fine and a short state, and the short modal of every chip; finals are `docs/screens/topbar_*`).
+
+Also `greatwinter` (D117, #277: the full, named forecast pill on the first day of autumn of the Great Winter's year, the winter itself, and the one-time Established card on the first thaw; finals are `docs/screens/greatwinter-*`).

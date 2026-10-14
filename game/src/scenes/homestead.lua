@@ -19,6 +19,7 @@ local Actors = require("src.sim.systems.actors")
 local Crops = require("src.sim.systems.crops")
 local Needs = require("src.sim.systems.needs")
 local Food = require("src.sim.systems.food")
+local Established = require("src.sim.systems.established")
 local Ftue = require("src.sim.systems.ftue")
 local Spoilage = require("src.sim.systems.spoilage")
 local Inventory = require("src.sim.systems.inventory")
@@ -315,7 +316,10 @@ function Homestead:subscribe()
       end
     end),
     events:on("weather.forecast", function(e)
-      self:newsToast(Forecast.news(world, e.piece))
+      local news = Forecast.news(world, e.piece)
+      if news then
+        self:newsToast(news)
+      end
     end),
     events:on("weather.changed", function(e)
       local news = Forecast.weatherNews(world, e.kind)
@@ -445,6 +449,25 @@ function Homestead:spoilageNews()
     -- Ahead of the note the same night may have written, which waits behind it.
     self:urgentToast(SpoilText.summary(world, report))
   end
+end
+
+--- The one-time "Established" card (D117, #277): the slot's first Great Winter survived. It waits for the
+--- homestead to be on top and the homesteader to be up (a modal open, or asleep, queues it), and the mark's
+--- `seen` flag keeps it from ever showing twice on a slot, across saves and later runs.
+function Homestead:establishedNews()
+  local meta = self.world.meta
+  if not Established.cardDue(meta) or self.session:sleeping() or self.app:top() ~= self or Finds.pending(self.world) then
+    return
+  end
+  Established.cardShown(meta)
+  local t = self.app.ctx.tuning.ui.greatWinter
+  self:record(t.logLine)
+  self.app:push(require("src.scenes.notice").new({
+    title = t.cardTitle,
+    headline = t.cardHeadline,
+    message = t.cardMessage,
+    okLabel = t.cardOk,
+  }))
 end
 
 --- The date a message log line is stamped with.
@@ -1493,6 +1516,7 @@ function Homestead:update(dt)
     return
   end
   self:spoilageNews()
+  self:establishedNews()
   if self:cardIdNow() ~= self.cardId then
     self:layoutCard()
   end

@@ -171,7 +171,7 @@ local function warmthPlan(world)
   local t = world.tuning
   local now = Calendar.now(world)
   local cfg = t.weather
-  local severity = cfg.severityMax + cfg.severityPerYear * (now.year - 1)
+  local severity = Weather.severityBound(world, now.year)
   local total = 0
   for s = now.seasonIndex, #t.time.seasons do
     local season = t.time.seasons[s]
@@ -609,7 +609,7 @@ local function fuelUrgent(world)
   local upcoming = t.time.seasons[now.seasonIndex % #t.time.seasons + 1]
   local night = math.max(Weather.baseWarmth(world, now.season, now.dayOfSeason), Weather.baseWarmth(world, upcoming, now.dayOfSeason))
   if Weather.isFrozenSeason(world, upcoming) or Weather.isFrozenSeason(world, now.season) then
-    night = night * (t.weather.severityMax + t.weather.severityPerYear * (now.year - 1))
+    night = night * Weather.severityBound(world, now.year)
   end
   return warmthDeficit(world) > 0 and Needs.warmthInStock(world) < night * POLICY.urgentFuelNights
 end

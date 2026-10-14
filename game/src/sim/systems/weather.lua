@@ -6,6 +6,10 @@
 -- In frozen seasons the ground and creek freeze: crops stop growing (see crops.lua) and getting at
 -- the water means cutting an ice hole first (holes stay open until the thaw).
 --
+-- The winter of tuning.progress.greatWinterYear is the Great Winter (D117): shaped after the ordinary roll
+-- (same draws) to be at least the run's worst earlier severity plus a boost, with a snap of a minimum length,
+-- and forecast in full from the first day of autumn.
+--
 -- State: world.state.weather = {
 --   winters = { [year] = { severity, snapStart, snapDays } },
 --   revealed = { [year] = forecast pieces revealed (0..#forecastDays) },
@@ -28,6 +32,37 @@ local function state(world)
   return world.state.weather
 end
 
+--- Is `year`'s winter the Great Winter (D117): the hardest this run faces, announced from the start of autumn?
+function Weather.isGreatWinterYear(world, year)
+  return year == world.tuning.progress.greatWinterYear
+end
+
+--- The highest severity the winter of `year` can roll before the Great Winter's floor (D37: the range grows each year).
+local function severityCeiling(world, year)
+  local cfg = world.tuning.weather
+  return cfg.severityMax + cfg.severityPerYear * (year - 1)
+end
+
+--- The run's worst winter severity before `year`: the rolled one where it is known, else the most it could roll.
+local function worstBefore(world, year)
+  local worst = 0
+  for y = 1, year - 1 do
+    local winter = state(world).winters[y]
+    worst = math.max(worst, winter and winter.severity or severityCeiling(world, y))
+  end
+  return worst
+end
+
+--- The most severe winter `year` can still turn out to be, for planning where the forecast is silent: the
+--- roll's top end, or for the Great Winter the run's worst so far plus the boost if that is higher.
+function Weather.severityBound(world, year)
+  local bound = severityCeiling(world, year)
+  if Weather.isGreatWinterYear(world, year) then
+    bound = math.max(bound, worstBefore(world, year) + world.tuning.progress.greatWinterBoost)
+  end
+  return bound
+end
+
 local function rollWinter(world, year)
   local cfg = world.tuning.weather
   local rng = world:rng("weather")
@@ -40,6 +75,13 @@ local function rollWinter(world, year)
     snapStart = rng:int(cfg.snapStartMin, cfg.snapStartMax),
     snapDays = rng:int(cfg.snapDaysMin, cfg.snapDaysMax) + extraSnap,
   }
+  if Weather.isGreatWinterYear(world, year) then
+    -- The Great Winter (D117) is shaped after the roll, so the draws, and every other winter, are unchanged.
+    local progress = world.tuning.progress
+    local atLeast = math.floor((worstBefore(world, year) + progress.greatWinterBoost) * 100 + 0.5) / 100
+    winter.severity = math.max(winter.severity, atLeast)
+    winter.snapDays = math.max(winter.snapDays, progress.greatWinterSnapDays)
+  end
   state(world).winters[year] = winter
   return winter
 end
@@ -305,6 +347,7 @@ function Weather.forecast(world)
   local winter = Weather.winter(world, year)
   local n = state(world).revealed[year] or 0
   return {
+    great = Weather.isGreatWinterYear(world, year), -- the Great Winter (D117): named in the warning
     severity = n >= 1 and winter.severity or nil,
     snapStart = n >= 2 and winter.snapStart or nil,
     snapDays = n >= 3 and winter.snapDays or nil,
@@ -337,7 +380,9 @@ local function revealForecast(world)
   local lead = Stats.modifier(world, "forecastLead")
   local revealed = state(world).revealed
   local n = revealed[now.year] or 0
-  while n < #days and (inWinter or now.dayOfSeason >= days[n + 1] - lead) do
+  -- The Great Winter is announced in full from the first day of autumn (D117).
+  local announced = Weather.isGreatWinterYear(world, now.year)
+  while n < #days and (inWinter or announced or now.dayOfSeason >= days[n + 1] - lead) do
     n = n + 1
     revealed[now.year] = n
     world.events:emit("weather.forecast", { year = now.year, piece = n })
