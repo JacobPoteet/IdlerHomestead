@@ -7,6 +7,7 @@ local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Power = require("src.sim.systems.power")
 local Buttons = require("src.ui.buttons")
+local ItemCard = require("src.ui.item_card")
 local Panel = require("src.ui.panel")
 local ScrollList = require("src.ui.scroll_list")
 local Text = require("src.ui.text")
@@ -68,6 +69,25 @@ function Truck:enter()
   self.shopButtons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
   local relayout = function() self:layout() end
   self.shop, self.loadList = ScrollList.new(relayout), ScrollList.new(relayout)
+  self.card = ItemCard.new(self.app.ctx.tuning.input.minTouchTarget)
+end
+
+--- Open the item card for a shop row (#266).
+function Truck:showCard(item)
+  self.card:open(self.world, item.id, true, function()
+    return self:buy(item)
+  end)
+  self.card:layout(self.app.view)
+end
+
+--- Buy `item` in town (from a row button or the item card). True when it went through.
+function Truck:buy(item)
+  local ok = Market.buyInTown(self.world, item.id)
+  if ok then
+    self.onToast("Bought " .. item.name)
+  end
+  self:layout()
+  return ok and true or false
 end
 
 function Truck:inTown()
@@ -197,10 +217,7 @@ function Truck:layout()
       enabled = reason == nil,
       style = world.state.market.specials[item.id] and "accent" or nil,
       onPress = function()
-        if Market.buyInTown(world, item.id) then
-          self.onToast("Bought " .. item.name)
-        end
-        self:layout()
+        self:buy(item)
       end,
     })
     ::continue::
@@ -212,10 +229,27 @@ function Truck:update(dt)
   if self.refresh <= 0 then
     self.refresh = 0.5
     self:layout()
+    self.card:layout(self.app.view)
   end
 end
 
+--- The shop item whose row is under view point (x, y), or nil.
+function Truck:rowAt(x, y)
+  if not self.shop:contains(x, y) then
+    return nil
+  end
+  for _, row in ipairs(self.shopRows or {}) do
+    if y >= row.y and y < row.y + ROW_H then
+      return row.item
+    end
+  end
+  return nil
+end
+
 function Truck:action(name, data)
+  if self.card:isOpen() then -- the item card is modal (#266)
+    return self.card:action(name, data)
+  end
   if name == "press" or name == "release" then
     self.shop:action(name, data)
     self.loadList:action(name, data)
@@ -231,6 +265,17 @@ function Truck:action(name, data)
     if name == "press" or name == "select" or name == "hover" then
       if self.shop:contains(data.x, data.y) and self.shopButtons:action(name, data) then
         return true
+      end
+      -- A tap on the rest of a shop row shows what the item is before buying (#266).
+      local item = name == "select" and self:rowAt(data.x, data.y)
+      if item then
+        self:showCard(item)
+        return true
+      end
+    elseif name == "context" then -- a long-press or right click shows the same card
+      local item = self:rowAt(data.x, data.y)
+      if item then
+        self:showCard(item)
       end
     elseif name == "release" then
       self.shopButtons:action(name, data)
@@ -326,6 +371,7 @@ function Truck:draw()
     self.shop:drawCue(self.app.ctx.tuning.ui)
   end
   self.buttons:draw()
+  self.card:draw(self.app.view)
 end
 
 return Truck
