@@ -23,7 +23,17 @@ return function(d)
   d:advance(1)
   local scene, view = d:scene(), d.game.app.view
   local known = world.meta.journal.known
-  for _, id in ipairs({ "woodshed", "smoker", "sturdy_rod", "big_bucket", "camp", "shack", "roadside_stand", "stand_sign", "chicken_coop" }) do
+  for _, id in ipairs({
+    "woodshed",
+    "smoker",
+    "sturdy_rod",
+    "big_bucket",
+    "camp",
+    "shack",
+    "roadside_stand",
+    "stand_sign",
+    "chicken_coop",
+  }) do
     known[id] = true
   end
   Ledger.add(world, "money", 300)
@@ -44,7 +54,8 @@ return function(d)
   local bx, by = Grid.coords(grid, best)
   local cx, cy = scene.camera:tileToWorld(bx + 1, by + 0.5)
   scene.camera:centerOn(cx, cy, view)
-  world.state.calendar.elapsed = ((world.state.calendar.day - 1 + 11 / 24) - world.tuning.time.startHour / 24) * world.tuning.time.dayLength
+  world.state.calendar.elapsed = ((world.state.calendar.day - 1 + 11 / 24) - world.tuning.time.startHour / 24)
+    * world.tuning.time.dayLength
   world.state.weather.sky.days[1] = "clear"
   scene.selected = best
   d:frames(3)

@@ -38,7 +38,11 @@ return function(d)
   local siteX, siteY = Grid.coords(grid, site)
   for anchor, obj in pairs(grid.objects) do
     local x, y = Grid.coords(grid, anchor)
-    if world.registry:get("objects", obj.id).clearable ~= false and math.abs(x - siteX) <= 8 and math.abs(y - siteY) <= 9 then
+    if
+      world.registry:get("objects", obj.id).clearable ~= false
+      and math.abs(x - siteX) <= 8
+      and math.abs(y - siteY) <= 9
+    then
       Grid.removeObject(world, anchor)
     end
   end
@@ -61,7 +65,12 @@ return function(d)
   for y = dy - 2, dy + 2 do
     for x = dx - 2, dx + 2 do
       local i = Grid.index(grid, x, y)
-      if Grid.inBounds(grid, x, y) and Grid.terrain(world, i).tillable and not world.occupancy[i] and not Crops.tileInUse(world, i) then
+      if
+        Grid.inBounds(grid, x, y)
+        and Grid.terrain(world, i).tillable
+        and not world.occupancy[i]
+        and not Crops.tileInUse(world, i)
+      then
         world.state.fields.tilled[i] = true
         world.state.fields.plan[i] = "radish"
         patch = patch + 1

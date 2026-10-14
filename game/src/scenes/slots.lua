@@ -61,7 +61,9 @@ end
 function Slots.outdatedText(name, compat)
   local which = compat == "newer" and "a newer" or "an older"
   return "Can't load " .. (name or "this save"),
-    "This save is from " .. which .. " version and can't be loaded. Delete it to use the slot again, "
+    "This save is from "
+      .. which
+      .. " version and can't be loaded. Delete it to use the slot again, "
       .. "or keep it: the file stays exactly as it is."
 end
 

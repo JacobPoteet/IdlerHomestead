@@ -66,9 +66,19 @@ function AlertText.frost(world, cropId)
   end
   local name = world.registry:get("crops", cropId).name
   if risk.level == "late" then
-    return string.format("Won't ripen before winter: %s needs %s, %d left", name, plural(risk.growDays, "watered day"), risk.daysLeft)
+    return string.format(
+      "Won't ripen before winter: %s needs %s, %d left",
+      name,
+      plural(risk.growDays, "watered day"),
+      risk.daysLeft
+    )
   end
-  return string.format("Cutting it close: %s needs %s, %d left before winter", name, plural(risk.growDays, "watered day"), risk.daysLeft)
+  return string.format(
+    "Cutting it close: %s needs %s, %d left before winter",
+    name,
+    plural(risk.growDays, "watered day"),
+    risk.daysLeft
+  )
 end
 
 --- A line for the tile card of a crop in the ground, or nil: how long it has against the freeze.
@@ -133,7 +143,10 @@ function AlertText.readinessCard(world)
     r.fuel.woodNeed
   )
   if r.electric.total > 0 then
-    lines[#lines + 1] = string.format("Electric: your heaters should make about %.0f warmth a night, so wood covers the rest.", r.electric.perNight)
+    lines[#lines + 1] = string.format(
+      "Electric: your heaters should make about %.0f warmth a night, so wood covers the rest.",
+      r.electric.perNight
+    )
   end
   if r.noFire then
     lines[#lines + 1] = "No fire is placed, so wood does nothing yet. Place a campfire or stove."

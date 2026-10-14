@@ -129,7 +129,14 @@ end)
 T.test("large chapter: reveal centres a node, hits honour the scroll offset", function()
   local nav = Nav.new()
   local chapters = { big(80) }
-  local data = { chapters = chapters, stats = Layout.allStats(chapters, function() return "known" end), groups = Layout.groups(chapters, "Other"), ideaCount = 0 }
+  local data = {
+    chapters = chapters,
+    stats = Layout.allStats(chapters, function()
+      return "known"
+    end),
+    groups = Layout.groups(chapters, "Other"),
+    ideaCount = 0,
+  }
   Nav.openChapter(nav, 1)
   Nav.layout(nav, data, { x = 0, y = 0, w = 400, h = 300 }, spec, tun.input.minTouchTarget)
   local fit = nav.fit
@@ -173,10 +180,22 @@ T.test("journal search: result list layout, scrolling and row hits", function()
   for i = 1, 200 do
     results[i] = { id = "n" .. i, name = "Node " .. i, chapter = 1, chapterName = "Big", status = "known" }
   end
-  local data = { chapters = chapters, stats = Layout.allStats(chapters, function() return "known" end), groups = Layout.groups(chapters, "Other"), ideaCount = 0, results = results }
+  local data = {
+    chapters = chapters,
+    stats = Layout.allStats(chapters, function()
+      return "known"
+    end),
+    groups = Layout.groups(chapters, "Other"),
+    ideaCount = 0,
+    results = results,
+  }
   Nav.layout(nav, data, { x = 0, y = 0, w = 366, h = 380 }, spec, tun.input.minTouchTarget)
   T.eq(#nav.chips, 0, "no chips while searching")
-  T.truthy(nav.field.h >= tun.input.minTouchTarget and nav.clear.h >= tun.input.minTouchTarget and nav.clear.w >= tun.input.minTouchTarget)
+  T.truthy(
+    nav.field.h >= tun.input.minTouchTarget
+      and nav.clear.h >= tun.input.minTouchTarget
+      and nav.clear.w >= tun.input.minTouchTarget
+  )
   T.truthy(nav.field.x + nav.field.w <= nav.clear.x, "field and clear do not overlap")
   T.truthy(nav.list.rowH >= tun.input.minTouchTarget)
   T.eq(nav.list.height, 200 * nav.list.rowH)

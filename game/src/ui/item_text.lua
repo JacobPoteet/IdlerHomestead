@@ -68,12 +68,14 @@ function ItemText.build(world, id, pickup)
   local needs = {}
   if item.requires then
     local have = Inventory.hasEquipment(world, item.requires)
-    needs[#needs + 1] = { text = string.format(t.needsItem, world.registry:get("catalog", item.requires).name:lower()), met = have }
+    needs[#needs + 1] =
+      { text = string.format(t.needsItem, world.registry:get("catalog", item.requires).name:lower()), met = have }
   end
   for res in pairs(item.gives or {}) do
     local def = world.registry:get("resources", res)
     if def.category == "animal" then
-      needs[#needs + 1] = { text = string.format(t.needsHome, def.housing or "home"), met = Ledger.capacity(world, res) > 0 }
+      needs[#needs + 1] =
+        { text = string.format(t.needsHome, def.housing or "home"), met = Ledger.capacity(world, res) > 0 }
     end
   end
   if item.pickupOnly then
@@ -99,7 +101,10 @@ function ItemText.build(world, id, pickup)
   for _, res in ipairs(sortedKeys(item.gives or {})) do
     local cap = Ledger.capacity(world, res)
     if cap < math.huge and cap > 0 then -- no store yet (no pen or coop): the Needs line already says so
-      add(t.limit, string.format(t.limitStore, world.registry:get("resources", res).name:lower(), cap, Ledger.get(world, res)))
+      add(
+        t.limit,
+        string.format(t.limitStore, world.registry:get("resources", res).name:lower(), cap, Ledger.get(world, res))
+      )
     end
   end
 

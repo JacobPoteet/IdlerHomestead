@@ -404,7 +404,9 @@ T.test("drip: waters thirsty crops in range without any actor, and not those out
   for _, i in ipairs(freeTiles(world, drip, 80)) do
     if covered[i] then
       inside = inside or i
-    elseif not outside and Grid.distance(world.state.grid, i, drip) > reg:get("objects", "drip_line").drip.radius + 1 then
+    elseif
+      not outside and Grid.distance(world.state.grid, i, drip) > reg:get("objects", "drip_line").drip.radius + 1
+    then
       outside = i
     end
   end

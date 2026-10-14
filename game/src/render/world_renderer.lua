@@ -326,7 +326,14 @@ function Renderer:drawReflections(visible)
     local def = registry:get("objects", obj.id)
     local x, y = Grid.coords(grid, anchor)
     local fw, fh = def.footprintW or 1, def.footprintH or 1
-    if not def.flat and x + fw >= x1 and x <= x2 and y + fh + cfg.reach >= y1 and y <= y2 and waterBelow(world, grid, x, y, fw, fh, cfg.reach) then
+    if
+      not def.flat
+      and x + fw >= x1
+      and x <= x2
+      and y + fh + cfg.reach >= y1
+      and y <= y2
+      and waterBelow(world, grid, x, y, fw, fh, cfg.reach)
+    then
       list = list or {}
       list[#list + 1] = { Assets.sprite(obj.id), (x - 1) * tile, (y - 1 + fh) * tile }
     end
@@ -570,7 +577,15 @@ function Renderer:draw(alpha, visible, daylight)
           local thirsty = crop.moisture <= 0 and crop.growth < 1
           local sprite = Assets.sprite(crop.id .. "_" .. cropStage(crop))
           if sway then
-            self:drawSwaying(sway, sprite, (x - 1) * tile, y * tile - sprite.h, v.wind.crop, self:swayPhase(x, y), thirsty)
+            self:drawSwaying(
+              sway,
+              sprite,
+              (x - 1) * tile,
+              y * tile - sprite.h,
+              v.wind.crop,
+              self:swayPhase(x, y),
+              thirsty
+            )
             return
           end
           if thirsty then
@@ -692,7 +707,12 @@ function Renderer:draw(alpha, visible, daylight)
         end
         local sprite = Assets.sprite(actor.kind)
         love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.draw(sprite.image, sprite.quad, math.floor(feetX - sprite.w / 2 + 0.5), math.floor(feetY - sprite.h + 0.5))
+        love.graphics.draw(
+          sprite.image,
+          sprite.quad,
+          math.floor(feetX - sprite.w / 2 + 0.5),
+          math.floor(feetY - sprite.h + 0.5)
+        )
         if actor.bucket and actor.bucket > 0 then
           -- Tiny water gauge beside the homesteader while carrying water.
           local frac = math.min(1, actor.bucket / Water.bucketCapacity(world))
@@ -711,13 +731,25 @@ function Renderer:draw(alpha, visible, daylight)
     local feetX = (cpx + (cx - cpx) * alpha - 0.5) * tile
     local feetY = (cpy + (cy - cpy) * alpha - 0.5) * tile + 6
     local resting = cmode == "nap" or cmode == "sleep"
-    self:castShadow(shadows, Assets.sprite(resting and "cat_nap" or "cat"), math.floor(feetX + 0.5), math.floor(feetY + 0.5), 1, true)
+    self:castShadow(
+      shadows,
+      Assets.sprite(resting and "cat_nap" or "cat"),
+      math.floor(feetX + 0.5),
+      math.floor(feetY + 0.5),
+      1,
+      true
+    )
     items[#items + 1] = {
       feetY,
       function()
         local sprite = Assets.sprite(resting and "cat_nap" or "cat")
         love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.draw(sprite.image, sprite.quad, math.floor(feetX - sprite.w / 2 + 0.5), math.floor(feetY - sprite.h + 0.5))
+        love.graphics.draw(
+          sprite.image,
+          sprite.quad,
+          math.floor(feetX - sprite.w / 2 + 0.5),
+          math.floor(feetY - sprite.h + 0.5)
+        )
         if cmode == "sleep" then
           self:drawSleep(feetX, feetY - 8)
         end
@@ -1174,7 +1206,8 @@ end
 --- The canvas pixel where an art pixel starts: the camera's rounded translation (Camera:attach).
 function Renderer.screenGrid(camera, view)
   local s = view.scale * camera:zoom()
-  return math.floor(view.w * view.scale / 2 - camera.x * s + 0.5), math.floor(view.h * view.scale / 2 - camera.y * s + 0.5)
+  return math.floor(view.w * view.scale / 2 - camera.x * s + 0.5),
+    math.floor(view.h * view.scale / 2 - camera.y * s + 0.5)
 end
 
 --- Heat shimmer inputs for the grade pass: how hot the day is (hot clear summer noon) and the lit fires
@@ -1306,7 +1339,8 @@ local SHADOW_STRIDE = 6 -- values per sprite in the shadow list
 --- shadow, only contact.
 function Renderer:castShadow(list, sprite, footX, footY, flip, contact, canopy)
   local n = list.n
-  list[n + 1], list[n + 2], list[n + 3], list[n + 4], list[n + 5], list[n + 6] = sprite, footX, footY, flip, contact, canopy or false
+  list[n + 1], list[n + 2], list[n + 3], list[n + 4], list[n + 5], list[n + 6] =
+    sprite, footX, footY, flip, contact, canopy or false
   list.n = n + SHADOW_STRIDE
 end
 
@@ -1440,7 +1474,19 @@ function Renderer:drawShadows(list)
         local sprite = list[k]
         if sprite.h >= cfg.minHeight and list[k + 5] == (pass == 1) then
           local flip = list[k + 3]
-          love.graphics.draw(sprite.image, sprite.quad, list[k + 1], list[k + 2], 0, flip, -len, sprite.w / 2, sprite.h, shear * flip, 0)
+          love.graphics.draw(
+            sprite.image,
+            sprite.quad,
+            list[k + 1],
+            list[k + 2],
+            0,
+            flip,
+            -len,
+            sprite.w / 2,
+            sprite.h,
+            shear * flip,
+            0
+          )
         end
       end
     end
@@ -1469,7 +1515,8 @@ function Renderer:drawShadows(list)
       -- The leaves sway with the wind (the same clock as sway.glsl), so the flecks shuffle by whole art pixels.
       local clock, wind = self.fx:windSway()
       local amp = d.sway * (d.calmSway + (1 - d.calmSway) * math.min(1, wind))
-      shift = { math.floor(math.sin(clock * 0.8) * amp + 0.5), math.floor(math.sin(clock * 0.53 + 1.7) * amp * 0.5 + 0.5) }
+      shift =
+        { math.floor(math.sin(clock * 0.8) * amp + 0.5), math.floor(math.sin(clock * 0.53 + 1.7) * amp * 0.5 + 0.5) }
     end
   end
   Shaders.send(composite, {
@@ -1510,7 +1557,9 @@ end
 
 --- Is the bloom pass available and switched on?
 function Renderer:bloomOn()
-  return self.world.tuning.visuals.bloom.enabled and Shaders.get("bloom_bright") ~= nil and Shaders.get("bloom_blur") ~= nil
+  return self.world.tuning.visuals.bloom.enabled
+    and Shaders.get("bloom_bright") ~= nil
+    and Shaders.get("bloom_blur") ~= nil
 end
 
 local function layer(self, key, w, h)
@@ -1620,7 +1669,11 @@ function Renderer:drawGraded(canvas, tint, light, pixelSize, haze, lights, origi
       lightGlow = v.lights.glow,
       lightNeutral = v.lights.neutral,
       shadowTone = { toward(1, tone.shadowTone[1]), toward(1, tone.shadowTone[2]), toward(1, tone.shadowTone[3]) },
-      highlightTone = { toward(1, tone.highlightTone[1]), toward(1, tone.highlightTone[2]), toward(1, tone.highlightTone[3]) },
+      highlightTone = {
+        toward(1, tone.highlightTone[1]),
+        toward(1, tone.highlightTone[2]),
+        toward(1, tone.highlightTone[3]),
+      },
       toneMid = tone.mid,
       toneWidth = tone.width,
       contrast = tone.contrast * g,

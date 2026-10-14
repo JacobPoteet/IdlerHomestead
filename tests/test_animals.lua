@@ -97,7 +97,15 @@ T.test("animals content: coop, hens, eggs, feed, notes and art all line up", fun
   T.eq(reg:get("resources", "hen").category, "animal")
   T.eq(reg:get("resources", "hen").capacity, 0, "hens live only where a coop gives them room")
   T.truthy(reg:get("resources", "egg").calories and reg:get("resources", "egg").value)
-  for _, name in ipairs({ "chicken_coop", "hen", "icon_hen", "icon_egg", "icon_chicken_coop", "icon_chicken_feed", "icon_chicken_fence" }) do
+  for _, name in ipairs({
+    "chicken_coop",
+    "hen",
+    "icon_hen",
+    "icon_egg",
+    "icon_chicken_coop",
+    "icon_chicken_feed",
+    "icon_chicken_fence",
+  }) do
     T.truthy(sprites[name], name .. " sprite")
   end
   for _, id in ipairs({ "chicken_coop", "hens", "chicken_feed", "chicken_fence" }) do
@@ -148,7 +156,10 @@ T.test("animals: hens need a coop, and a full coop leaves new hens waiting", fun
   world.state.market.inTown = true
   Ledger.add(world, "money", 100)
   world.meta.journal = world.meta.journal or { known = {} }
-  T.eq(Market.cannotBuy(world, "hens", true) == "unknown" or Market.cannotBuy(world, "hens", true) == "needs a coop", true)
+  T.eq(
+    Market.cannotBuy(world, "hens", true) == "unknown" or Market.cannotBuy(world, "hens", true) == "needs a coop",
+    true
+  )
   -- Know the item, then the housing is what is missing.
   world.meta.journal.known.hens = true
   T.eq(Market.cannotBuy(world, "hens", true), "needs a coop")
@@ -172,7 +183,10 @@ T.test("animals: the coop never goes on the road", function()
     if Inventory.canPlace(world, "chicken_coop", i) then
       placeable = placeable + 1
       local x, y = Grid.coords(grid, i)
-      T.truthy(Grid.terrain(world, i).id ~= "road" and Grid.terrain(world, Grid.index(grid, x + 1, y)).id ~= "road", "tile " .. i)
+      T.truthy(
+        Grid.terrain(world, i).id ~= "road" and Grid.terrain(world, Grid.index(grid, x + 1, y)).id ~= "road",
+        "tile " .. i
+      )
     end
   end
   T.truthy(placeable > 0)
@@ -274,7 +288,10 @@ T.test("animals: egg yield is deterministic per seed and tracks the season's lay
   T.eq(run(7), run(7), "same seed, same eggs")
   local expected = 6 * DPS * 6 * hens.layChance.summer
   local got = run(7)
-  T.truthy(math.abs(got - expected) < expected * 0.2, string.format("%d eggs in 42 summer days vs ~%.0f expected", got, expected))
+  T.truthy(
+    math.abs(got - expected) < expected * 0.2,
+    string.format("%d eggs in 42 summer days vs ~%.0f expected", got, expected)
+  )
   local winter = coopWorld(6, 7)
   local w = layDays(winter, WINTER, 6)
   T.truthy(w < got / 2, "winter lays far less than summer")
@@ -423,21 +440,24 @@ T.test("animals: a tap that cannot collect names the full egg store", function()
   T.eq(full, "egg")
 end)
 
-T.test("animals: a month untended keeps the flock alive for the grace period, then it thins (forgiving but real)", function()
-  local world = coopWorld(6)
-  local s = world.state.animals
-  s.feed, s.water = 12, 4
-  setTime(world, SUMMER + 4, 6)
-  local start = Animals.hens(world)
-  for _ = 1, 3 * tun.time.dayLength * tun.time.tickRate do
-    world:tick(STEP)
+T.test(
+  "animals: a month untended keeps the flock alive for the grace period, then it thins (forgiving but real)",
+  function()
+    local world = coopWorld(6)
+    local s = world.state.animals
+    s.feed, s.water = 12, 4
+    setTime(world, SUMMER + 4, 6)
+    local start = Animals.hens(world)
+    for _ = 1, 3 * tun.time.dayLength * tun.time.tickRate do
+      world:tick(STEP)
+    end
+    T.eq(Animals.hens(world), start, "three days with full bowls and nobody home: no losses")
+    for _ = 1, 12 * tun.time.dayLength * tun.time.tickRate do
+      world:tick(STEP)
+    end
+    T.truthy(Animals.hens(world) < start, "a fortnight of neglect costs hens")
   end
-  T.eq(Animals.hens(world), start, "three days with full bowls and nobody home: no losses")
-  for _ = 1, 12 * tun.time.dayLength * tun.time.tickRate do
-    world:tick(STEP)
-  end
-  T.truthy(Animals.hens(world) < start, "a fortnight of neglect costs hens")
-end)
+)
 
 -- Predators -------------------------------------------------------------------------------------
 
@@ -493,7 +513,10 @@ T.test("animals: the coop door and the fence turn raids back (more fence, more t
   local coopRaided, coopStopped = raidTally(tun.animals.predators.maxGuard)
   T.truthy(coopStopped > 0 and coopRaided > 0, "the door stops many, not all")
   local expected = reg:get("objects", "chicken_coop").coop.guard
-  T.truthy(math.abs(coopStopped / 300 - expected) < 0.1, string.format("%.2f stopped vs coop guard %.2f", coopStopped / 300, expected))
+  T.truthy(
+    math.abs(coopStopped / 300 - expected) < 0.1,
+    string.format("%.2f stopped vs coop guard %.2f", coopStopped / 300, expected)
+  )
   local fencedRaided = raidTally(tun.animals.predators.maxGuard, function(world)
     Inventory.addEquipment(world, "chicken_fence")
   end)

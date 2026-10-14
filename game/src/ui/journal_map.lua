@@ -120,7 +120,8 @@ local function buildRegion(chapter)
   local region = { id = chapter.id, name = chapter.name, nodes = {}, stamps = {}, links = {} }
   local byId = {}
   for i, def in ipairs(defs) do
-    local node = { id = def.id, def = def, x = nodeX, y = top + (i - 1) * (M.NODE_H + M.NODE_GAP), w = M.NODE_W, h = M.NODE_H }
+    local node =
+      { id = def.id, def = def, x = nodeX, y = top + (i - 1) * (M.NODE_H + M.NODE_GAP), w = M.NODE_W, h = M.NODE_H }
     region.nodes[i] = node
     byId[def.id] = node
   end

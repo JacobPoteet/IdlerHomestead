@@ -101,7 +101,10 @@ T.test("weather: seasons weight the kinds; winter never rains", function()
     return (share[start][kind] or 0) / totals[start]
   end
   T.truthy(frac(SUMMER, "clear") > frac(AUTUMN, "clear"), "summer is clearer than autumn")
-  T.truthy(frac(AUTUMN, "rain") + frac(AUTUMN, "storm") > frac(SUMMER, "rain") + frac(SUMMER, "storm") - 0.05, "autumn is wet")
+  T.truthy(
+    frac(AUTUMN, "rain") + frac(AUTUMN, "storm") > frac(SUMMER, "rain") + frac(SUMMER, "storm") - 0.05,
+    "autumn is wet"
+  )
   T.eq(share[WINTER].rain, nil, "no rain on frozen ground")
   T.eq(share[WINTER].storm, nil, "no storms on frozen ground")
 end)

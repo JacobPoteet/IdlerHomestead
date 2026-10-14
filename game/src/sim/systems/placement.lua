@@ -174,7 +174,8 @@ function Placement.pickUpCheck(world, anchor)
     if batch and not batch.blocked then
       return { ok = false, reason = "batch" }
     elseif batch then
-      result.warn = { kind = "output", resource = world.registry:get("recipes", batch.recipe).output, count = batch.count }
+      result.warn =
+        { kind = "output", resource = world.registry:get("recipes", batch.recipe).output, count = batch.count }
     end
   end
   local res = {}
@@ -313,7 +314,8 @@ function Placement.destroyCheck(world, anchor)
     local over = Ledger.get(world, id) - (Ledger.capacity(world, id) - def.storage[id])
     if over > 0 then
       lose.goods = lose.goods or {}
-      lose.goods[#lose.goods + 1] = { resource = id, count = over, animal = world.registry:get("resources", id).category == "animal" }
+      lose.goods[#lose.goods + 1] =
+        { resource = id, count = over, animal = world.registry:get("resources", id).category == "animal" }
     end
   end
   if def.battery and not def.vehicle then
@@ -468,7 +470,10 @@ local function setWhy(world, order, why)
   end
   order.why = why
   if why then
-    world.events:emit("placement.held", { object = order.object, tile = order.tile, kind = why.kind, resource = why.resource })
+    world.events:emit(
+      "placement.held",
+      { object = order.object, tile = order.tile, kind = why.kind, resource = why.resource }
+    )
   end
 end
 

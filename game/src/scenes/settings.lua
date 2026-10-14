@@ -153,12 +153,29 @@ function Settings:layout()
             self:layout()
           end
         end
-        self.rowButtons:add({ x = x0, y = by, w = bw, h = ctrlH, label = "-", enabled = value > opt.min, onPress = nudge(-1) })
-        self.rowButtons:add({ x = x0 + innerW - bw, y = by, w = bw, h = ctrlH, label = "+", enabled = value < opt.max, onPress = nudge(1) })
+        self.rowButtons:add({
+          x = x0,
+          y = by,
+          w = bw,
+          h = ctrlH,
+          label = "-",
+          enabled = value > opt.min,
+          onPress = nudge(-1),
+        })
+        self.rowButtons:add({
+          x = x0 + innerW - bw,
+          y = by,
+          w = bw,
+          h = ctrlH,
+          label = "+",
+          enabled = value < opt.max,
+          onPress = nudge(1),
+        })
         item.bar = { x = x0 + bw + 6, y = by + ctrlH / 2 - 3, w = innerW - 2 * bw - 12, h = 6 }
         item.noteY = by + ctrlH + NOTE_GAP
       else
-        local rects, segH = Layout.segments(x0, item.ay + LABEL_H, innerW, #item.entries, ctrlH, tuning.settings.minSegment)
+        local rects, segH =
+          Layout.segments(x0, item.ay + LABEL_H, innerW, #item.entries, ctrlH, tuning.settings.minSegment)
         for i, entry in ipairs(item.entries) do
           local r = rects[i]
           self.rowButtons:add({
@@ -217,7 +234,13 @@ function Settings:tapBar(x, y)
   local ctrlH = Layout.controlH(self.app.ctx.tuning.input.minTouchTarget)
   for _, item in ipairs(self.items) do
     local bar = item.visible and item.bar
-    if bar and x >= bar.x and x <= bar.x + bar.w and y >= bar.y + bar.h / 2 - ctrlH / 2 and y <= bar.y + bar.h / 2 + ctrlH / 2 then
+    if
+      bar
+      and x >= bar.x
+      and x <= bar.x + bar.w
+      and y >= bar.y + bar.h / 2 - ctrlH / 2
+      and y <= bar.y + bar.h / 2 + ctrlH / 2
+    then
       local opt = item.opt
       self.app.ctx.settings:set(opt.id, opt.min + (opt.max - opt.min) * (x - bar.x) / bar.w)
       self:layout()
@@ -268,10 +291,16 @@ function Settings:draw()
       elseif item.opt then
         local opt = item.opt
         local value = settings:get(opt.id)
-        local labelY = item.ay + (opt.kind == "toggle" and (Layout.controlH(ctx.tuning.input.minTouchTarget) - 12) / 2 or 0)
+        local labelY = item.ay
+          + (opt.kind == "toggle" and (Layout.controlH(ctx.tuning.input.minTouchTarget) - 12) / 2 or 0)
         Text.draw(opt.label, x0, labelY, { size = "body", width = innerW - 70 })
         if opt.kind == "slider" then
-          Text.draw(Options.valueText(opt, value), x0, labelY, { size = "body", width = innerW, align = "right", color = theme.colors.accent })
+          Text.draw(
+            Options.valueText(opt, value),
+            x0,
+            labelY,
+            { size = "body", width = innerW, align = "right", color = theme.colors.accent }
+          )
           local bar = item.bar
           love.graphics.setColor(0, 0, 0, 0.4)
           love.graphics.rectangle("fill", bar.x, bar.y, bar.w, bar.h, 2, 2)

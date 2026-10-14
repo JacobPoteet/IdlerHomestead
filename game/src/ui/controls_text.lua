@@ -55,7 +55,13 @@ function M.bound(action, key)
 end
 
 function M.swapped(action, key, other, otherKey)
-  return string.format("%s is now %s; %s moved to %s.", M.actions[action][1], M.keyName(key), M.actions[other][1], M.keyName(otherKey))
+  return string.format(
+    "%s is now %s; %s moved to %s.",
+    M.actions[action][1],
+    M.keyName(key),
+    M.actions[other][1],
+    M.keyName(otherKey)
+  )
 end
 
 return M

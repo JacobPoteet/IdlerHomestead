@@ -108,7 +108,13 @@ function Nav.layout(nav, data, free, spec, minTouch)
   nav.list = nil
 
   local defs = Nav.chipDefs(nav, data.ideaCount, spec, showField)
-  local rects, used = Layout.flow(#defs, { x = inner.x, y = belowField, w = inner.w, h = inner.h }, spec.chipMinWidth, math.max(spec.chipHeight, minTouch), spec.gap)
+  local rects, used = Layout.flow(
+    #defs,
+    { x = inner.x, y = belowField, w = inner.w, h = inner.h },
+    spec.chipMinWidth,
+    math.max(spec.chipHeight, minTouch),
+    spec.gap
+  )
   nav.chips = {}
   for i, def in ipairs(defs) do
     local r = rects[i]

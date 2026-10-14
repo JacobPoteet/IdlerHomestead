@@ -17,9 +17,23 @@ return {
   rebindable = { "speed", "routine", "pageUp", "pageDown", "listHome", "listEnd" }, -- action names the Controls screen lets the player rebind, in display order; each has exactly one default key above (cancel stays on Esc)
   reservedKeys = { -- LÖVE key names no action may be bound to: they carry fixed meanings in every scene
     "escape", -- cancel / back; also how a rebind is abandoned
-    "f1", "f2", "f3", "f6", "f7", -- debug overlay, sim speed, perf overlay, reload tuning, sound test (live in every build)
-    "return", "kpenter", "backspace", "tab", -- text fields and confirmations
-    "lshift", "rshift", "lctrl", "rctrl", "lalt", "ralt", "lgui", "rgui", -- modifiers (Shift latches the Plan tool, Ctrl+F searches)
+    "f1",
+    "f2",
+    "f3",
+    "f6",
+    "f7", -- debug overlay, sim speed, perf overlay, reload tuning, sound test (live in every build)
+    "return",
+    "kpenter",
+    "backspace",
+    "tab", -- text fields and confirmations
+    "lshift",
+    "rshift",
+    "lctrl",
+    "rctrl",
+    "lalt",
+    "ralt",
+    "lgui",
+    "rgui", -- modifiers (Shift latches the Plan tool, Ctrl+F searches)
   },
   panKeys = { -- key -> { dx, dy } direction the camera view moves (held keys)
     left = { -1, 0 },

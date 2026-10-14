@@ -95,7 +95,14 @@ end
 
 --- Fresh data for a new slot.
 function Save.newSlotData(name)
-  return { version = Save.FORMAT_VERSION, compat = Save.SAVE_COMPAT, name = name, header = { playtime = 0 }, meta = {}, run = nil }
+  return {
+    version = Save.FORMAT_VERSION,
+    compat = Save.SAVE_COMPAT,
+    name = name,
+    header = { playtime = 0 },
+    meta = {},
+    run = nil,
+  }
 end
 
 function Save:checkIndex(index)

@@ -41,7 +41,9 @@ function Pantry.new(world)
 end
 
 function Pantry:enter()
-  self.list.onMove = function() self:layout() end
+  self.list.onMove = function()
+    self:layout()
+  end
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
   -- Every row is at least a touch target tall, so row buttons never overlap the row below (#174).
   ROW_H = PantryLayout.rowHeight(self.app.ctx.tuning.input.minTouchTarget)
@@ -72,7 +74,8 @@ function Pantry:woodLine()
   if o.nights == math.huge then
     return "No fire needed tonight · " .. room
   end
-  local burn = o.noFire and "No fire placed" or string.format("Burns %d tonight · %.1f nights left", o.perNight, o.nights)
+  local burn = o.noFire and "No fire placed"
+    or string.format("Burns %d tonight · %.1f nights left", o.perNight, o.nights)
   return burn .. " · " .. room
 end
 
@@ -87,7 +90,8 @@ function Pantry:footer()
   local lines = {}
   local loss = Food.lastLoss(world)
   if loss then
-    lines[#lines + 1] = { text = "Last night: " .. SpoilText.items(world, loss.lost) .. " spoiled.", color = theme.colors.textDim }
+    lines[#lines + 1] =
+      { text = "Last night: " .. SpoilText.items(world, loss.lost) .. " spoiled.", color = theme.colors.textDim }
   end
   local tonight = Spoilage.tonight(world)
   if tonight.warn then
@@ -172,14 +176,30 @@ function Pantry:layout()
         return Food.keeps(world)[res.id] ~= now -- false at 0 or the top: the hold ends
       end
       self.rowButtons:add({
-        x = rects.minus.x, y = rects.minus.y, w = rects.minus.w, h = rects.minus.h, label = "-",
-        onPress = function() step(-1) end,
-        onRepeat = function(units) return step(-units) end,
+        x = rects.minus.x,
+        y = rects.minus.y,
+        w = rects.minus.w,
+        h = rects.minus.h,
+        label = "-",
+        onPress = function()
+          step(-1)
+        end,
+        onRepeat = function(units)
+          return step(-units)
+        end,
       })
       self.rowButtons:add({
-        x = rects.plus.x, y = rects.plus.y, w = rects.plus.w, h = rects.plus.h, label = "+",
-        onPress = function() step(1) end,
-        onRepeat = function(units) return step(units) end,
+        x = rects.plus.x,
+        y = rects.plus.y,
+        w = rects.plus.w,
+        h = rects.plus.h,
+        label = "+",
+        onPress = function()
+          step(1)
+        end,
+        onRepeat = function(units)
+          return step(units)
+        end,
       })
       if res.value then
         -- "Not at the stand" pin (D62): a good marked Truck keeps its spare for the truck load.
@@ -202,7 +222,6 @@ function Pantry:layout()
     y = y + h
   end
 end
-
 
 function Pantry:update(dt)
   self.rowButtons:update(dt, self.app.ctx.tuning.ui.holdRepeat) -- real time: same at any sim speed

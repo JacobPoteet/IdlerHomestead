@@ -18,15 +18,23 @@ return function(d)
   -- Tidy the clutter around the truck so the shots show only the camp and the shack.
   for anchor, obj in pairs(grid.objects) do
     local x, y = Grid.coords(grid, anchor)
-    if world.registry:get("objects", obj.id).clearable ~= false and math.abs(x - tx) <= 12 and math.abs(y - ty) <= 10 then
+    if
+      world.registry:get("objects", obj.id).clearable ~= false
+      and math.abs(x - tx) <= 12
+      and math.abs(y - ty) <= 10
+    then
       Grid.removeObject(world, anchor)
     end
   end
   local cx, cy
   for y = ty + 2, ty + 10 do
     for x = tx + 2, tx + 10 do
-      if not cx and Grid.inBounds(grid, x, y) and Inventory.canPlace(world, "camp", Grid.index(grid, x, y))
-        and Inventory.canPlace(world, "shack", Grid.index(grid, x, y)) then
+      if
+        not cx
+        and Grid.inBounds(grid, x, y)
+        and Inventory.canPlace(world, "camp", Grid.index(grid, x, y))
+        and Inventory.canPlace(world, "shack", Grid.index(grid, x, y))
+      then
         cx, cy = x, y
       end
     end

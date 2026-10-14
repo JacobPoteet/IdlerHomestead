@@ -56,7 +56,15 @@ return function(d)
   local DPS = world.tuning.time.daysPerSeason
 
   -- Pantry (#170): more goods than fit; drag, wheel, and a rule button still works scrolled.
-  for _, id in ipairs({ "creek_chub", "sunfish", "brook_trout", "smallmouth_bass", "channel_catfish", "rainbow_trout", "golden_trout" }) do
+  for _, id in ipairs({
+    "creek_chub",
+    "sunfish",
+    "brook_trout",
+    "smallmouth_bass",
+    "channel_catfish",
+    "rainbow_trout",
+    "golden_trout",
+  }) do
     Ledger.add(world, id, 2)
   end
   Ledger.add(world, "radish", 6)
@@ -81,7 +89,10 @@ return function(d)
     d:shot("pantry_bottom")
     local before = pantry.scroll
     d:press("Auto") -- fixed controls still answer while the list is scrolled
-    assert(pantry.scroll <= before and pantry.scroll > 0, "pressing a button keeps the list scrolled (re-clamped if the footer grew or shrank)")
+    assert(
+      pantry.scroll <= before and pantry.scroll > 0,
+      "pressing a button keeps the list scrolled (re-clamped if the footer grew or shrank)"
+    )
   end
   d:key("escape")
   d:frames(3)
@@ -90,7 +101,17 @@ return function(d)
   local scene = d:scene()
   world.state.ledger.amounts.canned_food = 2
   world.state.ledger.amounts.radish, world.state.ledger.amounts.potato = nil, nil
-  for _, id in ipairs({ "creek_chub", "sunfish", "brook_trout", "smallmouth_bass", "channel_catfish", "rainbow_trout", "golden_trout", "egg", "smoked_fish" }) do
+  for _, id in ipairs({
+    "creek_chub",
+    "sunfish",
+    "brook_trout",
+    "smallmouth_bass",
+    "channel_catfish",
+    "rainbow_trout",
+    "golden_trout",
+    "egg",
+    "smoked_fish",
+  }) do
     world.state.ledger.amounts[id] = nil
   end
   jumpTo(world, 2 * DPS + 3, 10) -- a cold autumn day

@@ -105,7 +105,8 @@ T.test("cat: mice leave fish, cans and seed alone, and skip an empty larder or t
     Ledger.add(world, "canned_food", 5)
     Ledger.add(world, "sunfish", 5)
     Ledger.add(world, "seed_potato", 5)
-    local cans, fish, seed = Ledger.get(world, "canned_food"), Ledger.get(world, "sunfish"), Ledger.get(world, "seed_potato")
+    local cans, fish, seed =
+      Ledger.get(world, "canned_food"), Ledger.get(world, "sunfish"), Ledger.get(world, "seed_potato")
     T.eq(Cat.raid(world), nil)
     T.eq(Ledger.get(world, "canned_food"), cans)
     T.eq(Ledger.get(world, "sunfish"), fish)

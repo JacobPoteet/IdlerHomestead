@@ -20,7 +20,11 @@ local function new(files)
   return Settings.new(backend, tun), backend
 end
 
-local desktopPlatform = { has = function() return true end }
+local desktopPlatform = {
+  has = function()
+    return true
+  end,
+}
 local phonePlatform = {
   has = function(name)
     return name == "touchPrimary"
@@ -68,7 +72,15 @@ end)
 T.test("settings: a missing or corrupt file gives defaults and never errors", function()
   local s = new()
   T.falsy(s:load())
-  for _, junk in ipairs({ "", "not lua {{{", "return os.exit()", "{ values = 5 }", "nil", "{ values = { uiScale = 'huge', filmGrain = 3, nope = 1 } }", "\27Lua" }) do
+  for _, junk in ipairs({
+    "",
+    "not lua {{{",
+    "return os.exit()",
+    "{ values = 5 }",
+    "nil",
+    "{ values = { uiScale = 'huge', filmGrain = 3, nope = 1 } }",
+    "\27Lua",
+  }) do
     local c = new({ [cfg.file] = junk })
     c:load()
     T.eq(c:get("uiScale"), cfg.defaults.uiScale, junk)
@@ -77,7 +89,9 @@ T.test("settings: a missing or corrupt file gives defaults and never errors", fu
 end)
 
 T.test("settings: bad values in a good file fall back one by one", function()
-  local s = new({ [cfg.file] = "{ version = 1, values = { uiScale = 2, filmGrain = \"yes\", gradeStrength = 7, idleDelay = 3 } }" })
+  local s = new({
+    [cfg.file] = '{ version = 1, values = { uiScale = 2, filmGrain = "yes", gradeStrength = 7, idleDelay = 3 } }',
+  })
   T.truthy(s:load())
   T.eq(s:get("uiScale"), 2)
   T.eq(s:get("filmGrain"), cfg.defaults.filmGrain)
@@ -152,22 +166,25 @@ T.test("ui scale: auto matches the original rule", function()
   T.eq(UiScale.auto(100, 100, display), 1)
 end)
 
-T.test("ui scale: a new install starts at 2x, a small window clamps it quietly, a saved choice is kept (#259)", function()
-  T.eq(cfg.defaults.uiScale, 2)
-  local fresh = new()
-  T.eq(fresh:get("uiScale"), 2)
-  T.eq((UiScale.effective(fresh:get("uiScale"), 1280, 720, display, cfg)), 2, "desktop window")
-  T.eq((UiScale.effective(fresh:get("uiScale"), 1920, 1080, display, cfg)), 2, "a big window still starts at 2x")
-  T.eq((UiScale.effective(fresh:get("uiScale"), 390, 844, display, cfg)), 1, "phone fits 1x")
-  local note = fresh.byId.uiScale.note(fresh, { pixelW = 390, pixelH = 844 })
-  T.falsy(note:find("does not fit"), "no complaint about a size the player never picked")
-  local saved = new({ [cfg.file] = "{ version = 1, values = { uiScale = \"auto\" } }" })
-  saved:load()
-  T.eq(saved:get("uiScale"), "auto", "an existing choice is kept")
-  local one = new({ [cfg.file] = "{ version = 1, values = { uiScale = 1 } }" })
-  one:load()
-  T.eq(one:get("uiScale"), 1)
-end)
+T.test(
+  "ui scale: a new install starts at 2x, a small window clamps it quietly, a saved choice is kept (#259)",
+  function()
+    T.eq(cfg.defaults.uiScale, 2)
+    local fresh = new()
+    T.eq(fresh:get("uiScale"), 2)
+    T.eq((UiScale.effective(fresh:get("uiScale"), 1280, 720, display, cfg)), 2, "desktop window")
+    T.eq((UiScale.effective(fresh:get("uiScale"), 1920, 1080, display, cfg)), 2, "a big window still starts at 2x")
+    T.eq((UiScale.effective(fresh:get("uiScale"), 390, 844, display, cfg)), 1, "phone fits 1x")
+    local note = fresh.byId.uiScale.note(fresh, { pixelW = 390, pixelH = 844 })
+    T.falsy(note:find("does not fit"), "no complaint about a size the player never picked")
+    local saved = new({ [cfg.file] = '{ version = 1, values = { uiScale = "auto" } }' })
+    saved:load()
+    T.eq(saved:get("uiScale"), "auto", "an existing choice is kept")
+    local one = new({ [cfg.file] = "{ version = 1, values = { uiScale = 1 } }" })
+    one:load()
+    T.eq(one:get("uiScale"), 1)
+  end
+)
 
 T.test("ui scale: steps run from 1 up to what the window fits, capped", function()
   T.eq(#UiScale.steps(1280, 720, display, cfg), 2)
@@ -191,7 +208,10 @@ T.test("ui scale: every allowed scale keeps at least the minimum virtual view (o
   for _, size in ipairs(SIZES) do
     for _, s in ipairs(UiScale.steps(size.w, size.h, display, cfg)) do
       local vw, vh = size.w / s, size.h / s
-      T.truthy(vw >= math.min(size.w, display.minVirtualWidth) and vh >= math.min(size.h, display.minVirtualHeight), size.name .. " at " .. s .. "x")
+      T.truthy(
+        vw >= math.min(size.w, display.minVirtualWidth) and vh >= math.min(size.h, display.minVirtualHeight),
+        size.name .. " at " .. s .. "x"
+      )
       T.truthy(UiScale.touchPixels(s, minTouch) >= minTouch, "physical touch size")
     end
   end
@@ -232,7 +252,10 @@ T.test("settings screen: panel, list and buttons fit at every window size and al
       T.truthy(P.list.h >= minTouch * 2, where .. ": list window too short (" .. P.list.h .. ")")
       for _, r in ipairs({ P.done, P.defaults }) do
         T.truthy(r.w >= minTouch and r.h >= minTouch, where .. ": button too small")
-        T.truthy(r.x >= b.x and r.x + r.w <= b.x + b.w and r.y >= b.y and r.y + r.h <= b.y + b.h, where .. ": button outside the panel")
+        T.truthy(
+          r.x >= b.x and r.x + r.w <= b.x + b.w and r.y >= b.y and r.y + r.h <= b.y + b.h,
+          where .. ": button outside the panel"
+        )
       end
       T.truthy(P.done.x >= P.defaults.x + P.defaults.w, where .. ": buttons overlap")
       -- A choice row with 5 entries wraps instead of squeezing below the touch size.

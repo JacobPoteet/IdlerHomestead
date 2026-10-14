@@ -164,7 +164,9 @@ function Fishing.init(world)
       if order and order.tool ~= "rod" then
         return false
       end
-      return Grid.terrain(w, i).water == true and Fishing.hasRod(w) and Fishing.canStore(w, order and "active" or "idle")
+      return Grid.terrain(w, i).water == true
+        and Fishing.hasRod(w)
+        and Fishing.canStore(w, order and "active" or "idle")
     end,
     blocked = function(w, _, i, order)
       if not (order and order.tool == "rod") or Grid.terrain(w, i).water ~= true or not Fishing.hasRod(w) then

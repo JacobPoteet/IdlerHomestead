@@ -113,25 +113,28 @@ T.test("untill: the tool turns tilled soil back to grass and drops its plan", fu
   T.eq(Grid.terrain(world, i).id, "grass")
 end)
 
-T.test("untill: the tool pulls a planted crop and leaves bare tilled soil, then a second pass makes grass (#254)", function()
-  local world = newWorld(1)
-  local hs = Actors.homesteader(world)
-  local i = openBlock(world, 1, 1)
-  plant(world, i)
-  local task = Actors.order(world, hs, i, { tool = "untill" })
-  T.eq(task and task.id, "untill", "a crop no longer refuses the tool")
-  local removed = collect(world, "crop.removed")
-  run(world, 20)
-  T.falsy(world.state.crops[i], "the crop is gone")
-  T.falsy(world.state.fields.plan[i], "the plan went too, so the routine does not replant it")
-  T.truthy(world.state.fields.tilled[i], "the soil stays prepared")
-  T.eq(#removed, 1)
-  T.eq(removed[1].cause, "untill")
-  local again = Actors.order(world, hs, i, { tool = "untill" })
-  T.eq(again and again.id, "untill")
-  run(world, 20)
-  T.falsy(world.state.fields.tilled[i], "the second pass turns it back to grass")
-end)
+T.test(
+  "untill: the tool pulls a planted crop and leaves bare tilled soil, then a second pass makes grass (#254)",
+  function()
+    local world = newWorld(1)
+    local hs = Actors.homesteader(world)
+    local i = openBlock(world, 1, 1)
+    plant(world, i)
+    local task = Actors.order(world, hs, i, { tool = "untill" })
+    T.eq(task and task.id, "untill", "a crop no longer refuses the tool")
+    local removed = collect(world, "crop.removed")
+    run(world, 20)
+    T.falsy(world.state.crops[i], "the crop is gone")
+    T.falsy(world.state.fields.plan[i], "the plan went too, so the routine does not replant it")
+    T.truthy(world.state.fields.tilled[i], "the soil stays prepared")
+    T.eq(#removed, 1)
+    T.eq(removed[1].cause, "untill")
+    local again = Actors.order(world, hs, i, { tool = "untill" })
+    T.eq(again and again.id, "untill")
+    run(world, 20)
+    T.falsy(world.state.fields.tilled[i], "the second pass turns it back to grass")
+  end
+)
 
 T.test("untill: refused on bare grass or without the tool", function()
   local world = newWorld(1)
@@ -264,7 +267,10 @@ T.test("placement: every rock, log and brush on a wide footprint is cleared befo
   local order = {}
   world.events:on("object.cleared", function(e)
     order[#order + 1] = e.object
-    T.falsy(Grid.object(world, block) and Grid.object(world, block).id == wide.id, "not placed before the last is cleared")
+    T.falsy(
+      Grid.object(world, block) and Grid.object(world, block).id == wide.id,
+      "not placed before the last is cleared"
+    )
   end)
   run(world, 90)
   T.eq(Grid.object(world, block) and Grid.object(world, block).id, wide.id)
@@ -390,7 +396,11 @@ T.test("placement: an unreachable footprint is held as unreachable", function()
   -- wall the tree in with rocks on every side
   for dy = -1, 1 do
     for dx = -1, 1 do
-      if (dx ~= 0 or dy ~= 0) and Grid.inBounds(world.state.grid, x + dx, y + dy) and not world.occupancy[Grid.index(world.state.grid, x + dx, y + dy)] then
+      if
+        (dx ~= 0 or dy ~= 0)
+        and Grid.inBounds(world.state.grid, x + dx, y + dy)
+        and not world.occupancy[Grid.index(world.state.grid, x + dx, y + dy)]
+      then
         put(world, "rock", x + dx, y + dy)
       end
     end
@@ -528,32 +538,41 @@ T.test("placement: a harvester put in the middle of a field keeps picking the cr
   local _ = i
 end)
 
-T.test("placement text: the confirmation names what is cleared and removed, and warns about ripe crops and full stores", function()
-  local PlaceText = require("src.ui.place_text")
-  local colors = { text = "t", dim = "d", warn = "w" }
-  local world = newWorld(1)
-  local i, x, y = openBlock(world, 1, 1)
-  put(world, "tree", x, y)
-  plant(world, i, 1)
-  Ledger.setCapacity(world, "wood", 12)
-  Ledger.add(world, "wood", 12, "test")
-  stock(world, "smoker")
-  local text = PlaceText.confirm(world, "smoker", Placement.preview(world, "smoker", i), colors)
-  local all = table.concat((function()
-    local out = {}
-    for _, l in ipairs(text.lines) do
-      out[#out + 1] = l.text
-    end
-    return out
-  end)(), "\n")
-  T.truthy(all:find("1 tree", 1, true), "names the tree")
-  T.truthy(all:find("1 crop", 1, true) and all:find("ripe", 1, true), "names the ripe crop")
-  T.truthy(all:find("Nothing is refunded", 1, true), "says nothing is refunded")
-  T.truthy(all:find("wood storage is full", 1, true), "warns the store is full")
-  T.truthy(text.title:find("smoker", 1, true))
-  Placement.request(world, "smoker", i)
-  run(world, 3)
-  local card = PlaceText.order(world, Placement.orders(world)[1], colors)
-  T.truthy(card.lines[1].text:find("tree", 1, true))
-  T.truthy(card.lines[2] and card.lines[2].text:find("wood storage is full", 1, true), "the order card says why it waits")
-end)
+T.test(
+  "placement text: the confirmation names what is cleared and removed, and warns about ripe crops and full stores",
+  function()
+    local PlaceText = require("src.ui.place_text")
+    local colors = { text = "t", dim = "d", warn = "w" }
+    local world = newWorld(1)
+    local i, x, y = openBlock(world, 1, 1)
+    put(world, "tree", x, y)
+    plant(world, i, 1)
+    Ledger.setCapacity(world, "wood", 12)
+    Ledger.add(world, "wood", 12, "test")
+    stock(world, "smoker")
+    local text = PlaceText.confirm(world, "smoker", Placement.preview(world, "smoker", i), colors)
+    local all = table.concat(
+      (function()
+        local out = {}
+        for _, l in ipairs(text.lines) do
+          out[#out + 1] = l.text
+        end
+        return out
+      end)(),
+      "\n"
+    )
+    T.truthy(all:find("1 tree", 1, true), "names the tree")
+    T.truthy(all:find("1 crop", 1, true) and all:find("ripe", 1, true), "names the ripe crop")
+    T.truthy(all:find("Nothing is refunded", 1, true), "says nothing is refunded")
+    T.truthy(all:find("wood storage is full", 1, true), "warns the store is full")
+    T.truthy(text.title:find("smoker", 1, true))
+    Placement.request(world, "smoker", i)
+    run(world, 3)
+    local card = PlaceText.order(world, Placement.orders(world)[1], colors)
+    T.truthy(card.lines[1].text:find("tree", 1, true))
+    T.truthy(
+      card.lines[2] and card.lines[2].text:find("wood storage is full", 1, true),
+      "the order card says why it waits"
+    )
+  end
+)

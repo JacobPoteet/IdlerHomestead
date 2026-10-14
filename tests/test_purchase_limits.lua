@@ -52,15 +52,43 @@ end
 
 -- The classification table (D114): the single source the content must match.
 local UNIQUE = {
-  "roadside_stand", "woodshed", "wood_stove", "electric_heater", "chest_freezer", "smoker", "cheese_press",
-  "goat_trailer", "shelter_cat", "camp", "shack", "sturdy_rod", "big_bucket", "stand_sign", "stand_cooler",
+  "roadside_stand",
+  "woodshed",
+  "wood_stove",
+  "electric_heater",
+  "chest_freezer",
+  "smoker",
+  "cheese_press",
+  "goat_trailer",
+  "shelter_cat",
+  "camp",
+  "shack",
+  "sturdy_rod",
+  "big_bucket",
+  "stand_sign",
+  "stand_cooler",
   "stand_display",
 }
 local REPEATABLE = {
-  "chicken_coop", "goat_pen", "cistern", "solar_array", "used_panel", "battery_bank", "wind_turbine",
-  "micro_hydro", "generator", "lamp", "drip_line", "sprinkler", "auto_harvester", "well", "hand_pump", "dc_pump",
+  "chicken_coop",
+  "goat_pen",
+  "cistern",
+  "solar_array",
+  "used_panel",
+  "battery_bank",
+  "wind_turbine",
+  "micro_hydro",
+  "generator",
+  "lamp",
+  "drip_line",
+  "sprinkler",
+  "auto_harvester",
+  "well",
+  "hand_pump",
+  "dc_pump",
 }
-local CONSUMABLE = { "radish_seeds", "potato_seeds", "canned_food", "bait", "fuel_can", "chicken_feed", "hay_bales", "hens", "goats" }
+local CONSUMABLE =
+  { "radish_seeds", "potato_seeds", "canned_food", "bait", "fuel_can", "chicken_feed", "hay_bales", "hens", "goats" }
 
 T.test("purchase limits: the content matches the classification table", function()
   for _, id in ipairs(UNIQUE) do
@@ -84,7 +112,15 @@ T.test("purchase limits: the content matches the classification table", function
 end)
 
 T.test("purchase limits: a unique building is refused while ordered, delivered, or placed", function()
-  for _, id in ipairs({ "woodshed", "wood_stove", "smoker", "roadside_stand", "chest_freezer", "cheese_press", "electric_heater" }) do
+  for _, id in ipairs({
+    "woodshed",
+    "wood_stove",
+    "smoker",
+    "roadside_stand",
+    "chest_freezer",
+    "cheese_press",
+    "electric_heater",
+  }) do
     local world = richWorld()
     local item = reg:get("catalog", id)
     T.eq(Market.cannotBuy(world, id, false), nil, id .. " buyable at first")
@@ -125,7 +161,18 @@ T.test("purchase limits: a destroyed unique building can be bought again", funct
 end)
 
 T.test("purchase limits: repeatable items can be ordered again", function()
-  for _, id in ipairs({ "chicken_coop", "goat_pen", "cistern", "solar_array", "battery_bank", "lamp", "drip_line", "sprinkler", "auto_harvester", "generator" }) do
+  for _, id in ipairs({
+    "chicken_coop",
+    "goat_pen",
+    "cistern",
+    "solar_array",
+    "battery_bank",
+    "lamp",
+    "drip_line",
+    "sprinkler",
+    "auto_harvester",
+    "generator",
+  }) do
     local world = richWorld()
     T.truthy(Market.order(world, id), id)
     T.truthy(Market.order(world, id), id .. " twice")

@@ -328,7 +328,10 @@ T.test("readiness: the verdict names what is short, from the stock and the forec
   setStock(world, "wood", math.ceil(Needs.warmthNeeded(world) / Needs.warmthPerWood(world)))
   r = Readiness.winter(world)
   T.eq(r.verdict, "fuel")
-  T.truthy(r.fuel.covered >= 1 and r.fuel.covered < r.fuel.nights, "the wood of one night pays the first nights and not the whole winter")
+  T.truthy(
+    r.fuel.covered >= 1 and r.fuel.covered < r.fuel.nights,
+    "the wood of one night pays the first nights and not the whole winter"
+  )
 end)
 
 T.test("readiness: the need is exact only once the forecast is, and uses what is revealed", function()
@@ -587,7 +590,10 @@ T.test("readiness: electric heaters and a battery pay part of each night, never 
   local r = Readiness.winter(world)
   T.truthy(r.electric.total > 0 and r.electric.perNight > 0)
   T.near(r.fuel.need + r.electric.total, bare.fuel.need, 1e-6, "fuel pays only what the heaters do not")
-  T.truthy(r.electric.perNight <= Weather.expectedWarmthNeed(world, "winter", 7) * Shelter.insulation(world) + 1e-9, "never more than the night needs")
+  T.truthy(
+    r.electric.perNight <= Weather.expectedWarmthNeed(world, "winter", 7) * Shelter.insulation(world) + 1e-9,
+    "never more than the night needs"
+  )
   local _, message = AlertText.readinessCard(world)
   T.truthy(message:find("Electric:", 1, true))
   T.eq(Readiness.winter(newWorld(1)), nil)

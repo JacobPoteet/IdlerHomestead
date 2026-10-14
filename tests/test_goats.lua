@@ -99,10 +99,27 @@ T.test("goats content: pen, goats, milk, hay, cheese, trailer, notes and art all
   T.eq(reg:get("resources", "goat").category, "animal")
   T.eq(reg:get("resources", "goat").capacity, 0, "goats live only where a pen gives them room")
   local milk = reg:get("resources", "milk")
-  T.truthy(milk.calories and milk.value and tun.food.shelfLife.byCategory[milk.category] <= 2, "milk is food, sells, and spoils fast")
+  T.truthy(
+    milk.calories and milk.value and tun.food.shelfLife.byCategory[milk.category] <= 2,
+    "milk is food, sells, and spoils fast"
+  )
   T.truthy(reg:get("resources", "cheese").category == "preserved" and not Spoilage.perishable(newWorld(), "cheese"))
-  T.truthy(reg:get("resources", "cheese").value > reg:get("resources", "milk").value * 2, "cheese sells for more than the milk in it")
-  for _, name in ipairs({ "goat_pen", "cheese_press", "goat", "icon_goat", "icon_milk", "icon_hay", "icon_cheese", "icon_goat_pen", "icon_goat_trailer", "icon_cheese_press" }) do
+  T.truthy(
+    reg:get("resources", "cheese").value > reg:get("resources", "milk").value * 2,
+    "cheese sells for more than the milk in it"
+  )
+  for _, name in ipairs({
+    "goat_pen",
+    "cheese_press",
+    "goat",
+    "icon_goat",
+    "icon_milk",
+    "icon_hay",
+    "icon_cheese",
+    "icon_goat_pen",
+    "icon_goat_trailer",
+    "icon_cheese_press",
+  }) do
     T.truthy(sprites[name], name .. " sprite")
   end
   for _, id in ipairs({ "goat_pen", "goat_trailer", "goats", "hay_bales", "cheese_press" }) do
@@ -492,7 +509,10 @@ T.test("goats: the pen fence turns raids back, tougher than a coop door, and the
   T.eq(noGuard, 300, "no guard: every raid lands")
   local raided, stopped = raidTally(pred.maxGuard)
   local expected = reg:get("objects", "goat_pen").pen.guard + pred.goatGuard
-  T.truthy(math.abs(stopped / 300 - expected) < 0.1, string.format("%.2f stopped vs pen guard %.2f", stopped / 300, expected))
+  T.truthy(
+    math.abs(stopped / 300 - expected) < 0.1,
+    string.format("%.2f stopped vs pen guard %.2f", stopped / 300, expected)
+  )
   T.truthy(expected > reg:get("objects", "chicken_coop").coop.guard, "goats defend better than hens")
   local fencedRaided = raidTally(pred.maxGuard, function(world)
     Inventory.addEquipment(world, "chicken_fence")
@@ -504,39 +524,42 @@ T.test("goats: the pen fence turns raids back, tougher than a coop door, and the
   T.truthy(raided > 0)
 end)
 
-T.test("goats: with hens as well the raid picks one, hens are likelier prey, and hen-only runs are unchanged", function()
-  with({ { pred, "chancePerDay", 1 }, { pred, "maxGuard", 0 } }, function()
-    local hensHit, goatsHit = 0, 0
-    local world = penWorld(3, 5)
-    local coop = spotFor(world, "chicken_coop")
-    Inventory.addObject(world, "chicken_coop")
-    T.truthy(Inventory.place(world, "chicken_coop", coop))
-    raidNight(world)
-    for _ = 1, 300 do
-      Ledger.add(world, "goat", 3 - Animals.goats(world), "test")
-      Ledger.add(world, "hen", 6 - Animals.hens(world), "test")
-      Animals.raid(world)
-      if Animals.hens(world) < 6 then
-        hensHit = hensHit + 1
+T.test(
+  "goats: with hens as well the raid picks one, hens are likelier prey, and hen-only runs are unchanged",
+  function()
+    with({ { pred, "chancePerDay", 1 }, { pred, "maxGuard", 0 } }, function()
+      local hensHit, goatsHit = 0, 0
+      local world = penWorld(3, 5)
+      local coop = spotFor(world, "chicken_coop")
+      Inventory.addObject(world, "chicken_coop")
+      T.truthy(Inventory.place(world, "chicken_coop", coop))
+      raidNight(world)
+      for _ = 1, 300 do
+        Ledger.add(world, "goat", 3 - Animals.goats(world), "test")
+        Ledger.add(world, "hen", 6 - Animals.hens(world), "test")
+        Animals.raid(world)
+        if Animals.hens(world) < 6 then
+          hensHit = hensHit + 1
+        end
+        if Animals.goats(world) < 3 then
+          goatsHit = goatsHit + 1
+        end
       end
-      if Animals.goats(world) < 3 then
-        goatsHit = goatsHit + 1
+      T.eq(hensHit + goatsHit, 300, "one kind per raid")
+      T.truthy(hensHit > goatsHit * 2, "six hens against three goats weighted by goatWeight")
+    end)
+    -- Hen-only draws are the ones chickens drew before goats existed (no extra draws).
+    local function stream(withPen)
+      local world = penWorld(0, 5)
+      Ledger.add(world, "hen", 0)
+      if withPen then
+        Ledger.add(world, "goat", 0)
       end
+      return world:rng("predators"):float()
     end
-    T.eq(hensHit + goatsHit, 300, "one kind per raid")
-    T.truthy(hensHit > goatsHit * 2, "six hens against three goats weighted by goatWeight")
-  end)
-  -- Hen-only draws are the ones chickens drew before goats existed (no extra draws).
-  local function stream(withPen)
-    local world = penWorld(0, 5)
-    Ledger.add(world, "hen", 0)
-    if withPen then
-      Ledger.add(world, "goat", 0)
-    end
-    return world:rng("predators"):float()
+    T.eq(stream(false), stream(true))
   end
-  T.eq(stream(false), stream(true))
-end)
+)
 
 T.test("goats: no goats and no hens means no raid, and a raid is one stream whatever the fence", function()
   local world = penWorld(0)

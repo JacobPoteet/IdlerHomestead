@@ -87,7 +87,21 @@ end)
 
 -- Chip modals and chip status (#158, D112, #267) -------------------------------------------------
 
-local CHIP_IDS = { "weather", "money", "food", "condition", "battery", "surplus", "wood", "spoiled", "water", "hens", "eggs", "goats", "milk" }
+local CHIP_IDS = {
+  "weather",
+  "money",
+  "food",
+  "condition",
+  "battery",
+  "surplus",
+  "wood",
+  "spoiled",
+  "water",
+  "hens",
+  "eggs",
+  "goats",
+  "milk",
+}
 
 --- Every state key a chip's words must cover, by chip: the states ChipStatus can return.
 local STATES = {
@@ -141,7 +155,10 @@ T.test("chips: a modal is a short summary, not a paragraph", function()
       T.truthy(words(card.why) <= 12, id .. " why is too long: " .. card.why)
     end
     if card.shortcut then
-      T.truthy(({ pantry = 1, power = 1, catalog = 1, truck = 1, load = 1, journal = 1 })[card.shortcut.panel], id .. " shortcut panel")
+      T.truthy(
+        ({ pantry = 1, power = 1, catalog = 1, truck = 1, load = 1, journal = 1 })[card.shortcut.panel],
+        id .. " shortcut panel"
+      )
       T.truthy(#card.shortcut.label > 0, id .. " shortcut label")
     end
   end
@@ -431,7 +448,10 @@ T.test("toolbar: at every size nothing overlaps, sits in view, and every button 
         -- The bar: inside the view, at least the touch size, no two overlapping.
         for i, a in ipairs(out.bar) do
           T.truthy(inside(a, view), where .. ": " .. a.id .. " is off screen")
-          T.truthy(a.h >= tun.input.minTouchTarget and a.w >= tun.input.minTouchTarget, where .. ": " .. a.id .. " is too small")
+          T.truthy(
+            a.h >= tun.input.minTouchTarget and a.w >= tun.input.minTouchTarget,
+            where .. ": " .. a.id .. " is too small"
+          )
           T.truthy(a.y >= view.h - out.bottomH, where .. ": " .. a.id .. " is above the bar")
           for j = i + 1, #out.bar do
             T.falsy(overlaps(a, out.bar[j]), where .. ": " .. a.id .. " overlaps " .. out.bar[j].id)
@@ -465,7 +485,10 @@ T.test("toolbar: at every size nothing overlaps, sits in view, and every button 
           T.truthy(inside(popup, view), where .. ": the " .. name .. " palette is off screen")
           T.truthy(popup.y + popup.h <= view.h - out.bottomH, where .. ": the " .. name .. " palette covers the bar")
           for i, a in ipairs(popup.items) do
-            T.truthy(a.x >= popup.x and a.x + a.w <= popup.x + popup.w and a.y >= popup.y and a.y + a.h <= popup.y + popup.h, where .. ": " .. a.id .. " leaves its palette")
+            T.truthy(
+              a.x >= popup.x and a.x + a.w <= popup.x + popup.w and a.y >= popup.y and a.y + a.h <= popup.y + popup.h,
+              where .. ": " .. a.id .. " leaves its palette"
+            )
             for j = i + 1, #popup.items do
               T.falsy(overlaps(a, popup.items[j]), where .. ": palette " .. a.id .. " overlaps " .. popup.items[j].id)
             end
@@ -483,7 +506,12 @@ T.test("toolbar: the palettes stay clear of the speed, routine and power column"
     if out.popups then
       -- Three control buttons stacked under the top bar at the right edge.
       local topH = cfg.h + (view.w < tun.ui.compactWidth and tun.ui.statRowHeight + 8 or 0)
-      local column = { x = view.w - tun.ui.buttonGap - 120, y = topH + tun.ui.buttonGap, w = 120, h = 3 * (cfg.h + tun.ui.buttonGap) }
+      local column = {
+        x = view.w - tun.ui.buttonGap - 120,
+        y = topH + tun.ui.buttonGap,
+        w = 120,
+        h = 3 * (cfg.h + tun.ui.buttonGap),
+      }
       for name, popup in pairs(out.popups) do
         T.falsy(overlaps(popup, column), view.name .. ": the " .. name .. " palette covers the control column")
       end
@@ -528,14 +556,18 @@ end)
 -- touch-sized buttons: a smaller scale only adds virtual room, a larger one never goes under the minimum view.
 T.test("toolbar: fits at every allowed UI scale of every window size", function()
   local UiScale = require("src.core.ui_scale")
-  local windows = { { 1280, 720 }, { 1920, 1080 }, { 3840, 2160 }, { 390, 844 }, { 844, 390 }, { 640, 360 }, { 340, 600 } }
+  local windows =
+    { { 1280, 720 }, { 1920, 1080 }, { 3840, 2160 }, { 390, 844 }, { 844, 390 }, { 640, 360 }, { 340, 600 } }
   for _, win in ipairs(windows) do
     for _, s in ipairs(UiScale.steps(win[1], win[2], tun.display, tun.settings)) do
       local view = { name = win[1] .. "x" .. win[2] .. "@" .. s, w = win[1] / s, h = win[2] / s }
       local out = Toolbar.arrange(buttons(true, "rod"), view, cfgFor(view))
       for _, a in ipairs(out.bar) do
         T.truthy(inside(a, view), view.name .. ": " .. a.id .. " is off screen")
-        T.truthy(a.w >= tun.input.minTouchTarget and a.h >= tun.input.minTouchTarget, view.name .. ": " .. a.id .. " is under the touch size")
+        T.truthy(
+          a.w >= tun.input.minTouchTarget and a.h >= tun.input.minTouchTarget,
+          view.name .. ": " .. a.id .. " is under the touch size"
+        )
       end
     end
   end

@@ -396,6 +396,6 @@ return {
     maxSpeed = 2, -- game-speed multiplier above which effects stop speeding up: 4x game speed (and the 8x of sleep) show effects at their 2x rate, so flames, sway, shimmer, mist and lights never strobe (#265)
     wrap = 3600, -- seconds after which the effect clocks wrap (keeps shader floats small)
   },
-  vignette = 0.28,-- 0..1 darkening toward the screen edges
+  vignette = 0.28, -- 0..1 darkening toward the screen edges
   grain = 0.035, -- 0..1 film grain strength
 }

@@ -44,7 +44,11 @@ return function(d)
 
   for anchor, obj in pairs(grid.objects) do
     local x, y = Grid.coords(grid, anchor)
-    if world.registry:get("objects", obj.id).clearable ~= false and math.abs(x - tx) <= 10 and math.abs(y - ty) <= 8 then
+    if
+      world.registry:get("objects", obj.id).clearable ~= false
+      and math.abs(x - tx) <= 10
+      and math.abs(y - ty) <= 8
+    then
       Grid.removeObject(world, anchor)
     end
   end

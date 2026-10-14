@@ -43,7 +43,13 @@ local function field(world, count)
     for y = sy - r, sy + r do
       for x = sx - r, sx + r do
         local i = Grid.inBounds(grid, x, y) and Grid.index(grid, x, y)
-        if i and #tiles < count and Grid.terrain(world, i).tillable and not world.occupancy[i] and i ~= world.state.land.spawn then
+        if
+          i
+          and #tiles < count
+          and Grid.terrain(world, i).tillable
+          and not world.occupancy[i]
+          and i ~= world.state.land.spawn
+        then
           local dup = false
           for _, t in ipairs(tiles) do
             dup = dup or t == i
@@ -171,7 +177,14 @@ end)
 
 local function newSession(seed)
   local store = Save.new(Save.memoryBackend(), { slotCount = 1 })
-  return Session.new({ store = store, slot = 1, data = Save.newSlotData("Tip"), registry = reg, tuning = tun, seed = seed or 3 })
+  return Session.new({
+    store = store,
+    slot = 1,
+    data = Save.newSlotData("Tip"),
+    registry = reg,
+    tuning = tun,
+    seed = seed or 3,
+  })
 end
 
 T.test("tip card: game time stands still, the chosen speed is kept, and it returns with the card gone", function()

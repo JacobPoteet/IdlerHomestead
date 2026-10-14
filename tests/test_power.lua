@@ -132,7 +132,16 @@ T.test("power content: sinks and sources are well formed and have art", function
 end)
 
 T.test("power content: the catalog offers every network object", function()
-  for _, id in ipairs({ "solar_array", "battery_bank", "wind_turbine", "micro_hydro", "generator", "electric_heater", "lamp", "chest_freezer" }) do
+  for _, id in ipairs({
+    "solar_array",
+    "battery_bank",
+    "wind_turbine",
+    "micro_hydro",
+    "generator",
+    "electric_heater",
+    "lamp",
+    "chest_freezer",
+  }) do
     T.eq(reg:get("catalog", id).object, id)
     T.truthy(reg:get("catalog", id).price > 0)
   end

@@ -114,7 +114,8 @@ return function(d)
   -- Autumn: a warm rim of light on the sun side of every sprite, strongest at low sun.
   local now = Calendar.now(world)
   local perSeason = world.tuning.time.daysPerSeason
-  world.state.calendar.elapsed = world.state.calendar.elapsed + ((3 - now.seasonIndex) * perSeason + (4 - now.dayOfSeason)) * dayLength
+  world.state.calendar.elapsed = world.state.calendar.elapsed
+    + ((3 - now.seasonIndex) * perSeason + (4 - now.dayOfSeason)) * dayLength
   Ledger.add(world, "canned_food", 20, "driver")
   at(16.5)
   sky("clear") -- after the jump: the sim rolls the new days' weather on the first frames of the new day
@@ -142,5 +143,4 @@ return function(d)
   settings:set("depthOfField", false)
   d:frames(2, 0.05)
   d:shot("dof_off")
-
 end

@@ -59,8 +59,13 @@ return function(d)
   assert(buy and buy.enabled, "the card's order button is missing or off")
   d:click(buy.x + buy.w / 2, buy.y + buy.h / 2)
   d:frames(2)
-  assert(not scene.card:isOpen() and #world.state.market.orders == 1,
-    "the card's button did not order: open=" .. tostring(scene.card:isOpen()) .. " orders=" .. #world.state.market.orders)
+  assert(
+    not scene.card:isOpen() and #world.state.market.orders == 1,
+    "the card's button did not order: open="
+      .. tostring(scene.card:isOpen())
+      .. " orders="
+      .. #world.state.market.orders
+  )
   d:shot("ordered")
   d:key("escape")
   d:frames(2)

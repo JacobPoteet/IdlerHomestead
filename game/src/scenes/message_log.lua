@@ -87,7 +87,12 @@ function Scene:draw()
   end
   self.list:finish()
   if #self.rows == 0 then
-    Text.draw("Nothing yet. News from the homestead lands here.", b.x + PAD, self.list.view.y + 4, { size = "small", color = dim })
+    Text.draw(
+      "Nothing yet. News from the homestead lands here.",
+      b.x + PAD,
+      self.list.view.y + 4,
+      { size = "small", color = dim }
+    )
   end
   self.list:drawCue(self.app.ctx.tuning.ui)
   self.buttons:draw()

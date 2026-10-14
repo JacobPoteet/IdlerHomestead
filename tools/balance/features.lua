@@ -49,7 +49,10 @@ function Features.parse(spec)
     return set
   end
   for id in spec:gmatch("[^,]+") do
-    assert(Features.describe[id], "unknown feature '" .. id .. "' (" .. table.concat(Features.LIST, "|") .. "|all|none)")
+    assert(
+      Features.describe[id],
+      "unknown feature '" .. id .. "' (" .. table.concat(Features.LIST, "|") .. "|all|none)"
+    )
     set[id] = true
   end
   return set
@@ -268,7 +271,15 @@ local function centroid(world, tiles)
 end
 
 -- Which objects go by the field instead of by the truck.
-local BY_FIELD = { well = true, hand_pump = true, cistern = true, dc_pump = true, sprinkler = true, drip_line = true, auto_harvester = true }
+local BY_FIELD = {
+  well = true,
+  hand_pump = true,
+  cistern = true,
+  dc_pump = true,
+  sprinkler = true,
+  drip_line = true,
+  auto_harvester = true,
+}
 
 --- An upgrade object (the shack, D115) goes over the building it replaces. Returns nil when `id` is not an
 --- upgrade of something standing (place it like any other object), else whether it was placed.
@@ -321,7 +332,9 @@ function Features.place(world, id, ringFrom)
       local d = math.max(math.abs(x - cx), math.abs(y - cy))
       if BY_FIELD[id] or d >= ringFrom then
         local score = d
-        local reach = (def.sprinkler and def.sprinkler.radius) or (def.drip and def.drip.radius) or (def.machine and def.machine.radius)
+        local reach = (def.sprinkler and def.sprinkler.radius)
+          or (def.drip and def.drip.radius)
+          or (def.machine and def.machine.radius)
         if reach then
           local covered, r = 0, reach
           for dy = -r, r do
@@ -346,10 +359,18 @@ end
 --- hens when the coop has room for them.
 function Features.tripItems(world, set)
   local ids = {}
-  if set.chickens and Market.isKnown(world, "hens") and Animals.housing(world) - Animals.hens(world) >= world.registry:get("catalog", "hens").gives.hen then
+  if
+    set.chickens
+    and Market.isKnown(world, "hens")
+    and Animals.housing(world) - Animals.hens(world) >= world.registry:get("catalog", "hens").gives.hen
+  then
     ids[#ids + 1] = "hens"
   end
-  if set.goats and Market.isKnown(world, "goats") and Animals.goatHousing(world) - Animals.goats(world) >= world.registry:get("catalog", "goats").gives.goat then
+  if
+    set.goats
+    and Market.isKnown(world, "goats")
+    and Animals.goatHousing(world) - Animals.goats(world) >= world.registry:get("catalog", "goats").gives.goat
+  then
     ids[#ids + 1] = "goats"
   end
   return ids
@@ -397,7 +418,11 @@ end
 --- Should today's truck trip wait so the truck battery can fill once? True after the first trip
 --- until the "Full battery" note is written, the battery is full, or `untilDay` has passed.
 function Features.holdTrip(world, untilDay)
-  if Calendar.now(world).day > untilDay or not Journal.hasNote(world, "first_trip") or Journal.hasNote(world, "full_battery") then
+  if
+    Calendar.now(world).day > untilDay
+    or not Journal.hasNote(world, "first_trip")
+    or Journal.hasNote(world, "full_battery")
+  then
     return false
   end
   local truck = Land.truck(world)
@@ -461,7 +486,14 @@ end
 --- Water facts for the report: waterings by hand / drip, units pumped / rained, cistern owned.
 function Features.waterStats(world)
   local s = Water.stats(world)
-  return { hand = s.hand, drip = s.drip, sprinkler = s.sprinkler or 0, pumped = s.pumped, rained = s.rained, cistern = Water.hasCistern(world) and 1 or 0 }
+  return {
+    hand = s.hand,
+    drip = s.drip,
+    sprinkler = s.sprinkler or 0,
+    pumped = s.pumped,
+    rained = s.rained,
+    cistern = Water.hasCistern(world) and 1 or 0,
+  }
 end
 
 return Features

@@ -194,7 +194,11 @@ T.test("journal: the slot header carries counts only, and the slot line is a rou
   local fmt = tun.ui.progress.journalLine
   T.eq(Run.journalLine(tun, { journalKnown = 1, journalTotal = 3 }), string.format(fmt, 33))
   T.eq(Run.journalLine(tun, { journalKnown = 3, journalTotal = 3 }), string.format(fmt, 100))
-  T.eq(Run.journalLine(tun, { journalKnown = 299, journalTotal = 300 }), string.format(fmt, 99), "never rounds up to 100")
+  T.eq(
+    Run.journalLine(tun, { journalKnown = 299, journalTotal = 300 }),
+    string.format(fmt, 99),
+    "never rounds up to 100"
+  )
   T.eq(Run.journalLine(tun, {}), nil, "a header without figures shows no line")
   T.eq(Run.journalLine(tun, nil), nil)
 end)

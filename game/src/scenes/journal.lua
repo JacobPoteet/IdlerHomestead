@@ -57,7 +57,8 @@ local COLOR = {
 local SKETCH = { 0.80, 0.84, 0.95 } -- an idea's icon: pale, like pencil
 local SILHOUETTE = { 0.16, 0.18, 0.17 } -- an unknown node's icon
 
-local ORDER_REASONS = { owned = "Owned", ordered = "Ordered", ["pickup only"] = "In town", ["too big for storage"] = "Too big" }
+local ORDER_REASONS =
+  { owned = "Owned", ordered = "Ordered", ["pickup only"] = "In town", ["too big for storage"] = "Too big" }
 
 -- Test hook: a function(world) -> chapters that replaces Journal.chapters (the screenshot driver uses it to
 -- show a grown journal). Nil in the game.
@@ -71,7 +72,10 @@ JournalScene.chapterSource = nil
 JournalScene.lastChapter = nil
 
 function JournalScene.new(world, onToast)
-  return setmetatable({ world = world, onToast = onToast, selected = nil, selectedNote = nil, nav = Nav.new() }, JournalScene)
+  return setmetatable(
+    { world = world, onToast = onToast, selected = nil, selectedNote = nil, nav = Nav.new() },
+    JournalScene
+  )
 end
 
 function JournalScene:enter()
@@ -466,7 +470,9 @@ function JournalScene:action(name, data)
   end
 
   if name == "press" then
-    self.dragInMap = not consumed and inRect(self.mapRect, data.x, data.y) and not (self:cardOpen() and inRect(self.cardRect, data.x, data.y))
+    self.dragInMap = not consumed
+      and inRect(self.mapRect, data.x, data.y)
+      and not (self:cardOpen() and inRect(self.cardRect, data.x, data.y))
   elseif name == "pan" then
     -- Typing "a", "s", "d" or "w" must not scroll the list under the search field.
     if (data.keys and not self.field.focused) or (self.dragInMap and not data.keys) then
@@ -618,20 +624,32 @@ function JournalScene:drawNode(node)
   local iconX, iconY = x + 4, y + (h - 12 * ICON_SCALE) / 2
   if status == "unknown" then
     Panel.icon(iconId, iconX, iconY, 0.55, ICON_SCALE, SILHOUETTE)
-    Text.draw("?", iconX, iconY + 5, { size = "body", color = colors.textDim, width = 12 * ICON_SCALE, align = "center" })
+    Text.draw(
+      "?",
+      iconX,
+      iconY + 5,
+      { size = "body", color = colors.textDim, width = 12 * ICON_SCALE, align = "center" }
+    )
   elseif status == "idea" then
     Panel.icon(iconId, iconX, iconY, 0.75, ICON_SCALE, SKETCH)
   else
     Panel.icon(iconId, iconX, iconY, 1, ICON_SCALE)
   end
   if status == "studying" or status == "queued" then
-    drawRing(x + 16, y + h / 2, RING_R, Journal.progress(world, id), status == "studying" and colors.accent or colors.textDim)
+    drawRing(
+      x + 16,
+      y + h / 2,
+      RING_R,
+      Journal.progress(world, id),
+      status == "studying" and colors.accent or colors.textDim
+    )
   end
 
   local name = status == "unknown" and "???" or def.name
   local textW = w - 36
   local textH = Text.wrappedHeight(name, "small", textW)
-  local color = (status == "known" or status == "studying") and colors.text or (status == "unknown" and colors.textDim or colors.text)
+  local color = (status == "known" or status == "studying") and colors.text
+    or (status == "unknown" and colors.textDim or colors.text)
   Text.draw(name, x + 32, y + (h - textH) / 2, { size = "small", width = textW, color = color })
   if self:owned(def, status) then
     drawBadge(x + w - 3, y + 3)
@@ -704,7 +722,10 @@ function JournalScene:drawMap()
   love.graphics.rectangle("fill", r.x, r.y, r.w, r.h, 4, 4)
   local search = self.spec.search
   if self.nav.field then
-    self.field:draw(self.nav.field, { placeholder = search.labels.placeholder, pad = search.textPad, blink = search.caretBlink })
+    self.field:draw(
+      self.nav.field,
+      { placeholder = search.labels.placeholder, pad = search.textPad, blink = search.caretBlink }
+    )
   end
   if self.nav.clear then
     Overview.drawClear(self.nav, self.spec)
@@ -728,26 +749,50 @@ function JournalScene:drawQueue()
   local size = world.tuning.study.queueSize
   local queue = Journal.queue(world)
   local q = self.queueRect
-  Text.draw(string.format("Studying at night (%d/%d)", #queue, size), q.x, self.box.y + TITLE_PAD, { size = "small", color = dim })
+  Text.draw(
+    string.format("Studying at night (%d/%d)", #queue, size),
+    q.x,
+    self.box.y + TITLE_PAD,
+    { size = "small", color = dim }
+  )
   if #queue == 0 then
     local ideas = #Journal.ideas(world) > 0
     love.graphics.setColor(ideas and colors.accent or colors.panelBorder)
     NodeView.dashedRect(q.x, q.y, q.w, q.h, 4, 3)
-    local prompt = ideas and "Nothing queued. Tap an idea on the map to study it tonight." or "Nothing to study yet. Tap a ??? on the map to see what to do."
+    local prompt = ideas and "Nothing queued. Tap an idea on the map to study it tonight."
+      or "Nothing to study yet. Tap a ??? on the map to see what to do."
     local th = Text.wrappedHeight(prompt, "small", q.w - 16)
-    Text.draw(prompt, q.x + 8, q.y + (q.h - th) / 2, { size = "small", width = q.w - 16, color = ideas and colors.accent or dim })
+    Text.draw(
+      prompt,
+      q.x + 8,
+      q.y + (q.h - th) / 2,
+      { size = "small", width = q.w - 16, color = ideas and colors.accent or dim }
+    )
     return
   end
   for slot, chip in ipairs(self.chips) do
     local def = Journal.node(world, chip.id)
     love.graphics.setColor(colors.button)
     love.graphics.rectangle("fill", chip.x, chip.y, chip.w, chip.h, 3, 3)
-    love.graphics.setColor(chip.id == self.selected and colors.text or (slot == 1 and colors.accent or colors.panelBorder))
+    love.graphics.setColor(
+      chip.id == self.selected and colors.text or (slot == 1 and colors.accent or colors.panelBorder)
+    )
     love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", chip.x + 0.5, chip.y + 0.5, chip.w - 1, chip.h - 1, 3, 3)
     Panel.icon(Panel.nodeIcon(world.registry, def), chip.x + 4, chip.y + 4)
-    Text.draw(def.name, chip.x + 20, chip.y + 4, { size = "small", width = chip.w - 24, color = slot == 1 and colors.text or dim })
-    progressBar(chip.x + 4, chip.y + chip.h - 9, chip.w - 8, Journal.progress(world, chip.id), slot == 1 and colors.accent or dim)
+    Text.draw(
+      def.name,
+      chip.x + 20,
+      chip.y + 4,
+      { size = "small", width = chip.w - 24, color = slot == 1 and colors.text or dim }
+    )
+    progressBar(
+      chip.x + 4,
+      chip.y + chip.h - 9,
+      chip.w - 8,
+      Journal.progress(world, chip.id),
+      slot == 1 and colors.accent or dim
+    )
   end
   for _, free in ipairs(self.freeSlots) do
     love.graphics.setColor(colors.panelBorder)
@@ -782,7 +827,14 @@ function JournalScene:drawNotes()
     local info = Journal.noteInfo(world, note.id)
     local text
     if info then
-      text = string.format("%s: %s (%s day %d, run %d)", note.name, note.line, capitalize(info.season), info.day, info.run or 1)
+      text = string.format(
+        "%s: %s (%s day %d, run %d)",
+        note.name,
+        note.line,
+        capitalize(info.season),
+        info.day,
+        info.run or 1
+      )
     else
       text = note.name .. ": not written yet. " .. note.hint .. "."
     end
@@ -831,20 +883,39 @@ function JournalScene:drawCard()
     align = "right",
     color = (status == "idea" or status == "studying") and colors.accent or dim,
   })
-  Text.draw(status == "unknown" and "???" or def.name, textX, c.y + 7, { size = "body", width = c.w - 38 - statusW - 12 })
+  Text.draw(
+    status == "unknown" and "???" or def.name,
+    textX,
+    c.y + 7,
+    { size = "body", width = c.w - 38 - statusW - 12 }
+  )
   -- An unknown node keeps its name hidden but says what to do (D72, #160).
   local line = status == "unknown" and (self:unlockText(id) or "Write the missing notes to learn this.") or def.line
-  Text.draw(line, textX, c.y + CARD_TEXT_TOP, { size = "small", width = c.w - CARD_TEXT_X - 8, color = status == "unknown" and colors.accent or dim })
+  Text.draw(
+    line,
+    textX,
+    c.y + CARD_TEXT_TOP,
+    { size = "small", width = c.w - CARD_TEXT_X - 8, color = status == "unknown" and colors.accent or dim }
+  )
 
   -- Needed note stamps (filled once written), then study time and price.
   for _, stamp in ipairs(self.cardStamps) do
-    NodeView.stamp(world.registry, stamp.note, stamp.x, stamp.y, stamp.w, Journal.hasNote(world, stamp.note), stamp.note == self.selectedNote)
+    NodeView.stamp(
+      world.registry,
+      stamp.note,
+      stamp.x,
+      stamp.y,
+      stamp.w,
+      Journal.hasNote(world, stamp.note),
+      stamp.note == self.selectedNote
+    )
   end
   if status ~= "unknown" then
     local parts = {}
     if def.studyNights and status ~= "known" then
       local progress = Journal.progress(world, id) * def.studyNights
-      parts[#parts + 1] = progress > 0 and string.format("%.1f/%s", progress, nights(def.studyNights)) or nights(def.studyNights)
+      parts[#parts + 1] = progress > 0 and string.format("%.1f/%s", progress, nights(def.studyNights))
+        or nights(def.studyNights)
     end
     if kind == "catalog" then
       parts[#parts + 1] = "$" .. (status == "known" and Market.itemPrice(world, id) or def.price)

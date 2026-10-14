@@ -17,7 +17,14 @@ local STEP = 1 / tun.time.tickRate
 
 local function newSession(seed)
   local store = Save.new(Save.memoryBackend(), { slotCount = 1 })
-  return Session.new({ store = store, slot = 1, data = Save.newSlotData("Controls"), registry = reg, tuning = tun, seed = seed or 5 })
+  return Session.new({
+    store = store,
+    slot = 1,
+    data = Save.newSlotData("Controls"),
+    registry = reg,
+    tuning = tun,
+    seed = seed or 5,
+  })
 end
 
 local function setTime(world, hour)
@@ -266,7 +273,11 @@ end)
 T.test("takeover: browse panels do not reset the timer, the homestead does (D55)", function()
   local Input = require("src.core.input")
   local top = { name = "homestead" }
-  local app = { top = function() return top end }
+  local app = {
+    top = function()
+      return top
+    end,
+  }
   local input = Input.new(app, tun)
   input.lastActivity = 100
   top.name = "catalog"
@@ -351,6 +362,8 @@ T.test("progress: routine-chosen work reports it too", function()
     end
   end
   T.truthy(routine, "the routine started a timed action")
-  T.truthy(routine.remaining >= routine.duration * (1 - routine.fraction) / tun.idle.activeWorkMultiplier,
-    "idle work is not faster than active work")
+  T.truthy(
+    routine.remaining >= routine.duration * (1 - routine.fraction) / tun.idle.activeWorkMultiplier,
+    "idle work is not faster than active work"
+  )
 end)

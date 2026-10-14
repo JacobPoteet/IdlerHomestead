@@ -30,7 +30,12 @@ function Guide:resize(view)
   end)
   -- The species list scrolls (D87, #8) when the panel is shorter than the guide.
   local b = self.box
-  self.list:fit({ x = b.x, y = b.y + 44, w = b.w, h = b.h - 44 - 6 }, count * ROW_H, self.app.ctx.tuning.ui.scrollHintHeight, ROW_H)
+  self.list:fit(
+    { x = b.x, y = b.y + 44, w = b.w, h = b.h - 44 - 6 },
+    count * ROW_H,
+    self.app.ctx.tuning.ui.scrollHintHeight,
+    ROW_H
+  )
 end
 
 local function capitalize(s)

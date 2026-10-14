@@ -117,7 +117,13 @@ T.test("storage fit: every catalog item's gives fits its resource capacity", fun
       local housed = reg:get("resources", res).category == "animal"
       T.truthy(
         housed or amount <= baseCapacity(reg, res),
-        string.format("catalog '%s' gives %d %s but its capacity is %s", item.id, amount, res, tostring(baseCapacity(reg, res)))
+        string.format(
+          "catalog '%s' gives %d %s but its capacity is %s",
+          item.id,
+          amount,
+          res,
+          tostring(baseCapacity(reg, res))
+        )
       )
     end
   end
@@ -129,13 +135,22 @@ T.test("storage fit: clearing yields and crop harvests fit their capacities", fu
   for _, obj in ipairs(reg:all("objects")) do
     for res, amount in pairs(obj.yields or {}) do
       local most = type(amount) == "table" and amount[2] or amount
-      T.truthy(most <= baseCapacity(reg, res), string.format("object '%s' can yield %d %s, over its capacity", obj.id, most, res))
+      T.truthy(
+        most <= baseCapacity(reg, res),
+        string.format("object '%s' can yield %d %s, over its capacity", obj.id, most, res)
+      )
     end
   end
   for _, crop in ipairs(reg:all("crops")) do
     local mostProduce = math.floor(crop.yield * farming.soilYieldMax) + 1
-    T.truthy(mostProduce <= baseCapacity(reg, crop.produce), "crop '" .. crop.id .. "' harvest is over its produce capacity")
-    T.truthy(crop.seedReturn[2] <= baseCapacity(reg, crop.seed), "crop '" .. crop.id .. "' seed return is over its capacity")
+    T.truthy(
+      mostProduce <= baseCapacity(reg, crop.produce),
+      "crop '" .. crop.id .. "' harvest is over its produce capacity"
+    )
+    T.truthy(
+      crop.seedReturn[2] <= baseCapacity(reg, crop.seed),
+      "crop '" .. crop.id .. "' seed return is over its capacity"
+    )
   end
 end)
 
@@ -143,7 +158,10 @@ T.test("storage fit: every recipe's output has a store, so a smoker batch can al
   local reg = Registry.new():loadAll()
   for _, recipe in ipairs(reg:all("recipes")) do
     -- A batch bigger than the store is delivered in parts, which is fine; a zero store is not.
-    T.truthy(baseCapacity(reg, recipe.output) >= 1, "recipe '" .. recipe.id .. "' output '" .. recipe.output .. "' has no room at all")
+    T.truthy(
+      baseCapacity(reg, recipe.output) >= 1,
+      "recipe '" .. recipe.id .. "' output '" .. recipe.output .. "' has no room at all"
+    )
     T.truthy(recipe.batch >= 1)
   end
 end)

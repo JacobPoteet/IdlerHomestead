@@ -264,23 +264,30 @@ T.test("move: a short hop onto its own footprint works, onto itself is refused",
   T.truthy(world.occupancy[to + 1])
 end)
 
-T.test("move: the preview names what is cleared and the object stays until the way is clear; cancel keeps it", function()
-  local world = newWorld(1)
-  local i = openBlock(world, 1, 1)
-  build(world, "smoker", i)
-  local to, tx, ty = openBlock(world, 1, 1, 12, 8)
-  Grid.placeObject(world, "tree", tx, ty)
-  local preview = Placement.preview(world, "smoker", to, i)
-  T.truthy(preview.ok and preview.queue and preview.clear[1].id == "tree")
-  T.eq(Placement.requestMove(world, i, to), "queued")
-  T.eq(Placement.available(world, "smoker"), 0 + Inventory.objectCount(world, "smoker"), "a move takes no inventory item")
-  T.truthy(Grid.object(world, i), "still at the old spot while it waits")
-  T.truthy(world.state.fields.held[to], "the target is held")
-  T.truthy(Placement.cancel(world, to))
-  T.eq(Grid.object(world, i).id, "smoker", "cancelled: it stays")
-  T.falsy(world.state.fields.held[to])
-  T.eq(Grid.object(world, to).id, "tree", "nothing was cleared")
-end)
+T.test(
+  "move: the preview names what is cleared and the object stays until the way is clear; cancel keeps it",
+  function()
+    local world = newWorld(1)
+    local i = openBlock(world, 1, 1)
+    build(world, "smoker", i)
+    local to, tx, ty = openBlock(world, 1, 1, 12, 8)
+    Grid.placeObject(world, "tree", tx, ty)
+    local preview = Placement.preview(world, "smoker", to, i)
+    T.truthy(preview.ok and preview.queue and preview.clear[1].id == "tree")
+    T.eq(Placement.requestMove(world, i, to), "queued")
+    T.eq(
+      Placement.available(world, "smoker"),
+      0 + Inventory.objectCount(world, "smoker"),
+      "a move takes no inventory item"
+    )
+    T.truthy(Grid.object(world, i), "still at the old spot while it waits")
+    T.truthy(world.state.fields.held[to], "the target is held")
+    T.truthy(Placement.cancel(world, to))
+    T.eq(Grid.object(world, i).id, "smoker", "cancelled: it stays")
+    T.falsy(world.state.fields.held[to])
+    T.eq(Grid.object(world, to).id, "tree", "nothing was cleared")
+  end
+)
 
 T.test("move: completes after the clearing, in order, and the soil is kept", function()
   local world = newWorld(1)
@@ -358,22 +365,25 @@ end)
 
 -- #227 ----------------------------------------------------------------------------------------------
 
-T.test("placement: crops stay while the homesteader still has to step aside, so a cancel loses nothing (#227)", function()
-  local world = newWorld(1)
-  local i, x, y = openBlock(world, 1, 1)
-  world.state.fields.tilled[i] = true
-  world.state.fields.plan[i] = "radish"
-  world.state.crops[i] = { id = "radish", growth = 0.3, moisture = 0.5 }
-  local hs = Actors.homesteader(world)
-  hs.x, hs.y = x, y
-  Inventory.addObject(world, "smoker")
-  T.eq(Placement.request(world, "smoker", i), "queued")
-  world:tick(STEP)
-  T.truthy(world.state.crops[i], "the crop is still there while the homesteader stands on it")
-  T.truthy(Placement.cancel(world, i))
-  T.truthy(world.state.crops[i], "cancel restores nothing because nothing was lost")
-  T.eq(world.state.fields.plan[i], "radish")
-end)
+T.test(
+  "placement: crops stay while the homesteader still has to step aside, so a cancel loses nothing (#227)",
+  function()
+    local world = newWorld(1)
+    local i, x, y = openBlock(world, 1, 1)
+    world.state.fields.tilled[i] = true
+    world.state.fields.plan[i] = "radish"
+    world.state.crops[i] = { id = "radish", growth = 0.3, moisture = 0.5 }
+    local hs = Actors.homesteader(world)
+    hs.x, hs.y = x, y
+    Inventory.addObject(world, "smoker")
+    T.eq(Placement.request(world, "smoker", i), "queued")
+    world:tick(STEP)
+    T.truthy(world.state.crops[i], "the crop is still there while the homesteader stands on it")
+    T.truthy(Placement.cancel(world, i))
+    T.truthy(world.state.crops[i], "cancel restores nothing because nothing was lost")
+    T.eq(world.state.fields.plan[i], "radish")
+  end
+)
 
 T.test("placement: with the homesteader out of the way the crop goes and the building goes up together", function()
   local world = newWorld(1)

@@ -60,7 +60,12 @@ function M.sanitize(inputCfg, raw)
   local kept = {}
   if type(raw) == "table" then
     for action, key in pairs(raw) do
-      if rebindable[action] and validKey(key) and not M.isReserved(inputCfg, key) and key ~= M.defaultKey(inputCfg, action) then
+      if
+        rebindable[action]
+        and validKey(key)
+        and not M.isReserved(inputCfg, key)
+        and key ~= M.defaultKey(inputCfg, action)
+      then
         kept[action] = key
       end
     end

@@ -44,7 +44,15 @@ local function chip(world, id, icon, text)
   if s.level > 0 and marks[s.level] ~= "" then
     text = (text ~= "" and (text .. " ") or "") .. marks[s.level]
   end
-  return { icon = icon, text = text, color = levelColor(s.level), id = id, level = s.level, frac = s.frac, trend = s.trend }
+  return {
+    icon = icon,
+    text = text,
+    color = levelColor(s.level),
+    id = id,
+    level = s.level,
+    frac = s.frac,
+    trend = s.trend,
+  }
 end
 
 --- The strip's chips in order. Entries that only make sense with a building (cistern, coop, pen) appear
@@ -75,7 +83,8 @@ function ChipStrip.entries(world)
   -- The truck chip says "ready" once a trip is possible (D72, #162), in the accent colour.
   local battery = string.format("%d%%", math.floor(Power.charge(world, truck) / Power.capacity(world, truck) * 100))
   local tripReady = Market.canTrip(world) and not world.state.market.inTown
-  local b = add(chip(world, "battery", "icon_battery", tripReady and (battery .. " " .. ui.labels.tripReady) or battery))
+  local b =
+    add(chip(world, "battery", "icon_battery", tripReady and (battery .. " " .. ui.labels.tripReady) or battery))
   b.color = tripReady and theme.colors.accent or nil
   -- Spare goods (D75): units above their keep targets, what the stand and the truck can sell.
   add(chip(world, "surplus", "icon_crate", count(select(2, Food.surpluses(world)))))
@@ -86,7 +95,11 @@ function ChipStrip.entries(world)
       "wood",
       "icon_wood",
       woodOutlook.nights == math.huge and count(woodOutlook.stock)
-        or string.format(woodOutlook.nights >= 10 and "%s · %.0fn" or "%s · %.1fn", count(woodOutlook.stock), woodOutlook.nights)
+        or string.format(
+          woodOutlook.nights >= 10 and "%s · %.0fn" or "%s · %.1fn",
+          count(woodOutlook.stock),
+          woodOutlook.nights
+        )
     )
   )
   local tonight = Spoilage.tonight(world)
@@ -180,7 +193,13 @@ function ChipStrip.draw(world, e, x, y)
     love.graphics.rectangle("fill", x, by, width, cfg.barHeight)
     local fill = e.level >= 2 and theme.colors.danger or e.level == 1 and theme.colors.accent or cfg.barOk
     love.graphics.setColor(fill[1], fill[2], fill[3], fill[4] or 1)
-    love.graphics.rectangle("fill", x, by, math.max(e.frac > 0 and 1 or 0, math.floor(width * e.frac + 0.5)), cfg.barHeight)
+    love.graphics.rectangle(
+      "fill",
+      x,
+      by,
+      math.max(e.frac > 0 and 1 or 0, math.floor(width * e.frac + 0.5)),
+      cfg.barHeight
+    )
   end
 end
 

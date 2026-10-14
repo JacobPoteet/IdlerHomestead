@@ -83,7 +83,10 @@ function Needs.heatEfficiency(world)
   local objects = world.state.grid.objects
   -- The cached index of heat sources (D58), not a scan of every placed object: the HUD asks every frame.
   for _, anchor in ipairs(Grid.anchorsWith(world, "heatSource")) do
-    best = math.max(best, world.registry:get("objects", objects[anchor].id).heatSource.efficiency * Shelter.heatReach(world, anchor))
+    best = math.max(
+      best,
+      world.registry:get("objects", objects[anchor].id).heatSource.efficiency * Shelter.heatReach(world, anchor)
+    )
   end
   return best
 end

@@ -148,7 +148,7 @@ function Toolbar.arrange(spec, view, cfg)
     local contentH = linesH(#plines)
     local ph = scrolls and math.max(2 * gap + h, maxH) or contentH + 2 * gap
     local viewH = ph - 2 * gap
-    local offset = math.max(0, math.min(((cfg.scroll or {})[name]) or 0, contentH - viewH))
+    local offset = math.max(0, math.min((cfg.scroll or {})[name] or 0, contentH - viewH))
     local x = alignRight and (anchor.x + anchor.w - w) or anchor.x
     x = math.max(pad, math.min(x, view.w - pad - w))
     local y = bottom - ph
