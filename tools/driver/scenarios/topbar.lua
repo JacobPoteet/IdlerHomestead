@@ -104,4 +104,19 @@ return function(d)
   d:key("escape")
   d:frames(4)
   d:shot("bar_short")
+
+  -- Mid widths with the Log button beside Menu (D90, #229): the busiest strip sits beside the date
+  -- when it fits and drops to its own row under it when it does not, never under Log or Menu.
+  Ledger.add(world, "radish", 8)
+  Ledger.add(world, "wood", 9)
+  for _, w in ipairs({ 700, 900 }) do
+    d:resize(w, 720)
+    d:frames(3)
+    local layout = d:scene():chipLayout()
+    local limit = w - world.tuning.ui.menuWidth - world.tuning.ui.log.buttonWidth - 4
+    for _, item in ipairs(layout.items) do
+      assert(item.x >= 0 and item.x + item.width <= (layout.rows == 0 and limit or w), "chip " .. item.entry.id .. " off the bar at " .. w)
+    end
+    d:shot("bar_" .. w)
+  end
 end
