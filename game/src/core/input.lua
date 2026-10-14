@@ -16,11 +16,13 @@
 -- Also tracks the time of the last real input for idle takeover (GDD §5.2).
 
 local strict = require("src.core.strict")
+local KeyBindings = require("src.core.key_bindings")
 
 local Input = {}
 Input.__index = Input
 
--- Key bindings (keyActions, panKeys, zoomKeys) live in data/tuning/input.lua.
+-- Key bindings (keyActions, panKeys, zoomKeys) live in data/tuning/input.lua. The player's rebinds
+-- (settings file) are merged over keyActions by src/core/key_bindings.lua into `keyMap`.
 
 function Input.new(app, tuning)
   return setmetatable({
@@ -31,7 +33,24 @@ function Input.new(app, tuning)
     touchOrder = {},
     pinch = nil, -- { refDist, midX, midY }
     lastActivity = love.timer.getTime(),
+    keyMap = KeyBindings.keyMap(tuning.input, nil), -- key -> action name actually in force
+    capture = nil, -- function(key) taking the next key press instead of the game (rebinding)
   }, Input)
+end
+
+--- Use these key overrides ({ action = key }, from the settings) from now on.
+function Input:setKeyOverrides(overrides)
+  self.keyMap = KeyBindings.keyMap(self.tuning.input, overrides)
+end
+
+--- Capture mode (Settings > Controls): the next key press goes to fn(key) and does nothing else, so
+--- pressing a key to bind it never fires its action. Cancelled by Input:endCapture().
+function Input:beginCapture(fn)
+  self.capture = fn
+end
+
+function Input:endCapture()
+  self.capture = nil
 end
 
 --- Record real input for the idle takeover timer. Input while a browse panel (catalog, journal ...)
@@ -241,8 +260,14 @@ end
 
 function Input:keypressed(key)
   self:activity()
+  if self.capture then
+    local fn = self.capture
+    self.capture = nil -- one key per capture; fn may begin another
+    fn(key)
+    return
+  end
   local keys = self.tuning.input
-  local action = strict.get(keys.keyActions, key)
+  local action = strict.get(self.keyMap, key)
   local zoom = strict.get(keys.zoomKeys, key)
   if action then
     self:emit(action)

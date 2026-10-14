@@ -3,6 +3,7 @@
 -- title screen and from the in-game Menu. Changes apply at once and are saved at once.
 
 local Buttons = require("src.ui.buttons")
+local ControlsText = require("src.ui.controls_text")
 local Draw = require("src.ui.draw")
 local Layout = require("src.ui.settings_layout")
 local Options = require("src.core.settings_options")
@@ -88,6 +89,11 @@ function Settings:layout()
   y = y + HEADING_H
   self.items[#self.items + 1] = { soundTest = true, y = y, h = ctrlH }
   y = y + ctrlH + ITEM_GAP
+  -- Not an option: opens the key rebinding screen (D121).
+  self.items[#self.items + 1] = { heading = ControlsText.title, y = y, h = HEADING_H }
+  y = y + HEADING_H
+  self.items[#self.items + 1] = { controls = true, y = y, h = ctrlH }
+  y = y + ctrlH + ITEM_GAP
 
   local window = self.list:fit(P.list, y, tuning.ui.scrollHintHeight, ctrlH)
   local top = self.list:origin()
@@ -106,6 +112,18 @@ function Settings:layout()
         label = "Listen to every sound",
         onPress = function()
           self.app:push(require("src.scenes.sound_test").new())
+        end,
+      })
+    end
+    if item.controls and item.visible then
+      self.rowButtons:add({
+        x = x0,
+        y = item.ay,
+        w = innerW,
+        h = ctrlH,
+        label = ControlsText.open,
+        onPress = function()
+          self.app:push(require("src.scenes.controls").new())
         end,
       })
     end
