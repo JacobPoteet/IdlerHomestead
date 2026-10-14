@@ -66,12 +66,14 @@ function Game.new(opts)
     return emit(inp, name, data)
   end
 
-  Assets.load()
   local self = setmetatable({ app = app, input = input, debug = Debug.new(app, input) }, Game)
   ctx.game = self
   if live then
     self:restoreWindow()
   end
+  -- After the window is restored: a mode change recreates the GL context and leaves canvases blank (#222),
+  -- so the placeholder atlas must be painted into the final window, never before it.
+  Assets.load()
   self:resize(love.graphics.getDimensions())
   ctx.settings:applyAll(platform, self:settingsEnv())
   ctx.settings:onChange(function(id)
