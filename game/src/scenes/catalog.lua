@@ -36,13 +36,13 @@ function Catalog:showCard(item)
 end
 
 function Catalog:items()
-  local list = {}
-  for _, item in ipairs(self.world.registry:all("catalog")) do
-    if Market.isKnown(self.world, item.id) then
-      list[#list + 1] = item
-    end
-  end
-  return list
+  return Market.catalogList(self.world) -- every item while debug cheat mode is on (D126)
+end
+
+--- The debug toggle shows while the F1 overlay is on, and stays while cheating so it can be turned off.
+function Catalog:debugShown()
+  local game = self.app.ctx.game
+  return Market.cheatOn(self.world) or (game ~= nil and game.debug ~= nil and game.debug.visible == true)
 end
 
 --- When money is under the cheapest order (and nothing is on its way), say where early money comes
@@ -98,6 +98,22 @@ function Catalog:layout()
   Panel.closeButton(self.buttons, b, function()
     self.app:pop()
   end)
+  self.debugWasShown = self:debugShown()
+  if self.debugWasShown then
+    local cfg = self.app.ctx.tuning.ui.catalogCheat
+    self.buttons:add({
+      x = b.x + b.w - 58 - 4 - cfg.buttonWidth,
+      y = b.y + 6,
+      w = cfg.buttonWidth,
+      h = 22,
+      label = cfg.button,
+      style = Market.cheatOn(world) and "accent" or nil,
+      onPress = function()
+        Market.setCheat(world, not Market.cheatOn(world))
+        self:resize(self.app.view)
+      end,
+    })
+  end
   self.rows = {}
   -- The item list scrolls (D87, #8) between the header and the held orders / footer.
   local items = self:items()
@@ -119,7 +135,8 @@ function Catalog:layout()
       y = y,
       w = 74,
       h = ROW_H - 2,
-      label = REASONS[reason] or ("Order $" .. (Market.itemPrice(world, item.id) + fee)),
+      label = REASONS[reason]
+        or (Market.cheatOn(world) and ui.catalogCheat.row or ("Order $" .. (Market.itemPrice(world, item.id) + fee))),
       enabled = reason == nil,
       style = world.state.market.specials[item.id] and "accent" or nil,
       onPress = function()
@@ -158,6 +175,9 @@ function Catalog:update()
   -- Money changes while the panel is open; keep button states honest. A held order appearing or
   -- going away changes the panel's height, so that re-runs the whole layout.
   local money = Ledger.get(self.world, "money")
+  if self:debugShown() ~= self.debugWasShown then -- F1 toggled the overlay
+    self:layout()
+  end
   local held = #Market.heldOrders(self.world)
   if held ~= self.heldCount then
     self:resize(self.app.view)
@@ -185,8 +205,10 @@ end
 
 --- Order `id` (from a row button or the item card). True when the order went through.
 function Catalog:order(item)
-  local ok = Market.order(self.world, item.id)
-  if ok then
+  local ok = Market.order(self.world, item.id) -- in cheat mode this is a free, immediate grant (D126)
+  if ok and Market.cheatOn(self.world) then
+    self.onToast(string.format(self.app.ctx.tuning.ui.catalogCheat.granted, item.name))
+  elseif ok then
     self.onToast("Ordered " .. item.name .. " · arrives tomorrow")
   end
   self:layout()
@@ -232,20 +254,24 @@ end
 function Catalog:draw()
   local b, world = self.box, self.world
   local fee = world.tuning.economy.deliveryFee
-  Panel.frame(self.app.view, b, "Catalog", string.format(
+  local cheat = self.app.ctx.tuning.ui.catalogCheat
+  Panel.frame(self.app.view, b, "Catalog", Market.cheatOn(world) and cheat.subtitle or string.format(
     "You have $%d · $%d delivery · arrives %02d:00 tomorrow",
     Ledger.get(world, "money"),
     fee,
     world.tuning.economy.deliveryHour
   ))
+  if Market.cheatOn(world) then
+    Text.draw(cheat.tag, b.x + 80, b.y + 9, { size = "body", color = theme.colors.danger })
+  end
   self.list:begin(self.app.view.scale)
   for _, row in ipairs(self.rows) do
     local item = row.item
     Panel.icon(Panel.catalogIcon(item), b.x + 12, row.y + 5)
     Text.draw(item.name, b.x + 30, row.y + 6, { size = "small" })
     local price = Market.itemPrice(world, item.id)
-    local label = "$" .. price
-    if world.state.market.specials[item.id] then
+    local label = Market.cheatOn(world) and "$0" or ("$" .. price)
+    if not Market.cheatOn(world) and world.state.market.specials[item.id] then
       label = label .. "  sale!"
     end
     Text.draw(label, b.x + 170, row.y + 6, {
