@@ -191,12 +191,11 @@ return {
     unit = "string", -- what the value counts, for tooltips and docs
     short = "string", -- format with one %s for the value, shown in the routine list
   },
-  chips = { -- top-bar chip explanations (GDD D72); see the header of content/chips.lua
-    name = "string", -- card title (<= ~3 words)
-    unit = "string", -- what the chip's number counts
-    about = "string", -- what the chip is, one line
-    raises = "string", -- what pushes the number up
-    lowers = "string", -- what pushes the number down
+  chips = { -- top-bar chip modals (GDD D72, D112); see the header of content/chips.lua
+    name = "string", -- modal title (<= ~3 words)
+    status = "table", -- state key -> the headline for that state (a short phrase)
+    rows = "table", -- { { key, label, fmt } }: labelled numbers; chip_text fills the value for each key
+    why = "table?", -- state key -> one short line saying what to do about that state
     panel = "string?", -- panel the shortcut opens: "pantry" | "power" | "catalog" | "truck" | "load"
     panelLabel = "string?", -- the shortcut button's text
   },

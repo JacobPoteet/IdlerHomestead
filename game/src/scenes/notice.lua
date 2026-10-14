@@ -1,6 +1,7 @@
 -- Modal information card: a title, a wrapped message and one or two buttons.
--- opts: { title, headline? (accent line above the message), message, okLabel = "Got it",
---         more? = { label, onPress() } }
+-- opts: { title, headline? (accent line above the message), message?, okLabel = "Got it",
+--         tone? (colour of the headline, default accent), rows? = { { label, value } } (labelled numbers under the headline), why? (one short dim line),
+--         width? (virtual pixels, default 340), more? = { label, onPress() } }
 -- `more` is an optional second button (for example "Open Pantry"); the card closes first.
 
 local Buttons = require("src.ui.buttons")
@@ -20,12 +21,20 @@ function Notice:enter()
 end
 
 function Notice:resize(view)
-  local w = math.min(340, view.w - 24)
+  local w = math.min(self.opts.width or 340, view.w - 24)
   local inner = w - 24
+  local rowGap = self.app.ctx.tuning.ui.modal.rowGap
   self.headline = self.opts.headline
-  self.headlineH = self.headline and Text.wrappedHeight(self.headline, "small", inner) + 6 or 0
-  self.messageH = Text.wrappedHeight(self.opts.message or "", "small", inner)
-  local h = 28 + self.headlineH + self.messageH + 46
+  self.headlineSize = self.opts.rows and "body" or "small" -- chip modals (D112) lead with a larger status line
+  self.headlineH = self.headline and Text.wrappedHeight(self.headline, self.headlineSize, inner) + 6 or 0
+  self.rows = self.opts.rows or {}
+  self.rowH = select(2, Text.measure("Ag", "small")) + rowGap
+  self.rowsH = #self.rows * self.rowH + (#self.rows > 0 and 4 or 0)
+  local message = self.opts.message
+  self.messageH = message and Text.wrappedHeight(message, "small", inner) or 0
+  self.why = self.opts.why
+  self.whyH = self.why and Text.wrappedHeight(self.why, "small", inner) + 2 or 0
+  local h = 28 + self.headlineH + self.rowsH + self.messageH + self.whyH + 46
   self.box = { x = math.floor((view.w - w) / 2), y = math.floor((view.h - h) / 2), w = w, h = h }
   local b, bw = self.box, 96
   self.buttons:clear()
@@ -70,10 +79,24 @@ function Notice:draw()
   Text.draw(self.opts.title or "", b.x + 12, b.y + 10, { size = "body" })
   local y = b.y + 28
   if self.headline then
-    Text.draw(self.headline, b.x + 12, y, { size = "small", width = b.w - 24, color = theme.colors.accent })
+    Text.draw(self.headline, b.x + 12, y, { size = self.headlineSize, width = b.w - 24, color = self.opts.tone or theme.colors.accent })
     y = y + self.headlineH
   end
-  Text.draw(self.opts.message or "", b.x + 12, y, { size = "small", width = b.w - 24, color = theme.colors.textDim })
+  for _, row in ipairs(self.rows) do
+    Text.draw(row.label, b.x + 12, y, { size = "small", color = theme.colors.textDim })
+    Text.draw(row.value, b.x + 12, y, { size = "small", width = b.w - 24, align = "right" })
+    y = y + self.rowH
+  end
+  if #self.rows > 0 then
+    y = y + 4
+  end
+  if self.opts.message then
+    Text.draw(self.opts.message, b.x + 12, y, { size = "small", width = b.w - 24, color = theme.colors.textDim })
+    y = y + self.messageH
+  end
+  if self.why then
+    Text.draw(self.why, b.x + 12, y + 2, { size = "small", width = b.w - 24, color = theme.colors.textDim })
+  end
   self.buttons:draw()
 end
 

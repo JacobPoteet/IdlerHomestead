@@ -80,6 +80,11 @@ return {
     icon_seed_radish = { placeholder = "icon_seed_radish", w = 12, h = 12 },
     icon_seed_potato = { placeholder = "icon_seed_potato", w = 12, h = 12 },
     icon_heart = { placeholder = "icon_heart", w = 12, h = 12 },
+    icon_wx_clear = { placeholder = "icon_wx_clear", w = 12, h = 12 }, -- weather chip glyphs (D112)
+    icon_wx_cloudy = { placeholder = "icon_wx_cloudy", w = 12, h = 12 },
+    icon_wx_rain = { placeholder = "icon_wx_rain", w = 12, h = 12 },
+    icon_wx_windy = { placeholder = "icon_wx_windy", w = 12, h = 12 },
+    icon_wx_storm = { placeholder = "icon_wx_storm", w = 12, h = 12 },
     icon_battery = { placeholder = "icon_battery", w = 12, h = 12 },
     icon_crate = { placeholder = "icon_crate", w = 12, h = 12 },
     icon_rod = { placeholder = "icon_rod", w = 12, h = 12 },

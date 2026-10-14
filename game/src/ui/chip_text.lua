@@ -1,152 +1,146 @@
--- The explanation card behind a top-bar chip (D72, #158). What a chip is, its unit and what moves it
--- come from data/content/chips.lua; the headline says the current value in plain words, built from the
--- same accessors the chip reads. No balance numbers live here: every figure is read from the sim.
+-- The short modal behind a top-bar chip (D72, D112): one headline status, a few labelled numbers, an
+-- optional one-line why and at most one action. The words live in data/content/chips.lua; the state
+-- comes from ChipStatus (the same accessors the chip's bar reads) and the numbers from the sim.
+-- No balance numbers live here.
 
-local Alerts = require("src.sim.systems.alerts")
 local Animals = require("src.sim.systems.animals")
 local Food = require("src.sim.systems.food")
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Needs = require("src.sim.systems.needs")
 local Power = require("src.sim.systems.power")
-local Spoilage = require("src.sim.systems.spoilage")
+local Land = require("src.sim.systems.land")
 local Water = require("src.sim.systems.water")
+local Weather = require("src.sim.systems.weather")
+local ChipStatus = require("src.ui.chip_status")
+local Forecast = require("src.ui.forecast")
 
 local ChipText = {}
 
-local function plural(n, word)
-  return n == 1 and (n .. " " .. word) or (n .. " " .. word .. "s")
+--- Row values by chip: key -> list of format arguments (nil or absent = no row).
+local values = {}
+
+function values.money(world)
+  local _, total = Market.loadQuote(world)
+  return { cash = { Ledger.get(world, "money") }, load = total > 0 and { total } or nil }
 end
 
-local function level(world, kind)
-  return Alerts.level(world, kind)
+function values.food(world)
+  return { days = { Needs.foodDays(world) }, perDay = { world.tuning.needs.dailyCalories } }
 end
 
-local headlines = {}
-
-function headlines.money(world)
-  return string.format("You have $%d.", Ledger.get(world, "money"))
+function values.condition(world)
+  return { hp = { math.floor(Needs.condition(world) + 0.5), world.tuning.needs.conditionMax } }
 end
 
-function headlines.food(world)
-  local days = Needs.foodDays(world)
-  local text = string.format("About %.1f days of food, at %d calories a day.", days, world.tuning.needs.dailyCalories)
-  if level(world, "food") >= 2 then
-    text = text .. " Almost out: harvest, fish or buy canned food."
-  elseif level(world, "food") == 1 then
-    text = text .. " Getting low."
-  end
-  return text
+function values.battery(world)
+  local truck = Land.truck(world)
+  return {
+    charge = { Power.charge(world, truck), Power.capacity(world, truck) },
+    cost = { world.tuning.economy.tripCost },
+    rate = { Power.chargeRate(world, truck) },
+  }
 end
 
-function headlines.condition(world)
-  local hp = math.floor(Needs.condition(world) + 0.5)
-  local text = string.format("Health %d of %d.", hp, world.tuning.needs.conditionMax)
-  if level(world, "condition") >= 2 then
-    text = text .. " Dangerously low: eat and keep warm."
-  elseif level(world, "condition") == 1 then
-    text = text .. " Falling: eat and keep warm."
-  end
-  return text
-end
-
-function headlines.battery(world)
-  local truck = world.state.land.truck
-  local charge, cap = Power.charge(world, truck), Power.capacity(world, truck)
-  local cost = world.tuning.economy.tripCost
-  local text = string.format("%.1f of %d kWh stored. A trip to town needs %d.", charge, cap, cost)
-  if Market.canTrip(world) then
-    text = text .. " Enough for a trip now."
-  end
-  return text
-end
-
-function headlines.surplus(world)
+function values.surplus(world)
   local _, spare = Food.surpluses(world)
-  local _, value, loaded = Market.loadQuote(world)
-  local text = spare == 0 and "Nothing spare: everything in stock is kept." or (plural(spare, "unit") .. " above what you keep.")
-  if loaded > 0 then
-    text = text .. string.format(" %d loaded on the truck, worth $%d in town.", loaded, value)
-  else
-    text = text .. " The truck is empty."
-  end
-  return text
+  local _, worth, loaded = Market.loadQuote(world)
+  return { spare = { spare }, loaded = { loaded }, worth = loaded > 0 and { worth } or nil }
 end
 
---- The wood chip's own text (D104): the HUD chip and this card read the same Needs.woodOutlook.
-function headlines.wood(world)
+function values.wood(world)
   local o = Needs.woodOutlook(world)
-  local text = string.format("You have %s of wood (room for %d).", plural(o.stock, "log"), Ledger.capacity(world, Needs.fuelId(world)))
-  if o.nights == math.huge then
-    return text .. " No fire is needed tonight."
+  local fuel = Needs.fuelId(world)
+  local out = { stock = { o.stock, Ledger.capacity(world, fuel) } }
+  if o.nights ~= math.huge then
+    out.perNight = { o.perNight }
+    out.nights = { o.nights }
   end
-  text = text .. string.format(" Tonight's fire burns about %d: enough for %.1f nights.", o.perNight, o.nights)
-  if o.noFire then
-    text = text .. " No fire is placed to burn it in: place a campfire or stove."
-  end
-  return text
+  return out
 end
 
-function headlines.spoiled(world)
-  local tonight = Spoilage.tonight(world)
-  local one = tonight.units == 1
-  return string.format(
-    "%d %s of food at the end of %s shelf life will rot tonight.",
-    tonight.units,
-    one and "unit" or "units",
-    one and "its" or "their"
-  )
+function values.spoiled(world)
+  return { units = { ChipStatus.of(world, "spoiled").units } }
 end
 
-function headlines.water(world)
-  return string.format("The cistern is %d%% full.", math.floor(Water.fraction(world) * 100 + 0.5))
+function values.water(world)
+  local units, capacity = Water.stored(world)
+  return { stored = { math.floor(units + 0.5), capacity } }
 end
 
-function headlines.hens(world)
+local function feed(days)
+  return days ~= math.huge and { days } or nil
+end
+
+function values.hens(world)
   local flock = Animals.info(world)
-  local text = string.format("%s kept; the coop holds %d.", plural(flock.hens, "hen"), flock.housing)
-  if flock.hens > 0 and (flock.hungryDays > 0 or flock.thirstyDays > 0 or flock.feedDays < 1) then
-    text = text .. " They are short of feed or water."
-  end
-  return text
+  return { count = { flock.hens, flock.housing }, feedDays = flock.hens > 0 and feed(flock.feedDays) or nil }
 end
 
-function headlines.eggs(world)
-  return string.format("%s waiting in the nest box.", plural(Animals.info(world).nest, "egg"))
+function values.eggs(world)
+  return { nest = { Animals.info(world).nest } }
 end
 
-function headlines.goats(world)
+function values.goats(world)
   local herd = Animals.goatInfo(world)
-  local text = string.format("%s kept; the pen holds %d.", plural(herd.goats, "goat"), herd.housing)
-  if herd.goats > 0 and (herd.hungryDays > 0 or herd.thirstyDays > 0 or herd.feedDays < 1) then
-    text = text .. " They are short of hay or water."
+  return { count = { herd.goats, herd.housing }, feedDays = herd.goats > 0 and feed(herd.feedDays) or nil }
+end
+
+function values.milk(world)
+  return { pail = { Animals.goatInfo(world).pail } }
+end
+
+function values.weather()
+  return {}
+end
+
+--- The weather modal's rows: one per day the forecast shows, "Today: Clear".
+local function weatherRows(world)
+  local ui = world.tuning.ui
+  local rows = {}
+  for n, day in ipairs(Weather.outlook(world)) do
+    if n > ui.topChips.weatherDays then
+      break
+    end
+    local label = n == 1 and ui.modal.todayLabel or n == 2 and ui.modal.tomorrowLabel or string.format(ui.modal.inDaysLabel, day.offset)
+    rows[#rows + 1] = { label = label, value = world.tuning.weather.kinds[day.kind].label }
   end
-  return text
+  return rows
 end
 
-function headlines.milk(world)
-  return string.format("%d units of milk in the pail.", Animals.goatInfo(world).pail)
-end
-
---- The card for a chip id: { title, headline, message, shortcut = { panel, label } or nil }. Errors on an
---- id that has no content entry (a chip added without text).
+--- The card for a chip id: { title, headline, rows = { { label, value } }, why = string or nil,
+--- shortcut = { panel, label } or nil }. Errors on an id that has no content entry or no words for its state.
 function ChipText.card(world, id)
   local def = world.registry:get("chips", id)
-  local headline = assert(headlines[id], "no headline for chip " .. id)(world)
-  local message = table.concat({
-    def.about,
-    "Counts: " .. def.unit .. ".",
-    "Goes up: " .. def.raises,
-    "Goes down: " .. def.lowers,
-  }, "\n")
+  local status = ChipStatus.of(world, id)
+  local state = status.state
+  local headline = assert(def.status[state], "chip " .. id .. " has no words for state " .. state)
+  local rows
+  if id == "weather" then
+    rows = weatherRows(world)
+  else
+    rows = {}
+    local have = assert(values[id], "no values for chip " .. id)(world)
+    for _, row in ipairs(def.rows) do
+      local args = have[row.key]
+      if args then
+        rows[#rows + 1] = { label = row.label, value = string.format(row.fmt, unpack(args)) }
+      end
+    end
+  end
+  local why = def.why and def.why[state]
+  if id == "weather" then
+    local threats = Forecast.threats(world)
+    why = threats[1] and threats[1][1] or why
+  end
   local shortcut
   if def.panel then
     shortcut = { panel = def.panel, label = def.panelLabel }
   end
-  return { title = def.name, headline = headline, message = message, shortcut = shortcut }
+  return { title = def.name, headline = headline, level = status.level, rows = rows, why = why, shortcut = shortcut }
 end
 
---- Every chip id that has an explanation, in the order of the content file.
+--- Every chip id that has a modal, in the order of the content file.
 function ChipText.ids(world)
   local ids = {}
   for _, def in ipairs(world.registry:all("chips")) do

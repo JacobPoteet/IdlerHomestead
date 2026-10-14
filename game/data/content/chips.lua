@@ -1,124 +1,167 @@
--- Top-bar chips explained (GDD D72, #158): what a tap on a chip shows. The number in the chip comes from
--- the sim; this file only says what it is, what its unit is and what moves it. The headline (the value
--- in plain words) is built by src/ui/chip_text.lua from the same accessors the chip reads.
---   name: card title. unit: what the number counts. about: one line saying what the chip is.
---   raises / lowers: what pushes the number up or down. panel: the panel the shortcut button opens
---   ("pantry" | "power" | "catalog" | "truck" | "load"), panelLabel its button text; both absent = no shortcut.
+-- Top-bar chips (GDD D72, D112): the short modal a tap on a chip opens. The chip itself carries the state
+-- (number, bar, level mark, trend arrow); the modal is one headline, a few labelled numbers, at most one
+-- action and an optional one-line "why". src/ui/chip_text.lua picks the state and fills the numbers from
+-- the same accessors the chip reads; this file only holds the words.
+--   name: modal title.
+--   status: headline by state key (the states each chip can be in are listed per entry); never longer than a phrase.
+--   rows: { key, label, fmt }; the value is string.format(fmt, ...) of what chip_text computes for `key`
+--         (a row with no value in the current state is skipped).
+--   why: optional one short line by state key, shown only for that state (say what to do about it).
+--   panel / panelLabel: the one action, the panel it opens ("pantry" | "power" | "catalog" | "load"); absent = no action.
 return {
+  {
+    id = "weather",
+    name = "Weather",
+    -- States: the kind of today's weather ("clear" ... "storm"), or "cold" during a cold snap.
+    status = { clear = "Clear today", cloudy = "Cloudy today", rain = "Rain today", windy = "Windy today", storm = "Storm today", cold = "Cold snap" },
+    rows = {}, -- one row per visible day is added by chip_text (day name, kind)
+    why = {
+      clear = "Full sun for solar. Water the crops by hand.",
+      cloudy = "Solar makes less. Fish bite better.",
+      rain = "Rain waters the crops and fills the cistern.",
+      windy = "Turbines make more. Fish bite less.",
+      storm = "Turbines make the most. Storms raise raid and hail odds.",
+      cold = "Nights burn extra wood.",
+    },
+    panel = "power",
+    panelLabel = "Open Power",
+  },
   {
     id = "money",
     name = "Money",
-    unit = "dollars ($)",
-    about = "Cash for the Catalog and the truck's shop.",
-    raises = "Sell the truck load in town, junk you clear, roadside stand sales.",
-    lowers = "Ordering from the Catalog and buying in town.",
+    status = { have = "Cash in hand" },
+    rows = {
+      { key = "cash", label = "Money", fmt = "$%d" },
+      { key = "load", label = "Truck load worth", fmt = "$%d" },
+    },
     panel = "catalog",
     panelLabel = "Open Catalog",
   },
   {
     id = "food",
     name = "Food",
-    unit = "days of food in stock at today's need",
-    about = "How long the food you hold would last the homesteader.",
-    raises = "Harvest crops, catch fish, buy canned food.",
-    lowers = "Eating every night, and food spoiling. At zero your health (the heart) starts to fall.",
+    status = { ok = "Food is fine", low = "Food is low", bad = "Almost out of food" }, -- by alert level
+    rows = {
+      { key = "days", label = "Lasts", fmt = "%.1f days" },
+      { key = "perDay", label = "Eaten each day", fmt = "%d cal" },
+    },
+    why = { low = "Harvest, fish or buy canned food.", bad = "Harvest, fish or buy canned food." },
     panel = "pantry",
     panelLabel = "Open Pantry",
   },
   {
     id = "condition",
     name = "Health",
-    unit = "points out of full health (the heart)",
-    about = "The homesteader's condition. At zero the run is over.",
-    raises = "Eating enough and keeping warm raises it a little each day.",
-    lowers = "A night without food or without warmth.",
+    status = { ok = "Healthy", low = "Health is falling", bad = "Health is dangerously low" },
+    rows = {
+      { key = "hp", label = "Health", fmt = "%d of %d" },
+    },
+    why = { low = "Eat and keep warm.", bad = "Eat and keep warm." },
     panel = "pantry",
     panelLabel = "Open Pantry",
   },
   {
     id = "battery",
     name = "Truck charge",
-    unit = "percent of the truck battery",
-    about = "The truck battery. A trip to town needs a set amount of charge.",
-    raises = "Spare power, once the homestead's own needs are met: solar panels, wind and other sources.",
-    lowers = "Driving to town, and lending power to the homestead when you allow it.",
+    -- States: ready (a trip is possible), charging, draining, idle.
+    status = { ready = "Ready for a trip", charging = "Charging", draining = "Draining", idle = "Not charging" },
+    rows = {
+      { key = "charge", label = "Charge", fmt = "%.1f of %d kWh" },
+      { key = "cost", label = "A trip needs", fmt = "%d kWh" },
+      { key = "rate", label = "Right now", fmt = "%+.1f kW" },
+    },
+    why = { idle = "Spare solar, wind or hydro charges it." },
     panel = "power",
     panelLabel = "Open Power",
   },
   {
     id = "surplus",
     name = "Spare goods",
-    unit = "units of goods above what you keep",
-    about = "Stock above its keep target (set in the Pantry): what the roadside stand and the truck can sell.",
-    raises = "Harvest, catch and gather more than you keep, or lower a keep target in the Pantry.",
-    lowers = "Selling at the stand or in town, eating, spoiling, or raising a keep target.",
+    status = { spare = "Goods to sell", none = "Nothing spare" },
+    rows = {
+      { key = "spare", label = "Above keep", fmt = "%d units" },
+      { key = "loaded", label = "On the truck", fmt = "%d units" },
+      { key = "worth", label = "Worth in town", fmt = "$%d" },
+    },
     panel = "load",
     panelLabel = "Load the truck",
   },
   {
     id = "wood",
     name = "Wood",
-    unit = "logs, and nights of warmth at tonight's need",
-    about = "Wood is your only fuel, and what the smoker burns. The chip shows the logs you hold and, once a fire is needed, how many nights they last.",
-    raises = "Felling and clearing trees. A woodshed raises the most you can store.",
-    lowers = "Burning it at night (none in summer, a little in spring and autumn, the most in winter) and the smoker.",
+    -- States: ok, low, bad (alert levels), none (no fire needed tonight), nofire (a fire is needed, none placed).
+    status = { ok = "Enough wood", low = "Wood is low", bad = "Not enough for tonight", none = "No fire needed tonight", nofire = "No fire to burn it in", full = "Store is full" },
+    rows = {
+      { key = "stock", label = "Logs", fmt = "%d of %d" },
+      { key = "perNight", label = "Tonight's fire", fmt = "%d logs" },
+      { key = "nights", label = "Lasts", fmt = "%.1f nights" },
+    },
+    why = { low = "Fell trees or buy wood.", bad = "Fell trees or buy wood.", nofire = "Place a campfire or stove.", full = "A woodshed holds more." },
     panel = "pantry",
     panelLabel = "Open Pantry",
   },
   {
     id = "spoiled",
     name = "Spoiling tonight",
-    unit = "units of food that rot tonight",
-    about = "Fresh food older than its shelf life goes bad overnight. Only shown when something will.",
-    raises = "Old batches left too long. Fish and milk keep only a couple of days; the Pantry shows each food's.",
-    lowers = "Eat, sell or preserve it (smoking, a freezer).",
+    status = { rot = "Food will rot tonight" },
+    rows = {
+      { key = "units", label = "Units lost", fmt = "%d" },
+    },
+    why = { rot = "Eat, sell or smoke it first." },
     panel = "pantry",
     panelLabel = "Open Pantry",
   },
   {
     id = "water",
     name = "Cistern",
-    unit = "percent of the cistern's capacity",
-    about = "Water stored for the crops and animals.",
-    raises = "Rain, and a pump filling the cistern.",
-    lowers = "Watering crops and giving the animals a drink.",
+    status = { ok = "Water in store", low = "Water is low", bad = "Almost dry" },
+    rows = {
+      { key = "stored", label = "Stored", fmt = "%d of %d" },
+    },
+    why = { low = "Rain or a pump refills it.", bad = "Rain or a pump refills it." },
     panel = "power",
     panelLabel = "Open Power",
   },
   {
     id = "hens",
     name = "Hens",
-    unit = "hens kept, out of the coop's room",
-    about = "Your flock. Red means they are short of feed or water.",
-    raises = "Buy hens, up to what the coop holds.",
-    lowers = "Foxes and other raids at night.",
+    status = { ok = "Flock is fed", short = "Short of feed or water", none = "No hens yet" },
+    rows = {
+      { key = "count", label = "Hens", fmt = "%d of %d" },
+      { key = "feedDays", label = "Feed lasts", fmt = "%.1f days" },
+    },
+    why = { short = "Top up the feed and water." },
     panel = "catalog",
     panelLabel = "Open Catalog",
   },
   {
     id = "eggs",
     name = "Eggs",
-    unit = "eggs waiting in the nest box",
-    about = "Eggs the hens have laid. Tap the coop and the homesteader collects them.",
-    raises = "The hens lay more each day when fed and watered.",
-    lowers = "Collecting them.",
+    status = { some = "Eggs waiting", none = "No eggs yet" },
+    rows = {
+      { key = "nest", label = "In the nest box", fmt = "%d" },
+    },
+    why = { some = "Tap the coop to collect them." },
   },
   {
     id = "goats",
     name = "Goats",
-    unit = "goats kept, out of the pen's room",
-    about = "Your herd. Red means they are short of hay or water.",
-    raises = "Buy goats, up to what the pen holds.",
-    lowers = "Predators at night.",
+    status = { ok = "Herd is fed", low = "Hay is running low", short = "Short of hay or water", none = "No goats yet" },
+    rows = {
+      { key = "count", label = "Goats", fmt = "%d of %d" },
+      { key = "feedDays", label = "Hay lasts", fmt = "%.1f days" },
+    },
+    why = { low = "Buy hay.", short = "Top up the hay and water." },
     panel = "catalog",
     panelLabel = "Open Catalog",
   },
   {
     id = "milk",
     name = "Milk",
-    unit = "units of milk in the pail",
-    about = "Fresh milk from the goats. It does not keep, so use it or make cheese.",
-    raises = "The goats give more each day when fed and watered.",
-    lowers = "Milking it into the larder.",
+    status = { some = "Milk waiting", none = "No milk yet" },
+    rows = {
+      { key = "pail", label = "In the pail", fmt = "%d" },
+    },
+    why = { some = "It does not keep: use it or make cheese." },
   },
 }

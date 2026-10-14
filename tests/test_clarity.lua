@@ -10,6 +10,8 @@ local Land = require("src.sim.systems.land")
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Power = require("src.sim.systems.power")
+local ChipStatus = require("src.ui.chip_status")
+local ChipStrip = require("src.ui.chip_strip")
 local ChipText = require("src.ui.chip_text")
 local Toolbar = require("src.ui.toolbar")
 local Truck = require("src.scenes.truck")
@@ -83,46 +85,144 @@ T.test("journal: nothing is missing once the item is an idea or known", function
   T.eq(Journal.status(world, "axe"), "idea")
 end)
 
--- Chip cards (#158) ---------------------------------------------------------------------------
+-- Chip modals and chip status (#158, D112, #267) -------------------------------------------------
 
-local CHIP_IDS = { "money", "food", "condition", "battery", "surplus", "wood", "spoiled", "water", "hens", "eggs", "goats", "milk" }
+local CHIP_IDS = { "weather", "money", "food", "condition", "battery", "surplus", "wood", "spoiled", "water", "hens", "eggs", "goats", "milk" }
 
-T.test("chips: every top-bar chip has a card with a unit, a value in words and what moves it", function()
+--- Every state key a chip's words must cover, by chip: the states ChipStatus can return.
+local STATES = {
+  weather = { "clear", "cloudy", "rain", "windy", "storm", "cold" },
+  money = { "have" },
+  food = { "ok", "low", "bad" },
+  condition = { "ok", "low", "bad" },
+  battery = { "ready", "charging", "draining", "idle" },
+  surplus = { "spare", "none" },
+  wood = { "ok", "low", "bad", "none", "nofire", "full" },
+  spoiled = { "rot" },
+  water = { "ok", "low", "bad" },
+  hens = { "ok", "short", "none" },
+  eggs = { "some", "none" },
+  goats = { "ok", "low", "short", "none" },
+  milk = { "some", "none" },
+}
+
+T.test("chips: every chip has words for each state it can be in", function()
   local world = newWorld()
   for _, id in ipairs(CHIP_IDS) do
-    local card = ChipText.card(world, id)
-    T.truthy(card.title and #card.title > 0, id .. " title")
-    T.truthy(card.headline and #card.headline > 0, id .. " headline")
-    T.truthy(card.message:find("Counts:", 1, true), id .. " names its unit")
-    T.truthy(card.message:find("Goes up:", 1, true), id .. " says what raises it")
-    T.truthy(card.message:find("Goes down:", 1, true), id .. " says what lowers it")
-    if card.shortcut then
-      T.truthy(({ pantry = 1, power = 1, catalog = 1, truck = 1, load = 1, journal = 1 })[card.shortcut.panel], id .. " shortcut panel")
-      T.truthy(#card.shortcut.label > 0, id .. " shortcut label")
+    local def = world.registry:get("chips", id)
+    for _, state in ipairs(STATES[id]) do
+      T.truthy(def.status[state], id .. " has no headline for " .. state)
+    end
+    for state in pairs(def.status) do
+      local known = false
+      for _, s in ipairs(STATES[id]) do
+        known = known or s == state
+      end
+      T.truthy(known, id .. " has words for a state that cannot happen: " .. state)
     end
   end
   T.eq(#ChipText.ids(world), #CHIP_IDS, "every chip with content is covered by this test")
 end)
 
-T.test("chips: the headline reads the same accessors as the chip", function()
+T.test("chips: a modal is a short summary, not a paragraph", function()
   local world = newWorld()
-  Ledger.add(world, "money", 37, "test")
-  T.truthy(ChipText.card(world, "money").headline:find("$" .. Ledger.get(world, "money"), 1, true))
-  local food = ChipText.card(world, "food").headline
-  T.truthy(food:find(tostring(tun.needs.dailyCalories), 1, true), "food names the daily need: " .. food)
-  local truck = Land.truck(world)
-  Power.add(world, truck, tun.economy.tripCost + 5)
-  local battery = ChipText.card(world, "battery").headline
-  T.truthy(battery:find("Enough for a trip", 1, true), battery)
-  T.truthy(ChipText.card(world, "surplus").headline:find("truck is empty", 1, true))
-  Ledger.add(world, "scrap", 7, "test")
-  Market.setLoad(world, "scrap", 3)
-  local surplus = ChipText.card(world, "surplus").headline
-  T.truthy(surplus:find("7 units above what you keep", 1, true), surplus)
-  T.truthy(surplus:find("3 loaded on the truck", 1, true), surplus)
+  for _, id in ipairs(CHIP_IDS) do
+    local card = ChipText.card(world, id)
+    T.truthy(card.title and #card.title > 0, id .. " title")
+    T.truthy(card.headline and #card.headline > 0, id .. " headline")
+    T.truthy(words(card.headline) <= 6, id .. " headline is too long: " .. card.headline)
+    T.truthy(#card.rows <= 4, id .. " has too many rows")
+    local total = words(card.headline) + (card.why and words(card.why) or 0)
+    for _, row in ipairs(card.rows) do
+      total = total + words(row.label) + words(row.value)
+    end
+    T.truthy(total <= 30, id .. " modal is too wordy (" .. total .. " words)")
+    if card.why then
+      T.truthy(words(card.why) <= 12, id .. " why is too long: " .. card.why)
+    end
+    if card.shortcut then
+      T.truthy(({ pantry = 1, power = 1, catalog = 1, truck = 1, load = 1, journal = 1 })[card.shortcut.panel], id .. " shortcut panel")
+      T.truthy(#card.shortcut.label > 0, id .. " shortcut label")
+    end
+  end
 end)
 
-T.test("chips: the truck chip shortcut opens Power and the food chip opens the Pantry", function()
+T.test("chips: the modal and the bar read the same accessors", function()
+  local world = newWorld()
+  Ledger.add(world, "money", 37, "test")
+  T.eq(ChipText.card(world, "money").rows[1].value, "$" .. Ledger.get(world, "money"))
+  local food = ChipText.card(world, "food")
+  T.truthy(food.rows[2].value:find(tostring(tun.needs.dailyCalories), 1, true), "food names the daily need")
+  T.eq(food.level, ChipStatus.of(world, "food").level)
+  local truck = Land.truck(world)
+  Power.add(world, truck, tun.economy.tripCost + 5)
+  T.eq(ChipText.card(world, "battery").headline, "Ready for a trip")
+  T.eq(ChipText.card(world, "surplus").headline, "Nothing spare")
+  Ledger.add(world, "scrap", 7, "test")
+  Market.setLoad(world, "scrap", 3)
+  local surplus = ChipText.card(world, "surplus")
+  T.eq(surplus.headline, "Goods to sell")
+  T.eq(surplus.rows[1].value, "7 units")
+  T.eq(surplus.rows[2].value, "3 units")
+end)
+
+T.test("chips: food goes from ok to bad as the larder empties", function()
+  local world = newWorld()
+  Ledger.add(world, "radish", 100, "test")
+  T.eq(ChipStatus.of(world, "food").state, "ok")
+  T.eq(ChipStatus.of(world, "food").frac, 1, "a full larder fills the bar")
+  for _, res in ipairs(reg:all("resources")) do
+    if res.calories then
+      Ledger.remove(world, res.id, Ledger.get(world, res.id), "test")
+    end
+  end
+  T.eq(ChipStatus.of(world, "food").state, "bad")
+  T.eq(ChipStatus.of(world, "food").level, 2)
+  T.eq(ChipStatus.of(world, "food").frac, 0)
+  T.eq(ChipText.card(world, "food").why, "Harvest, fish or buy canned food.")
+end)
+
+T.test("chips: the level is never colour alone, a mark follows the number", function()
+  local world = newWorld()
+  T.eq(tun.ui.topChips.marks[0], "")
+  T.truthy(#tun.ui.topChips.marks[1] > 0 and #tun.ui.topChips.marks[2] > 0, "levels 1 and 2 have marks")
+  T.truthy(tun.ui.topChips.marks[1] ~= tun.ui.topChips.marks[2], "the marks differ per level")
+  Ledger.add(world, "radish", 1, "test")
+  for _, res in ipairs(reg:all("resources")) do
+    if res.calories then
+      Ledger.remove(world, res.id, Ledger.get(world, res.id), "test")
+    end
+  end
+  local checked = 0
+  for _, e in ipairs(ChipStrip.entries(world)) do
+    if e.level > 0 then
+      checked = checked + 1
+      T.truthy(e.text:find(tun.ui.topChips.marks[e.level], 1, true), e.id .. " shows its level mark")
+    end
+  end
+  T.truthy(checked > 0, "an empty larder raises a mark")
+end)
+
+T.test("chips: the truck chip shows a trend arrow and the weather chip shows the forecast", function()
+  local world = newWorld()
+  local entries = ChipStrip.entries(world)
+  T.eq(entries[1].id, "weather")
+  T.truthy(#entries[1].icons >= 1 and #entries[1].icons <= tun.ui.topChips.weatherDays)
+  local rows = ChipText.card(world, "weather").rows
+  T.eq(rows[1].label, tun.ui.modal.todayLabel)
+  T.eq(#rows, #entries[1].icons, "the icons and the modal rows show the same days")
+  local truck = Land.truck(world)
+  local rates = world.state.power.flow.rates
+  T.truthy(rates, "the power flow tracks battery rates")
+  rates[truck] = 1
+  T.eq(ChipStatus.of(world, "battery").trend, 1)
+  rates[truck] = -1
+  T.eq(ChipStatus.of(world, "battery").trend, -1)
+  rates[truck] = 0
+  T.eq(ChipStatus.of(world, "battery").trend, 0)
+end)
+
+T.test("chips: the chip shortcut opens Power and the food chip opens the Pantry", function()
   local world = newWorld()
   T.eq(ChipText.card(world, "battery").shortcut.panel, "power")
   T.eq(ChipText.card(world, "food").shortcut.panel, "pantry")
