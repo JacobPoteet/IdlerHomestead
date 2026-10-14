@@ -550,7 +550,12 @@ function Renderer:draw(alpha, visible, daylight)
   -- Mist is a low layer: it hazes the ground and the creek but sits under crops, objects and tree canopies (#219).
   self:drawMist(visible, ice)
   local items = {}
-  local shadows = {}
+  local shadows = self.shadowList -- five values per sprite, in one table reused every frame (no allocation per sprite)
+  if not shadows then
+    shadows = { n = 0 }
+    self.shadowList = shadows
+  end
+  shadows.n = 0
   for i, crop in pairs(crops) do
     if onScreen(i) then
       local x, y = Grid.coords(grid, i)
@@ -1220,7 +1225,9 @@ end
 --- Queue a sprite for the shadow pass: `footX`, `footY` is where it stands (world art pixels), `flip` -1
 --- when the sprite is drawn mirrored. Sprites under the tuned minimum height cast no shadow, only contact.
 function Renderer:castShadow(list, sprite, footX, footY, flip, contact)
-  list[#list + 1] = { sprite, footX, footY, flip, contact }
+  local n = list.n
+  list[n + 1], list[n + 2], list[n + 3], list[n + 4], list[n + 5] = sprite, footX, footY, flip, contact
+  list.n = n + 5
 end
 
 --- Where the sun is: `side` -1 at sunrise to +1 at sunset, `height` 0 on the horizon to 1 at noon (both nil at
@@ -1249,7 +1256,7 @@ function Renderer:drawSunbeams(visible)
   local shader = Shaders.get("sunbeams")
   local world = self.world
   local cfg = world.tuning.visuals.sunbeams
-  if not shader or not Settings.read("ambientFx", true) then
+  if not shader or not cfg.enabled or not Settings.read("ambientFx", true) then
     return
   end
   local side, height, cover = self:sun()
@@ -1297,7 +1304,7 @@ end
 function Renderer:drawShadows(list)
   local world = self.world
   local cfg = world.tuning.visuals.shadows
-  if #list == 0 then
+  if list.n == 0 or not cfg.enabled then
     return
   end
   local sunrise, sunset = Calendar.daylight(world)
@@ -1324,10 +1331,11 @@ function Renderer:drawShadows(list)
     love.graphics.clear(0, 0, 0, 0)
     love.graphics.setShader(shader)
     love.graphics.setColor(1, 1, 1, 1)
-    for _, e in ipairs(list) do
-      local sprite = e[1]
-      if e[5] and sprite.h >= cfg.minHeight then
-        love.graphics.draw(sprite.image, sprite.quad, e[2], e[3], 0, e[4], -len, sprite.w / 2, sprite.h, shear * e[4], 0)
+    for k = 1, list.n, 5 do
+      local sprite = list[k]
+      if list[k + 4] and sprite.h >= cfg.minHeight then
+        local flip = list[k + 3]
+        love.graphics.draw(sprite.image, sprite.quad, list[k + 1], list[k + 2], 0, flip, -len, sprite.w / 2, sprite.h, shear * flip, 0)
       end
     end
     love.graphics.pop()
@@ -1338,11 +1346,11 @@ function Renderer:drawShadows(list)
     love.graphics.pop()
   end
   love.graphics.setColor(c[1], c[2], c[3], cfg.contactStrength)
-  for _, e in ipairs(list) do
-    local sprite = e[1]
-    if e[5] then
+  for k = 1, list.n, 5 do
+    local sprite = list[k]
+    if list[k + 4] then
       local w = math.min(cfg.contactMaxWidth, math.floor(sprite.w * cfg.contactWidth))
-      local x, y = math.floor(e[2]), math.floor(e[3])
+      local x, y = math.floor(list[k + 1]), math.floor(list[k + 2])
       love.graphics.rectangle("fill", x - math.floor(w * 0.35), y - 1, math.floor(w * 0.7) * 1, 3)
       love.graphics.rectangle("fill", x - math.floor(w / 2), y, w, 1)
     end

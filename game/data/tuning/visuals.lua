@@ -217,6 +217,7 @@ return {
     direction = { 1.0, 0.25 }, -- drift direction (x east, y south)
   },
   shadows = { -- sun shadows (shaders/shadow.glsl): each sprite's silhouette is flipped onto the ground and sheared away from the sun, plus a small contact shadow underneath
+    enabled = true,
     color = { 0.06, 0.08, 0.20 }, -- shadow tint (cool, not black); the grade tints it afterwards
     castStrength = 0.42, -- 0..1 alpha of cast shadows at full sun
     contactStrength = 0.30, -- 0..1 alpha of the contact shadow under a sprite; it stays at night and in cloud
@@ -240,6 +241,7 @@ return {
     reach = 1, -- tiles below an object's feet that may be water for it to cast a reflection
   },
   sunbeams = { -- slanted shafts of warm light at low sun (shaders/sunbeams.glsl, D131); world-anchored, subtle
+    enabled = true,
     strength = 0.34, -- 0..1 brightness of the brightest band, added over the graded frame at the lowest sun
     lowSun = 0.75, -- 0..1 sun height (0 horizon, 1 noon) at and above which there are no shafts
     horizon = 0.12, -- 0..1 sun height below which the shafts fade out with the light
