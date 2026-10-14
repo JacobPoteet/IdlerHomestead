@@ -43,6 +43,24 @@ return function(d)
   d:key("escape")
   d:frames(3)
 
+  -- Save the slot, close it and reopen it from the saved file (D120, #224): the log is still there.
+  local before = scene.log:lines()
+  scene.session:save()
+  local session = scene.session
+  d.game.app:switch(require("src.scenes.slots").new())
+  d:frames(3)
+  d.game.app:switch(require("src.scenes.homestead").new(), session.slot, session.store:read(session.slot))
+  d:frames(10)
+  scene = d:scene()
+  world = d:world()
+  local after = scene.log:lines()
+  assert(#after == #before and after[1].text == before[1].text, "the reopened slot lost its message log")
+  d:press("Log")
+  d:frames(3)
+  d:shot("reopened") -- the same lines as before the save
+  d:key("escape")
+  d:frames(3)
+
   -- A full heart dropping a lot overnight: amber long before it is low.
   world.state.needs.condition = 100
   world.state.alerts.dawn = { last = 100, prior = 100, day = 1 }

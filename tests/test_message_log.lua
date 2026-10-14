@@ -74,6 +74,33 @@ T.test("log: pieces of one event within the window are one line", function()
   T.eq(log:size(), 4, "another line in between breaks the group")
 end)
 
+T.test("log: lives in the table it is given, survives a save round trip and shows the same lines", function()
+  local world = newWorld(3)
+  local log = MessageLog.new(5, 60, world.state.log)
+  log:add("Caught a perch", stamp(1))
+  log:add("Caught a perch", stamp(2))
+  log:addPart("overflow", "3 wood", "Storage full: lost %s", stamp(10))
+  log:add("Delivered: bed", { day = 2, hour = 6.5, at = 20 })
+  local loaded = World.new({ registry = reg, tuning = tun }, serialize.decode(serialize.encode(world.state)))
+  local again = MessageLog.new(5, 60, loaded.state.log)
+  T.eq(serialize.encode(again:lines()), serialize.encode(log:lines()), "the same recent log after a load")
+  T.eq(MessageLog.when(again:lines()[1]), "Day 2 06:30")
+  T.eq(MessageLog.label(again:lines()[3]), "Caught a perch (x2)")
+  again:addPart("overflow", "x", "Storage full: lost %s", stamp(30)) -- a load can carry on
+  T.eq(again:size(), 4)
+end)
+
+T.test("log: the cap holds in the saved table, and a lowered cap trims a loaded log", function()
+  local store = {}
+  local log = MessageLog.new(4, 60, store)
+  for i = 1, 9 do
+    log:add("line " .. i, stamp(i))
+  end
+  T.eq(#store, 4, "the saved table never grows past the cap")
+  T.eq(MessageLog.new(2, 60, store):lines()[2].text, "line 8")
+  T.eq(#store, 2)
+end)
+
 T.test("log: when() reads as a date and a clock", function()
   T.eq(MessageLog.when({ day = 3, hour = 6.5 }), "Day 3 06:30")
 end)
@@ -98,6 +125,14 @@ local function scene(sleeping)
   Homestead.subscribe(s)
   return s, world
 end
+
+T.test("log: a new run state has an empty log; a stand-in scene keeps the log in the run state", function()
+  T.eq(#newWorld(1).state.log, 0)
+  local s, world = scene(false)
+  s.log = MessageLog.new(tun.ui.log.maxLines, tun.ui.log.coalesceSeconds, world.state.log)
+  s:showToast("saved line")
+  T.eq(world.state.log[#world.state.log].text, "saved line")
+end)
 
 T.test("toasts: every toast is logged once, queued or shown", function()
   local s = scene(false)
