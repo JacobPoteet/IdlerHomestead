@@ -274,6 +274,71 @@ function Placement.pickUp(world, anchor)
   return true
 end
 
+--- What destroying the object at `anchor` would throw away (D110, #255): { ok = true, lose } or { ok = false,
+--- reason } with the `moveCheck` reasons (the truck, the bed the homesteader sleeps in). `lose` holds only what
+--- is lost: `batch` { recipe, count, blocked } (a station's batch, running or waiting), `charge` kWh (a battery),
+--- `goods` a list of { resource, count, animal } the ledger could no longer hold once this storage is gone.
+--- Nothing is refunded; Pick up (D98) is the way to keep the object.
+function Placement.destroyCheck(world, anchor)
+  local shared = Placement.moveCheck(world, anchor)
+  if not shared.ok then
+    return shared
+  end
+  local def = placedDef(world, anchor)
+  local lose = {}
+  local batch = def.station and Processing.batch(world, anchor)
+  if batch then
+    lose.batch = { recipe = batch.recipe, count = batch.count, blocked = batch.blocked == true }
+  end
+  local ids = {}
+  for id in pairs(def.storage or {}) do
+    ids[#ids + 1] = id
+  end
+  table.sort(ids)
+  for _, id in ipairs(ids) do
+    local over = Ledger.get(world, id) - (Ledger.capacity(world, id) - def.storage[id])
+    if over > 0 then
+      lose.goods = lose.goods or {}
+      lose.goods[#lose.goods + 1] = { resource = id, count = over, animal = world.registry:get("resources", id).category == "animal" }
+    end
+  end
+  if def.battery and not def.vehicle then
+    local kwh = Power.charge(world, anchor)
+    if kwh >= world.tuning.power.pickupChargeWarn then
+      lose.charge = kwh
+    end
+  end
+  return { ok = true, lose = lose }
+end
+
+--- Destroy the object at `anchor` for good: no refund, soil back as it was, a station's batch and a battery's
+--- charge gone, and whatever the ledger can no longer hold without this storage lost (the amounts `destroyCheck`
+--- reported). Returns true, or nil plus the check result when refused. Emits "object.destroyed" { object, tile,
+--- lost = { [resource] = count } }.
+function Placement.destroy(world, anchor)
+  local check = Placement.destroyCheck(world, anchor)
+  if not check.ok then
+    return nil, check
+  end
+  local id = world.state.grid.objects[anchor].id
+  dropMoves(world, anchor, "pickedup")
+  Processing.scrap(world, anchor)
+  lift(world, anchor)
+  Power.forget(world, anchor)
+  Inventory.refreshStorage(world)
+  Power.refresh(world)
+  local lost = {}
+  for _, g in ipairs(check.lose.goods or {}) do
+    local over = Ledger.get(world, g.resource) - Ledger.capacity(world, g.resource)
+    if over > 0 then
+      Ledger.remove(world, g.resource, over, "destroy")
+      lost[g.resource] = over
+    end
+  end
+  world.events:emit("object.destroyed", { object = id, tile = anchor, lost = lost })
+  return true
+end
+
 -- Set the object at `from` down at `to` in one step (the footprint there is clear). Keeps its state: the
 -- battery's charge and switch, a station's batch, the record's other fields; a machine starts a fresh unit.
 local function relocate(world, from, to)

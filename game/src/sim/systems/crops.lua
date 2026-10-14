@@ -92,6 +92,55 @@ function Crops.restoreTilled(world, i)
   world.state.fields.tilled[i] = true
 end
 
+--- The player destroys the crop on tile i from its panel (D110, #255): the same removal as covering it or
+--- pulling it with the Untill tool (no refund, plan dropped), leaving bare tilled soil. Returns true if there
+--- was a crop. Emits "crop.removed" with cause "destroy".
+function Crops.remove(world, i)
+  if not world.state.crops[i] then
+    return false
+  end
+  Crops.cover(world, i, "destroy", true)
+  return true
+end
+
+--- What planting `cropId` over `tiles` would replace (D110, #257): every tile with a growing crop, the same
+--- kind too (planning is an override). Returns { tiles = { i ... } in the given order, ripe = how many are ripe, byCrop = { [id] = n } }.
+--- A tile that cannot take a plan (held for a building, not tillable) is not counted.
+function Crops.replacePreview(world, tiles, cropId)
+  local out = { tiles = {}, ripe = 0, byCrop = {} }
+  for _, i in ipairs(tiles) do
+    local crop = world.state.crops[i]
+    if crop and cropId and not world.state.fields.held[i] and Grid.terrain(world, i).tillable then
+      out.tiles[#out.tiles + 1] = i
+      out.byCrop[crop.id] = (out.byCrop[crop.id] or 0) + 1
+      if Crops.isMature(crop) then
+        out.ripe = out.ripe + 1
+      end
+    end
+  end
+  return out
+end
+
+--- Plan `cropId` over `tiles` and replace any crop already growing there, in one action (D110, #257):
+--- the old crop is pulled with no refund (`Crops.cover`, `crop.removed` cause "replace"; the soil stays tilled)
+--- and the tile is planned for the new one. The same crop is replaced too (the user decided planning is an intentional override). Only the player's plan action
+--- calls this; the routine never replaces a crop on its own. cropId nil clears plans and never pulls a crop.
+--- Returns { planned = tiles that took the plan, replaced = crops pulled }.
+function Crops.planReplacing(world, tiles, cropId)
+  local planned, replaced = 0, 0
+  for _, i in ipairs(tiles) do
+    local crop = world.state.crops[i]
+    if crop and cropId and not world.state.fields.held[i] and Grid.terrain(world, i).tillable then
+      Crops.cover(world, i, "replace", true)
+      replaced = replaced + 1
+    end
+    if Crops.setPlan(world, i, cropId) and cropId then
+      planned = planned + 1
+    end
+  end
+  return { planned = planned, replaced = replaced }
+end
+
 --- Is any tile planned, tilled or growing a crop? (A planned layout of any kind means the player
 --- or an earlier run of the routine already decided.)
 function Crops.hasAnyPlan(world)

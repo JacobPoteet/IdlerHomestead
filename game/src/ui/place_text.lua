@@ -61,6 +61,62 @@ function PlaceText.pickUpConfirm(world, anchor, warn)
   return { title = string.format(p.pickConfirmTitle, name), text = text }
 end
 
+--- The confirmation for destroying the object at `anchor` (lose = Placement.destroyCheck(...).lose): { title, text }.
+function PlaceText.destroyConfirm(world, anchor, lose)
+  local p = world.tuning.ui.placement
+  local name = world.registry:get("objects", world.state.grid.objects[anchor].id).name:lower()
+  local parts = { p.destroyNoRefund }
+  if lose.batch then
+    parts[#parts + 1] = string.format(p.destroyBatch, lose.batch.count, world.registry:get("resources", world.registry:get("recipes", lose.batch.recipe).output).name:lower())
+  end
+  if lose.charge then
+    parts[#parts + 1] = string.format(p.destroyCharge, lose.charge)
+  end
+  if lose.goods then
+    parts[#parts + 1] = string.format(p.destroyGoods, PlaceText.goodsList(world, lose.goods))
+  end
+  return { title = string.format(p.destroyTitle, name), text = table.concat(parts, " ") }
+end
+
+--- "12 stone, 3 hen" from a list of { resource, count } (the goods a destroyed store loses).
+function PlaceText.goodsList(world, goods)
+  local parts = {}
+  for _, g in ipairs(goods) do
+    parts[#parts + 1] = string.format("%d %s", math.floor(g.count + 0.5), world.registry:get("resources", g.resource).name:lower())
+  end
+  return table.concat(parts, ", ")
+end
+
+--- The confirmation for destroying the crop on tile i: { title, text }.
+function PlaceText.destroyCropConfirm(world, i)
+  local p = world.tuning.ui.placement
+  local crop = world.state.crops[i]
+  local name = world.registry:get("crops", crop.id).name:lower()
+  local state = crop.growth >= 1 and p.destroyCropRipe or string.format(p.destroyCropGrowing, math.floor(crop.growth * 100))
+  return { title = string.format(p.destroyTitle, name), text = string.format(p.destroyCrop, name, state) }
+end
+
+--- The confirmation for planting `cropId` over crops of other kinds (preview = Crops.replacePreview): { title, text }.
+function PlaceText.replaceConfirm(world, preview, cropId)
+  local p = world.tuning.ui.placement
+  local newName = world.registry:get("crops", cropId).name:lower()
+  local ids = {}
+  for id in pairs(preview.byCrop) do
+    ids[#ids + 1] = id
+  end
+  table.sort(ids)
+  local parts = {}
+  for n, id in ipairs(ids) do
+    local count, name = preview.byCrop[id], world.registry:get("crops", id).name:lower()
+    parts[#parts + 1] = n == 1 and string.format("%d tile%s of %s", count, plural(count), name) or string.format("%d of %s", count, name)
+  end
+  local text = string.format(p.replaceText, table.concat(parts, ", "), newName)
+  if preview.ripe > 0 then
+    text = text .. " " .. string.format(p.replaceRipe, preview.ripe)
+  end
+  return { title = string.format(p.replaceTitle, newName), text = text }
+end
+
 --- The confirmation card for a preview that needs clearing or removing: { title, lines = { { text, color } } }.
 --- `colors` = { text, dim, warn } come from the caller's theme. `moving`: the object is being moved (D98).
 function PlaceText.confirm(world, objectId, preview, colors, moving)
