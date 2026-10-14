@@ -43,7 +43,6 @@ return function(d)
   d:click(buy.x + buy.w / 2, buy.y + buy.h / 2)
   d:frames(3)
   assert(Inventory.objectCount(world, "woodshed") == 1, "woodshed delivered at once")
-  scene = d:scene()
   d:press("Get") -- first row button: the first listed item
   d:frames(2)
   d:shot("granted")
@@ -58,9 +57,8 @@ return function(d)
   d:frames(3)
 
   -- Place it with the real Place tool.
-  local hs = d:scene()
   d:tryPress("Got it") -- a status notice may have popped up meanwhile
-  hs = d:scene()
+  local hs = d:scene()
   d:pick("Place woodshed")
   local grid = world.state.grid
   local hx, hy = d:homesteaderTile()

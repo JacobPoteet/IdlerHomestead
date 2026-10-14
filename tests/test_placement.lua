@@ -485,7 +485,6 @@ end)
 
 T.test("placement: a harvester put in the middle of a field keeps picking the crops around it", function()
   local world = newWorld(3)
-  local sx, sy = Grid.coords(world.state.grid, Land.spawn(world))
   for anchor, obj in pairs(world.state.grid.objects) do
     if obj.id == "folding_panel" then
       Grid.removeObject(world, anchor)

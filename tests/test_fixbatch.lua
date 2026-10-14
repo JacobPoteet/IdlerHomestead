@@ -108,7 +108,6 @@ T.test("nothing to do: silent while the routine has a job, and the counter reset
   local world = newWorld(3)
   setTime(world, 10)
   local hints = collect(world, "routine.nothingToDo")
-  local hs = Actors.homesteader(world)
   for _ = 1, math.floor(tun.idle.nothingAfter * 3 / STEP) do
     world.control = "idle"
     keepBusy(world) -- any order or job in hand counts as work (planned tiles included, D92)

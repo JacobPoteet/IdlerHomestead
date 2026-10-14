@@ -7,7 +7,6 @@ local serialize = require("src.core.serialize")
 local World = require("src.sim.world")
 local Actors = require("src.sim.systems.actors")
 local Crops = require("src.sim.systems.crops")
-local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
@@ -553,10 +552,6 @@ end)
 T.test("sprinkler: only reaches its 5x5 patch", function()
   local world, sprinkler = sprinklerWorld(9, 20)
   T.eq(#Water.dripTiles(world, sprinkler) <= 25, true)
-  local covered = {}
-  for _, i in ipairs(Water.dripTiles(world, sprinkler)) do
-    covered[i] = true
-  end
   local outside
   for _, i in ipairs(freeTiles(world, sprinkler, 80)) do
     if not outside and Grid.distance(world.state.grid, i, sprinkler) > 3 then

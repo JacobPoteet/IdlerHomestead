@@ -505,8 +505,8 @@ function Renderer:draw(alpha, visible, daylight)
     if onScreen(i) then
       local x, y = Grid.coords(grid, i)
       local crop = crops[i]
-      local wet = crop and crop.moisture > 0
-      Assets.draw(wet and "tilled_wet" or "tilled_dry", (x - 1) * tile, (y - 1) * tile)
+      local watered = crop and crop.moisture > 0
+      Assets.draw(watered and "tilled_wet" or "tilled_dry", (x - 1) * tile, (y - 1) * tile)
     end
   end
   love.graphics.setColor(1, 1, 1, 1)
@@ -715,7 +715,6 @@ function Renderer:draw(alpha, visible, daylight)
     items[#items + 1] = {
       feetY,
       function()
-        local resting = cmode == "nap" or cmode == "sleep"
         local sprite = Assets.sprite(resting and "cat_nap" or "cat")
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(sprite.image, sprite.quad, math.floor(feetX - sprite.w / 2 + 0.5), math.floor(feetY - sprite.h + 0.5))

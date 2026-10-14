@@ -168,9 +168,9 @@ local function decodeSlot(contents, keepPacked)
     data.version = version
   end
   if not keepPacked and type(data.run) == "table" and type(data.run.grid) == "table" then
-    local ok, err = pcall(Gridpack.unpack, data.run.grid)
+    local ok, unpackErr = pcall(Gridpack.unpack, data.run.grid)
     if not ok then
-      return nil, "save has a damaged map: " .. tostring(err)
+      return nil, "save has a damaged map: " .. tostring(unpackErr)
     end
   end
   return data

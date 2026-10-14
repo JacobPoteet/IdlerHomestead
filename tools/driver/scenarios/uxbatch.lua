@@ -3,7 +3,6 @@
 -- (#165) and the winter-readiness pill and card (#166). Stock and the clock are set through the sim
 -- (a scenario cannot wait for a season); the screens, taps and drags are the real ones.
 local Actors = require("src.sim.systems.actors")
-local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
 
 --- Jump the sim clock to a day and hour (the calendar's day marker with it, so no day is announced).
@@ -54,7 +53,6 @@ end
 return function(d)
   d:newGame()
   local world = d:world()
-  local scene = d:scene()
   local DPS = world.tuning.time.daysPerSeason
 
   -- Pantry (#170): more goods than fit; drag, wheel, and a rule button still works scrolled.
@@ -89,7 +87,7 @@ return function(d)
   d:frames(3)
 
   -- Warnings (#157): food, fuel and health run low.
-  scene = d:scene()
+  local scene = d:scene()
   world.state.ledger.amounts.canned_food = 2
   world.state.ledger.amounts.radish, world.state.ledger.amounts.potato = nil, nil
   for _, id in ipairs({ "creek_chub", "sunfish", "brook_trout", "smallmouth_bass", "channel_catfish", "rainbow_trout", "golden_trout", "egg", "smoked_fish" }) do

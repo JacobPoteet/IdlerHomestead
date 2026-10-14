@@ -21,8 +21,6 @@ local Needs = require("src.sim.systems.needs")
 local Food = require("src.sim.systems.food")
 local Established = require("src.sim.systems.established")
 local Ftue = require("src.sim.systems.ftue")
-local Spoilage = require("src.sim.systems.spoilage")
-local Inventory = require("src.sim.systems.inventory")
 local Placement = require("src.sim.systems.placement")
 local PlaceCard = require("src.ui.place_card")
 local Highlight = require("src.ui.highlight")
@@ -189,8 +187,8 @@ function Homestead:subscribe()
       end
     end),
     events:on("animals.lost", function(e)
-      local name = e.kind == "goats" and "goat" or "hen"
-      self:queueToast(e.reason == "thirst" and ("A " .. name .. " was lost: no water") or ("A " .. name .. " was lost: no " .. (e.kind == "goats" and "hay" or "feed")))
+      local animal = e.kind == "goats" and "goat" or "hen"
+      self:queueToast(e.reason == "thirst" and ("A " .. animal .. " was lost: no water") or ("A " .. animal .. " was lost: no " .. (e.kind == "goats" and "hay" or "feed")))
     end),
     events:on("animals.predator", function(e)
       if self.session:sleeping() then
@@ -652,7 +650,6 @@ end
 
 function Homestead:layout()
   local view = self.app.view
-  local world = self.world
   local ui = self.app.ctx.tuning.ui
   local compact = view.w < ui.compactWidth
   local btnH = compact and ui.compactButtonHeight or ui.buttonHeight
@@ -2287,7 +2284,7 @@ function Homestead:drawOverlays()
         end
       end
       if replaceTag then
-        local wx, wy = camera:tileToWorld(x, y)
+        local wx = camera:tileToWorld(x, y)
         local z = camera:zoom()
         love.graphics.push()
         love.graphics.translate(wx, bottom - sprite.h)

@@ -3,7 +3,6 @@
 -- the card's button orders it; the town shop's rows do the same with no delivery fee.
 local Land = require("src.sim.systems.land")
 local Ledger = require("src.sim.systems.ledger")
-local Market = require("src.sim.systems.market")
 local Power = require("src.sim.systems.power")
 
 local function rowFor(scene, id)

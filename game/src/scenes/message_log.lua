@@ -65,8 +65,9 @@ function Scene:action(name, data)
   end
   if name == "cancel" then
     self.app:pop()
-  elseif self.list:action(name, data, self.app.ctx.tuning.ui) then
+  else
     -- the list follows the finger; the rows are positioned from the offset when drawn
+    self.list:action(name, data, self.app.ctx.tuning.ui)
   end
   return true -- modal
 end
@@ -77,7 +78,7 @@ function Scene:draw()
   local dim = theme.colors.textDim
   self.list:begin(self.app.view.scale)
   local y0 = self.list:origin()
-  for n, row in ipairs(self.rows) do
+  for _, row in ipairs(self.rows) do
     local y = y0 + row.top
     if self.list:visible(y, row.h) then
       Text.draw(MessageLog.when(row.line), b.x + PAD, y, { size = "small", color = dim })

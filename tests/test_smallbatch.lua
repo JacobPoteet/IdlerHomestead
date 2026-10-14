@@ -133,14 +133,10 @@ T.test("power panel: a long device list overflows its window and every switch is
     T.truthy(panel.list.overflow, "30 devices overflow at " .. v[1] .. "x" .. v[2])
     local view = panel.list.view
     T.truthy(view.y + view.h <= panel.box.y + panel.box.h, "the window stays inside the panel")
-    local seen = {}
     local offset, guard = 0, 0
     repeat
       panel.list.offset = offset
       panel:layout()
-      for _, button in ipairs(panel.rowButtons.list) do
-        seen[button.y .. ":" .. offset] = true
-      end
       offset = offset + view.h / 2
       guard = guard + 1
     until offset > panel.list.contentH or guard > 200

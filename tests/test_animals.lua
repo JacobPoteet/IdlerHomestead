@@ -20,7 +20,7 @@ local reg = Registry.new():loadAll()
 local STEP = 1 / tun.time.tickRate
 local hens, pred = tun.animals.hens, tun.animals.predators
 local DPS = tun.time.daysPerSeason
-local SPRING, SUMMER, AUTUMN, WINTER = 1, DPS + 1, 2 * DPS + 1, 3 * DPS + 1
+local SUMMER, AUTUMN, WINTER = DPS + 1, 2 * DPS + 1, 3 * DPS + 1
 
 local function newWorld(seed)
   return World.new({ registry = reg, tuning = tun }, World.newState(seed or 1))

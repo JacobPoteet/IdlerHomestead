@@ -65,13 +65,11 @@ return function(d)
     Grid.placeObject(world, put[1], tx + put[2], ty + put[3])
   end
   -- A small field of radishes and potatoes, some thirsty.
-  local field = {}
   for fy = 4, 6 do
     for fx = -3, 2 do
       local i = Grid.index(grid, tx + fx, ty + fy)
       world.state.fields.tilled[i] = true
       world.state.crops[i] = { id = (fx + fy) % 2 == 0 and "radish" or "potato", growth = 0.3 + 0.12 * (fx + 3), moisture = fx == 2 and 0 or 1 }
-      field[#field + 1] = i
     end
   end
   local yard = { tx, ty + 3 }

@@ -17,7 +17,6 @@ local ItemText = require("src.ui.item_text")
 
 local tun = tuningLoader.load()
 local reg = Registry.new():loadAll()
-local STEP = 1 / tun.time.tickRate
 
 local function newWorld(seed)
   local world = World.new({ registry = reg, tuning = tun }, World.newState(seed or 1))

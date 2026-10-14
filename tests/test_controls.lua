@@ -201,7 +201,7 @@ T.test("routine resume: deterministic for a seed", function()
     setTime(session.world, bed - 0.2)
     session:startRoutineNow()
     local flags = {}
-    for i = 1, 400 do
+    for _ = 1, 400 do
       session:update(STEP * 5)
       flags[#flags + 1] = (session:routineForced() and "1" or "0") .. session.world.state.tick
     end

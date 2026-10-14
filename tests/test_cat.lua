@@ -206,13 +206,12 @@ T.test("cat: it wanders on walkable ground near home and naps in the sun", funct
   giveCat(world)
   clear(world)
   setTime(world, 3, 12)
-  local seen, napped, moved = {}, false, false
+  local napped, moved = false, false
   local x0, y0 = world.state.cat.x, world.state.cat.y
   for _ = 1, 600 do
     Cat.tick(world, 4)
     local tile = Cat.tile(world)
     T.truthy(Grid.walkable(world, tile), "cat on a walkable tile")
-    seen[tile] = true
     napped = napped or world.state.cat.mode == "nap"
     moved = moved or world.state.cat.x ~= x0 or world.state.cat.y ~= y0
   end
