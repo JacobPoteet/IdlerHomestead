@@ -171,6 +171,8 @@ return {
   },
   placement = { -- placement preview, confirmation and order card (D79, #197); %s / %d are filled in by src/ui/place_text.lua
     cardGap = 10, -- view px kept clear between the placement card and the target footprint (D86); the camera pans to keep it
+    panSeconds = 0.25, -- real seconds the camera glides to bring the target clear of the card (eased; unaffected by sim speed or pause, D120)
+    refitDelay = 0.6, -- real seconds after the player last dragged, scrolled or zoomed the map (and let go) before the card re-fits the view (D120)
     title = "Build %s here?",
     clears = "Clears first: %s",
     removes = "Removed just before it goes up: %s. Nothing is refunded. Cancelling keeps them.",
