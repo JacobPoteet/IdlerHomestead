@@ -194,10 +194,10 @@ function Fx:drawRain(view, grid)
       local seed = id + cycle * 131
       if hash(seed, 6) < chance then
         -- Keep the whole ring inside its cell so neighbours never overlap or clip.
-        local wx = cellX * cw + radius + math.floor(hash(seed, 8) * (cw - 2 * radius))
-        local wy = cellY * ch + radius + math.floor(hash(seed, 9) * (ch - 2 * radius))
-        if not onWater(self.world, wx, wy) then
-          local cx, cy = wx - grid.wx, wy - grid.wy -- back to screen art pixels
+        local splashX = cellX * cw + radius + math.floor(hash(seed, 8) * (cw - 2 * radius))
+        local splashY = cellY * ch + radius + math.floor(hash(seed, 9) * (ch - 2 * radius))
+        if not onWater(self.world, splashX, splashY) then
+          local cx, cy = splashX - grid.wx, splashY - grid.wy -- back to screen art pixels
           local r = 1 + math.floor(age * radius)
           love.graphics.setColor(c[1], c[2], c[3], cfg.splashAlpha * (1 - age) * strength)
           local steps = math.max(8, r * 4)
