@@ -2,6 +2,7 @@
 -- hand), the truck panel at home with an empty truck, Load the truck before and after Auto-load, the
 -- reserve guard when loading kept wood, the loaded truck at home, and the town selling the load.
 -- Stock and charge are set up directly (as if harvested and charged); everything else is input.
+local Food = require("src.sim.systems.food")
 local Land = require("src.sim.systems.land")
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
@@ -42,6 +43,20 @@ return function(d)
   end
   d:frames(2)
   d:shot("pantry_keep_set")
+  -- Hold the "+" on the radish row: the keep climbs faster the longer it is held, then stops at the top.
+  local plusX = box.x + box.w - 96 + 12
+  local before = Food.keeps(world).radish
+  d:hold(plusX, rowOf(d:scene(), "radish").y + 12, 1)
+  local after1 = Food.keeps(world).radish
+  assert(after1 > before + 5, "holding + did not repeat")
+  d:hold(plusX, rowOf(d:scene(), "radish").y + 12, 3)
+  assert(Food.keeps(world).radish > after1 + 30, "a long hold did not speed up")
+  d:shot("pantry_keep_held")
+  -- Hold the "-" to bring it back down to zero; the hold stops there.
+  d:hold(box.x + box.w - 122 + 12, rowOf(d:scene(), "radish").y + 12, 8)
+  assert(Food.keeps(world).radish == 0, "holding - did not reach zero")
+  d:shot("pantry_keep_zero")
+  Food.setKeep(world, "radish", nil) -- back to Auto for the load steps below
   d:key("escape")
   d:frames(2)
 
@@ -62,6 +77,18 @@ return function(d)
   d:frames(3)
   assert(Market.loadUnits(world) > 0, "auto-load loaded nothing")
   d:shot("load_auto")
+  -- Hold the "+" on the stone row: it climbs and stops at the spare (never into the keep prompt).
+  Market.clearLoad(world)
+  d:frames(2)
+  scene, box = d:scene(), d:scene().box
+  local fish = rowOf(scene, "stone")
+  d:hold(box.x + box.w - 106 + 12, fish.y + 18, 4)
+  assert(Market.loaded(world, "stone") > 5, "holding + on the load did not repeat")
+  assert(d:scene().name == "load", "holding + opened a prompt")
+  d:shot("load_held")
+  Market.clearLoad(world)
+  d:press("Auto-load")
+  d:frames(3)
 
   -- Wood is kept for winter: a + on its row asks first (the reserve guard).
   Market.setLoad(world, "radish", Market.loaded(world, "radish") - 5) -- make room in the cargo for the wood

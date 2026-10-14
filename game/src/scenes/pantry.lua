@@ -1,6 +1,6 @@
 -- Pantry: keep targets (GDD §6.2, D75). Every good that can be eaten, burned or sold has one keep
 -- number; stock above it is spare, which the roadside stand and the truck load sell. Targets start
--- automatic (Food.keeps); - and + set your own, Auto goes back. A Stand/Truck toggle keeps a good's
+-- automatic (Food.keeps); - and + set your own (hold one to repeat, faster the longer, D119), Auto goes back. A Stand/Truck toggle keeps a good's
 -- spare away from the stand (D62).
 -- Perishables show how long they keep and when their oldest batch spoils, with a warning when
 -- something will rot tonight (D68, D73); a footer says what slows it.
@@ -30,7 +30,7 @@ local function helpText(world)
   local cfg = world.tuning.food
   return string.format(
     "Auto keeps %d days of fresh food, %d days for winter and wood to the end of winter. "
-      .. "Set your own with - and +; Auto goes back. Spare goods sell at the stand or on the truck.",
+      .. "Set your own with - and + (hold to go faster); Auto goes back. Spare goods sell at the stand or on the truck.",
     cfg.defaultPantryDays,
     cfg.defaultWinterDays
   )
@@ -163,14 +163,24 @@ function Pantry:layout()
           self:layout()
         end,
       })
-      self.rowButtons:add({ x = rects.minus.x, y = rects.minus.y, w = rects.minus.w, h = rects.minus.h, label = "-", onPress = function()
-        Food.setKeep(world, res.id, keep - 1)
+      -- Tap steps by one; holding repeats and speeds up (D119). The repeat reads the live keep, since
+      -- the row is rebuilt after every step.
+      local function step(delta)
+        local now = Food.keeps(world)[res.id] or 0
+        Food.setKeep(world, res.id, now + delta)
         self:layout()
-      end })
-      self.rowButtons:add({ x = rects.plus.x, y = rects.plus.y, w = rects.plus.w, h = rects.plus.h, label = "+", onPress = function()
-        Food.setKeep(world, res.id, keep + 1)
-        self:layout()
-      end })
+        return Food.keeps(world)[res.id] ~= now -- false at 0 or the top: the hold ends
+      end
+      self.rowButtons:add({
+        x = rects.minus.x, y = rects.minus.y, w = rects.minus.w, h = rects.minus.h, label = "-",
+        onPress = function() step(-1) end,
+        onRepeat = function(units) return step(-units) end,
+      })
+      self.rowButtons:add({
+        x = rects.plus.x, y = rects.plus.y, w = rects.plus.w, h = rects.plus.h, label = "+",
+        onPress = function() step(1) end,
+        onRepeat = function(units) return step(units) end,
+      })
       if res.value then
         -- "Not at the stand" pin (D62): a good marked Truck keeps its spare for the truck load.
         local truckOnly = Food.truckOnly(world, res.id)
@@ -195,6 +205,7 @@ end
 
 
 function Pantry:update(dt)
+  self.rowButtons:update(dt, self.app.ctx.tuning.ui.holdRepeat) -- real time: same at any sim speed
   self.refresh = (self.refresh or 0) - dt
   if self.refresh <= 0 then
     self.refresh = 0.5
