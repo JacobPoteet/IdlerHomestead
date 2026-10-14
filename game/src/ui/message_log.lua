@@ -1,6 +1,8 @@
 -- The message log (D90, #167): the last N things the toasts said, newest first, so a toast that came and
 -- went (or was replaced) while the player slept, read a panel or looked away can still be read. Pure
--- UI state: the scene feeds it the same events its toasts come from; it is not part of the sim or a save.
+-- presentation data: the scene feeds it the same events its toasts come from, and no sim system reads it.
+-- The lines live in the run state (`state.log`, D120, #224) so reopening a slot shows them; this object
+-- only writes to that table. The text is stored already formatted, with the game time it was raised.
 --
 -- A line is { text, count, day, hour }. The same text twice in a row is one line with a count, and the
 -- pieces of one multi-part event (storage overflowing for several resources in the same moment) merge
@@ -10,12 +12,15 @@ local MessageLog = {}
 MessageLog.__index = MessageLog
 
 --- `cap` is the number of lines kept (tuning.ui.log.maxLines), `window` the game seconds within which
---- pieces of one event merge (tuning.ui.log.coalesceSeconds).
-function MessageLog.new(cap, window)
-  return setmetatable({ cap = cap, window = window, entries = {} }, MessageLog)
+--- pieces of one event merge (tuning.ui.log.coalesceSeconds). `entries` is the table the lines are kept
+--- in (the run's `state.log`, so they are saved with the slot); omit it for a log that is not saved.
+function MessageLog.new(cap, window, entries)
+  local self = setmetatable({ cap = cap, window = window, entries = entries or {} }, MessageLog)
+  self:trim() -- a lowered cap trims a loaded log
+  return self
 end
 
-local function trim(self)
+function MessageLog:trim()
   while #self.entries > self.cap do
     table.remove(self.entries, 1)
   end
@@ -29,7 +34,7 @@ function MessageLog:add(text, stamp)
     return
   end
   self.entries[#self.entries + 1] = { text = text, count = 1, day = stamp.day, hour = stamp.hour, at = stamp.at }
-  trim(self)
+  self:trim()
 end
 
 --- Add one piece of a multi-part event: `format` has one %s for the pieces joined by commas. A piece
@@ -51,7 +56,7 @@ function MessageLog:addPart(tag, part, format, stamp)
     hour = stamp.hour,
     at = stamp.at,
   }
-  trim(self)
+  self:trim()
 end
 
 --- The lines, newest first: { { text, count, day, hour } }.

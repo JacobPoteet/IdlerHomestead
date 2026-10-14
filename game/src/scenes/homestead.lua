@@ -103,7 +103,8 @@ function Homestead:enter(slot, data)
   self.toast = nil
   self.toastQueue = {}
   local logCfg = self.app.ctx.tuning.ui.log
-  self.log = MessageLog.new(logCfg.maxLines, logCfg.coalesceSeconds) -- what the toasts said (D90, #167); UI state, not saved
+  self.world.state.log = self.world.state.log or {}
+  self.log = MessageLog.new(logCfg.maxLines, logCfg.coalesceSeconds, self.world.state.log) -- what the toasts said (D90, #167); kept in the run state so it is saved (D120, #224)
   self.held = {} -- toasts that came in while asleep, shown in the morning (D70)
   self.frostTold = {} -- crop id -> calendar day its won't-ripen warning last showed (D70, #165)
   self:subscribe()
