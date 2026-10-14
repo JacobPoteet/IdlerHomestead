@@ -5,6 +5,7 @@ return {
   "ledger",
   "journal",
   "weather",
+  "established", -- D117: the Great Winter's thaw marks the slot; listens to the calendar after weather
   "land",
   "tasks",
   "crops",

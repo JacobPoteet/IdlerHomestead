@@ -110,6 +110,18 @@ return {
     firstHunger = "Plant a field in the first days and keep a few days of food.",
     firstUnknown = "Spend the free study below, then plan the first week.",
   },
+  greatWinter = { -- the Great Winter and the Established card (D117, #277); %s is a severity word (mild, hard, brutal)
+    summaryHead = "the Great Winter (%s)", -- forecast pill: replaces "<severity> winter"
+    news = "Warning: the Great Winter is coming, the hardest yet. Stock wood and food now.", -- toast when the full forecast is revealed, at the start of autumn
+    cardTitle = "Established", -- celebration card title
+    cardHeadline = "The Great Winter is behind you.", -- card headline
+    cardMessage = "You came through the hardest winter this land has thrown at you, and the homestead is yours now. The seasons go on, and so does the work.", -- card body: what happened, in plain words
+    cardOk = "Carry on", -- card button
+    logLine = "Established: the Great Winter is behind you", -- message log line when the card is shown
+    surviveLabel = "Great Winter", -- recovery table row label
+    surviveYes = "Survived", -- recovery table cell: the run lived through the Great Winter
+    surviveNo = "-", -- recovery table cell: it did not
+  },
   progress = { -- progress metrics on the recovery and slot screens (D117, #275); %d is a whole number
     colThis = "This run", -- column heading
     colPrevious = "Previous run", -- column heading; left out on a slot's first run

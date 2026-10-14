@@ -20,7 +20,7 @@ local STAMP_GAP = 2
 local MAX_IDEAS = 5
 local TABLE_Y = 54 -- progress table top, below the run line
 local TABLE_ROW = 14 -- a table row (small text)
-local TABLE_H = 66 -- vertical space the progress table takes; everything below moves down by it
+local TABLE_H = 66 -- vertical space the two-row progress table takes; everything below moves down by it (plus a row when the Great Winter row shows, D117)
 local COL_LABEL_W = 138 -- row label column
 local COL_WIDTHS = { 124, 84, 84 } -- this run (cell and marker), previous run, slot best
 
@@ -61,7 +61,8 @@ function Recovery:layout()
   local height = Text.wrappedHeight(self.failure.line, "small", self.causeW)
     + Text.wrappedHeight(self.failure.hint, "small", self.causeW)
     + (self.firstChange and Text.wrappedHeight(self.firstChange, "small", self.causeW) + 2 or 0)
-  self.shift = TABLE_H + math.max(0, math.ceil(height) - 12) -- the block starts at +108 and the study label sits at +132, both below the progress table
+  self.tableH = TABLE_H + (#self.progress.rows - 2) * TABLE_ROW
+  self.shift = self.tableH + math.max(0, math.ceil(height) - 12) -- the block starts at +108 and the study label sits at +132, both below the progress table
   self.buttons:add({
     x = b.x + b.w - 136,
     y = b.y + b.h - 36,
@@ -161,7 +162,7 @@ function Recovery:draw()
 
   self:drawProgress(b.x + 12, b.y + TABLE_Y)
 
-  local top = TABLE_H -- the notes, study and cause blocks sit below the progress table
+  local top = self.tableH -- the notes, study and cause blocks sit below the progress table
   Text.draw(string.format("Notes this run (%d)", #s.notes), b.x + 12, b.y + 54 + top, { size = "small", color = dim })
   local x = b.x + 12
   for _, id in ipairs(s.notes) do
