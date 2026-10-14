@@ -37,6 +37,14 @@ local function preview(_, env)
   end
 end
 
+--- Set the swap interval for a vsync mode. Adaptive (-1) is not offered by every driver, so it falls back to on.
+function M.applyVsync(mode)
+  love.window.setVSync(mode == "off" and 0 or mode == "adaptive" and -1 or 1)
+  if mode == "adaptive" and love.window.getVSync() == 0 then
+    love.window.setVSync(1)
+  end
+end
+
 --- Build the option list for a loaded tuning root.
 function M.build(tuning)
   local cfg = tuning.settings
@@ -118,12 +126,19 @@ function M.build(tuning)
     {
       id = "vsync",
       label = "Vertical sync",
-      kind = "toggle",
+      kind = "choice",
       group = "Display",
       requires = "resizableWindow",
+      values = { "off", "on", "adaptive" },
+      format = function(v)
+        return v:sub(1, 1):upper() .. v:sub(2)
+      end,
+      note = function()
+        return "On stops screen tearing. If the screen flickers, try Adaptive or Off."
+      end,
       apply = function(v, env)
         if env.live then
-          love.window.setVSync(v and 1 or 0)
+          M.applyVsync(v)
         end
       end,
     },
