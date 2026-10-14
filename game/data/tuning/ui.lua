@@ -276,6 +276,23 @@ return {
     fitMaxScale = 2, -- largest zoom of a fitted chapter (art pixels are drawn at most this big)
     fitMaxColumns = 5, -- most side-by-side columns a chapter is split into to fit a short, wide view
     fitTolerance = 0.02, -- zoom a split must beat the previous one by to be preferred (ties keep fewer columns)
+    scrollNodes = 24, -- nodes: a chapter with more than this scrolls at readScale instead of shrinking to fit (D120, #208)
+    readScale = 1, -- zoom: a scrolling chapter is drawn at this size (art pixels 1:1), so it stays readable however many nodes it has
+    search = { -- the Journal's search by node name (D120, #208); sizes are virtual pixels
+      height = 28, -- search field height (raised to input.minTouchTarget if that is larger)
+      maxLength = 24, -- characters a query may hold
+      rowHeight = 30, -- result row height (raised to input.minTouchTarget if that is larger)
+      clearWidth = 36, -- clear button width (raised to input.minTouchTarget if that is larger)
+      textPad = 6, -- text inset inside the field and in a result row
+      caretBlink = 1, -- seconds for one on/off cycle of the typing caret
+      statusWidth = 70, -- width reserved at a result row's right for its status word
+      labels = {
+        placeholder = "Search what you know", -- shown in the empty field; only known names are searched
+        clear = "Clear", -- the clear button; tapping it empties the field and shows the chapters again
+        none = "Nothing found among the things you know.", -- shown for a query with no match; the same words whether or not locked nodes would match
+        status = { known = "Known", idea = "Idea", queued = "Queued", studying = "Studying" },
+      },
+    },
     sideCardWidth = 230, -- node card width when it sits beside the chapter
     sideCardMinViewWidth = 500, -- the card moves beside the chapter on views wider than this ...
     sideCardMaxViewHeight = 300, -- ... and shorter than this
@@ -287,6 +304,7 @@ return {
     labels = {
       back = "< Chapters", -- focus view: back to the overview
       queue = "Queue", -- jump to the head of the study queue
+      search = "Search", -- chip that opens the search field (D120)
       study = "To study (%d)", -- jump to the next idea; %d is how many ideas are waiting
       filters = { all = "All", known = "Known", ideas = "Ideas", locked = "Locked" },
       known = "%d/%d known", -- tile line: known of total

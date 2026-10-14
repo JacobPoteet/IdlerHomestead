@@ -87,4 +87,50 @@ function Overview.draw(nav, data, spec, scale)
   love.graphics.setScissor()
 end
 
+--- The "Clear" button beside the search field.
+function Overview.drawClear(nav, spec)
+  local colors = theme.colors
+  local _, lineH = Text.measure("A", "small")
+  local r = nav.clear
+  box(r, colors.button, colors.panelBorder, 1, spec.radius)
+  Text.draw(spec.search.labels.clear, r.x, r.y + (r.h - lineH) / 2, { size = "small", width = r.w, align = "center", color = colors.text })
+end
+
+--- The search results: one row per match (name, chapter, status), clipped to the body and scrolled by
+--- nav.resultOffset. Only the rows in view are drawn, so a long list costs no more than a short one.
+--- `data.results` are the matches, `data.selected` the open node (its row is lit).
+function Overview.drawResults(nav, data, spec, scale)
+  local colors, b, list = theme.colors, nav.body, nav.list
+  local search = spec.search
+  local _, lineH = Text.measure("A", "small")
+  love.graphics.setScissor(math.floor(b.x * scale), math.floor(b.y * scale), math.ceil(b.w * scale), math.ceil(b.h * scale))
+  if list.count == 0 then
+    Text.draw(search.labels.none, b.x, b.y + spec.pad * 2, { size = "small", color = colors.textDim, width = b.w, align = "center" })
+  end
+  local first = math.floor(nav.resultOffset / list.rowH) + 1
+  local last = math.min(list.count, math.ceil((nav.resultOffset + b.h) / list.rowH))
+  for i = first, last do
+    local result = data.results[i]
+    local row = { x = b.x, y = b.y + (i - 1) * list.rowH - nav.resultOffset, w = b.w, h = list.rowH - 2 }
+    local lit = result.id == data.selected
+    box(row, lit and spec.colors.chipOn or spec.colors.tile, lit and colors.accent or colors.panelBorder, lit and 1 or 0.6, spec.radius)
+    local textW = row.w - 2 * search.textPad - search.statusWidth
+    Text.draw(result.name, row.x + search.textPad, row.y + 3, { size = "small", color = colors.text, width = textW })
+    Text.draw(result.chapterName, row.x + search.textPad, row.y + 3 + lineH, { size = "small", color = colors.textDim, width = textW })
+    Text.draw(search.labels.status[result.status], row.x + row.w - search.textPad - search.statusWidth, row.y + (row.h - lineH) / 2, {
+      size = "small",
+      color = result.status == "known" and colors.textDim or colors.accent,
+      width = search.statusWidth,
+      align = "right",
+    })
+  end
+  if list.height > b.h then
+    local thumbH = math.max(spec.thumbMin, b.h * b.h / list.height)
+    local at = nav.resultOffset / (list.height - b.h) * (b.h - thumbH)
+    love.graphics.setColor(1, 1, 1, spec.thumbAlpha)
+    love.graphics.rectangle("fill", b.x + b.w - spec.thumbWidth, b.y + at, spec.thumbWidth, thumbH)
+  end
+  love.graphics.setScissor()
+end
+
 return Overview

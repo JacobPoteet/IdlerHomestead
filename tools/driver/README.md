@@ -98,6 +98,7 @@ Helper API (`tools/driver/driver.lua`):
 | `d:drag(x1, y1, x2, y2 [, steps])` | Swipe from one virtual position to another through the mouse handler (scrolls a list, never counts as a tap). |
 | `d:wheel(notches, vx, vy)` | Turn the mouse wheel (positive = up) with the pointer at a virtual position. |
 | `d:key(name)` | Press a key (`escape`, `space`, `r`, ...). |
+| `d:text(str)` | Type text (the `textinput` event) into a focused text field. |
 | `d:resize(w, h)` | Change window size mid-scenario (sprites are rebuilt, so they keep drawing). |
 | `d:freeTileNear(dx, dy)` | A walkable, object-free tile nearest the homesteader offset by (dx, dy), for safe clicks. |
 | `d:shot(name)` | Capture the frame. |
