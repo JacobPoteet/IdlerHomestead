@@ -27,6 +27,7 @@ return {
     clearable = "boolean?", -- default true
     yields = "table?", -- resource -> amount or { min, max } when cleared
     autoClear = "boolean?", -- idle homesteader clears it without an order
+    fell = "boolean?", -- the routine's "Clear trees" category fells it (opt-in, D109); like any clearable it can also be ordered by hand
     footprintW = "number?", -- tiles wide (default 1); anchored at the top-left tile
     footprintH = "number?", -- tiles tall (default 1)
     placeable = "boolean?", -- can be placed by the player from inventory
@@ -162,6 +163,7 @@ return {
   },
   task_categories = {
     name = "string",
+    startsOff = "boolean?", -- the routine lists it switched Off until the player turns it on (an action the routine only does when asked, D109)
   },
   ftue = { -- first-time tip cards (GDD D69); see src/sim/systems/ftue.lua and the header of content/ftue.lua
     title = "string", -- card title and Tips list label (<= ~3 words)

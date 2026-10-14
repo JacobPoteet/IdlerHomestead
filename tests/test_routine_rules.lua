@@ -255,3 +255,84 @@ T.test("thresholds: the starter field is planned even when every category is wai
   T.truthy(n > 0, "planning is the routine's own step, not a category")
   T.eq(Tasks.chooseIdleJob(world, Actors.homesteader(world)), nil, "but every category waits for 23:00")
 end)
+
+-- Clear trees (D109, #262) -----------------------------------------------------------------------
+
+T.test("clear trees: a listed, opt-in routine category that starts Off", function()
+  local world = newWorld()
+  local e = entry(world.state, "trees")
+  T.truthy(e, "the routine lists it")
+  T.eq(reg:get("task_categories", "trees").name, "Clear trees")
+  T.eq(e.enabled, false)
+  T.eq(e.cond, nil)
+  -- Other categories keep starting On.
+  T.eq(entry(world.state, "clear").enabled, true)
+  -- A save from before the category existed gains it Off, with the player's choices kept.
+  local state = serialize.decode(serialize.encode(world.state))
+  for i = #state.priorities, 1, -1 do
+    if state.priorities[i].category == "trees" then
+      table.remove(state.priorities, i)
+    end
+  end
+  state.priorities[1].enabled = false
+  local loaded = World.new({ registry = reg, tuning = tun }, state)
+  T.eq(entry(loaded.state, "trees").enabled, false)
+  T.eq(state.priorities[1].enabled, false)
+end)
+
+T.test("clear trees: Off never fells; On fells like the hand order, with the wood and the room rule", function()
+  local world = newWorld(4)
+  world.control = "idle"
+  setTime(world, 1, 8)
+  onlyCategory(world, "trees")
+  entry(world.state, "trees").enabled = false
+  local hs = Actors.homesteader(world)
+  local function trees()
+    local n = 0
+    for _, obj in pairs(world.state.grid.objects) do
+      if obj.id == "tree" then
+        n = n + 1
+      end
+    end
+    return n
+  end
+  local before, wood = trees(), Ledger.get(world, "wood")
+  T.eq(Tasks.chooseIdleJob(world, hs), nil, "Off: nothing to do")
+  entry(world.state, "trees").enabled = true
+  local job = Tasks.chooseIdleJob(world, hs)
+  T.truthy(job and job.task == "fell", "On: it picks a tree")
+  T.eq(world.state.grid.objects[job.target].id, "tree")
+  -- Same room rule as the hand order: a full wood store holds it back.
+  Ledger.add(world, "wood", Ledger.capacity(world, "wood") - Ledger.get(world, "wood"))
+  T.eq(Tasks.chooseIdleJob(world, hs), nil, "full store: waits")
+  Ledger.remove(world, "wood", Ledger.get(world, "wood"))
+  wood = Ledger.get(world, "wood")
+  run(world, HOUR * 3)
+  T.truthy(trees() < before, "trees were felled")
+  T.truthy(Ledger.get(world, "wood") > wood, "and the wood went to the store")
+end)
+
+T.test("clear trees: the Wood below condition limits the routine's felling", function()
+  local world = newWorld(4)
+  world.control = "idle"
+  setTime(world, 1, 8)
+  onlyCategory(world, "trees")
+  local e = entry(world.state, "trees")
+  local hs = Actors.homesteader(world)
+  local wood = Ledger.get(world, "wood")
+  e.cond = { kind = "wood_below", value = wood } -- stock is not below it
+  T.eq(Tasks.chooseIdleJob(world, hs), nil, "enough wood: leave the trees")
+  e.cond = { kind = "wood_below", value = wood + 5 }
+  T.truthy(Tasks.chooseIdleJob(world, hs), "wood below the line: fell")
+  -- A hand order on a tree still works whatever the routine says (the ordinary clear task).
+  e.enabled = false
+  local tile
+  for anchor, obj in pairs(world.state.grid.objects) do
+    if obj.id == "tree" then
+      tile = anchor
+      break
+    end
+  end
+  local order = Tasks.taskForTile(world, hs, tile, {})
+  T.eq(order and order.id, "clear")
+end)
