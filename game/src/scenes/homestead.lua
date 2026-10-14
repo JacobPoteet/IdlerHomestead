@@ -998,12 +998,42 @@ end
 --- footprint sits above the card; when the map edge stops that, the card hangs under the top bar instead.
 --- Returns the card's y (`y` is the usual slot above the toolbar).
 function Homestead:keepTargetClear(y, h)
+  local camera = self.camera
+  local curX, curY = camera.x, camera.y
+  local glide = self.autoPan
+  if glide then
+    camera.x, camera.y = glide.toX, glide.toY -- fit from where the last glide was heading
+  end
+  self.autoPan = nil
+  local result = self:fitTarget(y, h)
+  local toX, toY = camera.x, camera.y
+  camera.x, camera.y = curX, curY
+  self.autoPan = PlaceCard.glide(curX, curY, toX, toY) -- the pan is eased, not a jump (D120)
+  return result
+end
+
+--- The fit itself: pans the camera (to its final spot; the caller eases there) and returns the card's y.
+function Homestead:fitTarget(y, h)
   local rect = self:placeCardRect()
   local gap = self.app.ctx.tuning.ui.placement.cardGap
-  if not rect or not PlaceCard.overlaps(rect, y, h, gap) then
+  if not rect then
     return y
   end
   local view = self.app.view
+  if not PlaceCard.overlaps(rect, y, h, gap) then
+    -- Clear of the card, but a drag may have left it behind the top bar or the toolbar: bring it back if that keeps it clear.
+    local into = PlaceCard.panIntoBand(rect, self.topH, view.h - self.bottomH, gap)
+    if into == 0 then
+      return y
+    end
+    local camera = self.camera
+    local x0, y0 = camera.x, camera.y
+    camera:pan(0, into, view)
+    if not PlaceCard.overlaps(self:placeCardRect(), y, h, gap) then
+      return y
+    end
+    camera.x, camera.y = x0, y0 -- no room beside the card: lift it above the card below instead
+  end
   local dy = PlaceCard.panFor(rect, y, gap, self.topH)
   if dy and dy ~= 0 then
     self.camera:pan(0, dy, view)
@@ -1026,6 +1056,38 @@ function Homestead:keepTargetClear(y, h)
     end
   end
   return y
+end
+
+--- The player moved the map with a placement card open: their move wins, so any glide stops, and the view
+--- re-fits once they have let go for `refitDelay` (D120).
+function Homestead:mapMoved()
+  self.autoPan = nil
+  if self.placeCard and self.cardKind == "place" then
+    self.refitTimer = self.app.ctx.tuning.ui.placement.refitDelay
+  end
+end
+
+--- Per frame, real time: advance the glide and run the re-fit after a drag.
+function Homestead:updateCardPan(dt)
+  if not self.placeCard then
+    self.autoPan, self.refitTimer = nil, nil
+    return
+  end
+  local cfg = self.app.ctx.tuning.ui.placement
+  local due
+  self.refitTimer, due = PlaceCard.refitStep(self.refitTimer, dt, self.pointerDown)
+  if due then
+    self:layoutCard()
+  end
+  local g = self.autoPan
+  if g then
+    local x, y, done = PlaceCard.glideStep(g, dt, cfg.panSeconds)
+    self.camera.x, self.camera.y = x, y
+    self.camera:clamp(self.app.view)
+    if done then
+      self.autoPan = nil
+    end
+  end
 end
 
 --- Build the card's rectangle and buttons: a panel above the toast line with the text and two buttons.
@@ -1529,6 +1591,7 @@ function Homestead:update(dt)
       self:layoutCard()
     end
   end
+  self:updateCardPan(dt)
   self:releaseHeld()
   if self.toast then
     self.toast.time = self.toast.time - dt
@@ -1872,6 +1935,11 @@ function Homestead:tap(i)
 end
 
 function Homestead:action(name, data)
+  if name == "press" then
+    self.pointerDown = true
+  elseif name == "release" then
+    self.pointerDown = false
+  end
   if self.card then
     if self.cardButtons:action(name, data) then
       return true
@@ -1947,8 +2015,10 @@ function Homestead:action(name, data)
   if name == "pan" then
     self.pressTile = nil -- a drag moves the view; the held preview would point at the wrong ground
     self.camera:pan(data.dx, data.dy, view)
+    self:mapMoved()
   elseif name == "zoom" then
     self.camera:zoomBy(data.steps, data.x, data.y, view)
+    self:mapMoved()
   elseif name == "hover" then
     self.hover = self:inWorldArea(data.y) and self:tileAt(data.x, data.y) or nil
   elseif name == "select" then
