@@ -5,7 +5,7 @@ return {
   defaults = { -- option id -> value on a fresh install (the window options match conf.lua's first-boot window)
     uiScale = 2, -- "auto" (largest whole scale that keeps display.minVirtualWidth x Height visible) or a whole number; 2 is the playtest favourite (#259) and clamps down to what a small window (a phone) fits
     fullscreen = false, -- borderless desktop fullscreen (conf.lua: fullscreen = false)
-    vsync = true, -- sync to the monitor refresh (conf.lua: vsync = 1)
+    vsync = "on", -- "off", "on" (sync to the monitor refresh; conf.lua: vsync = 1) or "adaptive" (sync, but tear instead of stalling when a frame is late)
     rememberWindow = true, -- reopen at the last window size and position
     idleDelay = 1, -- multiplier on the idle takeover delay (idle.takeoverDelay), 1 = as designed
     reduceMotion = false, -- stills heat shimmer and wind sway
