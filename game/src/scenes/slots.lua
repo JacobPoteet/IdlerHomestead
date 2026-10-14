@@ -11,7 +11,7 @@ local theme = require("src.ui.theme")
 local Slots = { name = "slots", opaque = true }
 Slots.__index = Slots
 
-local CARD_H = 56
+local CARD_H = 68
 local CARD_GAP = 8
 local TOP = 48
 
@@ -226,6 +226,11 @@ function Slots:draw()
       size = "small",
       color = theme.colors.textDim,
     })
+    -- Journal completion, a number only: unknown nodes are never named (D117, #275).
+    local journal = slot.state == "ok" and Run.journalLine(self.app.ctx.tuning, slot.header)
+    if journal then
+      Text.draw(journal, card.x + 12, card.y + 50, { size = "small", color = theme.colors.textDim })
+    end
   end
   self.buttons:draw()
 end

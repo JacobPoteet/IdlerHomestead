@@ -9,12 +9,17 @@
 --   Run.startNext(data)     count the new run and clear recovery; the session then generates new
 --                           land because data.run is nil.
 --
--- meta.career = { runs = number of the current run (1-based), history = { summary, ... } }
+-- meta.career = { runs = number of the current run (1-based), history = { summary, ... },
+--                 best = { years = most years survived by any run, yearIncome = best year's sales income } }
+-- A summary also carries yearsSurvived (full game years completed: the year counter minus one, so dying in
+-- year 3 is 2), bestYearIncome (the most sales income, in $, in one game year of the run, D117) and, from
+-- the second run on, newBest = { years = bool, yearIncome = bool } (strictly beat the slot's earlier best).
 -- meta.recovery = { summary, finishedStudy = itemId?, freeStudyUsed = bool } while recovering.
 
 local Calendar = require("src.sim.systems.calendar")
 local Events = require("src.core.events")
 local Ftue = require("src.sim.systems.ftue")
+local Income = require("src.sim.systems.income")
 local Journal = require("src.sim.systems.journal")
 
 local Run = {}
@@ -22,6 +27,7 @@ local Run = {}
 --- The slot's career record, created on first use.
 function Run.career(meta)
   meta.career = meta.career or { runs = 1, history = {} }
+  meta.career.best = meta.career.best or { years = 0, yearIncome = 0 }
   return meta.career
 end
 
@@ -52,6 +58,8 @@ function Run.summary(world)
     year = now.year,
     season = now.season,
     dayOfSeason = now.dayOfSeason,
+    yearsSurvived = now.year - 1,
+    bestYearIncome = (Income.best(world)),
     notes = notes,
   }
 end
@@ -117,12 +125,64 @@ function Run.firstChange(registry, tuning, cause)
   return t.firstUnknown
 end
 
+--- The progress table of the recovery screen (D117, #275), words from tuning.ui.progress:
+--- { first = bool, columns = { label, ... }, rows = { { label, cells = { text, ... }, newBest = bool }, ... } }.
+--- Column 1 is this run, 2 the previous run and 3 the slot's best (both left out on a slot's first run).
+--- `summary` is the run being reviewed (the last of the history).
+function Run.progressTable(tuning, career, summary)
+  local t = tuning.ui.progress
+  local history = career.history
+  local previous = history[#history - 1]
+  local first = previous == nil
+  local best = career.best or { years = 0, yearIncome = 0 }
+  local flags = summary.newBest or {}
+  local function row(label, format, field, bestField, flag)
+    local cells = { string.format(format, summary[field] or 0) }
+    if not first then
+      cells[2] = string.format(format, previous[field] or 0)
+      cells[3] = string.format(format, best[bestField])
+    end
+    return { label = label, cells = cells, newBest = flag == true }
+  end
+  local columns = { t.colThis }
+  if not first then
+    columns[2], columns[3] = t.colPrevious, t.colBest
+  end
+  return {
+    first = first,
+    columns = columns,
+    rows = {
+      row(t.yearsLabel, t.yearsFormat, "yearsSurvived", "years", flags.years),
+      row(t.incomeLabel, t.incomeFormat, "bestYearIncome", "yearIncome", flags.yearIncome),
+    },
+  }
+end
+
+--- The slot screen's journal line from a slot header, or nil when the header has no figures.
+--- Whole percent, rounded down so 100% means everything is known; never names a node.
+function Run.journalLine(tuning, header)
+  if not header or not header.journalTotal or header.journalTotal <= 0 then
+    return nil
+  end
+  local pct = math.floor((header.journalKnown or 0) * 100 / header.journalTotal)
+  return string.format(tuning.ui.progress.journalLine, pct)
+end
+
 --- The run is over (Condition hit zero). Records it and discards the run state. `depleted` is the
 --- needs.depleted payload (optional: tools that end a run without it record an unknown cause).
 function Run.fail(data, world, depleted)
   local summary = Run.summary(world)
   summary.cause = Run.cause(world.tuning, depleted)
   local career = Run.career(data.meta)
+  -- Beating the slot's best earns a marker on the recovery screen; the first run has nothing to beat.
+  if #career.history > 0 then
+    summary.newBest = {
+      years = summary.yearsSurvived > career.best.years,
+      yearIncome = summary.bestYearIncome > career.best.yearIncome,
+    }
+  end
+  career.best.years = math.max(career.best.years, summary.yearsSurvived)
+  career.best.yearIncome = math.max(career.best.yearIncome, summary.bestYearIncome)
   career.history[#career.history + 1] = summary
   -- A study in progress finishes while you recover (GDD §8.1).
   local finished = Journal.finishStudy(world)
@@ -130,6 +190,7 @@ function Run.fail(data, world, depleted)
   data.run = nil
   if data.header then
     data.header.recovering = true
+    Journal.summarize(world, data.header)
   end
   return summary
 end
@@ -156,6 +217,9 @@ function Run.freeStudy(data, metaWorld, id)
   if ok then
     recovery.freeStudyUsed = true
     recovery.freeStudy = id
+    if data.header then
+      Journal.summarize(metaWorld, data.header) -- the slot screen's journal line follows what was just learned
+    end
   end
   return ok, reason
 end

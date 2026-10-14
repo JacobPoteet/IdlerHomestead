@@ -110,6 +110,19 @@ return {
     firstHunger = "Plant a field in the first days and keep a few days of food.",
     firstUnknown = "Spend the free study below, then plan the first week.",
   },
+  progress = { -- progress metrics on the recovery and slot screens (D117, #275); %d is a whole number
+    colThis = "This run", -- column heading
+    colPrevious = "Previous run", -- column heading; left out on a slot's first run
+    colBest = "Slot best", -- column heading; left out on a slot's first run
+    yearsLabel = "Years survived", -- row label: full game years completed before the run ended
+    yearsFormat = "%d", -- a years cell
+    incomeLabel = "Best year's income", -- row label: the most sales income in one game year
+    incomeFormat = "$%d", -- an income cell
+    none = "-", -- a cell with no value (no previous run)
+    newBest = "New best!", -- marker beside this run's cell when it beat the slot's earlier best
+    firstRun = "Your first run on this slot. These numbers are the ones to beat.", -- shown instead of the extra columns on the first run
+    journalLine = "Journal %d%% known", -- slot screen line; the percentage is known nodes over all, rounded down
+  },
   itemCard = { -- the store's item card on a tap or long-press of a Catalog or town shop row (D107, #266); %s / %d are filled in by src/ui/item_text.lua
     width = 300, -- view px; the card's width (narrower views shrink it to fit)
     labelWidth = 52, -- view px; the left column of labels ("Gets", "Needs", ...)
