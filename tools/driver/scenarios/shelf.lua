@@ -37,7 +37,8 @@ return function(d)
 
   -- A new game on the freed slot, with food of several ages.
   d:press("New")
-  d:press("Start")
+  d:press("Next")
+  d:press("Normal")
   d:frames(10)
   local world = d:world()
   d:advance(1)

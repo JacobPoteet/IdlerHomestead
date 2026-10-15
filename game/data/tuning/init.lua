@@ -14,6 +14,7 @@ return {
   "farming",
   "water",
   "needs",
+  "sandbox",
   "shelter",
   "food",
   "fishing",

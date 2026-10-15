@@ -5,6 +5,7 @@
 local Inventory = require("src.sim.systems.inventory")
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
+local Sandbox = require("src.sim.systems.sandbox")
 
 local ItemText = {}
 
@@ -43,7 +44,7 @@ function ItemText.build(world, id, pickup)
   local priceText
   local cheat = Market.cheatOn(world)
   if cheat then
-    fee, priceText = 0, t.priceCheat
+    fee, priceText = 0, Sandbox.on(world) and world.tuning.ui.sandbox.priceFree or t.priceCheat
   elseif pickup then
     priceText = string.format(t.priceTown, price)
   else
@@ -111,7 +112,7 @@ function ItemText.build(world, id, pickup)
   if reason and reason ~= "unknown" then
     add(t.now, rawget(t.reasons, reason) or reason, "warn")
   elseif cheat then
-    add(t.now, t.nowCheat, "dim")
+    add(t.now, Sandbox.on(world) and world.tuning.ui.sandbox.nowFree or t.nowCheat, "dim")
   end
   return {
     title = item.name,

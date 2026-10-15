@@ -12,6 +12,7 @@ local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
 local Power = require("src.sim.systems.power")
+local Sandbox = require("src.sim.systems.sandbox")
 local Shelter = require("src.sim.systems.shelter")
 local Spoilage = require("src.sim.systems.spoilage")
 local Weather = require("src.sim.systems.weather")
@@ -40,7 +41,8 @@ end
 
 local function hurt(world, amount)
   local state = world.state.needs
-  state.condition = math.max(0, state.condition - amount)
+  -- A sandbox slot never reaches 0 (D133).
+  state.condition = math.max(Sandbox.conditionFloor(world), state.condition - amount)
 end
 
 --- The foods in the order today's meal eats them (D94): the one whose oldest batch spoils soonest

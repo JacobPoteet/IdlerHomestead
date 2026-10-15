@@ -97,17 +97,33 @@ function Slots:play(index, data)
   self.app:switch(require("src.scenes.homestead").new(), index, data)
 end
 
+--- A new homestead: name it, then choose Normal or Sandbox (D133).
 function Slots:newSlot(index)
   local tuning = self.app.ctx.tuning
+  local ui = tuning.ui.sandbox
+  local function start(name, sandbox)
+    local data = Save.newSlotData(name, { sandbox = sandbox })
+    Ftue.begin(data.meta, self.app.ctx.tips ~= false) -- a new slot gets the tip cards (D69); tools may turn them off
+    self:play(index, data)
+  end
   self.app:push(require("src.scenes.prompt").new({
     title = "Name your homestead",
     initial = tuning.save.defaultSlotName,
     maxLength = tuning.save.maxNameLength,
-    confirmLabel = "Start",
+    confirmLabel = "Next",
     onConfirm = function(name)
-      local data = Save.newSlotData(name)
-      Ftue.begin(data.meta, self.app.ctx.tips ~= false) -- a new slot gets the tip cards (D69); tools may turn them off
-      self:play(index, data)
+      self.app:push(require("src.scenes.confirm").new({
+        title = ui.modeTitle,
+        message = ui.modeMessage,
+        confirmLabel = ui.sandbox,
+        cancelLabel = ui.normal,
+        onConfirm = function()
+          start(name, true)
+        end,
+        onCancel = function()
+          start(name, false)
+        end,
+      }))
     end,
   }))
 end
@@ -224,6 +240,13 @@ function Slots:draw()
       size = "heading",
       color = slot.state == "ok" and theme.colors.text or theme.colors.textDim,
     })
+    if slot.header and slot.header.sandbox then -- a sandbox slot is tagged (D133)
+      local tag = self.app.ctx.tuning.ui.sandbox.tag
+      Text.draw(tag, card.x + card.w - 10 - Text.measure(tag, "small"), card.y + 6, {
+        size = "small",
+        color = theme.colors.accent,
+      })
+    end
     Text.draw(line1 .. (line2 ~= "" and ("   " .. line2) or ""), card.x + 12, card.y + 34, {
       size = "small",
       color = theme.colors.textDim,

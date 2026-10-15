@@ -75,7 +75,7 @@ per window size):
 
 ```lua
 return function(d)
-  d:newGame()              -- Play > New > Start, leaves the homestead on top
+  d:newGame()              -- Play > New > Next > Normal (or Sandbox), leaves the homestead on top
   d:advance(3)             -- 3 in-game hours at the current speed
   d:press("Catalog")       -- press a button by label (errors and lists the labels if missing)
   d:shot("catalog")        -- writes <out>/<name>_<size>_01_catalog.png
@@ -124,3 +124,5 @@ Also `topbar` (D112, #267: the top-bar chips with their fill bars, level marks, 
 Also `greatwinter` (D117, #277: the full, named forecast pill on the first day of autumn of the Great Winter's year, the winter itself, and the one-time Established card on the first thaw; finals are `docs/screens/greatwinter-*`).
 
 Also `controls` (D121, #237: Settings > Controls, a rebind with "Press a key...", a reserved key, a conflict with Swap and Keep, per-row and global reset; finals are `docs/screens/controls-*`).
+
+Also `sandbox` (D133: the Normal / Sandbox choice after naming a homestead, the SANDBOX tag in the slot list and on the homestead screen, the Catalog free with no Debug toggle, and a hungry, cold sandbox homesteader staying alive; `d:newGame({ sandbox = true })` starts a sandbox slot).

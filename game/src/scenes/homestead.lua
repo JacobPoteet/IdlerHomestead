@@ -40,6 +40,7 @@ local Land = require("src.sim.systems.land")
 local Water = require("src.sim.systems.water")
 local Processing = require("src.sim.systems.processing")
 local Market = require("src.sim.systems.market")
+local Sandbox = require("src.sim.systems.sandbox")
 local Stand = require("src.sim.systems.stand")
 local Routine = require("src.sim.systems.routine")
 local Tasks = require("src.sim.systems.tasks")
@@ -2551,6 +2552,9 @@ function Homestead:drawForecast()
   local world = self.world
   -- The weather is a chip in the top bar now (D112): today and the days ahead as glyphs, the words in its modal.
   local lines = {}
+  if Sandbox.on(world) then
+    lines[1] = { self.app.ctx.tuning.ui.sandbox.tag, theme.colors.accent } -- a sandbox slot says so (D133)
+  end
   -- Threats the player has been warned of (D67): amber while coming, red while they are on.
   for _, t in ipairs(Forecast.threats(world)) do
     lines[#lines + 1] = { t[1], t[2] and theme.colors.danger or theme.colors.accent }
