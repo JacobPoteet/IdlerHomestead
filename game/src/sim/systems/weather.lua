@@ -333,7 +333,13 @@ end
 --- Wind multiplier of today's weather (1 = ordinary, above 1 = gusty). The hook for wind sway and
 --- drifting cloud shadows (#49); the turbines use it through powerInputs.
 function Weather.windStrength(world)
-  return Weather.current(world).wind
+  return world.debugWind or Weather.current(world).wind
+end
+
+--- Debug and editor tool: hold the wind at `strength` (1 = ordinary, 0 = still) whatever the weather says;
+--- nil gives it back to the weather. A runtime flag on the world, never saved. It also moves the turbines.
+function Weather.setWindOverride(world, strength)
+  world.debugWind = strength
 end
 
 --- Days of forecast the player can see past today: the base horizon plus weather sense.

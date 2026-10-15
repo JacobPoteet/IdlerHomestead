@@ -8,6 +8,9 @@ local Calendar = require("src.sim.systems.calendar")
 local Weather = require("src.sim.systems.weather")
 local BlueNoise = require("src.render.blue_noise")
 local Model = require("src.ui.editor_shaders")
+local Knobs = require("src.ui.editor_knobs")
+local Ledger = require("src.sim.systems.ledger")
+local Needs = require("src.sim.systems.needs")
 
 local reg = Registry.new():loadAll()
 
@@ -179,4 +182,67 @@ T.test("the editor tests leave the shared dither tuning as they found it", funct
   local tun = tuningLoader.load()
   Model.apply(tun, pristine)
   T.eq(#Model.changedIds(tun, pristine), 0)
+end)
+
+T.test("every wind knob exists in tuning and sits inside its own range", function()
+  local tun = newTuning()
+  for _, k in ipairs(Knobs.all(Knobs.WIND)) do
+    local v = Knobs.get(tun, k)
+    T.truthy(type(v) == "number", table.concat(k.path, ".") .. " is a number")
+    T.truthy(v >= k.min and v <= k.max, table.concat(k.path, ".") .. " is outside the editor's range")
+  end
+end)
+
+T.test("knob steps stop at the limits, snapshot and apply put values back, export lists only changes", function()
+  local tun = newTuning()
+  local groups = Knobs.WIND
+  local snap = Knobs.snapshot(tun, groups)
+  local k = groups[1].knobs[1]
+  local original = Knobs.get(tun, k)
+  T.truthy(Knobs.change(tun, k, 1))
+  T.truthy(Knobs.changed(tun, groups, snap))
+  T.truthy(Knobs.export(tun, groups, snap):find(k.label, 1, true))
+  T.falsy(Knobs.export(tun, groups, snap):find("\n", 1, true), "one changed knob is one line")
+  Knobs.apply(tun, groups, snap)
+  T.eq(Knobs.get(tun, k), original)
+  T.falsy(Knobs.changed(tun, groups, snap))
+  for _ = 1, 400 do
+    if not Knobs.change(tun, k, 1) then
+      break
+    end
+  end
+  T.eq(Knobs.get(tun, k), k.max)
+  T.eq(Knobs.change(tun, k, 1), nil)
+  Knobs.apply(tun, groups, snap)
+end)
+
+T.test("invincible: no hunger or cold lowers Condition while the editor holds it", function()
+  local tun = newTuning()
+  local world = newWorld(tun)
+  for _, res in ipairs(reg:all("resources")) do
+    Ledger.remove(world, res.id, Ledger.get(world, res.id), "test")
+  end
+  local before = Needs.condition(world)
+  Needs.eat(world)
+  T.truthy(Needs.condition(world) < before, "an empty larder hurts a normal game")
+  Needs.setInvincible(world, true)
+  local held = Needs.condition(world)
+  Needs.eat(world)
+  Needs.warm(world)
+  T.eq(Needs.condition(world), held, "nothing hurts while invincible")
+  Needs.setInvincible(world, false)
+  Needs.eat(world)
+  T.truthy(Needs.condition(world) < held, "and it hurts again after")
+end)
+
+T.test("a wind override beats the weather until it is let go", function()
+  local tun = newTuning()
+  local world = newWorld(tun)
+  local weather = Weather.windStrength(world)
+  Weather.setWindOverride(world, 0)
+  T.eq(Weather.windStrength(world), 0, "zero is a real override, not unset")
+  Weather.setWindOverride(world, 2.5)
+  T.eq(Weather.windStrength(world), 2.5)
+  Weather.setWindOverride(world, nil)
+  T.eq(Weather.windStrength(world), weather)
 end)

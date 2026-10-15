@@ -6,6 +6,7 @@
 
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
+local Needs = require("src.sim.systems.needs")
 local ScrollList = require("src.ui.scroll_list")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
@@ -16,6 +17,7 @@ Editor.__index = Editor
 --- The panels, in tab order: { id, title, module }.
 Editor.PANELS = {
   { id = "shaders", title = "Shaders", module = "src.ui.editor_panel_shaders" },
+  { id = "wind", title = "Wind", module = "src.ui.editor_panel_wind" },
 }
 
 local PANEL_W = 330 -- virtual pixels; the docked panel's width
@@ -39,6 +41,11 @@ function Editor:enter()
     self:layout()
   end
   self.toast = nil
+  -- Testing the look at every hour of the day must not cost a night of cold: nothing hurts while this is open.
+  local session = self.app.ctx.session
+  if session then
+    Needs.setInvincible(session.world, true)
+  end
 end
 
 --- The active panel's instance (built on first use, so it can read the live tuning).
@@ -52,6 +59,10 @@ end
 
 --- Leaving puts back what compare mode had swapped out, so a closed editor never leaves old values live.
 function Editor:exit()
+  local session = self.app.ctx.session
+  if session then
+    Needs.setInvincible(session.world, false)
+  end
   for _, instance in pairs(self.panels) do
     if instance.close then
       instance:close()
@@ -101,7 +112,7 @@ function Editor:layout()
       self.app:pop()
     end,
   })
-  local tabX = b.x + 88
+  local tabX = b.x + 72
   for i, entry in ipairs(Editor.PANELS) do
     self.buttons:add({
       x = tabX,
@@ -190,7 +201,8 @@ end
 function Editor:draw()
   local b = self.box
   Draw.panel(b.x, b.y, b.w, b.h)
-  Text.draw("Editor", b.x + PAD, b.y + 9, { size = "body", color = theme.colors.accent })
+  Text.draw("Editor", b.x + PAD, b.y + 4, { size = "body", color = theme.colors.accent })
+  Text.draw("invincible", b.x + PAD, b.y + 17, { size = "small", color = theme.colors.textDim })
   self:panel():draw()
   self.buttons:draw()
   if self.toast then
