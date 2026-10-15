@@ -1530,6 +1530,8 @@ function Renderer:drawShadows(list)
     dappleShade = d.shade,
     dappleScale = d.scale,
     dappleShift = shift,
+    ditherAmount = cfg.dither.amount,
+    ditherAlpha = cfg.dither.alpha,
   })
   love.graphics.setShader(composite)
   love.graphics.setColor(1, 1, 1, 1)
@@ -1650,6 +1652,10 @@ function Renderer:drawGraded(canvas, tint, light, pixelSize, haze, lights, origi
       hazeRise = v.heat.rise,
       hazeSpeed = v.heat.speed,
       sourceSpeed = v.heat.sourceSpeed,
+      sourceSteps = v.heat.sourceSteps,
+      sourceWave = v.heat.sourceWave,
+      sourceDeadZone = v.heat.sourceDeadZone,
+      sourceReach = v.heat.sourceReach,
       heatCount = #sources,
       gridOrigin = origin,
       worldCell = haze and haze.world or { 0, 0 },

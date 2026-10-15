@@ -230,6 +230,10 @@ return {
     minHeight = 7, -- art pixels: sprites shorter than this cast no shadow
     contactMaxWidth = 26, -- art pixels, the widest contact shadow
     contactWidth = 0.8, -- share of the sprite's width the contact shadow spans
+    dither = { -- shadows drawn as an ordered-dither stipple on the world art-pixel grid instead of a flat translucent tone (shaders/shadow_composite.glsl)
+      amount = 1.0, -- 0..1 how much of the shadow is stippled (0 = the old flat tone, 1 = all stipple)
+      alpha = 0.6, -- 0..1 alpha of one shadow pixel in the stipple; the share of pixels that are shadow is strength / this (so 0.42 / 0.6 = 70% in full sun)
+    },
     dapple = { -- leaf dapple: sun flecks through a tree canopy's cast shadow (shaders/shadow_composite.glsl); trees opt in with `dapple` in data/content/objects.lua
       strength = 0.9, -- 0..1 share of the shadow a fleck's bright heart takes away (0 = no dapple)
       shade = 1.5, -- multiplier on a canopy's cast shadow between the flecks (leaves shade deeper than a post or a wall)
@@ -300,9 +304,9 @@ return {
     gain = 1.15, -- how strongly the light brightens and warms the picture it reaches (multiplies the lit pixels, D128)
     glow = 0.16, -- how much of the light is also added flat, so a lamp core stays bright and dark ground still shows it
     neutral = 0.6, -- 0..1 how far a lit colour is pulled toward grey before the light tints it, so firelight on grass reads warm, not olive
-    bands = 6, -- number of pixel-art brightness steps in the falloff (more steps = a smaller jump at the pool's edge)
+    bands = 5, -- number of pixel-art brightness steps in the falloff (the dither interleaves them, so fewer steps still fade smoothly)
     falloff = 1.8, -- exponent of the falloff (higher = tighter, brighter core)
-    dither = 0.28, -- 0..1 ordered dither between bands, on the art-pixel grid (it interleaves the steps so no ring reads as a hard edge)
+    dither = 1.0, -- 0..1 how much of the Bayer 8x8 dither pattern is used between bands, on the world art-pixel grid (1 = full, no ring reads as a hard edge; 0 = plain bands)
     flickerSpeed = 7, -- flicker steps per second (the glow radius jumps in whole art pixels)
     coreSize = 3, -- art pixels, the bright core drawn at the centre of a light that has no window (flame, bulb)
     coreGlow = 0.4, -- 0..1 brightness of that core at full darkness
@@ -368,6 +372,10 @@ return {
     sourceWidth = 7, -- art pixels, half-width of the shimmer column over a burning stove or campfire
     sourceHeight = 22, -- art pixels the column climbs, fading out toward the top
     sourceSpeed = 7, -- radians per second of the column's wobble
+    sourceSteps = 8, -- times a second the column's wobble moves on (whole steps, so it stays chunky pixel art)
+    sourceWave = 0.9, -- radians per art-pixel row of the wobble (its vertical frequency; about 7 rows per wave)
+    sourceDeadZone = 0.3, -- 0..1 wave level below which a pixel stays put (the calm between the bands)
+    sourceReach = 1.6, -- how far the dithered column reaches (higher keeps more pixels moving toward its edges and top)
     maxSources = 4, -- most shimmering fires drawn at once (the shader's array size)
   },
   hens = { -- the flock around the coop (D63): drawn only by day, a pure function of the render clock
