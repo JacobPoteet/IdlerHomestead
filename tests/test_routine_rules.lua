@@ -2,6 +2,7 @@
 -- by the idle routine while the condition is not met; orders and machines are unaffected.
 local T = require("harness")
 local tuningLoader = require("src.core.tuning")
+local Grid = require("src.sim.grid")
 local Registry = require("src.core.registry")
 local serialize = require("src.core.serialize")
 local World = require("src.sim.world")
@@ -116,10 +117,13 @@ T.test("thresholds: a waiting category is skipped for the next one, and orders s
   Ledger.add(world, "wood", 20)
   local hs = Actors.homesteader(world)
   T.eq(Tasks.chooseIdleJob(world, hs), nil)
-  local tree
+  local tree -- the nearest tree to the spawn, so a thick wood cannot wall it in
   for anchor, obj in pairs(world.state.grid.objects) do
-    if obj.id == "tree" then
-      tree = anchor
+    if reg:get("objects", obj.id).kind == "tree" then
+      local d = Grid.distance(world.state.grid, anchor, world.state.land.spawn)
+      if not tree or d < Grid.distance(world.state.grid, tree, world.state.land.spawn) then
+        tree = anchor
+      end
     end
   end
   local job = Tasks.jobForOrder(world, hs, tree, {})
@@ -290,7 +294,7 @@ T.test("clear trees: Off never fells; On fells like the hand order, with the woo
   local function trees()
     local n = 0
     for _, obj in pairs(world.state.grid.objects) do
-      if obj.id == "tree" then
+      if reg:get("objects", obj.id).kind == "tree" then
         n = n + 1
       end
     end
@@ -301,7 +305,7 @@ T.test("clear trees: Off never fells; On fells like the hand order, with the woo
   entry(world.state, "trees").enabled = true
   local job = Tasks.chooseIdleJob(world, hs)
   T.truthy(job and job.task == "fell", "On: it picks a tree")
-  T.eq(world.state.grid.objects[job.target].id, "tree")
+  T.eq(reg:get("objects", world.state.grid.objects[job.target].id).kind, "tree")
   -- Same room rule as the hand order: a full wood store holds it back.
   Ledger.add(world, "wood", Ledger.capacity(world, "wood") - Ledger.get(world, "wood"))
   T.eq(Tasks.chooseIdleJob(world, hs), nil, "full store: waits")
@@ -328,7 +332,7 @@ T.test("clear trees: the Wood below condition limits the routine's felling", fun
   e.enabled = false
   local tile
   for anchor, obj in pairs(world.state.grid.objects) do
-    if obj.id == "tree" then
+    if reg:get("objects", obj.id).kind == "tree" then
       tile = anchor
       break
     end

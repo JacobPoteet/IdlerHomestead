@@ -141,7 +141,7 @@ local function sunny(world, i)
     for dx = -r, r do
       if Grid.inBounds(grid, x + dx, y + dy) then
         local obj = Grid.object(world, Grid.index(grid, x + dx, y + dy))
-        if obj and obj.id == "tree" then
+        if obj and (obj.kind or obj.id) == "tree" then
           return false
         end
       end
