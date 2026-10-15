@@ -12,11 +12,13 @@ uniform float scale;         // stripe frequency across the beams, 1/art pixels
 uniform float patch;         // frequency of the broad patches that break the stripes up, 1/art pixels
 uniform float block;         // art pixels per beam pixel
 uniform vec3 beamColor;
+uniform vec4 dither;         // algorithm, scale, amount, steps (include/dither.glsl)
 
 #ifdef PIXEL
 #ifdef GL_ES
 precision highp float;
 #endif
+#include "dither"
 float hash(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);
     p3 += dot(p3, p3.yzx + 33.33);
@@ -42,7 +44,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     float stripes = noise(vec2(a * scale, time * 0.03)) * 0.7 + noise(vec2(a * scale * 2.7 + 9.0, -time * 0.05)) * 0.3;
     float broken = noise(vec2(along * patch + a * patch * 0.5, time * 0.02 + 4.0));
     float beam = smoothstep(0.52, 0.85, stripes) * smoothstep(0.25, 0.7, broken);
-    float band = floor(beam * 3.0 + 0.5) / 3.0;
+    float band = ditherQuantize(beam, floor(rect.xy + uv * rect.zw), dither);
     return vec4(beamColor * band * strength, 1.0) * color;
 }
 #endif

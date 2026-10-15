@@ -7,11 +7,21 @@ local Shaders = {}
 
 local cache = {} -- name -> { shader = Shader|nil, error = string|nil }
 
+--- The source of shaders/<name>.glsl with each `#include "x"` line replaced by shaders/include/x.glsl
+--- (one level deep; LÖVE's GLSL has no include of its own). Include files go after the uniforms, where
+--- the shader writes the line, and before `effect`.
+local function source(name)
+  local code = assert(love.filesystem.read("shaders/" .. name .. ".glsl")) -- read() also returns a size
+  return (
+    code:gsub('#include%s+"([%w_]+)"', function(inc)
+      return assert(love.filesystem.read("shaders/include/" .. inc .. ".glsl"))
+    end)
+  )
+end
+
 local function compile(name)
-  local path = "shaders/" .. name .. ".glsl"
   local ok, result = pcall(function()
-    local code = assert(love.filesystem.read(path)) -- read() also returns a size; pass only the code
-    return love.graphics.newShader(code)
+    return love.graphics.newShader(source(name))
   end)
   if ok then
     return result, nil

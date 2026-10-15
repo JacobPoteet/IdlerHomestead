@@ -18,6 +18,8 @@ uniform float dappleShade;   // multiplier on a canopy's shadow between the flec
 uniform float dappleCover;   // 0..1 share of a canopy shadow that is fleck
 uniform float dappleScale;   // fleck noise frequency, 1/art pixels (higher = smaller flecks)
 uniform vec2 dappleShift;    // whole art pixels the flecks are pushed by the swaying leaves
+uniform vec4 dither;         // algorithm, scale, amount, steps (include/dither.glsl); amount = how much of the shadow is stipple instead of a flat tone
+uniform float ditherAlpha;   // 0..1 alpha of one shadow pixel in the pattern (the pattern's coverage makes up the rest)
 
 #ifdef PIXEL
 #ifdef GL_ES
@@ -29,6 +31,7 @@ float hash(vec2 p) {
     p3 += dot(p3, p3.yzx + 33.33);
     return fract((p3.x + p3.y) * p3.z);
 }
+#include "dither"
 
 float noise(vec2 p) {
     vec2 i = floor(p);
@@ -54,6 +57,14 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
         // Two steps: a bright heart and a half-lit rim round it, so a fleck reads as a soft spot in pixel art.
         float fleck = step(edge, n) * 0.5 + step(edge + 0.07, n) * 0.5;
         shade *= 1.0 - dapple * fleck;
+    }
+    if (dither.z > 0.0 && shade > 0.0) {
+        // The cast shadow's density becomes the share of art pixels that are shadow, so it is solid where the
+        // sun is strong and thins into a stipple as it fades (dusk, cloud, leaf flecks). The contact shadow
+        // under a sprite stays a flat tone, so every object keeps a solid footing.
+        vec2 dpx = origin + floor(uv * maskSize);
+        float stipple = ditherAlpha * ditherMask(shade / ditherAlpha, dpx, dither);
+        shade = mix(shade, stipple, dither.z);
     }
     float a = max(shade, m.g * contactStrength);
     return vec4(shadowColor, a) * color;
