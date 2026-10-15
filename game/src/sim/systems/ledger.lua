@@ -117,7 +117,7 @@ function Ledger.remove(world, id, amount, reason)
     return false
   end
   if Sandbox.frees(world, reason) then
-    return true -- a sandbox slot (D133): the stock has to be there, but using it costs nothing
+    return true -- a sandbox slot (D134): the stock has to be there, but using it costs nothing
   end
   if amount > 0 then
     change(world, id, -amount, reason)

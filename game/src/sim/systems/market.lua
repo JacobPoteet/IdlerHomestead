@@ -129,7 +129,7 @@ function Market.cheapestOrder(world)
 end
 
 --- Is cheat mode on (D126)? The debug toggle is a runtime flag on the world (not in the state, so never saved);
---- a sandbox slot (D133) is always in it.
+--- a sandbox slot (D134) is always in it.
 function Market.cheatOn(world)
   return world.debugCheat == true or Sandbox.on(world)
 end

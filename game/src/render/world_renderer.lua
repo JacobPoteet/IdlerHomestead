@@ -20,6 +20,7 @@ local Processing = require("src.sim.systems.processing")
 local Weather = require("src.sim.systems.weather")
 local Assets = require("src.render.assets")
 local Shaders = require("src.render.shaders")
+local Dither = require("src.render.dither")
 local Lighting = require("src.render.lighting")
 local WeatherFx = require("src.render.weather_fx")
 local Lights = require("src.render.lights")
@@ -921,10 +922,10 @@ function Renderer:drawMist(visible, ice)
     ground = cfg.ground,
     scale = cfg.scale,
     block = cfg.block,
-    levels = cfg.levels,
     maxAlpha = cfg.alpha,
     mistColor = cfg.color,
   })
+  Dither.send(shader, self.world.tuning, { dither = "mist" })
   love.graphics.setShader(shader)
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(self:whiteImage(), rx, ry, 0, rw, rh)
@@ -987,10 +988,9 @@ function Renderer:drawLights(visible, daylight)
         center = { cx, cy },
         radius = radius,
         lightColor = { c[1] * cfg.intensity * dark, c[2] * cfg.intensity * dark, c[3] * cfg.intensity * dark },
-        bands = cfg.bands,
         falloff = cfg.falloff,
-        dither = cfg.dither,
       })
+      Dither.send(shader, world.tuning, { dither = "light" })
       love.graphics.setShader(shader)
       love.graphics.setColor(1, 1, 1, 1)
       love.graphics.draw(self:whiteImage(), cx - radius, cy - radius * 0.8, 0, radius * 2, radius * 1.6)
@@ -1078,6 +1078,7 @@ function Renderer:drawCloudShadows(visible, daylight)
     block = cfg.block,
     shadowColor = cfg.color,
   })
+  Dither.send(shader, self.world.tuning, { dither = "clouds" })
   love.graphics.setShader(shader)
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(self:whiteImage(), rx, ry, 0, rw, rh)
@@ -1425,6 +1426,7 @@ function Renderer:drawSunbeams(visible)
     block = cfg.block,
     beamColor = cfg.color,
   })
+  Dither.send(shader, world.tuning, { dither = "sunbeams" })
   love.graphics.setBlendMode("add")
   love.graphics.setShader(shader)
   love.graphics.setColor(1, 1, 1, 1)
@@ -1530,7 +1532,9 @@ function Renderer:drawShadows(list)
     dappleShade = d.shade,
     dappleScale = d.scale,
     dappleShift = shift,
+    ditherAlpha = world.tuning.visuals.dither.shadows.alpha,
   })
+  Dither.send(composite, world.tuning, { dither = "shadows" })
   love.graphics.setShader(composite)
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(mask, ox, oy)
@@ -1650,6 +1654,10 @@ function Renderer:drawGraded(canvas, tint, light, pixelSize, haze, lights, origi
       hazeRise = v.heat.rise,
       hazeSpeed = v.heat.speed,
       sourceSpeed = v.heat.sourceSpeed,
+      sourceSteps = v.heat.sourceSteps,
+      sourceWave = v.heat.sourceWave,
+      sourceDeadZone = v.heat.sourceDeadZone,
+      sourceReach = v.heat.sourceReach,
       heatCount = #sources,
       gridOrigin = origin,
       worldCell = haze and haze.world or { 0, 0 },
@@ -1679,6 +1687,7 @@ function Renderer:drawGraded(canvas, tint, light, pixelSize, haze, lights, origi
       contrast = tone.contrast * g,
       blackLift = { tone.blackLift[1] * g, tone.blackLift[2] * g, tone.blackLift[3] * g },
     })
+    Dither.send(shader, self.world.tuning, { ditherHeat = "heat", ditherVignette = "vignette" })
     if lights and shader:hasUniform("lightMap") then
       shader:send("lightMap", lights.image)
     end

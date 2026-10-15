@@ -1,4 +1,4 @@
--- Sandbox save mode (D133): the game mode choice after naming a homestead, the SANDBOX tag in the slot list
+-- Sandbox save mode (D134): the game mode choice after naming a homestead, the SANDBOX tag in the slot list
 -- (beside a normal slot) and on the homestead screen, the Catalog listing everything for free (no Debug
 -- toggle), a free grant, and the homesteader surviving empty stores.
 local Ledger = require("src.sim.systems.ledger")

@@ -173,6 +173,16 @@ function Game:keypressed(key)
     print("Reloaded tuning and shaders")
     return
   end
+  if key == "f8" then
+    -- The in-game editor (D133): dev only, so the F1 overlay must be on, and it needs a running homestead.
+    local top = self.app:top()
+    if top and top.name == "editor" then
+      self.app:pop()
+    elseif self.debug.visible and self.app.ctx.session and top and top.name == "homestead" then
+      self.app:push(require("src.scenes.editor").new())
+    end
+    return
+  end
   if key == "f7" then
     -- Sound test: audition every cue (D100).
     if self.app:top().name ~= "soundtest" then

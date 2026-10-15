@@ -93,7 +93,7 @@ function Save.new(backend, opts)
   return setmetatable({ backend = backend, slotCount = opts.slotCount }, Save)
 end
 
---- Fresh data for a new slot. `opts.sandbox` makes it a Sandbox slot (D133): `meta.sandbox` is the flag the sim
+--- Fresh data for a new slot. `opts.sandbox` makes it a Sandbox slot (D134): `meta.sandbox` is the flag the sim
 --- reads; the header repeats it so the slot list can tag the slot without loading the run.
 function Save.newSlotData(name, opts)
   local sandbox = opts and opts.sandbox or nil

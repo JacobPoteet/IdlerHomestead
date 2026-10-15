@@ -39,7 +39,7 @@ return {
     row = "Get", -- the row button's label in cheat mode
     granted = "Cheat: got %s", -- toast after a grant
   },
-  sandbox = { -- the Sandbox save mode's words (D133)
+  sandbox = { -- the Sandbox save mode's words (D134)
     tag = "SANDBOX", -- the mark in the slot list, the Catalog and on the homestead screen
     modeTitle = "Game mode", -- title of the choice shown when a new homestead is started
     modeMessage = "Normal: the full survival game.\nSandbox: everything is free and the homesteader cannot die. A sandbox earns no progress.", -- body of that choice

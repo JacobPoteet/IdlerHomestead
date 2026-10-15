@@ -2553,7 +2553,7 @@ function Homestead:drawForecast()
   -- The weather is a chip in the top bar now (D112): today and the days ahead as glyphs, the words in its modal.
   local lines = {}
   if Sandbox.on(world) then
-    lines[1] = { self.app.ctx.tuning.ui.sandbox.tag, theme.colors.accent } -- a sandbox slot says so (D133)
+    lines[1] = { self.app.ctx.tuning.ui.sandbox.tag, theme.colors.accent } -- a sandbox slot says so (D134)
   end
   -- Threats the player has been warned of (D67): amber while coming, red while they are on.
   for _, t in ipairs(Forecast.threats(world)) do

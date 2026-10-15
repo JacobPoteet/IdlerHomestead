@@ -311,7 +311,7 @@ end
 --- Title -> slot list -> new homestead -> playing. Leaves the homestead scene on top.
 --- opts.tips = true starts the slot with the first-time tip cards on (off by default so they never
 --- cover another scenario's screenshots).
---- opts: { tips?, seed?, sandbox? (start a Sandbox slot, D133) }
+--- opts: { tips?, seed?, sandbox? (start a Sandbox slot, D134) }
 function Driver:newGame(opts)
   self.game.app.ctx.tips = opts ~= nil and opts.tips == true
   -- Pin the run seed (#188): opts.seed, else the driver's (seed= on the command line, else a hash of
@@ -325,7 +325,7 @@ function Driver:newGame(opts)
     self:press("Play")
     self:press("New")
     self:press("Next")
-    self:press(opts and opts.sandbox and "Sandbox" or "Normal") -- the game mode choice (D133)
+    self:press(opts and opts.sandbox and "Sandbox" or "Normal") -- the game mode choice (D134)
   end)
   Rng.freshSeed = freshSeed
   if not ok then

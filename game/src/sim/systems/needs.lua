@@ -40,8 +40,11 @@ local function fuel(world)
 end
 
 local function hurt(world, amount)
+  if world.debugInvincible then
+    return -- the in-game editor is open (Needs.setInvincible): nothing hurts
+  end
   local state = world.state.needs
-  -- A sandbox slot never reaches 0 (D133).
+  -- A sandbox slot never reaches 0 (D134).
   state.condition = math.max(Sandbox.conditionFloor(world), state.condition - amount)
 end
 
@@ -135,6 +138,16 @@ end
 --- Nights of wood in stock at tonight's need (math.huge when no fire is needed, D70, #157).
 function Needs.fuelNights(world)
   return Needs.woodOutlook(world).nights
+end
+
+--- Debug and editor tool: while on, hunger and cold cannot lower Condition. A runtime flag on the world,
+--- not in the state, so it is never saved (like Market.setCheat, D126).
+function Needs.setInvincible(world, on)
+  world.debugInvincible = on and true or nil
+end
+
+function Needs.invincible(world)
+  return world.debugInvincible == true
 end
 
 --- The homesteader's Condition (health).

@@ -1,4 +1,4 @@
--- Sandbox save mode (D133): a slot flagged `meta.sandbox` plays the normal game with nothing costing resources
+-- Sandbox save mode (D134): a slot flagged `meta.sandbox` plays the normal game with nothing costing resources
 -- and no way to fail the run. The words shown to the player live in tuning.ui.sandbox.
 return {
   conditionFloor = 25, -- condition the homesteader never drops below in a sandbox slot (of needs.conditionMax); hunger and cold still drain it, they just can't finish it

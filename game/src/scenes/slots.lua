@@ -97,7 +97,7 @@ function Slots:play(index, data)
   self.app:switch(require("src.scenes.homestead").new(), index, data)
 end
 
---- A new homestead: name it, then choose Normal or Sandbox (D133).
+--- A new homestead: name it, then choose Normal or Sandbox (D134).
 function Slots:newSlot(index)
   local tuning = self.app.ctx.tuning
   local ui = tuning.ui.sandbox
@@ -240,7 +240,7 @@ function Slots:draw()
       size = "heading",
       color = slot.state == "ok" and theme.colors.text or theme.colors.textDim,
     })
-    if slot.header and slot.header.sandbox then -- a sandbox slot is tagged (D133)
+    if slot.header and slot.header.sandbox then -- a sandbox slot is tagged (D134)
       local tag = self.app.ctx.tuning.ui.sandbox.tag
       Text.draw(tag, card.x + card.w - 10 - Text.measure(tag, "small"), card.y + 6, {
         size = "small",

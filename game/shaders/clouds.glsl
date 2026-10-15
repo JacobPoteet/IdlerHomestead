@@ -12,11 +12,13 @@ uniform float strength;      // 0..1 alpha of the darkest band (already scaled b
 uniform float scale;         // noise frequency in 1/art pixels (smaller = bigger clouds)
 uniform float block;         // art pixels per shadow pixel (1 = full art resolution)
 uniform vec3 shadowColor;
+uniform vec4 dither;         // algorithm, scale, amount, steps (include/dither.glsl)
 
 #ifdef PIXEL
 #ifdef GL_ES
 precision highp float;
 #endif
+#include "dither"
 float hash(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);
     p3 += dot(p3, p3.yzx + 33.33);
@@ -43,7 +45,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     // More coverage lowers the bar: sparse puffs when clear, near-total shade under storm cloud.
     float bar = 1.0 - coverage * 0.62;
     float density = smoothstep(bar, bar + 0.22, n);
-    float band = floor(density * 3.0 + 0.5) / 3.0;       // pixel-art bands
+    // Pixel-art levels; the dither (when on) interleaves them where the density is between two.
+    float band = ditherQuantize(density, floor(world), dither);
     return vec4(shadowColor, band * strength) * color;
 }
 #endif

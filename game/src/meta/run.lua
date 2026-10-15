@@ -187,7 +187,7 @@ end
 --- The run is over (Condition hit zero). Records it and discards the run state. `depleted` is the
 --- needs.depleted payload (optional: tools that end a run without it record an unknown cause).
 function Run.fail(data, world, depleted)
-  assert(not data.meta.sandbox, "a sandbox slot never fails a run (D133)")
+  assert(not data.meta.sandbox, "a sandbox slot never fails a run (D134)")
   local summary = Run.summary(world)
   summary.cause = Run.cause(world.tuning, depleted)
   local career = Run.career(data.meta)

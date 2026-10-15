@@ -1,4 +1,4 @@
--- Sandbox save mode (GDD D133): a slot flagged `meta.sandbox` costs nothing and cannot fail the run; a normal
+-- Sandbox save mode (GDD D134): a slot flagged `meta.sandbox` costs nothing and cannot fail the run; a normal
 -- slot is unchanged; the flag survives save and load and is tagged in the slot list.
 local T = require("harness")
 local tuningLoader = require("src.core.tuning")

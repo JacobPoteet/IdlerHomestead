@@ -45,7 +45,7 @@ end
 --- The debug toggle shows while the F1 overlay is on, and stays while cheating so it can be turned off.
 function Catalog:debugShown()
   if Sandbox.on(self.world) then
-    return false -- a sandbox slot is always in cheat mode (D133): nothing to toggle
+    return false -- a sandbox slot is always in cheat mode (D134): nothing to toggle
   end
   local game = self.app.ctx.game
   return Market.cheatOn(self.world) or (game ~= nil and game.debug ~= nil and game.debug.visible == true)

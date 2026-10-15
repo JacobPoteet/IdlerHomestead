@@ -1,4 +1,4 @@
--- Sandbox save mode (D133): accessors only. A slot created as a Sandbox carries `meta.sandbox = true` (the
+-- Sandbox save mode (D134): accessors only. A slot created as a Sandbox carries `meta.sandbox = true` (the
 -- slot's persistent data, so it survives save and load and is never part of a run that can be discarded).
 -- In a sandbox slot:
 --   * nothing costs resources: the Market lists and hands over every catalog item free and at once (the cheat
