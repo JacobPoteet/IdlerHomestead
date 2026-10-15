@@ -39,6 +39,17 @@ return {
     row = "Get", -- the row button's label in cheat mode
     granted = "Cheat: got %s", -- toast after a grant
   },
+  sandbox = { -- the Sandbox save mode's words (D134)
+    tag = "SANDBOX", -- the mark in the slot list, the Catalog and on the homestead screen
+    modeTitle = "Game mode", -- title of the choice shown when a new homestead is started
+    modeMessage = "Normal: the full survival game.\nSandbox: everything is free and the homesteader cannot die. A sandbox earns no progress.", -- body of that choice
+    normal = "Normal", -- the button that starts a normal homestead
+    sandbox = "Sandbox", -- the button that starts a sandbox homestead
+    subtitle = "Sandbox: every item listed - free, handed over at once", -- replaces the Catalog's money line
+    granted = "Got %s", -- toast after a grant
+    priceFree = "Free in a sandbox", -- the item card's price line
+    nowFree = "Sandbox: free, and it goes straight to your inventory", -- the "Right now" line of a grantable item
+  },
   scrollHintHeight = 12, -- virtual pixels reserved under a scrolling list for its "drag or scroll" hint
   buttonWidths = { -- toolbar button widths
     hand = 40,

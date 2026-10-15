@@ -10,6 +10,8 @@
 -- Ledger.canHold first and hold the goods back, or use Ledger.addOrOverflow, which announces
 -- "ledger.overflow" { id, lost, reason } when goods had to be discarded.
 
+local Sandbox = require("src.sim.systems.sandbox")
+
 local Ledger = {}
 
 function Ledger.init(world)
@@ -113,6 +115,9 @@ function Ledger.remove(world, id, amount, reason)
   assert(amount >= 0, "Ledger.remove amount must be non-negative")
   if Ledger.get(world, id) < amount then
     return false
+  end
+  if Sandbox.frees(world, reason) then
+    return true -- a sandbox slot (D134): the stock has to be there, but using it costs nothing
   end
   if amount > 0 then
     change(world, id, -amount, reason)

@@ -28,6 +28,7 @@ local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
 local Land = require("src.sim.systems.land")
 local Power = require("src.sim.systems.power")
+local Sandbox = require("src.sim.systems.sandbox")
 local Spoilage = require("src.sim.systems.spoilage")
 local Stats = require("src.sim.stats")
 
@@ -127,14 +128,15 @@ function Market.cheapestOrder(world)
   return best
 end
 
---- Is debug cheat mode on (D126)? A runtime flag on the world: not in the state, so never saved.
+--- Is cheat mode on (D126)? The debug toggle is a runtime flag on the world (not in the state, so never saved);
+--- a sandbox slot (D134) is always in it.
 function Market.cheatOn(world)
-  return world.debugCheat == true
+  return world.debugCheat == true or Sandbox.on(world)
 end
 
 --- Turn debug cheat mode on or off (D126).
 function Market.setCheat(world, on)
-  world.debugCheat = on and true or nil
+  world.debugCheat = on and true or nil -- a sandbox slot stays in cheat mode whatever this says
 end
 
 --- The items the Catalog lists: the known ones, or every catalog item in cheat mode (D126).

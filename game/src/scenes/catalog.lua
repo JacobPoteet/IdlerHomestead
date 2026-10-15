@@ -3,6 +3,7 @@
 
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
+local Sandbox = require("src.sim.systems.sandbox")
 local Buttons = require("src.ui.buttons")
 local ItemCard = require("src.ui.item_card")
 local Panel = require("src.ui.panel")
@@ -43,6 +44,9 @@ end
 
 --- The debug toggle shows while the F1 overlay is on, and stays while cheating so it can be turned off.
 function Catalog:debugShown()
+  if Sandbox.on(self.world) then
+    return false -- a sandbox slot is always in cheat mode (D134): nothing to toggle
+  end
   local game = self.app.ctx.game
   return Market.cheatOn(self.world) or (game ~= nil and game.debug ~= nil and game.debug.visible == true)
 end
@@ -209,7 +213,8 @@ end
 function Catalog:order(item)
   local ok = Market.order(self.world, item.id) -- in cheat mode this is a free, immediate grant (D126)
   if ok and Market.cheatOn(self.world) then
-    self.onToast(string.format(self.app.ctx.tuning.ui.catalogCheat.granted, item.name))
+    local ui = self.app.ctx.tuning.ui
+    self.onToast(string.format(Sandbox.on(self.world) and ui.sandbox.granted or ui.catalogCheat.granted, item.name))
   elseif ok then
     self.onToast("Ordered " .. item.name .. " · arrives tomorrow")
   end
@@ -261,7 +266,7 @@ function Catalog:draw()
     self.app.view,
     b,
     "Catalog",
-    Market.cheatOn(world) and cheat.subtitle
+    Market.cheatOn(world) and (Sandbox.on(world) and self.app.ctx.tuning.ui.sandbox.subtitle or cheat.subtitle)
       or string.format(
         "You have $%d · $%d delivery · arrives %02d:00 tomorrow",
         Ledger.get(world, "money"),
@@ -270,7 +275,8 @@ function Catalog:draw()
       )
   )
   if Market.cheatOn(world) then
-    Text.draw(cheat.tag, b.x + 80, b.y + 9, { size = "body", color = theme.colors.danger })
+    local tag = Sandbox.on(world) and self.app.ctx.tuning.ui.sandbox.tag or cheat.tag
+    Text.draw(tag, b.x + 80, b.y + 9, { size = "body", color = theme.colors.danger })
   end
   self.list:begin(self.app.view.scale)
   for _, row in ipairs(self.rows) do

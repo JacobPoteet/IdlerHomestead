@@ -45,7 +45,7 @@ Also `weatherworld` (D80: rain at three zooms, snow after a pan) and `shaderpass
 
 Also `lightpolish` (D132, #283: leaf dapple under a tree as frame pairs at mid-morning and late afternoon, hens and goats with their shadows, the warm night light pools by the campfire, the autumn rim light at three views and at noon, and the optional depth of field on and off).
 
-Also `dither` (D133: the campfire at night as frame pairs, the light pool in every dither pattern, afternoon shadows, and the F8 editor opened, driven through time, weather, freeze and compare, and closed).
+Also `dither` (D134: the campfire at night as frame pairs, the light pool in every dither pattern, afternoon shadows, and the F8 editor opened, driven through time, weather, freeze and compare, and closed).
 
 Also `scroll` (D87: the Tools palette with 42 seeds scrolled by wheel and drag on narrow views, and the Catalog, Fish guide and town menu laid out for a short view so their lists clip and scroll; extra crops are cloned into the registry, and the short view is a real `d:resize` of the window, restored afterwards).
 
@@ -77,7 +77,7 @@ per window size):
 
 ```lua
 return function(d)
-  d:newGame()              -- Play > New > Start, leaves the homestead on top
+  d:newGame()              -- Play > New > Next > Normal (or Sandbox), leaves the homestead on top
   d:advance(3)             -- 3 in-game hours at the current speed
   d:press("Catalog")       -- press a button by label (errors and lists the labels if missing)
   d:shot("catalog")        -- writes <out>/<name>_<size>_01_catalog.png
@@ -126,3 +126,5 @@ Also `topbar` (D112, #267: the top-bar chips with their fill bars, level marks, 
 Also `greatwinter` (D117, #277: the full, named forecast pill on the first day of autumn of the Great Winter's year, the winter itself, and the one-time Established card on the first thaw; finals are `docs/screens/greatwinter-*`).
 
 Also `controls` (D121, #237: Settings > Controls, a rebind with "Press a key...", a reserved key, a conflict with Swap and Keep, per-row and global reset; finals are `docs/screens/controls-*`).
+
+Also `sandbox` (D134: the Normal / Sandbox choice after naming a homestead, the SANDBOX tag in the slot list and on the homestead screen, the Catalog free with no Debug toggle, and a hungry, cold sandbox homesteader staying alive; `d:newGame({ sandbox = true })` starts a sandbox slot).
