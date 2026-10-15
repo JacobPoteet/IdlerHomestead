@@ -50,6 +50,12 @@ uniform vec2 hazePatch;      // patch size in art pixels
 uniform float hazeRise;      // art pixels per second the patches climb
 uniform float hazeSpeed;     // radians per second of the wobble
 uniform float sourceSpeed;   // radians per second of a fire's column wobble
+uniform float sourceSteps;   // times a second the column's wobble moves on (whole steps, so it stays chunky)
+uniform float sourceWave;    // radians per art-pixel row of the wobble (its vertical frequency)
+uniform float sourceDeadZone; // 0..1 wave level below which a pixel stays put (the calm between the bands)
+uniform vec4 ditherHeat;     // algorithm, scale, amount, steps (include/dither.glsl): the fire's column
+uniform vec4 ditherVignette; // the same for the vignette
+uniform float sourceReach;   // how far the dithered column reaches: higher keeps more pixels moving toward its edges
 uniform float heatCount;     // shimmering fires in view (at most 4)
 uniform vec4 heatSources[4]; // x, y: column base in screen pixels; z: half-width, w: height, in art pixels
 
@@ -63,6 +69,7 @@ float hash(vec2 p) {
     p3 += dot(p3, p3.yzx + 33.33);
     return fract((p3.x + p3.y) * p3.z);
 }
+#include "dither"
 
 // Whole art pixels (-1, 0 or 1) to shift the picture sideways at this screen pixel.
 float shimmer(vec2 p) {
@@ -75,19 +82,25 @@ float shimmer(vec2 p) {
             shift = sin(wc.y * 1.3 + time * hazeSpeed) > 0.0 ? 1.0 : -1.0;
         }
     }
+    // A fire's column works on whole art pixels: the offsets are measured from this art pixel's centre, not
+    // from the screen pixel, and the wave steps in time, so nothing crawls through an art pixel as thin lines.
+    vec2 centre = gridOrigin + (cell + 0.5) * pixelSize;
+    float t = floor(time * sourceSteps) / sourceSteps;
     for (int i = 0; i < 4; i++) {
         if (float(i) >= heatCount) {
             break;
         }
         vec4 s = heatSources[i];
-        float dx = (p.x - s.x) / pixelSize;
-        float dy = (s.y - p.y) / pixelSize;      // art pixels above the base
-        if (dy > 0.0 && dy < s.w && abs(dx) < s.z * (1.0 - 0.5 * dy / s.w)) {
-            float wave = sin(dy * 1.1 - time * sourceSpeed + float(i) * 2.0) * (1.0 - dy / s.w);
-            if (wave > 0.15) {
-                shift = 1.0;
-            } else if (wave < -0.15) {
-                shift = -1.0;
+        float dx = (centre.x - s.x) / pixelSize;
+        float dy = (s.y - centre.y) / pixelSize; // art pixels above the base
+        float width = s.z * (1.0 - 0.5 * dy / s.w);
+        if (dy > 0.0 && dy < s.w && abs(dx) < width) {
+            // The wobble fades toward the top and the sides; an ordered dither decides which art pixels
+            // still move, so the column thins out into a stipple instead of ending at a hard edge.
+            float strength = (1.0 - dy / s.w) * (1.0 - abs(dx) / width);
+            float wave = sin(floor(dy) * sourceWave - t * sourceSpeed + float(i) * 2.0);
+            if (abs(wave) > sourceDeadZone && ditherMask(mix(1.0, strength * sourceReach, ditherHeat.z), cell + worldCell, ditherHeat) > 0.5) {
+                shift = wave > 0.0 ? 1.0 : -1.0;
             }
         }
     }
@@ -143,7 +156,9 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     c += blackLift * (1.0 - c);
 
     vec2 d = uv - 0.5;
-    c *= 1.0 - vignette * smoothstep(0.15, 0.6, dot(d, d) * 2.0);
+    // The dark rim, in steps and stippled on the art-pixel grid when ditherVignette.w > 0 (else smooth).
+    float rim = smoothstep(0.15, 0.6, dot(d, d) * 2.0);
+    c *= 1.0 - vignette * ditherQuantize(rim, floor((p - gridOrigin) / pixelSize) + worldCell, ditherVignette);
 
     vec2 cell = floor(screen / pixelSize);
     float g = hash(cell + floor(time * 12.0) * 13.7) - 0.5;

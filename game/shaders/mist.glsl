@@ -13,14 +13,15 @@ uniform float strength;      // 0..1
 uniform float ground;        // 0..1 mist left over far from the creek
 uniform float scale;         // noise frequency, 1/art pixels
 uniform float block;         // art pixels per mist pixel
-uniform float levels;        // density bands
 uniform float maxAlpha;
 uniform vec3 mistColor;
+uniform vec4 dither;         // algorithm, scale, amount, steps (include/dither.glsl)
 
 #ifdef PIXEL
 #ifdef GL_ES
 precision highp float;
 #endif
+#include "dither"
 float hash(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);
     p3 += dot(p3, p3.yzx + 33.33);
@@ -44,7 +45,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     // Stretched along x so the banks lie flat on the land.
     float n = noise(p * vec2(0.7, 1.4)) * 0.65 + noise(p * vec2(1.6, 3.1) + 11.0) * 0.35;
     float d = clamp((n * 0.75 + low * 0.55 - 0.25) * 2.2, 0.0, 1.0) * strength;
-    float band = floor(d * levels) / levels;                         // pixel-art bands
+    // Pixel-art density levels (the last one only where the mist is thickest); the dither interleaves them.
+    float band = ditherQuantize(max(d - 0.5 / max(dither.w, 1.0), 0.0), floor(world), dither);
     return vec4(mistColor, band * maxAlpha) * color;
 }
 #endif

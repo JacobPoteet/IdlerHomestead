@@ -45,6 +45,8 @@ Also `weatherworld` (D80: rain at three zooms, snow after a pan) and `shaderpass
 
 Also `lightpolish` (D132, #283: leaf dapple under a tree as frame pairs at mid-morning and late afternoon, hens and goats with their shadows, the warm night light pools by the campfire, the autumn rim light at three views and at noon, and the optional depth of field on and off).
 
+Also `dither` (D133: the campfire at night as frame pairs, the light pool in every dither pattern, afternoon shadows, and the F8 editor opened, driven through time, weather, freeze and compare, and closed).
+
 Also `scroll` (D87: the Tools palette with 42 seeds scrolled by wheel and drag on narrow views, and the Catalog, Fish guide and town menu laid out for a short view so their lists clip and scroll; extra crops are cloned into the registry, and the short view is a real `d:resize` of the window, restored afterwards).
 
 Also `shelf` (D73, D74: an out-of-date save planted in the in-memory store, listed as "can't be loaded", its Keep it / Delete save prompt and the second confirmation; then a Pantry with batches of different ages, "Oldest batch spoils in N days", no red chip while nothing rots, then the chip and the Pantry warning two nights later).

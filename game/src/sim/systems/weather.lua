@@ -272,6 +272,31 @@ function Weather.kind(world)
   return state(world).sky.days[1]
 end
 
+--- Debug and editor tool: make every day on the sky queue `kind`, so the weather holds for a while.
+--- A rainy kind in a frozen season becomes the frozen-rain kind, as when the sky is rolled.
+function Weather.force(world, kind)
+  local cfg = world.tuning.weather
+  assert(cfg.kinds[kind], "unknown weather kind " .. tostring(kind))
+  syncSky(world) -- the sky may still be on an earlier day if the clock was just moved
+  local sky = state(world).sky
+  local before = sky.days[1]
+  for n = 1, #sky.days do
+    local k = kind
+    local day = sky.first + n - 1
+    if
+      cfg.kinds[k].rainfall > 0
+      and Weather.isFrozenSeason(world, world.tuning.time.seasons[Calendar.seasonOfDay(world, day)])
+    then
+      k = cfg.frozenRainKind
+    end
+    sky.days[n] = k
+  end
+  sky.spell, sky.last = kind, kind
+  if sky.days[1] ~= before then
+    world.events:emit("weather.changed", { kind = sky.days[1], previous = before })
+  end
+end
+
 --- Today's kind definition (tuning.weather.kinds[kind]); read-only.
 function Weather.current(world)
   return world.tuning.weather.kinds[Weather.kind(world)]
@@ -308,7 +333,13 @@ end
 --- Wind multiplier of today's weather (1 = ordinary, above 1 = gusty). The hook for wind sway and
 --- drifting cloud shadows (#49); the turbines use it through powerInputs.
 function Weather.windStrength(world)
-  return Weather.current(world).wind
+  return world.debugWind or Weather.current(world).wind
+end
+
+--- Debug and editor tool: hold the wind at `strength` (1 = ordinary, 0 = still) whatever the weather says;
+--- nil gives it back to the weather. A runtime flag on the world, never saved. It also moves the turbines.
+function Weather.setWindOverride(world, strength)
+  world.debugWind = strength
 end
 
 --- Days of forecast the player can see past today: the base horizon plus weather sense.
