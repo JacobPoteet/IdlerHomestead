@@ -34,6 +34,7 @@ return {
   {
     id = "tree",
     name = "Tree",
+    kind = "tree",
     blocks = true,
     clearTime = 14,
     yields = { wood = { 6, 9 } },
@@ -42,6 +43,30 @@ return {
     sway = { weight = 1.2, root = 0.45 },
     dapple = true,
   }, -- only the canopy sways: the lower 45% of the sprite (the trunk) stays put
+  {
+    id = "pine",
+    name = "Pine",
+    kind = "tree",
+    blocks = true,
+    clearTime = 15,
+    yields = { wood = { 5, 8 } },
+    chop = true,
+    fell = true,
+    sway = { weight = 0.8, root = 0.5 }, -- stiffer than an oak: a conifer leans less
+    dapple = true,
+  },
+  {
+    id = "birch",
+    name = "Birch",
+    kind = "tree",
+    blocks = true,
+    clearTime = 11,
+    yields = { wood = { 4, 6 } },
+    chop = true,
+    fell = true,
+    sway = { weight = 1.5, root = 0.4 }, -- slim and flexible: it sways most
+    dapple = true,
+  },
   {
     id = "truck",
     name = "Electric truck",

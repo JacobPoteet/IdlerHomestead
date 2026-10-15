@@ -75,7 +75,8 @@ function Clearing.init(world)
         gained[id] = Ledger.addOrOverflow(w, id, amount, "clear")
       end
       Grid.removeObject(w, anchor)
-      w.events:emit("object.cleared", { object = def.id, tile = anchor, yields = gained })
+      -- `object` is the family (every tree species reports "tree", so the note and the chop sound need no species list).
+      w.events:emit("object.cleared", { object = def.kind or def.id, species = def.id, tile = anchor, yields = gained })
     end,
   }
   Tasks.register(world, clear)

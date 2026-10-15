@@ -206,7 +206,7 @@ T.test("clearing: holds back when the yield would not fit, and loses nothing", f
   world.control = "idle"
   onlyCategory(world, "clear")
   local lost = lostCounter(world)
-  Ledger.setCapacity(world, "wood", Ledger.get(world, "wood") + 5) -- a tree yields up to 9
+  Ledger.setCapacity(world, "wood", Ledger.get(world, "wood") + 3) -- a tree (any species) or a log yields more than that
   local def = reg:get("objects", "tree")
   T.eq(Ledger.shortfall(world, Clearing.mostYield(def)), "wood", "a tree would not fit")
   local cleared = collect(world, "object.cleared")

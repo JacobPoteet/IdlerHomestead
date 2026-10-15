@@ -8,7 +8,7 @@ local Tasks = require("src.sim.systems.tasks")
 local function trees(world)
   local n = 0
   for _, obj in pairs(world.state.grid.objects) do
-    if obj.id == "tree" then
+    if world.registry:get("objects", obj.id).kind == "tree" then -- any species
       n = n + 1
     end
   end

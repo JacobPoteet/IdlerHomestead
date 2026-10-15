@@ -27,6 +27,8 @@ return {
     log = { placeholder = "log", w = 16, h = 16 },
     junk = { placeholder = "junk", w = 16, h = 16 },
     tree = { placeholder = "tree", w = 16, h = 32 },
+    pine = { placeholder = "pine", w = 16, h = 32 },
+    birch = { placeholder = "birch", w = 16, h = 32 },
     truck = { placeholder = "truck", w = 32, h = 24 },
     trip_marker = { placeholder = "trip_marker", w = 11, h = 12 }, -- D101: arrow over the truck while a trip is ready
     folding_panel = { placeholder = "folding_panel", w = 16, h = 16 },

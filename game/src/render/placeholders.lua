@@ -196,6 +196,38 @@ function P.tree(p)
   end
 end
 
+-- A conifer: a stack of narrowing dark-green tiers on a short trunk.
+function P.pine(p)
+  p:ellipse(8, 30, 6, 2, C.shadow)
+  p:rect(7, 24, 3, 6, C.bark)
+  p:rect(7, 24, 1, 6, C.barkLight)
+  p:rect(9, 24, 1, 6, C.barkDark)
+  for tier = 0, 3 do
+    local y, half = 3 + tier * 6, 3 + tier * 1.6
+    p:rect(math.floor(8 - half), y + 2, math.floor(half * 2), 4, C.leafDark)
+    p:rect(math.floor(8 - half * 0.7), y, math.floor(half * 1.4), 3, tier % 2 == 0 and C.leaf or C.leafDark)
+  end
+  for _ = 1, 8 do
+    p:px(p.rng:int(5, 11), p.rng:int(4, 22), C.leafLight)
+  end
+end
+
+-- A birch: pale spotted trunk under a light, airy crown.
+function P.birch(p)
+  local trunk, trunkDark = { 0.86, 0.85, 0.78 }, { 0.20, 0.19, 0.17 }
+  p:ellipse(8, 30, 6, 2, C.shadow)
+  p:rect(7, 14, 3, 16, trunk)
+  for y = 16, 28, 4 do
+    p:rect(7, y, 2, 1, trunkDark)
+  end
+  p:circle(8, 10, 7, C.leaf)
+  p:circle(6, 8, 5, C.leafLight)
+  p:circle(11, 12, 4, C.leafLight)
+  for _ = 1, 12 do
+    p:px(p.rng:int(2, 13), p.rng:int(3, 15), C.sproutLight)
+  end
+end
+
 function P.truck(p)
   -- Top-down 3/4 electric pickup, facing right. Footprint is 2x1 tiles; the cab rises above it.
   p:ellipse(16, 22, 15, 2, C.shadow)

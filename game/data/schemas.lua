@@ -21,6 +21,7 @@ return {
   },
   objects = {
     name = "string",
+    kind = "string?", -- the family it counts as for notes, sounds and shade ("tree" for every species); absent = its own id
     blocks = "boolean", -- blocks movement
     walkCost = "number?", -- movement cost multiplier when not blocking (default 1)
     clearTime = "number?", -- seconds of work to clear (absent with clearable = false)
