@@ -1,7 +1,7 @@
 -- Generates a new random homestead plot (GDD §7.3, §4.3): a meandering creek with fords, usually a
 -- tributary running into it, still ponds (some of them marshes), a dirt road in from one edge ending
--- at the dead truck, soil quality, and land cover: woods in three species, open meadows with a lone
--- tree, clearings, boulder fields, and a messy start of brush, rocks, logs and junk around the truck.
+-- at the dead truck, soil quality, and a map of biome regions (oak, pine and birch woods, meadows, scrub,
+-- rocky ground) with clearings, and a messy start of brush, rocks, logs and junk around the truck.
 --
 -- Uses the world's "land" random stream, so the same seed always makes the same plot.
 
@@ -237,46 +237,15 @@ local function within(grid, tiles, reach)
   return set
 end
 
--- Tiles' distance to the nearest water, up to `reach` (absent beyond it): a bounded multi-source spread.
-local function waterDistance(world, reach)
-  local grid = world.state.grid
-  local dist, queue, head = {}, {}, 1
-  for i = 1, #grid.terrain do
-    if Grid.terrain(world, i).water then
-      dist[i] = 0
-      queue[#queue + 1] = i
-    end
-  end
-  while head <= #queue do
-    local i = queue[head]
-    head = head + 1
-    if dist[i] < reach then
-      local x, y = Grid.coords(grid, i)
-      for dy = -1, 1 do
-        for dx = -1, 1 do
-          if Grid.inBounds(grid, x + dx, y + dy) then
-            local n = Grid.index(grid, x + dx, y + dy)
-            if not dist[n] then
-              dist[n] = dist[i] + 1
-              queue[#queue + 1] = n
-            end
-          end
-        end
-      end
-    end
-  end
-  return dist
-end
-
--- Round features: clearings in the woods and boulder fields. Each is { x, y, r }.
-local function pickCircles(world, rng, count, minR, maxR, minFromTruck, truckAnchor)
+-- Round clearings in the woods. Each is { x, y, r }; `ok(x, y)` says whether a centre may go there.
+local function pickCircles(world, rng, count, minR, maxR, ok)
   local grid = world.state.grid
   local list = {}
   for _ = 1, count do
-    for _ = 1, 20 do
+    for _ = 1, 40 do
       local r = rng:range(minR, maxR)
       local x, y = rng:int(1, grid.w), rng:int(1, grid.h)
-      if Grid.distance(grid, Grid.index(grid, x, y), truckAnchor) >= minFromTruck then
+      if ok(x, y) then
         list[#list + 1] = { x = x, y = y, r = r }
         break
       end
@@ -298,29 +267,97 @@ local function depthIn(list, x, y)
   return best, which
 end
 
--- The shape of the land cover, drawn from noise and the rng once so soil() and scatter() agree.
+-- Cut the map into biome regions: cells round random points (edges bent by noise), each given a biome. Every
+-- biome gets a region before the spare ones are drawn by weight, and the truck's region is the start biome.
+-- Returns biomeAt[i] = { id, def = the biome's tuning table, species = its tree odds as a sorted list }.
+local function planBiomes(world, cfg, rng, truckAnchor)
+  local grid = world.state.grid
+  local ids = {}
+  for id in pairs(cfg.biomes) do
+    ids[#ids + 1] = id
+  end
+  table.sort(ids) -- pairs() order isn't stable; sort so the same seed gives the same land
+  local byId = {}
+  for _, id in ipairs(ids) do
+    local def = cfg.biomes[id]
+    local species = {}
+    for kind, weight in pairs(def.species) do
+      species[#species + 1] = { id = kind, weight = weight }
+    end
+    table.sort(species, function(l, r)
+      return l.id < r.id
+    end)
+    byId[id] = { id = id, def = def, species = species }
+  end
+  local function weightOf(id)
+    return cfg.biomes[id].weight
+  end
+  local cells = {}
+  for n = 1, rng:int(cfg.biomeCellsMin, cfg.biomeCellsMax) do
+    cells[n] = { x = rng:int(1, grid.w), y = rng:int(1, grid.h) }
+  end
+  -- The first cells take one of each biome (in a shuffled order); the rest are weighted draws.
+  local order = {}
+  for _, id in ipairs(ids) do
+    order[#order + 1] = id
+  end
+  for n = #order, 2, -1 do
+    local k = rng:int(1, n)
+    order[n], order[k] = order[k], order[n]
+  end
+  for n, cell in ipairs(cells) do
+    cell.biome = byId[order[n] or rng:weighted(ids, weightOf)]
+  end
+  local warpX = Noise.value(rng, grid.w, grid.h, cfg.biomeWarpScale)
+  local warpY = Noise.value(rng, grid.w, grid.h, cfg.biomeWarpScale)
+  local function nearest(x, y)
+    local wx = x + (warpX(x, y) - 0.5) * 2 * cfg.biomeWarp
+    local wy = y + (warpY(x, y) - 0.5) * 2 * cfg.biomeWarp
+    local first, second, d1, d2
+    for _, cell in ipairs(cells) do
+      local d = math.sqrt((wx - cell.x) ^ 2 + (wy - cell.y) ^ 2)
+      if not d1 or d < d1 then
+        second, d2 = first, d1
+        first, d1 = cell, d
+      elseif not d2 or d < d2 then
+        second, d2 = cell, d
+      end
+    end
+    return first, second, d1, d2
+  end
+  local truckX, truckY = Grid.coords(grid, truckAnchor)
+  local startCell = nearest(truckX, truckY)
+  startCell.biome = byId[cfg.startBiome]
+  local biomeAt = {}
+  for y = 1, grid.h do
+    for x = 1, grid.w do
+      local first, second, d1, d2 = nearest(x, y)
+      local pick = first
+      -- A soft edge: close to a border, a tile may belong to the next region, more often the closer it is.
+      if second and d2 - d1 < cfg.biomeEdgeBlend and rng:chance(0.5 * (1 - (d2 - d1) / cfg.biomeEdgeBlend)) then
+        pick = second
+      end
+      biomeAt[Grid.index(grid, x, y)] = pick.biome
+    end
+  end
+  return biomeAt
+end
+
+-- The shape of the land cover, drawn once so soil() and scatter() agree.
 local function planCover(world, cfg, rng, truckAnchor, marshes)
   local grid = world.state.grid
+  local biomeAt = planBiomes(world, cfg, rng, truckAnchor)
   local plan = {
-    woodland = Noise.value(rng, grid.w, grid.h, cfg.woodlandNoiseScale),
-    species = Noise.value(rng, grid.w, grid.h, cfg.speciesNoiseScale),
+    biomeAt = biomeAt,
     clearings = pickCircles(
       world,
       rng,
       rng:int(cfg.clearingMin, cfg.clearingMax),
       cfg.clearingMinRadius,
       cfg.clearingMaxRadius,
-      0,
-      truckAnchor
-    ),
-    boulders = pickCircles(
-      world,
-      rng,
-      rng:int(cfg.boulderFieldMin, cfg.boulderFieldMax),
-      cfg.boulderMinRadius,
-      cfg.boulderMaxRadius,
-      cfg.boulderTruckMin,
-      truckAnchor
+      function(x, y)
+        return biomeAt[Grid.index(grid, x, y)].def.wood == true
+      end
     ),
     marshBank = {},
   }
@@ -338,7 +375,7 @@ local function soil(world, cfg, rng, plan)
   for y = 1, grid.h do
     for x = 1, grid.w do
       local i = Grid.index(grid, x, y)
-      local q = sample(x, y)
+      local q = sample(x, y) + plan.biomeAt[i].def.soil
       for _, d in ipairs(NEIGHBOURS) do
         local nx, ny = x + d[1], y + d[2]
         if Grid.inBounds(grid, nx, ny) and grid.terrain[Grid.index(grid, nx, ny)] == "water" then
@@ -346,14 +383,8 @@ local function soil(world, cfg, rng, plan)
           break
         end
       end
-      if plan.woodland(x, y) < cfg.meadowBelow then
-        q = q + cfg.meadowSoilBonus
-      end
       if depthIn(plan.clearings, x, y) > 0 then
         q = q + cfg.clearingSoilBonus
-      end
-      if depthIn(plan.boulders, x, y) > 0 then
-        q = q - cfg.boulderSoilPenalty
       end
       grid.soil[i] = math.floor(math.max(0, math.min(1, q)) * 100 + 0.5) / 100
     end
@@ -364,7 +395,6 @@ local function scatter(world, cfg, rng, truckAnchor, plan)
   local grid = world.state.grid
   local registry = world.registry
   local trees = Noise.value(rng, grid.w, grid.h, cfg.treeNoiseScale)
-  local nearWater = waterDistance(world, cfg.birchWaterReach)
   local clutter = {}
   for id, weight in pairs(cfg.clutterWeights) do
     clutter[#clutter + 1] = { id = id, weight = weight }
@@ -388,46 +418,28 @@ local function scatter(world, cfg, rng, truckAnchor, plan)
       if terrainDef.tillable and not world.occupancy[i] then
         local d = Grid.distance(grid, i, truckAnchor)
         if d > cfg.truckClearRadius then
-          local woodland = plan.woodland(x, y)
-          local meadow = woodland < cfg.meadowBelow
+          local biome = plan.biomeAt[i]
+          local def = biome.def
           local clearing, circle = depthIn(plan.clearings, x, y)
-          local boulders = depthIn(plan.boulders, x, y)
           local grove = false
           if d >= cfg.treeMinDistance and clearing == 0 then
-            if meadow then
-              grove = rng:chance(cfg.meadowTrees) -- a lone tree standing in the open
+            if def.treeThreshold < 1 and trees(x, y) > def.treeThreshold then
+              grove = rng:chance(def.density)
             else
-              -- Thicker woods lower the bar: dense stands in the woodland, nothing in the meadows.
-              grove = trees(x, y) > cfg.treeThreshold + (0.5 - woodland) * cfg.woodlandShift
-                and rng:chance(cfg.groveDensity)
+              grove = rng:chance(def.lone) -- a lone tree standing in the open
             end
           end
           if grove then
-            -- Species run in patches; birches crowd the water.
-            local kind = "tree"
-            local species = plan.species(x, y)
-            if nearWater[i] and rng:chance(cfg.birchWaterChance) then
-              kind = "birch"
-            elseif rng:chance(cfg.speciesMix) then
-              kind = "tree"
-            elseif species > cfg.pineAbove then
-              kind = "pine"
-            elseif species < cfg.birchBelow then
-              kind = "birch"
-            end
-            Grid.placeObject(world, kind, x, y)
-          elseif boulders > 0 and rng:chance(cfg.boulderDensity * boulders) then
+            Grid.placeObject(world, rng:weighted(biome.species, weight).id, x, y)
+          elseif rng:chance(def.rocks) then
             Grid.placeObject(world, "rock", x, y)
-          elseif plan.marshBank[i] and rng:chance(cfg.marshBrushChance) then
+          elseif (plan.marshBank[i] and rng:chance(cfg.marshBrushChance)) or rng:chance(def.brush) then
             Grid.placeObject(world, "brush", x, y)
           elseif clearing > 0 and clearing < 1 / circle.r and rng:chance(cfg.clearingLogChance) then
             Grid.placeObject(world, "log", x, y) -- the clearing's rim (within a tile of its edge)
           elseif clearing == 0 then
             local falloff = math.max(0, 1 - (d - cfg.truckClearRadius) / (cfg.messRadius - cfg.truckClearRadius))
-            local chance = cfg.backgroundClutter + (cfg.messDensity - cfg.backgroundClutter) * falloff
-            if meadow then
-              chance = chance * cfg.meadowClutter
-            end
+            local chance = (cfg.backgroundClutter + (cfg.messDensity - cfg.backgroundClutter) * falloff) * def.clutter
             if rng:chance(chance) then
               local pool = d <= cfg.junkRadius and clutter or junkClutter
               Grid.placeObject(world, rng:weighted(pool, weight).id, x, y)

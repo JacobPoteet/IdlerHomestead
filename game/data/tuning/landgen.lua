@@ -20,7 +20,6 @@ return {
   clutterWeights = { brush = 6, rock = 2, log = 1.5, junk = 1 }, -- relative odds of each clutter object
   junkRadius = 6, -- tiles around the truck where junk piles can appear
   treeNoiseScale = 7, -- tiles per noise cell for tree clusters
-  treeThreshold = 0.66, -- noise value above which trees grow (higher = fewer trees)
   treeMinDistance = 8, -- tiles from the truck before trees appear
   soilNoiseScale = 8, -- tiles per noise cell for soil quality
   soilCreekBonus = 0.2, -- added soil quality on tiles beside any water (fertile banks)
@@ -50,35 +49,33 @@ return {
   marshBrushChance = 0.4, -- per bank tile within marshBrushReach of a marsh, chance of brush
   marshBrushReach = 2, -- tiles from a marsh's water
 
-  -- Land cover: big soft zones from low-frequency noise.
-  woodlandNoiseScale = 22, -- tiles per noise cell for the woodland field (large: woods and meadows)
-  woodlandShift = 0.3, -- how far the tree threshold moves between the thickest wood and the barest meadow
-  groveDensity = 0.8, -- chance a tile that passes the grove test actually grows a tree (thins the woods so they have gaps)
-  meadowBelow = 0.38, -- woodland value under which land is an open meadow
-  meadowTrees = 0.01, -- per meadow tile, chance of a lone tree
-  meadowClutter = 0.4, -- multiple of the background clutter chance in a meadow
-  meadowSoilBonus = 0.12, -- added soil quality in a meadow
-  speciesNoiseScale = 9, -- tiles per noise cell for tree species patches
-  speciesMix = 0.2, -- chance a tree ignores its patch's species and is a plain oak
-  pineAbove = 0.62, -- species value above which a stand is pine
-  birchBelow = 0.3, -- species value below which a stand is birch
-  birchWaterReach = 7, -- tiles from water within which birches are favoured
-  birchWaterChance = 0.6, -- chance a tree near water is a birch
+  -- Biomes: the map is cut into regions (cells round random points, edges warped by noise) and each region is
+  -- one biome, so a pinewood is pines, a meadow is open, and the plot reads as places, not scatter.
+  biomeCellsMin = 10, -- fewest regions on a plot
+  biomeCellsMax = 14, -- most regions on a plot
+  biomeWarpScale = 12, -- tiles per noise cell that bends the region edges
+  biomeWarp = 7, -- tiles the region edges wander from straight lines
+  biomeEdgeBlend = 4, -- tiles; within this of an edge a tile may take the next region's look (a soft edge, not a wall)
+  startBiome = "meadow", -- the region the truck sits in: open and kind, never a thicket
+  -- Per biome: weight = odds a spare region is this biome (each biome gets one region before weights apply);
+  -- wood = a forest (clearings go here); treeThreshold = tree-noise value above which trees grow (1 = none);
+  -- density = chance such a tile grows one; lone = chance of a lone tree where none grow; species = relative
+  -- odds of each tree object; rocks / brush = chance per tile of a rock / brush; clutter = multiple of the
+  -- ordinary clutter chance; soil = added soil quality.
+  biomes = { -- biome id -> its look (fields above); the ids are only names for the regions
+    meadow = { weight = 3, wood = false, treeThreshold = 1, density = 0, lone = 0.012, species = { tree = 1 }, rocks = 0, brush = 0.01, clutter = 0.4, soil = 0.12 },
+    oakwood = { weight = 3, wood = true, treeThreshold = 0.42, density = 0.62, lone = 0, species = { tree = 9, birch = 1 }, rocks = 0, brush = 0.03, clutter = 1, soil = 0.04 },
+    pinewood = { weight = 2, wood = true, treeThreshold = 0.4, density = 0.66, lone = 0, species = { pine = 9, tree = 1 }, rocks = 0.02, brush = 0, clutter = 0.8, soil = -0.04 },
+    birchgrove = { weight = 2, wood = true, treeThreshold = 0.5, density = 0.5, lone = 0, species = { birch = 9, tree = 1 }, rocks = 0, brush = 0.05, clutter = 0.7, soil = 0.06 },
+    scrub = { weight = 1.5, wood = false, treeThreshold = 0.78, density = 0.35, lone = 0.01, species = { tree = 2, pine = 1 }, rocks = 0.01, brush = 0.2, clutter = 1, soil = 0 },
+    rocky = { weight = 1.5, wood = false, treeThreshold = 0.72, density = 0.4, lone = 0, species = { pine = 3, tree = 1 }, rocks = 0.14, brush = 0.02, clutter = 0.6, soil = -0.2 },
+  },
 
-  -- Clearings: round gaps in the woods, with a log or two at the edge.
+  -- Clearings: round gaps inside the woods, with a log or two on the rim.
   clearingMin = 2, -- fewest clearings on a plot
   clearingMax = 4, -- most clearings on a plot
   clearingMinRadius = 3, -- tiles
   clearingMaxRadius = 5, -- tiles
   clearingLogChance = 0.08, -- per tile on the clearing's rim, chance of a fallen log
   clearingSoilBonus = 0.1, -- added soil quality inside (woodland loam)
-
-  -- Boulder fields: patches of rock scattered over poor ground.
-  boulderFieldMin = 1, -- fewest boulder fields on a plot
-  boulderFieldMax = 3, -- most boulder fields on a plot
-  boulderMinRadius = 3, -- tiles
-  boulderMaxRadius = 6, -- tiles
-  boulderDensity = 0.55, -- chance of a rock per tile at a field's heart (falls off to the edge)
-  boulderSoilPenalty = 0.25, -- subtracted soil quality inside
-  boulderTruckMin = 10, -- tiles; nearest a field may be to the truck (the start is not walled in)
 }

@@ -181,3 +181,32 @@ T.test("trees: every species is a felled tree for notes, sounds and shade", func
     T.truthy(def.fell and def.chop and def.blocks, id .. " is chopped like a tree")
   end
 end)
+
+T.test("landgen variety: species grow in regions, not mixed through each other", function()
+  local same, total = 0, 0
+  for seed = 1, SEEDS do
+    local grid = newWorld(seed).state.grid
+    local function species(i)
+      local obj = grid.objects[i]
+      return obj and (obj.id == "tree" or obj.id == "pine" or obj.id == "birch") and obj.id or nil
+    end
+    for anchor, obj in pairs(grid.objects) do
+      if species(anchor) then
+        local x, y = Grid.coords(grid, anchor)
+        for dy = -4, 4 do
+          for dx = -4, 4 do
+            if (dx ~= 0 or dy ~= 0) and Grid.inBounds(grid, x + dx, y + dy) then
+              local other = species(Grid.index(grid, x + dx, y + dy))
+              if other then
+                total = total + 1
+                same = same + (other == obj.id and 1 or 0)
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  -- Three species mixed at random would agree about a third of the time.
+  T.truthy(same / total > 0.65, "a tree's neighbours are mostly its own species (" .. same / total .. ")")
+end)

@@ -45,8 +45,12 @@ T.test("grid cache: anchorsWith follows placing and removing objects", function(
     T.same(Grid.anchorsWith(world, field), scan(world, field), field .. " at start")
   end
   local before = Grid.anchorsWith(world, "source")
-  local x, y = freeTile(world, 200)
-  local anchor = Grid.placeObject(world, "solar_array", x, y)
+  local anchor, from = nil, 200
+  while not anchor do -- the array is two tiles wide: try free tiles until one has room
+    local x, y, i = freeTile(world, from)
+    anchor = Grid.placeObject(world, "solar_array", x, y)
+    from = i + 1
+  end
   T.truthy(anchor, "placed an array")
   T.same(Grid.anchorsWith(world, "source"), scan(world, "source"), "the new source is listed")
   T.eq(#Grid.anchorsWith(world, "source"), #before + 1)
