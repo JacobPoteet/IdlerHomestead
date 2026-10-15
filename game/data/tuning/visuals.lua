@@ -229,7 +229,6 @@ return {
     minHeight = 7, -- art pixels: sprites shorter than this cast no shadow
     contactMaxWidth = 26, -- art pixels, the widest contact shadow
     contactWidth = 0.8, -- share of the sprite's width the contact shadow spans
-    shadowAlpha = 0.6, -- 0..1 alpha of one shadow pixel when the shadows are dithered (the share of pixels that are shadow is strength / this, so 0.42 / 0.6 = 70% in full sun)
     dapple = { -- leaf dapple: sun flecks through a tree canopy's cast shadow (shaders/shadow_composite.glsl); trees opt in with `dapple` in data/content/objects.lua
       strength = 0.9, -- 0..1 share of the shadow a fleck's bright heart takes away (0 = no dapple)
       shade = 1.5, -- multiplier on a canopy's cast shadow between the flecks (leaves shade deeper than a post or a wall)
@@ -309,7 +308,8 @@ return {
     },
     shadows = { -- sun shadows (shaders/shadow_composite.glsl)
       algorithm = "bayer8",
-      amount = 1.0, -- 0..1 how much of the shadow is stippled (0 = the old flat translucent tone, 1 = all stipple)
+      alpha = 0.5, -- 0..1 alpha of one cast-shadow pixel; the share of pixels that are shadow is strength / this (0.42 / 0.5 = 84% in full sun, solid when alpha is at or under the strength). Lower = solid shadows that stipple only as they fade; higher = a more visible pattern
+      amount = 1.0, -- 0..1 how much of the cast shadow is stippled (0 = the old flat translucent tone, 1 = all stipple); contact shadows stay flat
       scale = 1,
     },
     clouds = { -- cloud shadows (shaders/clouds.glsl)

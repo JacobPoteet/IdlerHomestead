@@ -77,6 +77,9 @@ return function(d)
   at(16)
   look(sx, sy, 3)
   d:shot("shadows_afternoon")
+  at(18)
+  d:shot("shadows_low_sun")
+  at(16)
 
   -- The editor: opened with F8 while the F1 overlay is on, driven by its own buttons.
   d.game.debug.visible = true

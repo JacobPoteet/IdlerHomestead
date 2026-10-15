@@ -1532,7 +1532,7 @@ function Renderer:drawShadows(list)
     dappleShade = d.shade,
     dappleScale = d.scale,
     dappleShift = shift,
-    ditherAlpha = cfg.shadowAlpha,
+    ditherAlpha = world.tuning.visuals.dither.shadows.alpha,
   })
   Dither.send(composite, world.tuning, { dither = "shadows" })
   love.graphics.setShader(composite)

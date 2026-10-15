@@ -30,11 +30,12 @@ M.ENTRIES = {
 --- The fields a control can change, in the order they are listed, with their limits.
 M.FIELDS = {
   algorithm = { label = "Pattern" },
+  alpha = { label = "Pixel alpha", min = 0.1, max = 1, step = 0.05 },
   steps = { label = "Steps", min = 0, max = 16, step = 1, zero = "smooth" },
   amount = { label = "Amount", min = 0, max = 1, step = 0.05 },
   scale = { label = "Cell size", min = 1, max = 4, step = 1 },
 }
-M.FIELD_ORDER = { "algorithm", "steps", "amount", "scale" }
+M.FIELD_ORDER = { "algorithm", "steps", "alpha", "amount", "scale" }
 
 --- The fields of the effect table `cfg` that the editor can change (the ones it has), in order.
 function M.fields(cfg)

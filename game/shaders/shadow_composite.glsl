@@ -58,13 +58,15 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
         float fleck = step(edge, n) * 0.5 + step(edge + 0.07, n) * 0.5;
         shade *= 1.0 - dapple * fleck;
     }
-    float a = max(shade, m.g * contactStrength);
-    if (dither.z > 0.0 && a > 0.0) {
-        // Shadow density becomes the share of art pixels that are shadow: a Bayer stipple on the world grid.
+    if (dither.z > 0.0 && shade > 0.0) {
+        // The cast shadow's density becomes the share of art pixels that are shadow, so it is solid where the
+        // sun is strong and thins into a stipple as it fades (dusk, cloud, leaf flecks). The contact shadow
+        // under a sprite stays a flat tone, so every object keeps a solid footing.
         vec2 dpx = origin + floor(uv * maskSize);
-        float stipple = ditherAlpha * ditherMask(a / ditherAlpha, dpx, dither);
-        a = mix(a, stipple, dither.z);
+        float stipple = ditherAlpha * ditherMask(shade / ditherAlpha, dpx, dither);
+        shade = mix(shade, stipple, dither.z);
     }
+    float a = max(shade, m.g * contactStrength);
     return vec4(shadowColor, a) * color;
 }
 #endif

@@ -264,7 +264,7 @@ local function valueText(cfg, field)
     return v
   elseif field == "steps" then
     return v == 0 and "smooth" or tostring(v)
-  elseif field == "amount" then
+  elseif field == "amount" or field == "alpha" then
     return string.format("%d%%", math.floor(v * 100 + 0.5))
   end
   return string.format("%d px", v)
