@@ -9,6 +9,7 @@ return {
   sleepSpeed = 8, -- sim speed multiplier applied automatically while the homesteader is asleep (D56); the player's speed still caps a pause at 0
   daysPerSeason = 7, -- in-game days per season (7 x 320s = ~37 min awake-and-asleep at 1x, about 27 min with fast sleep; GDD §4.1, D56)
   seasons = { "spring", "summer", "autumn", "winter" }, -- season ids in order
+  skipDayOfSeason = 4, -- day of the season that a debug or editor jump to another season lands on (Calendar.skipTo)
   startHour = 6, -- in-game hour a new run begins
   daylight = { -- season id -> { sunrise hour, sunset hour }; solar follows it, study happens outside it
     spring = { 6, 20 },

@@ -272,6 +272,31 @@ function Weather.kind(world)
   return state(world).sky.days[1]
 end
 
+--- Debug and editor tool: make every day on the sky queue `kind`, so the weather holds for a while.
+--- A rainy kind in a frozen season becomes the frozen-rain kind, as when the sky is rolled.
+function Weather.force(world, kind)
+  local cfg = world.tuning.weather
+  assert(cfg.kinds[kind], "unknown weather kind " .. tostring(kind))
+  syncSky(world) -- the sky may still be on an earlier day if the clock was just moved
+  local sky = state(world).sky
+  local before = sky.days[1]
+  for n = 1, #sky.days do
+    local k = kind
+    local day = sky.first + n - 1
+    if
+      cfg.kinds[k].rainfall > 0
+      and Weather.isFrozenSeason(world, world.tuning.time.seasons[Calendar.seasonOfDay(world, day)])
+    then
+      k = cfg.frozenRainKind
+    end
+    sky.days[n] = k
+  end
+  sky.spell, sky.last = kind, kind
+  if sky.days[1] ~= before then
+    world.events:emit("weather.changed", { kind = sky.days[1], previous = before })
+  end
+end
+
 --- Today's kind definition (tuning.weather.kinds[kind]); read-only.
 function Weather.current(world)
   return world.tuning.weather.kinds[Weather.kind(world)]

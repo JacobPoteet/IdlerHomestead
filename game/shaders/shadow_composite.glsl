@@ -18,7 +18,7 @@ uniform float dappleShade;   // multiplier on a canopy's shadow between the flec
 uniform float dappleCover;   // 0..1 share of a canopy shadow that is fleck
 uniform float dappleScale;   // fleck noise frequency, 1/art pixels (higher = smaller flecks)
 uniform vec2 dappleShift;    // whole art pixels the flecks are pushed by the swaying leaves
-uniform float ditherAmount;  // 0..1 how much of the shadow is drawn as a dither pattern instead of a flat translucent tone
+uniform vec4 dither;         // algorithm, scale, amount, steps (include/dither.glsl); amount = how much of the shadow is stipple instead of a flat tone
 uniform float ditherAlpha;   // 0..1 alpha of one shadow pixel in the pattern (the pattern's coverage makes up the rest)
 
 #ifdef PIXEL
@@ -59,11 +59,11 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
         shade *= 1.0 - dapple * fleck;
     }
     float a = max(shade, m.g * contactStrength);
-    if (ditherAmount > 0.0 && a > 0.0) {
+    if (dither.z > 0.0 && a > 0.0) {
         // Shadow density becomes the share of art pixels that are shadow: a Bayer stipple on the world grid.
         vec2 dpx = origin + floor(uv * maskSize);
-        float stipple = ditherAlpha * ditherMask(a / ditherAlpha, dpx);
-        a = mix(a, stipple, ditherAmount);
+        float stipple = ditherAlpha * ditherMask(a / ditherAlpha, dpx, dither);
+        a = mix(a, stipple, dither.z);
     }
     return vec4(shadowColor, a) * color;
 }

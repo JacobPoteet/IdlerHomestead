@@ -31,7 +31,7 @@ function Debug:lines()
     names[#names + 1] = scene.name or "?"
   end
   local lines = {
-    "F1 debug  F2 sim speed  F3 perf  F6 reload tuning+shaders",
+    "F1 debug  F2 sim speed  F3 perf  F6 reload tuning+shaders  F8 editor",
     "scenes: " .. table.concat(names, " > "),
     string.format("view: %dx%d @%dx", app.view.w, app.view.h, app.view.scale),
     string.format("input: last=%s idle=%.1fs", tostring(self.input.lastAction), self.input:idleSeconds()),

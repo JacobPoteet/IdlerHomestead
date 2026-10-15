@@ -53,6 +53,8 @@ uniform float sourceSpeed;   // radians per second of a fire's column wobble
 uniform float sourceSteps;   // times a second the column's wobble moves on (whole steps, so it stays chunky)
 uniform float sourceWave;    // radians per art-pixel row of the wobble (its vertical frequency)
 uniform float sourceDeadZone; // 0..1 wave level below which a pixel stays put (the calm between the bands)
+uniform vec4 ditherHeat;     // algorithm, scale, amount, steps (include/dither.glsl): the fire's column
+uniform vec4 ditherVignette; // the same for the vignette
 uniform float sourceReach;   // how far the dithered column reaches: higher keeps more pixels moving toward its edges
 uniform float heatCount;     // shimmering fires in view (at most 4)
 uniform vec4 heatSources[4]; // x, y: column base in screen pixels; z: half-width, w: height, in art pixels
@@ -97,7 +99,7 @@ float shimmer(vec2 p) {
             // still move, so the column thins out into a stipple instead of ending at a hard edge.
             float strength = (1.0 - dy / s.w) * (1.0 - abs(dx) / width);
             float wave = sin(floor(dy) * sourceWave - t * sourceSpeed + float(i) * 2.0);
-            if (abs(wave) > sourceDeadZone && ditherMask(strength * sourceReach, cell + worldCell) > 0.5) {
+            if (abs(wave) > sourceDeadZone && ditherMask(mix(1.0, strength * sourceReach, ditherHeat.z), cell + worldCell, ditherHeat) > 0.5) {
                 shift = wave > 0.0 ? 1.0 : -1.0;
             }
         }
@@ -154,7 +156,9 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     c += blackLift * (1.0 - c);
 
     vec2 d = uv - 0.5;
-    c *= 1.0 - vignette * smoothstep(0.15, 0.6, dot(d, d) * 2.0);
+    // The dark rim, in steps and stippled on the art-pixel grid when ditherVignette.w > 0 (else smooth).
+    float rim = smoothstep(0.15, 0.6, dot(d, d) * 2.0);
+    c *= 1.0 - vignette * ditherQuantize(rim, floor((p - gridOrigin) / pixelSize) + worldCell, ditherVignette);
 
     vec2 cell = floor(screen / pixelSize);
     float g = hash(cell + floor(time * 12.0) * 13.7) - 0.5;

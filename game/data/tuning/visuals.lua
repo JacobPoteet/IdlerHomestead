@@ -211,7 +211,6 @@ return {
     ground = 0.2, -- 0..1 mist left over the low open ground far from the creek, at full strength
     scale = 0.022, -- noise frequency, 1/art pixels (0.022 = banks of mist about 45 art pixels across)
     block = 2, -- art pixels per mist pixel, so the edges stay chunky pixel art
-    levels = 4, -- number of visible density bands
     alpha = 0.75, -- 0..1 alpha of the thickest band at full strength
     color = { 0.86, 0.91, 0.96 }, -- mist colour (graded afterwards, so it warms at dawn)
     drift = 2.5, -- art pixels per second the banks drift downwind at wind strength 1
@@ -230,10 +229,7 @@ return {
     minHeight = 7, -- art pixels: sprites shorter than this cast no shadow
     contactMaxWidth = 26, -- art pixels, the widest contact shadow
     contactWidth = 0.8, -- share of the sprite's width the contact shadow spans
-    dither = { -- shadows drawn as an ordered-dither stipple on the world art-pixel grid instead of a flat translucent tone (shaders/shadow_composite.glsl)
-      amount = 1.0, -- 0..1 how much of the shadow is stippled (0 = the old flat tone, 1 = all stipple)
-      alpha = 0.6, -- 0..1 alpha of one shadow pixel in the stipple; the share of pixels that are shadow is strength / this (so 0.42 / 0.6 = 70% in full sun)
-    },
+    shadowAlpha = 0.6, -- 0..1 alpha of one shadow pixel when the shadows are dithered (the share of pixels that are shadow is strength / this, so 0.42 / 0.6 = 70% in full sun)
     dapple = { -- leaf dapple: sun flecks through a tree canopy's cast shadow (shaders/shadow_composite.glsl); trees opt in with `dapple` in data/content/objects.lua
       strength = 0.9, -- 0..1 share of the shadow a fleck's bright heart takes away (0 = no dapple)
       shade = 1.5, -- multiplier on a canopy's cast shadow between the flecks (leaves shade deeper than a post or a wall)
@@ -297,6 +293,50 @@ return {
     tightDivisor = 4, -- the tight layer is rendered at 1/this of the screen size
     wideDivisor = 10, -- the wide layer is rendered at 1/this of the screen size
   },
+  dither = { -- how each soft effect is cut into pixel-art steps (shaders/include/dither.glsl, src/render/dither.lua; D133). Edit them live in the in-game editor (F1 on, then F8)
+    algorithms = { "bands", "bayer2", "bayer4", "bayer8", "blue", "ign", "white" }, -- ids in the order the shader numbers them: bands = no pattern, bayerN = ordered NxN, blue = blue noise, ign = interleaved gradient noise, white = white noise
+    blueSize = 64, -- texels, edge of the blue-noise tile (the pattern repeats every this many art pixels)
+    light = { -- night light pools (shaders/light.glsl)
+      algorithm = "bayer8", -- one of `algorithms`
+      steps = 5, -- brightness levels in the falloff (the dither interleaves them, so few levels still fade smoothly)
+      amount = 1.0, -- 0..1 how much of the pattern is used between levels (0 = plain bands, 1 = full dither)
+      scale = 1, -- art pixels per pattern cell (2 = chunkier)
+    },
+    heat = { -- the heat-shimmer column over a fire (shaders/grade.glsl)
+      algorithm = "bayer8",
+      amount = 1.0, -- 0..1 how much the column thins into a stipple toward its top and sides (0 = a solid column)
+      scale = 1,
+    },
+    shadows = { -- sun shadows (shaders/shadow_composite.glsl)
+      algorithm = "bayer8",
+      amount = 1.0, -- 0..1 how much of the shadow is stippled (0 = the old flat translucent tone, 1 = all stipple)
+      scale = 1,
+    },
+    clouds = { -- cloud shadows (shaders/clouds.glsl)
+      algorithm = "bands", -- plain bands is the old look
+      steps = 3, -- shadow levels
+      amount = 1.0,
+      scale = 1,
+    },
+    mist = { -- morning mist (shaders/mist.glsl)
+      algorithm = "bands",
+      steps = 4, -- density levels
+      amount = 1.0,
+      scale = 1,
+    },
+    sunbeams = { -- sunbeams (shaders/sunbeams.glsl)
+      algorithm = "bands",
+      steps = 3, -- brightness levels
+      amount = 1.0,
+      scale = 1,
+    },
+    vignette = { -- the dark rim of the view (shaders/grade.glsl)
+      algorithm = "bands",
+      steps = 0, -- darkness levels (0 = smooth, the old look)
+      amount = 1.0,
+      scale = 1,
+    },
+  },
   lights = { -- night lights over the graded world (shaders/light.glsl, D84); which objects glow is the `light` field in data/content/objects.lua
     fadeStart = 0.7, -- daylight level (0 night .. 1 day) below which the lights begin to come on
     fadeEnd = 0.25, -- daylight level at which they are at full strength
@@ -304,9 +344,7 @@ return {
     gain = 1.15, -- how strongly the light brightens and warms the picture it reaches (multiplies the lit pixels, D128)
     glow = 0.16, -- how much of the light is also added flat, so a lamp core stays bright and dark ground still shows it
     neutral = 0.6, -- 0..1 how far a lit colour is pulled toward grey before the light tints it, so firelight on grass reads warm, not olive
-    bands = 5, -- number of pixel-art brightness steps in the falloff (the dither interleaves them, so fewer steps still fade smoothly)
     falloff = 1.8, -- exponent of the falloff (higher = tighter, brighter core)
-    dither = 1.0, -- 0..1 how much of the Bayer 8x8 dither pattern is used between bands, on the world art-pixel grid (1 = full, no ring reads as a hard edge; 0 = plain bands)
     flickerSpeed = 7, -- flicker steps per second (the glow radius jumps in whole art pixels)
     coreSize = 3, -- art pixels, the bright core drawn at the centre of a light that has no window (flame, bulb)
     coreGlow = 0.4, -- 0..1 brightness of that core at full darkness

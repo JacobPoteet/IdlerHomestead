@@ -112,6 +112,26 @@ function Calendar.tick(world, dt)
   end
 end
 
+--- Debug and editor tool: jump the clock FORWARD to `hour` (0..24) of the next day it fits, and, when
+--- `seasonIndex` is given and differs, to the fourth day of that season first. The date events
+--- (new day, new season) fire on the next tick as usual. Returns the new Calendar.now.
+function Calendar.skipTo(world, hour, seasonIndex)
+  local time = world.tuning.time
+  local cal = world.state.calendar
+  local now = Calendar.now(world)
+  local dayIndex = now.day - 1
+  if seasonIndex and seasonIndex ~= now.seasonIndex then
+    local steps = (seasonIndex - now.seasonIndex) % #time.seasons
+    dayIndex = (math.floor(dayIndex / time.daysPerSeason) + steps) * time.daysPerSeason + time.skipDayOfSeason - 1
+  end
+  local target = dayIndex + hour / 24
+  while target <= dayFloat(world) do
+    target = target + 1
+  end
+  cal.elapsed = (target - time.startHour / 24) * time.dayLength
+  return Calendar.now(world)
+end
+
 function Calendar.seasonOfDay(world, day)
   local time = world.tuning.time
   return math.floor((day - 1) / time.daysPerSeason) % #time.seasons + 1

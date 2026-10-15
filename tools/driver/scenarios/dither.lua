@@ -62,8 +62,36 @@ return function(d)
     d:shot(("fire_z%d_b"):format(zoom))
   end
 
+  -- Every pattern on the light pool (the editor's Pattern control writes the same tuning value).
+  local dither = world.tuning.visuals.dither
+  look(fx, fy, 3)
+  for _, algorithm in ipairs(dither.algorithms) do
+    dither.light.algorithm = algorithm
+    dither.light.steps = 4
+    d:frames(2, 0.05)
+    d:shot("light_" .. algorithm)
+  end
+  dither.light.algorithm, dither.light.steps = "bayer8", 5
+
   -- Sun shadows by day.
   at(16)
   look(sx, sy, 3)
   d:shot("shadows_afternoon")
+
+  -- The editor: opened with F8 while the F1 overlay is on, driven by its own buttons.
+  d.game.debug.visible = true
+  d:key("f8")
+  d:frames(2, 0.05)
+  assert(d.game.app:top().name == "editor", "F8 did not open the editor")
+  d:shot("editor_open")
+  d:press("Night")
+  d:press("Cloudy")
+  d:press("Freeze time")
+  d:shot("editor_night_cloudy")
+  d:press("Compare saved")
+  d:shot("editor_compare")
+  d:press("Showing saved")
+  d:press("Copy Lua")
+  d:key("f8")
+  assert(d.game.app:top().name == "homestead", "F8 did not close the editor")
 end
