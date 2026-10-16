@@ -1,4 +1,4 @@
-# UI redesign handoff (2026-10-16)
+# UI redesign handoff (2026-10-16, updated after phase 5)
 
 Read this first; the older master-agent prompt below still holds for workflow, but where they differ this wins.
 
@@ -17,20 +17,29 @@ plans drawn in pencil; frost and snow on plates in winter.
 | 1 Pixel font, plates, icons | #291 | #302 | `src/ui/pixel_font.lua`, `text.lua`, `plate.lua`, `shaders/ui_plate.glsl`, `icons.lua`; driver `uikit` |
 | 2 Pencil plans | #292 | #303 | `src/render/sketch.lua`, `shaders/sketch.glsl`; driver `pencil` |
 | 3 Resting HUD | #293 | #304 | `src/ui/hud.lua` (pure layout + trays), homestead `layoutHud`/`draw*`; `tests/test_hud.lua` |
+| 4 Tool wheel | #294 | #305 | `src/ui/tool_wheel.lua`, `Input` wheel events, keys Q and 1-6; `tests/test_tool_wheel.lua`; driver `wheel` |
+| 5 Hammer and crate | #295 | PR_5 | `Homestead:hammerRing`/`hammerTap`, crate count on wedge and badge; `tests/test_hammer.lua`; driver `hammer` |
 
-Check #304 merged (it was green-pending at handoff); if not, wait for CI and merge it.
+## Next: phase 6, the Notebook and Ledger books (#296)
+Tabbed paper books replace the trays the book plates open today. Notebook: Journal, Fish guide, Diary (the
+message log). Ledger: Pantry, Routine, Catalog, Truck & town. World shortcuts open a book on its page (the
+truck opens Truck & town, the camp or shack the Pantry, a journal stamp the Journal). Tabs remember the last
+page within a session. Read GDD §9.4 "Two books (D140)" and the D142 "Books are paper" bullet first. The
+Catalog already takes `{ buildings = true }` (the Hammer's Order more opens it on its first building); keep
+that working when it becomes a Ledger tab.
 
-## Next: phase 4, the tool wheel (#294)
-Work in progress is on the pushed branch `claude/ui-tool-wheel-wip` (based on #304): the wheel geometry
-module, tuning, tests, and patch scripts that wire it in. Read `tools/wip/tool_wheel/README.md` on that
-branch; apply the scripts, verify with the driver, delete the wip folder, open "UI redesign 4/9".
-Decision made during build: the keyboard key is **Q**, not Tab (Tab is reserved for text fields); the
-docs script updates the GDD.
+Then phases 7-9 in order (#297 Power and Water lenses, #298 dither transitions and signals, #299 Axe and
+Pail area drags). Interim states still to replace: the book plates open trays of the old panels; the Power
+panel is reached from the power vital's card (`scene:openPower()`).
 
-Then phases 5-9 in order (#295 hammer and crate, #296 Notebook and Ledger books, #297 Power and Water
-lenses, #298 dither transitions and signals, #299 Axe and Pail area drags). Interim states to replace:
-the book plates open trays of the old panels; the Power panel is reached from the power vital's card
-(`scene:openPower()`); Hammer takes the next delivery until the crate exists.
+## Notes from phases 4 and 5
+- Run the whole driver sweep, not just the new scenarios: in phase 4 it found a crash the tests missed (a
+  local declared below the function using it, so a world tap hit a nil global). Run each scenario on its own
+  in a loop so one failure does not stop the rest (`for f in tools/driver/scenarios/*.lua ...`).
+- On a mouse, hovering a wedge with a ring (Hoe, Hammer) shows the ring, so a click on the wedge equips it;
+  the "first tap shows the ring" rule is the touch path. Driver scenarios hover first (`input:mousemoved`).
+- A held wheel only draws after `showDelay` of real time; scenarios backdate `scene.wheel.at`.
+- The Controls list now has 13 rows and scrolls; the `controls` scenario rebinds a row above the fold.
 
 ## How this session worked (the user approved it)
 - Bypass permissions: the user said not to ask before running, pushing, opening PRs or merging green
