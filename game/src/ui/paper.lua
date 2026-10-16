@@ -5,6 +5,8 @@
 
 local Icons = require("src.ui.icons")
 local Plate = require("src.ui.plate")
+local Text = require("src.ui.text")
+local theme = require("src.ui.theme")
 
 local Paper = {}
 
@@ -188,6 +190,36 @@ function Paper.stamp(cfg, icon, x, y, ink, alpha)
   Icons.drawTinted(icon, x + cfg.stampShift, y + cfg.stampShift)
   love.graphics.setColor(ink[1], ink[2], ink[3], alpha or 1)
   Icons.drawTinted(icon, x, y)
+end
+
+--- A tab of a paper book's strip: paper like the page when it is the open one, a darker slip when not; its ink
+--- stamp, and the label when there is room (or for the open tab). `b` is the tab's button ({ x, y, w, h, label,
+--- icon, selected, enabled, showLabel }), `pressed` whether it is being pressed. `cfg` is tuning.ui.book.
+function Paper.drawTab(cfg, b, pressed)
+  local colors = theme.colors
+  local open = b.selected
+  Plate.draw(b.x, b.y, b.w, b.h, {
+    base = open and cfg.paper or cfg.tabIdle,
+    kind = "button",
+    see = 0,
+    alpha = 1,
+    ink = open and colors.accent or nil,
+    lit = (pressed and 0) or (open and 0.3) or nil,
+    weather = false,
+  })
+  local alpha = b.enabled and 1 or 0.4
+  local ink = open and cfg.stampInk or cfg.stampIdle
+  local iconW = cfg.iconSize
+  local tw, th = Text.measure(b.label, "body")
+  local total = iconW + (b.showLabel and (cfg.iconGap + tw) or 0)
+  local ix = math.floor(b.x + (b.w - total) / 2)
+  Paper.stamp(cfg, b.icon, ix, math.floor(b.y + (b.h - cfg.iconSize) / 2), ink, alpha)
+  if b.showLabel then
+    Text.draw(b.label, ix + iconW + cfg.iconGap, b.y + (b.h - th) / 2, {
+      size = "body",
+      color = open and colors.text or colors.textDim,
+    })
+  end
 end
 
 return Paper

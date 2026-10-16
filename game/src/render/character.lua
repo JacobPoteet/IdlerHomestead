@@ -182,7 +182,9 @@ local function shade(g, parts)
   return out
 end
 
---- The figure as a grid of colours, out[y][x] (0-based), for an outfit from `Character.outfits`.
+--- The figure as a grid of colours, out[y][x] (0-based), for a look (the fields of `Character.outfits`). The
+--- second result is the grid of part ids, ids[y][x] (the part that owns each pixel, before the face is drawn
+--- over it), so a garment's pixels can be found.
 function Character.build(o)
   local g = newGrid()
   local parts = {}
@@ -275,6 +277,14 @@ function Character.build(o)
   end
 
   local out = shade(g, parts)
+  local ids = newGrid()
+  for y = 0, Character.H - 1 do
+    for x = 0, Character.W - 1 do
+      if g[y][x] then
+        ids[y][x] = g[y][x].id
+      end
+    end
+  end
 
   -- The red travels: a torso that is not the red flannel keeps four red pixels at its hem (a tag, a buckle),
   -- drawn after shading so they stay saturated. Four pixels read as the homesteader's accent, not a patch.
@@ -301,7 +311,35 @@ function Character.build(o)
   end
   out[ey + 3][CX - 1] = MOUTH
   out[ey + 3][CX] = MOUTH
-  return out
+  return out, ids
+end
+
+local function sameColour(a, b)
+  return a[1] == b[1] and a[2] == b[2] and a[3] == b[3]
+end
+
+--- The pixels garment `id` adds to the figure of `outfit` (`{ slot = garmentId }`) beyond the slot's default
+--- garment: mask[y][x] = true where the figure wearing it has a pixel the default does not, or one of another
+--- colour or part. Pure. The wardrobe draws it in ink over the draft figure for a garment not yet earned.
+function Character.silhouette(registry, outfit, slot, id)
+  local with, base = {}, {}
+  for _, s in ipairs(Character.slots) do
+    with[s], base[s] = outfit and outfit[s], outfit and outfit[s]
+  end
+  with[slot], base[slot] = id, nil
+  local a, aIds = Character.build(Character.outfitFor(registry, base))
+  local b, bIds = Character.build(Character.outfitFor(registry, with))
+  local mask = {}
+  for y = 0, Character.H - 1 do
+    mask[y] = {}
+    for x = 0, Character.W - 1 do
+      local c = b[y][x]
+      if c and (not a[y][x] or aIds[y][x] ~= bIds[y][x] or not sameColour(a[y][x], c)) then
+        mask[y][x] = true
+      end
+    end
+  end
+  return mask
 end
 
 --- Paint the figure and its ground shadow through a placeholder painter `p`.

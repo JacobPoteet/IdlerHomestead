@@ -94,6 +94,11 @@ function Plate.level()
   return light.level
 end
 
+--- How much snow lies on the land this frame (0 none .. 1 white), for things drawn over the world that stand on it.
+function Plate.snow()
+  return light.snow
+end
+
 local function blankImage()
   if not blank then
     blank = love.graphics.newImage(love.image.newImageData(1, 1))

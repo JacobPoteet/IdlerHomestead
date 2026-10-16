@@ -12,7 +12,7 @@ local tun = tuningLoader.load()
 local cfg = tun.input
 
 T.test("keys: every rebindable action has one default key and a name", function()
-  T.eq(#cfg.rebindable, 13)
+  T.eq(#cfg.rebindable, 14)
   local seen = {}
   for _, action in ipairs(cfg.rebindable) do
     local key = KeyBindings.defaultKey(cfg, action)

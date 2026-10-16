@@ -1794,6 +1794,105 @@ P.icon_tab_truck = rows({
   "..kk...kk...",
 })
 
+-- The Wardrobe (D154): the decision stamp (a shirt on an amber round), the five slot tabs and the two presets.
+P.icon_signal_clothes = rows({
+  "...oooooo...",
+  "..oaaaaaao..",
+  ".oaoaaaaoao.",
+  ".oooaaaaooo.",
+  ".oaoaooaoao.",
+  ".oaaaaaaaao.",
+  ".oaaaaaaaao.",
+  ".oaaaaaaaao.",
+  "..oaaaaaao..",
+  "...oooooo...",
+})
+
+P.icon_slot_head = rows({
+  "",
+  "....kkkk....",
+  "...kkkkkk...",
+  "..kkkkkkkk..",
+  "..kkkkkkkk..",
+  "kkkkkkkkkkkk",
+  "kkkkkkkkkkkk",
+})
+
+P.icon_slot_torso = rows({
+  "",
+  "..kkk..kkk..",
+  ".kkkkkkkkkk.",
+  "kkkkkkkkkkkk",
+  "kk.kkkkkk.kk",
+  "kk.kkkkkk.kk",
+  "...kkkkkk...",
+  "...kkkkkk...",
+  "...kkkkkk...",
+})
+
+P.icon_slot_legs = rows({
+  "",
+  "...kkkkkk...",
+  "...kkkkkk...",
+  "...kkkkkk...",
+  "...kkk.kkk..",
+  "...kkk.kkk..",
+  "...kkk.kkk..",
+  "...kkk.kkk..",
+  "...kkk.kkk..",
+})
+
+P.icon_slot_feet = rows({
+  "",
+  "",
+  "",
+  "..kkk.......",
+  "..kkk.......",
+  "..kkkk......",
+  "..kkkkkkk...",
+  "..kkkkkkkkk.",
+  "..kkkkkkkkk.",
+})
+
+P.icon_slot_extra = rows({
+  "",
+  ".....kk.....",
+  "....kkkk....",
+  ".....kk.....",
+  "..kk.kk.kk..",
+  ".kkkkkkkkkk.",
+  "..kk.kk.kk..",
+  ".....kk.....",
+  "....kkkk....",
+  ".....kk.....",
+})
+
+P.icon_preset_warm = rows({
+  "",
+  ".....kk.....",
+  ".k...kk...k.",
+  "..k.kkkk.k..",
+  "....kkkk....",
+  ".kk.kkkk.kk.",
+  "....kkkk....",
+  "..k.kkkk.k..",
+  ".k...kk...k.",
+  ".....kk.....",
+})
+
+P.icon_preset_cold = rows({
+  "",
+  ".....k......",
+  "..k..k..k...",
+  "...k.k.k....",
+  ".k..kkk..k..",
+  ".kkkkkkkkk..",
+  ".k..kkk..k..",
+  "...k.k.k....",
+  "..k..k..k...",
+  ".....k......",
+})
+
 P.icon_menu = rows({
   "",
   "",

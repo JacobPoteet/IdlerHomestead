@@ -81,6 +81,15 @@ function Painter:circle(cx, cy, r, c)
   self:ellipse(cx, cy, r, r, c)
 end
 
+--- A pixel-drawing helper for the current canvas: (0, 0) of the helper is (ox, oy) of the canvas, `w` x `h` is the
+--- area it may paint. For drawing a sprite-sized picture outside the atlas (the Wardrobe's figures) with the same
+--- painters the placeholders use.
+function Assets.painter(ox, oy, w, h)
+  return setmetatable({ ox = ox, oy = oy, w = w, h = h, rng = Rng.new(Rng.hash("painter")) }, Painter)
+end
+
+local overrides = {} -- sprite id -> painter function, kept so a rebuilt atlas repaints them (see recomposite)
+
 local function expand(manifest)
   local list = {}
   local ids = {}
@@ -181,6 +190,34 @@ function Assets.load(manifest)
       }
     end
   end
+
+  for id, paint in pairs(overrides) do
+    if sprites[id] then
+      Assets.recomposite(id, paint) -- a rebuilt atlas starts from the placeholders again; put the repainted ones back
+    end
+  end
+end
+
+--- Repaint one placeholder sprite in the atlas in place: the sprite's rectangle is cleared (replace blend, so
+--- nothing of the old figure shows through its soft pixels) and `paint(p)` draws the new one, the way a
+--- placeholder painter does. Everything that draws the sprite (the world, the portrait, the shadow pass) reads the
+--- same atlas rectangle, so all of them change. Remembered, so a rebuilt atlas (`load`) paints it again.
+function Assets.recomposite(id, paint)
+  local s = sprites[id]
+  assert(s and s.image:typeOf("Canvas"), "Assets.recomposite: no placeholder sprite " .. tostring(id))
+  overrides[id] = paint
+  local x, y, w, h = s.quad:getViewport()
+  love.graphics.push("all")
+  love.graphics.setCanvas(s.image)
+  love.graphics.origin()
+  love.graphics.setShader()
+  love.graphics.setScissor(x, y, w, h)
+  love.graphics.setBlendMode("replace")
+  love.graphics.setColor(0, 0, 0, 0)
+  love.graphics.rectangle("fill", x, y, w, h)
+  love.graphics.setBlendMode("alpha")
+  paint(Assets.painter(x, y, w, h), w, h, 1, id)
+  love.graphics.pop()
 end
 
 --- Sprite record { image, quad, w, h }. Errors on unknown ids.

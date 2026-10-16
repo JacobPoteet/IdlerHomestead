@@ -10,7 +10,6 @@ local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
 local Motion = require("src.ui.motion")
 local Paper = require("src.ui.paper")
-local Plate = require("src.ui.plate")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
@@ -191,31 +190,7 @@ end
 --- A tab: paper like the page when it is the open one, a darker slip when not; its ink stamp, and the label
 --- when there is room (or for the open page).
 function Book:drawTab(b)
-  local cfg, colors = self.cfg, theme.colors
-  local open = b.selected
-  local pressed = self.buttons.pressed == b
-  Plate.draw(b.x, b.y, b.w, b.h, {
-    base = open and cfg.paper or cfg.tabIdle,
-    kind = "button",
-    see = 0,
-    alpha = 1,
-    ink = open and colors.accent or nil,
-    lit = (pressed and 0) or (open and 0.3) or nil,
-    weather = false,
-  })
-  local alpha = b.enabled and 1 or 0.4
-  local ink = open and cfg.stampInk or cfg.stampIdle
-  local iconW = cfg.iconSize
-  local tw, th = Text.measure(b.label, "body")
-  local total = iconW + (b.showLabel and (cfg.iconGap + tw) or 0)
-  local ix = math.floor(b.x + (b.w - total) / 2)
-  Paper.stamp(cfg, b.icon, ix, math.floor(b.y + (b.h - cfg.iconSize) / 2), ink, alpha)
-  if b.showLabel then
-    Text.draw(b.label, ix + iconW + cfg.iconGap, b.y + (b.h - th) / 2, {
-      size = "body",
-      color = open and colors.text or colors.textDim,
-    })
-  end
+  Paper.drawTab(self.cfg, b, self.buttons.pressed == b)
 end
 
 --- The page's modal item card (Catalog, Truck) covers the book, so the tabs wait for it.
