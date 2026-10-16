@@ -416,6 +416,88 @@ Slight 3/4 perspective (Stardew-style). Camera pans and zooms. Not isometric for
 ### 9.3 Desktop companion mode (first playable, Windows only)
 A toggle into a small, borderless, **always-on-top**, draggable window. **View-only**: a framed view of the homestead plus minimal status (season, day, winter readiness, pending decisions). Built with LuaJIT FFI → Win32. Hidden on platforms that don't support it.
 
+### 9.4 Interface: the MVP redesign (D137–D142)
+The prototype interface grew one button per feature (10 always-visible buttons, 7 chips, 9 separate panels) and used LÖVE's default font. The MVP interface was redesigned from scratch around what the game turned out to be: an idle homestead you mostly watch, touch now and then, and keep on screen. Plan, phases and prototype findings: [docs/PLAN_UI.md](PLAN_UI.md). Prototype shots: `docs/screens/uxproto_*`.
+
+**Rules.**
+- **The world comes first.** At rest the screen holds only a few small plates; everything else appears when it is needed.
+- **Each corner has one job.** Time top left, vitals top right, decisions on the left edge, the homesteader bottom left, the tool in hand bottom centre, the two books bottom right.
+- **Context reveals controls.** A tool brings its own choices, a placement brings its own lens, and a vital only grows when it turns amber.
+- **Readable first.** No effect lowers the contrast of text or icons. Nothing is hover-only; everything has a touch and a keyboard path (§10).
+
+**The resting HUD (D137).**
+
+| Place | Plate | Tap |
+|---|---|---|
+| Top left | **Clock**: day, season, time, the forecast glyphs; a small speed plate beside it (pause, 1x, fast) | Forecast and winter readiness card |
+| Top right | **Vitals**: food, health, power, the animal and storage counts that apply, wood, money; icon, value and a thin gauge; amber or red marks only when low | The vital's explanation card; the power vital opens the Power lens, the water vital the Water lens |
+| Top right, under the vitals | Menu (three bars) | Menu |
+| Left edge | **Decision stamps**: a round amber stamp per pending decision (journal choice, find, delivery, plan warning) | Opens the decision |
+| Bottom left | **Homesteader badge**: portrait, Hands-on or Routine, what the homesteader is doing; the idle countdown as a ring round the portrait | Toggles the routine (replaces Start routine and the "Routine starts in 30s" line) |
+| Bottom centre | **Tool badge**: the tool in hand and its choice (Hoe · Radish) | Opens the tool wheel (the touch route to it) |
+| Bottom right | **Notebook** and **Ledger** | Opens the book |
+
+On a phone the vitals wrap to rows under the clock and the bottom plates show icons only; the HUD is drawn at one UI scale so it is the same physical size everywhere. The desktop companion mode (§9.3) shows only the clock.
+
+**The tool wheel and tools (D138).** Tools replace the toolbar's seed buttons, Rod, Untill, Plan field and Place. The wheel opens round the pointer; moving toward a wedge highlights it; releasing equips it. A flick released before the wheel has finished opening equips at once (a marking menu), so the order becomes muscle memory. Wedges never move: a tool not owned yet is a greyed wedge, never a gap.
+
+| Wedge (fixed position) | Tool | What it does | Its ring |
+|---|---|---|---|
+| Up right | **Hand** | Today's smart tap: harvest, collect, fish at the water, open a card, walk | none |
+| Right | **Hoe** | Till and plant; drag a rectangle to plan a field; tap tilled soil with Untill | Seed packets (one per crop, with the count), Untill |
+| Down right | **Pail** | Water; drag over crops to queue watering; the plain or big bucket shows in its icon | none |
+| Down left | **Axe** | Clear and fell; drag an area to mark it for clearing; a hatchet until the axe is owned | none |
+| Left | **Rod** | Fish | Bait |
+| Up left | **Hammer** | Build, move, pick up, demolish (D139) | The crate's items, Move, Pick up, Demolish, Order more |
+
+| Input | Open the wheel | Choose |
+|---|---|---|
+| Mouse | Hold right click (a short right click still inspects a tile) | Move, release |
+| Touch | Long-press the world, or tap the tool badge | Slide and lift, or tap a wedge |
+| Keyboard | Tab (at the screen centre); keys 1–6 equip a tool directly | Arrows, Enter |
+
+The hand stays smart, so play never needs a tool change for the common case; tools add precision and area drags. Inspecting moves to a short right click on desktop and to a tap with the Hand on touch. The wheel never opens past a screen edge: it shifts inward and still chooses by direction.
+
+**The hammer and the crate (D139).** Delivered items (the inventory) are **the crate**. The hammer's ring lists each item waiting in the crate as a thumbnail of its world sprite; picking one holds its ghost for placing (D79 preview and confirm card). Move, Pick up and Demolish (D98, D110) are hammer modes, so the object cards lose those buttons and only inform. Order more opens the Catalog on its buildings. A delivery puts a count on the hammer wedge and the tool badge.
+
+**Two books (D140).** The separate panels become two books with tabs, drawn as paper.
+
+| Book | Tabs | Also opened by |
+|---|---|---|
+| **Notebook** (what you know) | Journal, Fish guide, Diary (the message log) | A journal decision stamp |
+| **Ledger** (what you run) | Pantry, Routine, Catalog, Truck & town | Tapping the truck (Truck & town), the camp or shack (Pantry) |
+
+The Power panel's contents move to the Power lens's side card (D141). Menu (settings, tips, save and quit) stays a plate of its own.
+
+**Lenses (D141).** A lens greys the world to a cool blueprint wash and paints one system over it in dither density, so value reads by pattern as well as colour.
+
+| Lens | Shows | Turns on |
+|---|---|---|
+| **Power** | Sources as warm banded pools, sinks as cool bands (denser = bigger draw), a slow marching dither along each connection, reach rings, the priority list in a side card | Tapping the power vital; placing or selecting a power device |
+| **Water** | The water table as contour bands, sprinkler and drip coverage, the cistern level | Tapping the water vital; holding the pail; placing a well, pump or irrigation |
+| Later: Soil, Reach, Warmth | Tillable ground and moisture, machine and heater reach | Their tools and placements |
+
+There is no lens button and no second wheel: lenses come with the tool, the placement or the vital that needs them.
+
+**Look (D142).**
+- **Plates lit like the world.** A plate is frosted glass: the graded world behind it, blurred, cut into a few levels with an ordered dither on the UI pixel grid, pulled toward a dark warm base. It takes a share of the time-of-day and season grade (warm at dawn, dim and cool at night, blue in winter); **text and icons are never graded**. Edges follow the top-left sun (D136): a dark outline, a lit top-left edge, a cool bottom-right shade, stepped corners.
+- **Plans are drawn in pencil.** Whatever is intended but not real yet (planned fields, queued clearing, placement ghosts, watering orders) is a graphite sketch on the land: an outline that overshoots at corners, a diagonal hatch, sketched sprites. Real things are in colour; a finished job fills in through a dither. At night the sketch is drawn again in pale chalk over the graded world.
+- **Dither, not fades.** Opening the wheel, a book or a card and switching a lens dissolve with the world's dither patterns (D133); reduce motion makes them a two-step change.
+- **Calm signals.** Amber (needs you) gets a single-pixel glint every few seconds instead of a pulsing border; red (danger) a slow three-frame beat. Nothing flashes.
+- **Weather on the plates.** On frozen days frost creeps in from plate corners and snow settles on plate tops while the ground is white. It never covers text or icons, skips plates too small to spare the room, and follows Settings > Ambient effects.
+- **Books are paper.** Paper fibre on the art-pixel grid, ink-stamp icons with a one-pixel misregistration; at night the page is lit by a warm light pool.
+- **Pixel font.** A pixel font (7 px caps, 2 px descenders) drawn at whole UI pixels with a warm dark shadow one pixel down and right. It replaces LÖVE's default font everywhere.
+- **Icons** sit on the 12×12 icon grid of docs/ASSETS.md, shown at 1x on the HUD and 2x in the wheel, lit from the top left with a warm dark outline. Colour is kept for meaning: amber needs you, red is danger, blue is water, warm yellow is power, and the UI uses no green (the world is green).
+
+| Family | Look | Drawn by hand? |
+|---|---|---|
+| Tools | The real object on one diagonal (handle bottom left, head top right); the icon follows the owned tier | Yes (glove, hoe, pail, big pail, hatchet, axe, rod, sturdy rod, hammer) |
+| Seeds | A packet with the crop on it | One packet template plus each crop sprite |
+| Goods and vitals | The object facing forward, no frame | Yes, small set |
+| Buildings | A thumbnail of the world sprite | No |
+| Verbs | A tool plus a mark (Move, Pick up, Demolish on red) | Yes |
+| Signals | A small round stamp (`!`, `?`, crate count) | Yes |
+
 ---
 
 ## 10. Platforms & input
@@ -423,7 +505,7 @@ A toggle into a small, borderless, **always-on-top**, draggable window. **View-o
 | Concern | Approach |
 |---|---|
 | **Input** | An **input abstraction** emits *actions* (`select`, `pan`, `zoom`, `context`, `cancel`, `hold`), not raw keys. Mouse, touch, and keyboard map onto actions. |
-| **Control** | Click / tap a target → homesteader walks there and acts. |
+| **Control** | Click / tap a target → homesteader walks there and acts with the tool in hand (the Hand by default). Tools are chosen on the tool wheel: hold right click, long-press, Tab, or keys 1–6 (§9.4, D138). |
 | **No hover-only UI** | Everything reachable by tap. |
 | **Touch targets** | Minimum touch-target size in virtual units. |
 | **Pan / zoom** | Mouse drag + wheel; touch drag + pinch. |
@@ -691,3 +773,9 @@ Headless sim tests, plus a **balance harness** that simulates years with scripte
 | D134 | **Sandbox save mode** (found-during-dev: testing the shader editor at other times of day kept killing the homesteader). Built: after naming a new homestead the player picks **Normal** or **Sandbox**. The flag is `meta.sandbox` (the slot's persistent data, repeated as `header.sandbox` so the slot list can tag it without loading the run); it is fixed for the slot's life. Optional key only, so the new-game saved shape and `SAVE_COMPAT` are unchanged. **Free**: `Market.cheatOn` is always true (the permanent form of the D126 cheat: every item listed, free, delivered at once; the Catalog's Debug toggle is hidden and cannot turn it off), and `Ledger.remove` leaves the stock untouched for the reasons in `tuning.sandbox.freeReasons` (seeds sown, bait, meals, wood burned, feed, hay, generator and machine fuel, recipe inputs, cistern, drip and sprinkler water, orders), so seeds, food, fuel, water and power are free to use once they exist; the stock still has to be there (a grant from the Catalog puts it there), and real losses (selling, spoilage, predators, neglect) still happen. **Cannot die**: hunger and cold still drain Condition, so the needs stay visible (the heart chip, the alerts and the morning report behave as usual), but `Needs` stops it at `tuning.sandbox.conditionFloor` (25), so `needs.depleted` never fires and the run never fails; a fed, warm day still restores it. `Run.fail` asserts it is never called on a sandbox slot. **No meta progression**: a sandbox slot is its own slot with its own meta, so nothing leaks into other slots, and with no failures it records no career history, best years or income (the Field Journal still fills in as the slot is played, which is that slot's own knowledge). Marked by a SANDBOX tag in the slot list, the Catalog and the pills under the top bar. Words in `tuning.ui.sandbox`; tests `tests/test_sandbox.lua`; scenario `sandbox`. |
 | D135 | **Land generation variety** (found-during-dev: a plot was one creek and a few tree clumps). Built in `src/sim/landgen.lua`, tuning in `data/tuning/landgen.lua`; the world's "land" stream draws more values, so a seed makes a different plot than before, but the save shape and `SAVE_COMPAT` are unchanged. (1) **Water**: a tributary (1-2 tiles wide, from a side edge, away from the road row, with a ford) joins the creek on `tributaryChance` of plots; `pondMin`-`pondMax` ponds are lumpy blobs with open bank all round, between `pondTruckMin` and `pondTruckMax` of the truck, so one is always a short walk; `marshChance` of them get ford-deep shallows round the rim and brush on the banks. All of it is `water` or `ford` terrain, so fishing, buckets, the freeze, mist, reflections, the water table and micro-hydro treat ponds like the creek with no new code. (2) **Biomes**: `planBiomes` scatters `biomeCellsMin`-`biomeCellsMax` points, gives each of the six biomes in `tuning.landgen.biomes` one region before drawing the spare ones by weight, bends the cell edges with two noise fields (`biomeWarp`) and lets a tile within `biomeEdgeBlend` of an edge take the next region's look, so borders are soft. A biome sets its tree-noise threshold and density, lone-tree chance, tree species odds, rocks, brush, clutter multiple and soil; the truck's region is `startBiome` (meadow). Clearings are tree-free circles centred only in woods. First pass used two overlapping noise fields for woodland and species, which mixed all three species through each other; the regions replace it (feedback on #289). (3) **Species**: new `pine` and `birch` objects beside the oak `tree`, chosen by the biome's species odds. They share `kind = "tree"` (new optional content field), so the felled-tree note, the chop sound and the cat's shade check treat every species as a tree; `object.cleared` now reports the family in `object` and the exact id in `species`. Placeholder art in `placeholders.lua`. Not built: per-tile water flow (the creek shader still flows south everywhere, so ponds and the tributary show the same drift), and per-species seasonal art. Tests `tests/test_landgen_variety.lua`; scenario `landgen` (prints an ASCII plot, shots of a pond and a wood; `seed=N`). |
 | D136 | **Art style pass** (feedback: the 16x16 placeholder art clashed with the dithered shaders, the colours felt basic, the scene looked flat; reference Thronefall). Built one step at a time, each reviewed by Jacob from before/after screenshots: (1) **Tinted solid sun shadows**: `shadow_composite.glsl` multiplies the ground toward `shadows.color` (cool blue-violet) and the stipple is off (`dither.shadows.amount = 0`), so shade keeps the ground's hue. (2) **Ground ambient occlusion**: stepped rings round the base of anything with a contact shadow, drawn into the same mask with a max blend (`shadows.ao`). (3) **Sprites lit by the sun**: `rim.glsl` and `sway.glsl` add a faint warm edge on the sun side every season and a cool form shade one or two pixels deep on the far side and the bottom (`visuals.sunlight`); the autumn rim (D132) adds on top. (4) **Grade**: contrast 0.38, saturation 1.12, cooler darks and warmer lights. (5) **Value plan and redrawn placeholders**: lighter grass, deeper foliage; oak, pine, birch and brush redrawn as lit leaf clumps with an outline; rock, log, junk, potato and the homesteader shaded from the top-left with an outline. (6) **Ground patches**: broad soft lighter and darker grass patches painted once into the ground canvas (`src/render/ground_detail.lua`, `visuals.groundDetail`). (7) **Forest floor**: a tree with `forestFloor.minNeighbours` trees round it pools a wide ellipse of contact shade, so a wood reads as one area. Tried and dropped: a palette snap in the grade (posterised the ground; after the grade it turned dawn grass orange and cut the vignette into rings), merged canopy masses drawn over dense woods (looked pasted on, a third style beside the sprites), tufts and wildflowers (read as things to tap, or vanished when toned down), and a scattered grass texture (read as pimples). Presentation only: no save change. Shots from `tools/driver` scenarios `shaderpass`, `lightpolish`, `landgen`, `crops`. |
+| D137 | **Interface redesign: the resting HUD** (§9.4; plan in docs/PLAN_UI.md; supersedes the toolbar of D72 and D87, the top-bar chip strip of D112 and the speed, routine and power column). User feedback: the interface read as a prototype, had too many buttons, used space badly, and the planned Power and Water views would need still more buttons. Rethought from the ground up, not polished: the world fills the screen; the clock and a speed plate sit top left, the vitals top right (tap for the D72 cards; power and water open their lenses), decisions as amber stamps on the left edge, a homesteader badge bottom left that toggles the routine and shows the idle countdown as a ring, the tool badge bottom centre, the Notebook and Ledger bottom right. The Log, Power, Start routine, Speed, Tools, More, Pantry, Journal, Catalog, Fish guide and Routine list buttons go. Reference games: Thronefall (near-empty HUD), Rusty's Retirement and Ropuka's Idle Island (the UI gets out of the way of an idle farm), Cast n Chill (two buttons), Timberborn (categories open trays), Oxygen Not Included and Frostpunk (overlays, opened from the reading they explain). |
+| D138 | **The tool wheel and six tools** (§9.4). The user proposed a hold-to-open wheel after a first draft still had a six-slot tool belt on screen, which kept the bottom row busy. The wheel removes the belt: hold right click, long-press, tap the tool badge or Tab; keys 1–6 equip directly; a quick flick equips without waiting for the wheel (marking menu). Six fixed wedges: Hand, Hoe (seeds and Untill in its ring, drag to plan a field), Pail (drag to queue watering), Axe (drag to mark clearing; a hatchet before the axe is owned), Rod (bait), Hammer (D139). Wedges never move and unowned tools are greyed, so the directions stay learnable. **The Hand stays smart** (one-tap harvest, collect, fish, open a card): a strict tool-per-action split would make an idle game a tool-swapping game. The axe was passive equipment before (D104) and stays so for speed; the wheel's Axe is the clearing tool. Inspect moves to a short right click (desktop) and a Hand tap (touch). Rejected: a visible tool belt (clutter) and a second wheel for lenses (lenses come with their tool, placement or vital, D141). |
+| D139 | **The hammer and the crate** (§9.4; amends D79, D98, D110). The inventory of delivered items becomes "the crate", shown in the hammer's ring as world-sprite thumbnails. This replaces the toolbar's single "Place X" button, which offered only the first item alphabetically. Move, Pick up and Demolish become hammer modes, so object cards only inform. Order more opens the Catalog's buildings. A delivery shows as a count on the hammer wedge and the tool badge instead of a toast and an accent button. |
+| D140 | **Two books instead of separate panels** (§9.4). Notebook (what you know): Journal, Fish guide, Diary (the D90 log). Ledger (what you run): Pantry, Routine, Catalog, Truck & town. Both are paper with tabs; the world is a second route in (the truck opens Truck & town, the camp or shack the Pantry). Grouped by what the player is doing (knowing vs running), not by system, so the HUD needs two book plates however many tabs are added later. The Power panel's contents move to the Power lens (D141); Menu stays separate. |
+| D141 | **Lenses for Power and Water** (§9.4; the user's planned Power and Water overlay buttons). A lens washes the world to a cool blueprint and paints one system in dither density (pattern and colour, so it also reads for colour-blind players): power sources, sinks, connections and reach, with the priority list in a side card; water table, irrigation coverage and the cistern. Lenses switch on with their tool or placement (the pail shows Water, placing a panel shows Power) and from their vital, so no lens buttons are added. Soil, Reach and Warmth lenses can join later the same way. |
+| D142 | **Interface look: plates lit like the world, pencil plans, dither, pixel font, icon rules** (§9.4). The user chose a quiet frosted HUD with paper books, pencil sketches for plans, and frost and snow on the plates in winter, after a throwaway prototype was shot at all three sizes (`docs/screens/uxproto_*`, findings in docs/PLAN_UI.md). The HUD was drawn after the grade and bloom, so it never shared the world's light, and LÖVE's default font made it look like a debug tool. Plates now sample a blurred copy of the graded world, banded with the D133 dither, tinted by a share of the grade; text and icons are never graded. Planned work is a graphite sketch (chalk at night), so the land shows intent versus reality. Opens and closes dither instead of fading. Amber glints instead of pulsing. Frost and snow settle on plates (Ambient effects setting). A pixel font replaces the default font everywhere. Icons follow six families on the 12×12 icon grid, lit like the sprites. |
