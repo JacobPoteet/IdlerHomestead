@@ -166,35 +166,51 @@ function P.brush(p)
   p:outline(C.outline)
 end
 
+-- A boulder with a pebble beside it, in planes: a dark body, a mid face turned up-left, a lit facet on
+-- top and one highlight, so it reads as a solid lump rather than a grey disc.
 function P.rock(p)
   p:ellipse(8, 13, 6, 2, C.shadow)
-  p:ellipse(8, 9, 6, 4, C.stoneDark)
-  p:ellipse(8, 8, 5, 4, C.stone)
-  p:rect(5, 6, 3, 1, C.stoneLight)
-  p:px(10, 9, C.stoneDark)
+  p:ellipse(12, 11, 2, 2, C.stoneDark) -- the pebble
+  p:px(11, 10, C.stone)
+  p:ellipse(7, 9, 5, 4, C.stoneDark)
+  p:ellipse(6, 8, 4, 3, C.stone)
+  p:ellipse(5, 7, 2, 1, C.stoneLight)
+  p:px(4, 6, C.white)
+  p:rect(8, 10, 3, 1, C.stoneDark) -- a crack along the shaded side
   p:outline(C.outline)
 end
 
+-- A fallen log as a lit cylinder: a light band along the top, a dark underside, bark grooves, and a pale
+-- cut end with its rings.
 function P.log(p)
+  local grain, ring = { 0.84, 0.66, 0.44 }, { 0.66, 0.46, 0.28 }
   p:ellipse(8, 12, 7, 2, C.shadow)
-  p:rect(1, 7, 13, 5, C.bark)
-  p:rect(1, 7, 13, 1, C.barkLight)
-  p:rect(1, 11, 13, 1, C.barkDark)
-  p:ellipse(13, 9, 2, 2, C.barkLight)
-  p:px(13, 9, C.barkDark)
-  p:px(5, 9, C.barkDark)
-  p:px(9, 8, C.barkDark)
+  p:rect(1, 7, 12, 5, C.bark)
+  p:rect(1, 7, 12, 1, C.barkLight)
+  p:rect(1, 10, 12, 2, C.barkDark)
+  for _, g in ipairs({ { 3, 9, 3 }, { 7, 8, 4 }, { 10, 9, 2 } }) do
+    p:rect(g[1], g[2], g[3], 1, C.barkDark)
+  end
+  p:ellipse(13, 9, 2, 2, grain)
+  p:px(13, 9, ring)
+  p:px(14, 10, ring)
   p:outline(C.outline)
 end
 
+-- A crate, a tyre and a bent sheet of metal, each with a lit top and a shaded side.
 function P.junk(p)
+  local rustDark = { 0.36, 0.18, 0.12 }
   p:ellipse(8, 13, 7, 2, C.shadow)
   p:rect(2, 7, 6, 5, C.rust) -- crate
   p:rect(2, 7, 6, 1, C.barkLight)
-  p:circle(11, 10, 3, C.tire) -- tire
+  p:rect(2, 9, 5, 1, rustDark) -- plank line
+  p:rect(7, 8, 1, 4, rustDark) -- shaded side
+  p:circle(11, 10, 3, C.tire) -- tyre
   p:circle(11, 10, 1, C.metal)
+  p:px(9, 8, C.stoneDark)
   p:rect(5, 4, 5, 3, C.metal) -- sheet metal
-  p:px(6, 5, C.stoneLight)
+  p:rect(5, 4, 5, 1, C.stoneLight)
+  p:rect(5, 6, 5, 1, C.stoneDark)
   p:outline(C.outline)
 end
 
@@ -293,15 +309,10 @@ function P.potato(p, _, _, variant)
     p:circle(8, 8, 2, C.sprout)
     p:px(7, 7, C.sproutLight)
     p:px(9, 8, C.sproutLight)
-  elseif variant == 2 then -- growing: a bushy mound
-    p:circle(8, 8, 4, C.leaf)
-    p:px(6, 6, C.sproutLight)
-    p:px(7, 5, C.sproutLight)
-    p:px(10, 7, C.sprout)
-    p:px(5, 9, C.sprout)
-  else -- ready: a big dark bush dotted with white flowers
-    p:circle(8, 7, 6, C.leafDark)
-    p:circle(8, 7, 5, C.leaf)
+  elseif variant == 2 then -- growing: a bushy mound of two lit clumps
+    clumps(p, { { 7, 7, 3 }, { 9, 9, 3 } }, { C.sproutDark, C.sprout, C.sproutLight, C.white })
+  else -- ready: a big dark bush of lit clumps dotted with white flowers
+    clumps(p, { { 6, 5, 3 }, { 10, 6, 3 }, { 8, 9, 4 } }, BROADLEAF)
     for _, f in ipairs({ { 5, 4 }, { 10, 5 }, { 8, 8 }, { 6, 8 }, { 11, 9 }, { 8, 3 } }) do
       p:px(f[1], f[2], C.potatoFlower)
     end
@@ -332,22 +343,31 @@ function P.cue_ready(p, _, _, variant)
   p:outline(C.sparkleEdge)
 end
 
+-- The homesteader, lit from the top-left like everything else: the right side of the shirt, the right
+-- leg and the jaw take a shade, the hair catches a highlight, and a dark outline keeps the figure
+-- readable on any ground.
 function P.homesteader(p)
+  local pantsDark, skinShade, hairLight = { 0.17, 0.22, 0.33 }, { 0.78, 0.60, 0.48 }, { 0.52, 0.37, 0.24 }
   p:ellipse(8, 19, 4, 1, C.shadow)
   p:rect(6, 15, 2, 4, C.pants)
-  p:rect(9, 15, 2, 4, C.pants)
+  p:rect(9, 15, 2, 4, pantsDark)
   p:rect(6, 18, 2, 1, C.boot)
   p:rect(9, 18, 2, 1, C.boot)
   p:rect(5, 8, 7, 7, C.shirt)
   p:rect(5, 10, 7, 1, C.shirtDark) -- flannel check
   p:rect(8, 8, 1, 7, C.shirtDark)
+  p:rect(11, 8, 1, 7, C.shirtDark) -- the shaded side
   p:rect(4, 9, 1, 5, C.skin)
-  p:rect(12, 9, 1, 5, C.skin)
+  p:rect(12, 9, 1, 5, skinShade)
   p:rect(6, 2, 5, 6, C.skin)
+  p:rect(10, 3, 1, 5, skinShade)
+  p:rect(6, 7, 5, 1, skinShade) -- under the chin
   p:rect(6, 1, 5, 2, C.hair)
+  p:rect(7, 1, 2, 1, hairLight)
   p:px(6, 3, C.hair)
   p:px(7, 5, C.tire)
   p:px(9, 5, C.tire)
+  p:outline(C.outline)
 end
 
 local CAT_FUR = { 0.78, 0.52, 0.28 }

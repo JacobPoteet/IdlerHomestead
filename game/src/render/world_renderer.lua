@@ -21,6 +21,7 @@ local Weather = require("src.sim.systems.weather")
 local Assets = require("src.render.assets")
 local Shaders = require("src.render.shaders")
 local Dither = require("src.render.dither")
+local GroundDetail = require("src.render.ground_detail")
 local Lighting = require("src.render.lighting")
 local WeatherFx = require("src.render.weather_fx")
 local Lights = require("src.render.lights")
@@ -152,6 +153,7 @@ function Renderer:buildGround()
       Assets.draw(id, (x - 1) * tile, (y - 1) * tile)
     end
   end
+  GroundDetail.paint(grid, tile, self.world.tuning.visuals.groundDetail)
   love.graphics.pop()
   self.ground = canvas
 end

@@ -283,6 +283,18 @@ return {
     sideGain = 1.6, -- how fast the sunward side's share grows as the sun moves off noon (1 at side 1/sideGain)
     inkLuma = 0.16, -- brightness below which a pixel is outline: the rim sits just inside it and the outline stays dark
   },
+  groundDetail = { -- variety painted once into the grass (src/render/ground_detail.lua): soft patches of lighter and darker grass
+    enabled = true,
+    block = 2, -- art pixels per patch cell (the patch edges step in blocks this size)
+    patchScale = 0.012, -- patch noise frequency, 1/art pixels (0.012 = patches about 5 tiles across)
+    lightCut = 0.62, -- noise level above which the grass is a step lighter
+    darkCut = 0.38, -- noise level below which it is a step darker
+    step = 0.08, -- noise past a cut where the second, stronger step starts
+    light1 = { 0.95, 1.00, 0.70, 0.10 }, -- lighter, warmer grass (rgba over the tile; alpha is the strength)
+    light2 = { 0.95, 1.00, 0.70, 0.18 },
+    dark1 = { 0.12, 0.30, 0.22, 0.12 }, -- darker, cooler grass
+    dark2 = { 0.12, 0.30, 0.22, 0.22 },
+  },
   sunlight = { -- sprites lit by the sun (shaders/rim.glsl and sway.glsl): a faint lit edge on the sun side every season, and a cool form shade one or two pixels deep on the side away from the light and along the bottom, so objects read as solid
     enabled = true,
     lit = 0.22, -- 0..1 brightness added on the sun-side edge in full direct sun (the autumn rim adds on top)
