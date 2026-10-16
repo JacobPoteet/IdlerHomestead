@@ -22,7 +22,8 @@ local ok, err = xpcall(function()
       return
     end
     name, seed = unit:match("^([^\t]+)\t(%d+)$")
-    local results = Balance.playSeed(ctx, name, tonumber(seed), config.years, config.runs, features)
+    local results =
+      Balance.playSeed(ctx, name, tonumber(seed), config.years, config.runs, features, config.outfit or nil)
     done:push("ok\t" .. name .. "\t" .. seed .. "\t" .. Parallel.encode(results))
   end
 end, debug.traceback)

@@ -201,6 +201,16 @@ return {
     unit = "string", -- what the value counts, for tooltips and docs
     short = "string", -- format with one %s for the value, shown in the routine list
   },
+  garments = { -- the homesteader's wardrobe (GDD D149); see src/sim/systems/wardrobe.lua and the header of content/garments.lua
+    name = "string", -- display name (<= ~3 words)
+    slot = "string", -- head | torso | legs | feet | extra (the order is tuning.wardrobe.slots)
+    class = "string", -- light | mid | heavy: a key of tuning.wardrobe.classes
+    hint = "string?", -- the locked tile's one line; a %d is the unlock threshold from tuning.wardrobe.unlocks
+    starter = "boolean?", -- owned from the first day of a slot (one per slot)
+    default = "boolean?", -- worn when a saved id is unknown (one per slot, the starter)
+    unlock = "table?", -- { kind, ... }: how it is earned (see the header of content/garments.lua); absent only for a starter
+    look = "table", -- the Character look fields this garment sets (src/render/character.lua)
+  },
   chips = { -- top-bar chip modals (GDD D72, D112); see the header of content/chips.lua
     name = "string", -- modal title (<= ~3 words)
     status = "table", -- state key -> the headline for that state (a short phrase)

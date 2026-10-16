@@ -16,6 +16,7 @@ lovec tools/balance help=1                    # option list
 | `years=N` | span per run (fractions work: `years=0.25` is one season) | 1 |
 | `runs=N` | career length: a failed run is followed by recovery (the policy picks the free study) and a new run on new land with knowledge kept | 1 |
 | `features=all\|none\|a,b` | optional policy behaviours, see "Policy features" below; `none` plays the harness as it was before they existed | all |
+| `outfit=light\|mid\|heavy` | dress the homesteader in a whole outfit of one weight class (the first garment of the class in every slot, put on through the wardrobe's own grant and wear), see "The wardrobe" below | the starter outfit (all mid) |
 | `out=file.csv` / `out=file.json` | CSV: one row per seed per morning (money, food, warmth, notes, known...). JSON: summaries plus one record per run | none |
 | `set=domain.key=value` | override a tuning number for what-if runs, repeatable, e.g. `set=needs.warmthPeak=6` | none |
 | `jobs=N` | worker threads that play (policy, seed) pairs in parallel; `jobs=1` plays them one after another in the main thread. The report and `out=` files are byte-identical either way | CPU count, at most 16 |
@@ -365,3 +366,16 @@ Read: survival is unchanged. The winter need is about 12 percent lower because t
 ## The Great Winter: smoke test (#277, D117)
 
 `lovec tools/balance policy=scripted,active seeds=4 years=4`, with `greatWinterYear` 3, `greatWinterBoost` 0.25 and `greatWinterSnapDays` 2 (all placeholders until the balance pass, D95). The Great Winter raised winter 3's median severity from 1.57 to 1.65 (the floor is the run's worst earlier winter plus the boost; at year 3 the plain roll is already high, so the boost bites only on mild rolls). The scripted policy lived through the Great Winter on all 4 seeds, as it did before (it still loses 2 of 4 seeds in winter 4, as on main). The active policy never reaches it: it is dead by the autumn of year 3 on all seeds, before and after the change (identical to main, a standing balance finding, not this feature). So "a good active run can survive it" is untested by the harness today; the scripted run, which plays worse than a person, does. Both policies now plan fuel for the Great Winter's higher bound (`Weather.severityBound`).
+
+## The wardrobe: weight classes (D149 to D153)
+
+`lovec tools/balance policy=all seeds=10 years=1 outfit=light|mid|heavy` (seeds 1-10, the outfit worn from the first morning), then `policy=scripted,active seeds=10 years=3` for the Great Winter (year 3).
+
+| Outfit | 1 year: alive at the end of winter, idle / scripted / active | 3 years: alive at the end of winter 3, scripted / active | Cold deaths in the Great Winter |
+|---|---|---|---|
+| none (starter) | 70% / 100% / 100% | 80% / 100% | 1 of 20 |
+| mid | 70% / 100% / 100% | 80% / 100% | 1 of 20 |
+| light | 70% / 100% / 100% | 90% / 60% (hunger, not cold, in year 3) | 1 of 20 |
+| heavy | 70% / 100% / 100% | 90% / 90% | 1 of 20 |
+
+Read: `outfit=mid` is identical to no outfit in every printed number (the starter outfit multiplies by exactly 1). The effects are small and neither extreme wins: a full light outfit harvests about 2% more by day (scripted year 1: 384 against 377 crops), a full heavy one changes only the heat, and the deaths that differ are the chaotic drift any tiny speed change causes in 10 seeds (the active policy's year-3 hunger deaths under light follow a different morning order, not the cold). A light outfit lives through the Great Winter as often as the others do. The idle policy's year-1 deaths are hunger and the same for every outfit.
