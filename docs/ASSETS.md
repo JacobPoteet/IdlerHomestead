@@ -80,11 +80,11 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 
 **Readability rules for crop and small-sprite art (#20, D102).** Give every crop stage a dark 1-pixel edge and a bright interior (the placeholder `p:outline(C.outline)` does this), keep the sprout at least about 8 pixels wide, and make stages differ by silhouette, not tint alone. The night grade multiplies colour, so contrast must come from the art and from `visuals.cropCues.nightLift`; do not rely on hue. The thirsty droplet and ripe sparkle are separate sprites drawn by the renderer, so real crop art should not paint them in. Tune in `data/tuning/visuals.lua` (`cropCues`) and check with `lovec tools/driver crops`.
 
-### Actors (16×20)
+### Actors (the homesteader is 20×22, a chibi built from garment looks, D153)
 
 | Id | Status | Notes |
 |---|---|---|
-| `homesteader` | M1 (static) | Needs 4-direction walk (4 frames), work animations: hoe, water, harvest, chop, fish. Carry states: bucket, armful. |
+| `homesteader` | M1 (static) | 20×22, painted from the dressed outfit and repainted in the atlas when it changes (`Assets.recomposite`, D154). Needs 4-direction walk (4 frames), work animations: hoe, water, harvest, chop, fish. Carry states: bucket, armful. |
 | Cat | M5 | Walk, sit, sleep, pounce, being petted. |
 | Chickens, goats, cattle | M6–M7 | |
 | Mice, birds, deer | M5+ | Pests and ambient life. |
@@ -110,9 +110,10 @@ tier owned and draws icons at whole-pixel scales (1x on the HUD, 2x in the tool 
 |---|---|
 | `icon_tool_hand`, `icon_tool_hoe`, `icon_tool_pail`, `icon_tool_pail_big`, `icon_tool_hatchet`, `icon_tool_axe`, `icon_tool_rod`, `icon_tool_rod_sturdy`, `icon_tool_hammer` | Tools and their owned tiers |
 | `icon_verb_move`, `icon_verb_pickup`, `icon_verb_demolish`, `icon_verb_untill` | Verbs (Demolish on red) |
-| `icon_signal_alert`, `icon_signal_idea` | Round amber decision stamps |
+| `icon_signal_alert`, `icon_signal_idea`, `icon_signal_clothes` | Round amber decision stamps (the shirt is the Wardrobe's "New clothes" stamp) |
 | `icon_book_notebook`, `icon_book_ledger`, `icon_menu` | The two books and Menu |
 | `icon_tab_journal`, `icon_tab_fish`, `icon_tab_diary`, `icon_tab_pantry`, `icon_tab_routine`, `icon_tab_catalog`, `icon_tab_truck` | One-colour ink stamps for the book tabs (drawn white, tinted when stamped, D143) |
+| `icon_slot_head`, `icon_slot_torso`, `icon_slot_legs`, `icon_slot_feet`, `icon_slot_extra`, `icon_preset_warm`, `icon_preset_cold` | One-colour ink stamps for the Wardrobe (D154): the five slot tabs, and the Warm (sun) and Cold (snowflake) preset chips |
 | `icon_packet`, `icon_packet_<crop>` | Seed packets: the template plus the crop's own icon shrunk onto it (radish, potato) |
 
 ### Fonts

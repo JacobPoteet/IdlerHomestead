@@ -168,3 +168,62 @@ T.test("character: every garment looks different from the others of its slot", f
     seen[def.slot .. k] = def.id
   end
 end)
+
+-- The part-id grid and the silhouette (the Wardrobe draws a locked garment's shape in ink, D154).
+T.test(
+  "character: build also returns the part-id grid, set exactly where the figure has a pixel before the face",
+  function()
+    local grid, ids = Character.build(Character.outfits.starter)
+    local both, onlyColour = 0, 0
+    for y = 0, Character.H - 1 do
+      for x = 0, Character.W - 1 do
+        if ids[y][x] then
+          T.truthy(grid[y][x], "a part pixel has a colour")
+          both = both + 1
+        elseif grid[y][x] then
+          onlyColour = onlyColour + 1
+        end
+      end
+    end
+    T.truthy(both > 100, "the figure has parts")
+    T.eq(onlyColour, 0, "the face is drawn over parts, never beyond them")
+    T.eq(ids[Character.H - 1][0], nil, "the shadow row is not a part")
+  end
+)
+
+T.test("character: a garment's silhouette is its own pixels, and a default garment has none", function()
+  local draft = starterWith("head", "bare_head")
+  for _, def in ipairs(reg:all("garments")) do
+    local mask = Character.silhouette(reg, draft, def.slot, def.id)
+    local n = 0
+    for y = 0, Character.H - 1 do
+      for x = 0, Character.W - 1 do
+        if mask[y][x] then
+          n = n + 1
+        end
+      end
+    end
+    if def.default then
+      T.eq(n, 0, def.id .. " is the slot's default: nothing to show")
+    else
+      T.truthy(n >= 3, def.id .. " has a silhouette, " .. n .. " px")
+    end
+  end
+  -- A hat's silhouette lies in the head's rows and boots' on the feet.
+  local function rows(slot, id)
+    local mask = Character.silhouette(reg, draft, slot, id)
+    local lo, hi = math.huge, -1
+    for y = 0, Character.H - 1 do
+      for x = 0, Character.W - 1 do
+        if mask[y][x] then
+          lo, hi = math.min(lo, y), math.max(hi, y)
+        end
+      end
+    end
+    return lo, hi
+  end
+  local lo, hi = rows("head", "straw_hat")
+  T.truthy(hi <= 10, "the straw hat stays on the head (rows " .. lo .. " to " .. hi .. ")")
+  lo, hi = rows("feet", "snow_boots")
+  T.truthy(lo >= 15, "the boots stay on the feet (rows " .. lo .. " to " .. hi .. ")")
+end)

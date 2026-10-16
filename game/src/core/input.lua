@@ -17,6 +17,7 @@
 --   wheelMove {x, y}      the pointer moved while the wheel is held open
 --   wheelRelease {x, y}   the pointer let go of a held wheel (the scene equips what it points at)
 --   toolWheel, tool1..tool6 {}   keys: open the wheel, equip a tool directly
+--   wardrobe {}           C: open the Wardrobe (and close it again)
 --
 -- Also tracks the time of the last real input for idle takeover (GDD §5.2).
 

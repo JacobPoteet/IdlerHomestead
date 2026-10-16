@@ -134,3 +134,5 @@ Also `greatwinter` (D117, #277: the full, named forecast pill on the first day o
 Also `controls` (D121, #237: Settings > Controls, a rebind with "Press a key...", a reserved key, a conflict with Swap and Keep, per-row and global reset; finals are `docs/screens/controls-*`).
 
 Also `sandbox` (D134: the Normal / Sandbox choice after naming a homestead, the SANDBOX tag in the slot list and on the homestead screen, the Catalog free with no Debug toggle, and a hungry, cold sandbox homesteader staying alive; `d:newGame({ sandbox = true })` starts a sandbox slot).
+
+Also `wardrobe` (D154: the Wardrobe from the Menu row and the C key, a light torso previewed with its meters, a locked garment's hint and shape, a Wear that waits for dawn, the menu open through a dawn, a heavy outfit on snow, the night lamp pool, keyboard focus, and the homesteader in the world in the chosen clothes; finals are `docs/screens/wardrobe_*`).

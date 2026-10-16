@@ -122,15 +122,21 @@ end)
 
 -- The wardrobe (D149) lives in the slot meta as meta.wardrobe and is owned by the wardrobe system;
 -- everything else goes through its accessors and writers (Wardrobe.owned, Wardrobe.wear ...). Scenes that
--- the wardrobe menu adds (scenes/wardrobe.lua, ui/wardrobe_*.lua) join this list when they exist.
+-- the wardrobe menu adds (scenes/wardrobe.lua, ui/wardrobe_*.lua) are on this list.
 T.test("only the wardrobe system touches meta.wardrobe", function()
   local files = {
     "game/src/meta/run.lua",
     "game/src/render/character.lua",
+    "game/src/render/wardrobe_preview.lua",
     "game/src/scenes/homestead.lua",
     "game/src/scenes/menu.lua",
     "game/src/scenes/recovery.lua",
     "game/src/scenes/slots.lua",
+    "game/src/scenes/wardrobe.lua",
+    "game/src/ui/focus_grid.lua",
+    "game/src/ui/wardrobe_layout.lua",
+    "game/src/ui/wardrobe_state.lua",
+    "game/src/ui/wardrobe_text.lua",
     "game/src/session.lua",
   }
   for _, name in ipairs(require("src.sim.systems.init")) do

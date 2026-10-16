@@ -49,6 +49,10 @@ local Cat = require("src.sim.systems.cat")
 local Animals = require("src.sim.systems.animals")
 local Finds = require("src.sim.systems.finds")
 local Machines = require("src.sim.systems.machines")
+local Wardrobe = require("src.sim.systems.wardrobe")
+local WardrobePreview = require("src.render.wardrobe_preview")
+local WardrobeScene = require("src.scenes.wardrobe")
+local WardrobeState = require("src.ui.wardrobe_state")
 local Renderer = require("src.render.world_renderer")
 local Sampler = require("src.audio.sampler")
 local ActionRing = require("src.render.action_ring")
@@ -93,6 +97,7 @@ function Homestead:enter(slot, data)
   self.session = Session.new({ store = ctx.store, slot = slot, data = data, registry = ctx.registry, tuning = tuning })
   ctx.session = self.session
   Books.reset() -- the books open on their first pages in a fresh session (D143)
+  WardrobeState.reset() -- and the Wardrobe forgets the draft it was left with (D154)
   self.session:save() -- a new slot exists on disk as soon as it's started
   self.world = self.session.world
 
@@ -140,6 +145,7 @@ function Homestead:enter(slot, data)
   self.held = {} -- toasts that came in while asleep, shown in the morning (D70)
   self.frostTold = {} -- crop id -> calendar day its won't-ripen warning last showed (D70, #165)
   self:subscribe()
+  WardrobePreview.dressWorld(self.world.registry, Wardrobe.dressed(self.world)) -- the figure wears today's outfit from the first frame
   self:attachAudio()
 end
 
@@ -425,6 +431,12 @@ function Homestead:subscribe()
       local where = Journal.kindOf(world, e.item) == "perks" and "from your next run" or "now in the catalog"
       self:queueToast("Learned: " .. Journal.node(world, e.item).name .. " · " .. where)
     end),
+    events:on(
+      "wardrobe.dressed",
+      function(e) -- the outfit changed (a Wear that applies now, or a dawn): repaint the figure
+        WardrobePreview.dressWorld(world.registry, e.dressed)
+      end
+    ),
   }
 end
 
@@ -2376,6 +2388,9 @@ function Homestead:action(name, data)
   elseif name == "toolWheel" then
     local view = self.app.view
     self:openWheel(view.w / 2, view.h / 2, false)
+    return true
+  elseif name == "wardrobe" then
+    WardrobeScene.open(self.app) -- C: the homesteader's clothes (D154)
     return true
   elseif name:match("^tool%d$") then
     local wedge = self.app.ctx.tuning.ui.wheel.wedges[tonumber(name:sub(5))]
