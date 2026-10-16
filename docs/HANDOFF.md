@@ -18,7 +18,7 @@ plans drawn in pencil; frost and snow on plates in winter.
 | 2 Pencil plans | #292 | #303 | `src/render/sketch.lua`, `shaders/sketch.glsl`; driver `pencil` |
 | 3 Resting HUD | #293 | #304 | `src/ui/hud.lua` (pure layout + trays), homestead `layoutHud`/`draw*`; `tests/test_hud.lua` |
 | 4 Tool wheel | #294 | #305 | `src/ui/tool_wheel.lua`, `Input` wheel events, keys Q and 1-6; `tests/test_tool_wheel.lua`; driver `wheel` |
-| 5 Hammer and crate | #295 | PR_5 | `Homestead:hammerRing`/`hammerTap`, crate count on wedge and badge; `tests/test_hammer.lua`; driver `hammer` |
+| 5 Hammer and crate | #295 | #306 | `Homestead:hammerRing`/`hammerTap`, crate count on wedge and badge; `tests/test_hammer.lua`; driver `hammer` |
 
 ## Next: phase 6, the Notebook and Ledger books (#296)
 Tabbed paper books replace the trays the book plates open today. Notebook: Journal, Fish guide, Diary (the
