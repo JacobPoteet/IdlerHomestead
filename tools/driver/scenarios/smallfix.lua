@@ -62,11 +62,15 @@ return function(d)
   end
   scene.toast, scene.toastQueue = nil, {}
   d:frames(3)
-  love.graphics.origin()
-  d.game:draw() -- (the pill's tap target is laid out while drawing)
-  local hit = scene.readinessHit
-  assert(hit, "the readiness pill is up in autumn")
-  d:click(hit.x + 20, hit.y + hit.h / 2)
+  -- Winter readiness waits on the player, so it is a decision stamp on the left edge (D137).
+  local stamp
+  for _, b in ipairs(scene.buttons.list) do
+    if b.id == "readiness" then
+      stamp = b
+    end
+  end
+  assert(stamp, "the readiness stamp is up in autumn")
+  d:click(stamp.x + stamp.w / 2, stamp.y + stamp.h / 2)
   d:frames(3)
   d:shot("readiness_electric")
   d:press("Got it")

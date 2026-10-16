@@ -479,6 +479,8 @@ The Power panel's contents move to the Power lens's side card (D141). Menu (sett
 
 There is no lens button and no second wheel: lenses come with the tool, the placement or the vital that needs them.
 
+*Built so far:* the pixel font, plates and icons (#291), pencil plans (#292), and the resting HUD (#293: `src/ui/hud.lua` lays the plates out, pure and tested in `tests/test_hud.lua`; until the tool wheel and the tabbed books land, the tool badge opens a tools tray and each book a tray of its pages, and the power vital's card is the way into the Power panel).
+
 **Look (D142).**
 - **Plates lit like the world.** A plate is frosted glass: the graded world behind it, blurred, cut into a few levels with an ordered dither on the UI pixel grid, pulled toward a dark warm base. It takes a share of the time-of-day and season grade (warm at dawn, dim and cool at night, blue in winter); **text and icons are never graded**. Edges follow the top-left sun (D136): a dark outline, a lit top-left edge, a cool bottom-right shade, stepped corners.
 - **Plans are drawn in pencil.** Whatever is intended but not real yet (planned fields, queued clearing, placement ghosts, watering orders) is a graphite sketch on the land: an outline that overshoots at corners, a diagonal hatch, sketched sprites. Real things are in colour; a finished job fills in through a dither. At night the sketch is drawn again in pale chalk over the graded world.

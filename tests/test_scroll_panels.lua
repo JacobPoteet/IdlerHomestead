@@ -5,7 +5,7 @@ local tuningLoader = require("src.core.tuning")
 local Registry = require("src.core.registry")
 local World = require("src.sim.world")
 local ScrollList = require("src.ui.scroll_list")
-local Toolbar = require("src.ui.toolbar")
+local Hud = require("src.ui.hud")
 local Catalog = require("src.scenes.catalog")
 local Guide = require("src.scenes.guide")
 local Truck = require("src.scenes.truck")
@@ -150,109 +150,89 @@ T.test("town menu: shop and load lists clip and scroll at every size", function(
   end
 end)
 
--- Toolbar palette ------------------------------------------------------------------------------------
+-- Tray (the tools tray over the tool badge, D137; the capped, scrolling palette of D87) ------------
 
-local function seedButtons(n)
+local function seedItems(n)
   local bw = tun.ui.buttonWidths
-  local tools = {}
+  local items = {}
   for i = 1, n do
-    tools[#tools + 1] = { id = "seed:crop" .. i, w = bw.seed }
+    items[#items + 1] = { id = "seed:crop" .. i, w = bw.seed }
   end
-  tools[#tools + 1] = { id = "rod", w = 62 }
-  tools[#tools + 1] = { id = "plan", w = 74 }
-  local hand = { id = "hand", w = bw.hand }
-  local routine, pantry = { id = "routineList", w = 92 }, { id = "pantry", w = bw.pantry }
-  local journal = { id = "journal", w = bw.journal }
-  local left = { hand }
-  for _, t in ipairs(tools) do
-    left[#left + 1] = t
-  end
-  left[#left + 1] = routine
-  return {
-    left = left,
-    right = { pantry, journal },
-    fixedLeft = { hand },
-    toolsButton = { id = "tools", w = bw.tools },
-    fixedRight = { pantry, journal },
-    moreButton = { id = "more", w = bw.more },
-    tools = tools,
-    more = { routine },
-  }
+  items[#items + 1] = { id = "rod", w = 62 }
+  items[#items + 1] = { id = "plan", w = 74 }
+  return items
 end
 
-local function paletteCfg(view, scroll)
+-- The tool badge the tray opens above, and the top plates it must stay under.
+local function trayCase(view, scroll)
   local compact = view.w < tun.ui.compactWidth
   local h = compact and tun.ui.compactButtonHeight or tun.ui.buttonHeight
-  local topRow = compact and tun.ui.compactTopBarHeight or tun.ui.topBarHeight
-  local topH = topRow + (compact and tun.ui.statRowHeight or 0)
-  return {
-    pad = tun.ui.barPadding,
+  local H = tun.ui.hud
+  local anchor = { x = math.floor(view.w / 2) - 40, y = view.h - H.pad - H.badgeH, w = 80, h = H.badgeH }
+  local top = H.pad + H.clockH + H.gap + 2 * (H.vitalH + H.gap) -- the clock and two rows of vitals (a phone)
+  local cfg = {
+    pad = H.pad,
     gap = tun.ui.buttonGap,
     h = h,
-    margin = tun.ui.barMargin,
-    paletteGap = tun.ui.paletteGap,
-    paletteMaxRows = tun.ui.paletteMaxRows,
-    paletteTop = topH + tun.ui.buttonGap + 3 * (h + tun.ui.buttonGap),
+    maxRows = tun.ui.paletteMaxRows,
+    top = top,
     scrollBarWidth = tun.ui.scrollBarWidth,
     scroll = scroll,
   }
+  return anchor, cfg
 end
 
-T.test("palette: 8+ seeds stay inside a capped palette and every seed can be reached", function()
+T.test("tray: 8+ seeds stay inside a capped tray and every seed can be reached", function()
   for _, size in ipairs(SIZES) do
     for _, seeds in ipairs({ 8, 14, 40, 120 }) do
       local view = { w = size.w, h = size.h }
       local where = string.format("%s with %d seeds", size.name, seeds)
-      local cfg = paletteCfg(view, {})
-      local out = Toolbar.arrange(seedButtons(seeds), view, cfg)
-      if out.palette then
-        local pop = out.popups.tools
-        local cap = 2 * cfg.gap + cfg.paletteMaxRows * cfg.h + (cfg.paletteMaxRows - 1) * cfg.gap
-        T.truthy(pop.h <= cap + 0.001, where .. ": the palette is capped at " .. cfg.paletteMaxRows .. " rows")
-        T.truthy(pop.y >= cfg.paletteTop, where .. ": the palette keeps clear of the control column")
-        T.truthy(pop.y + pop.h <= view.h - out.bottomH, where .. ": the palette stays above the bar")
-        T.truthy(pop.x >= 0 and pop.x + pop.w <= view.w, where .. ": the palette is on screen")
-        -- Scroll through the palette: every item is fully inside the window at some offset.
-        local reached, offset, guard = {}, 0, 0
-        while guard < 200 do
-          cfg.scroll = { tools = offset }
-          local o = Toolbar.arrange(seedButtons(seeds), view, cfg).popups.tools
-          for _, b in ipairs(o.items) do
-            if
-              b.x >= o.view.x
-              and b.x + b.w <= o.view.x + o.view.w
-              and b.y >= o.view.y
-              and b.y + b.h <= o.view.y + o.view.h
-            then
-              reached[b.id] = true
-            end
+      local anchor, cfg = trayCase(view, 0)
+      local pop = Hud.tray(seedItems(seeds), anchor, view, cfg)
+      local cap = 2 * cfg.gap + cfg.maxRows * cfg.h + (cfg.maxRows - 1) * cfg.gap
+      T.truthy(pop.h <= cap + 0.001, where .. ": the tray is capped at " .. cfg.maxRows .. " rows")
+      T.truthy(pop.y >= cfg.top, where .. ": the tray keeps clear of the top plates")
+      T.truthy(pop.y + pop.h <= anchor.y, where .. ": the tray stays above its plate")
+      T.truthy(pop.x >= 0 and pop.x + pop.w <= view.w, where .. ": the tray is on screen")
+      -- Scroll through the tray: every item is fully inside the window at some offset.
+      local reached, offset, guard = {}, 0, 0
+      while guard < 200 do
+        cfg.scroll = offset
+        local o = Hud.tray(seedItems(seeds), anchor, view, cfg)
+        for _, b in ipairs(o.items) do
+          if
+            b.x >= o.view.x
+            and b.x + b.w <= o.view.x + o.view.w
+            and b.y >= o.view.y
+            and b.y + b.h <= o.view.y + o.view.h
+          then
+            reached[b.id] = true
           end
-          if offset >= o.contentH - o.view.h then
-            break
-          end
-          offset = offset + o.view.h / 2
-          guard = guard + 1
         end
-        for _, b in ipairs(pop.items) do
-          T.truthy(reached[b.id], where .. ": " .. b.id .. " can be scrolled into view")
+        if offset >= o.contentH - o.view.h then
+          break
         end
-        if seeds >= 120 then
-          T.truthy(pop.scrolls, where .. ": a long palette scrolls")
-        end
+        offset = offset + o.view.h / 2
+        guard = guard + 1
+      end
+      for _, b in ipairs(pop.items) do
+        T.truthy(reached[b.id], where .. ": " .. b.id .. " can be scrolled into view")
+      end
+      if seeds >= 120 then
+        T.truthy(pop.scrolls, where .. ": a long tray scrolls")
       end
     end
   end
 end)
 
-T.test("palette: scroll offset is clamped and the palette without overflow does not scroll", function()
+T.test("tray: scroll offset is clamped and a tray without overflow does not scroll", function()
   local view = SIZES[2]
-  local cfg = paletteCfg(view, { tools = 99999 })
-  local out = Toolbar.arrange(seedButtons(120), view, cfg)
-  local pop = out.popups.tools
+  local anchor, cfg = trayCase(view, 99999)
+  local pop = Hud.tray(seedItems(120), anchor, view, cfg)
   T.truthy(pop.scrolls)
   T.eq(pop.offset, pop.contentH - pop.view.h, "clamped to the end")
-  cfg = paletteCfg(view, { tools = 50 })
-  local few = Toolbar.arrange(seedButtons(2), view, cfg).popups.tools
+  cfg.scroll = 50
+  local few = Hud.tray(seedItems(2), anchor, view, cfg)
   T.falsy(few.scrolls)
   T.eq(few.offset, 0)
 end)

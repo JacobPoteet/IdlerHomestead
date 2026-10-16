@@ -217,13 +217,13 @@ function Driver:tryPress(label)
   return false
 end
 
---- Press a toolbar button wherever it lives: on the bar, or (narrow views, D72) inside the Tools or
---- More palette, which it opens first. Errors like press when the button is nowhere.
+--- Press a HUD button wherever it lives: on screen, or inside the tray of the tool badge or a book
+--- (D137), which it opens first. Errors like press when the button is nowhere.
 function Driver:pick(label)
   if self:tryPress(label) then
     return
   end
-  for _, opener in ipairs({ "Tools", "More" }) do
+  for _, opener in ipairs({ "Tools", "Notebook", "Ledger" }) do
     if self:tryPress(opener) then
       if self:tryPress(label) then
         return
@@ -235,6 +235,26 @@ function Driver:pick(label)
 end
 
 -- Homestead helpers -------------------------------------------------------------------------
+
+--- The homestead's HUD button with this id (a plate or a stamp, D137: "readiness", "delivery", "tools",
+--- "notebook" ...), or nil.
+function Driver:hudButton(id)
+  for _, b in ipairs(self:scene().buttons.list) do
+    if b.id == id then
+      return b
+    end
+  end
+  return nil
+end
+
+--- Press the HUD button with this id. Errors when it is not on screen.
+function Driver:pressHud(id)
+  local b = self:hudButton(id)
+  if not b then
+    error("no HUD button '" .. id .. "' on screen", 2)
+  end
+  self:click(b.x + b.w / 2, b.y + b.h / 2)
+end
 
 function Driver:scene()
   return self.game.app:top()

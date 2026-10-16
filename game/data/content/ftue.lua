@@ -26,11 +26,11 @@ return {
     -- The top-bar chips explain themselves on tap (D72), but nothing says so (#186, D89). Retired by the
     -- first chip card opened (hud.chipOpened, emitted by the homestead scene).
     id = "chips",
-    title = "The top bar",
+    title = "Your numbers",
     highlight = "chip:food",
     after = { step = "welcome", seconds = 5 },
     retire = { "hud.chipOpened" },
-    text = "Tap a chip in the top bar (food, health, money ...) to see what it means and what moves it.",
+    text = "Tap a number at the top right (food, health, money ...) to see what it means and what moves it.",
   },
   {
     id = "plant",
@@ -39,7 +39,7 @@ return {
     trigger = "object.cleared",
     after = { step = "welcome", seconds = 60 },
     retire = { "crop.planted" },
-    text = "Cleared! Pick a seed in the bottom bar (under Tools on a narrow screen), then tap open ground to till and plant it.",
+    text = "Cleared! Tap the tool at the bottom, pick a seed, then tap open ground to till and plant it.",
   },
   {
     -- Early money is invisible (#161, D88): the first junk pile cleared pays, so say that is where it comes from.
@@ -80,14 +80,14 @@ return {
     highlight = "button:journal",
     title = "A new idea",
     trigger = "journal.idea",
-    text = "Open the Journal and pick an idea to study. It finishes while you sleep, then you can buy it in the Catalog.",
+    text = "Tap the stamp on the left (or the Journal in the Notebook) and pick an idea to study. It finishes while you sleep, then you can buy it in the Catalog.",
   },
   {
     id = "harvest",
     highlight = "button:pantry",
     title = "First harvest",
     trigger = "crop.harvested",
-    text = "The Pantry keeps what you need to eat. Anything above that is spare: the stand and the truck can sell it. Open the Pantry to change what you keep.",
+    text = "The Pantry keeps what you need to eat. Anything above that is spare: the stand and the truck can sell it. Open the Pantry from the Ledger to change what you keep.",
   },
   {
     id = "spoil",
@@ -110,7 +110,7 @@ return {
     highlight = "button:place",
     title = "A delivery",
     trigger = "market.delivered",
-    text = "Your order arrived at the road. Tap the Place button in the bottom bar, then tap where it should go.",
+    text = "Your order arrived at the road. Tap the delivery stamp on the left, then tap where it should go.",
   },
   {
     id = "truck_ready",
@@ -131,7 +131,7 @@ return {
     title = "Autumn",
     trigger = "calendar.newSeason",
     match = { season = "autumn" },
-    text = "Winter is coming: store wood (the wood chip counts nights), keep food, and watch the forecast under the top bar. Crops still in the ground die when winter starts.",
+    text = "Winter is coming: store wood (the wood chip counts nights), keep food, and watch the forecast on the left. Crops still in the ground die when winter starts.",
   },
   {
     id = "winter",

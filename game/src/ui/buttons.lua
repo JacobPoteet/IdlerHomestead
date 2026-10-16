@@ -31,7 +31,8 @@ function Buttons:clear()
 end
 
 --- b: { x, y, w, h, label, onPress, enabled = true, style = "normal"|"danger"|"accent", size,
----      icon = spriteId, selected = bool, onRepeat = function(units) -> false to stop }
+---      icon = spriteId, selected = bool, onRepeat = function(units) -> false to stop,
+---      draw = function(b) (draws the button itself; the label still names it for the driver and keys) }
 --- `onRepeat` makes a stepper: a tap still calls onPress, and holding the button calls onRepeat with
 --- the units to move (see Buttons:update and src/ui/hold_repeat.lua); a hold that repeated does not
 --- also fire onPress on release.
@@ -126,62 +127,71 @@ end
 function Buttons:draw()
   local colors = theme.colors
   for _, b in ipairs(self.list) do
-    local fill = colors.button
-    if not b.enabled then
-      fill = colors.buttonDisabled
-    elseif self.pressed == b or b.selected then
-      fill = colors.buttonPressed
-    elseif self.hovered == b then
-      fill = colors.buttonHover
+    if b.draw then
+      b.draw(b)
+    else
+      self:drawOne(b, colors)
     end
-    local ink
-    if b.style == "danger" then
-      ink = colors.danger
-    elseif b.style == "accent" or b.selected then
-      ink = colors.accent
-    end
-    if b.pulse then
-      -- A gentle, persistent attention pulse (never hover-only): the outline breathes toward amber.
-      local wave = 0.5 + 0.5 * math.sin(love.timer.getTime() * 2 * math.pi / Buttons.PULSE_PERIOD)
-      local dark, amber = colors.panelBorder, colors.accent
-      ink = {
-        dark[1] + (amber[1] - dark[1]) * wave,
-        dark[2] + (amber[2] - dark[2]) * wave,
-        dark[3] + (amber[3] - dark[3]) * wave,
-      }
-    end
-    local pressed = self.pressed == b
-    Plate.draw(b.x, b.y, b.w, b.h, {
-      base = fill,
-      kind = "button",
-      ink = ink,
-      lit = pressed and 0 or nil, -- a pressed button loses its sunlit edge, as if pushed in
-      alpha = 1,
-      weather = false,
-    })
-    if b.latched then
-      -- A held-on tool (the Plan latch, D94): a second, inner amber ring so it reads apart from a plain selection.
-      love.graphics.setColor(colors.accent)
-      love.graphics.setLineWidth(1)
-      love.graphics.rectangle("line", b.x + 3.5, b.y + 3.5, b.w - 7, b.h - 7)
-    end
-    local tw, th = Text.measure(b.label, b.size or "body")
-    local textX, textW = b.x, b.w
-    if b.icon then
-      local icon = Assets.sprite(b.icon)
-      local total = icon.w + (b.label ~= "" and (3 + tw) or 0)
-      local ix = math.floor(b.x + (b.w - total) / 2)
-      love.graphics.setColor(1, 1, 1, b.enabled and 1 or 0.5)
-      love.graphics.draw(icon.image, icon.quad, ix, math.floor(b.y + (b.h - icon.h) / 2))
-      textX, textW = ix + icon.w + 3, tw + 1
-    end
-    Text.draw(b.label, textX, b.y + (b.h - th) / 2, {
-      size = b.size or "body",
-      width = textW,
-      align = b.icon and "left" or "center",
-      color = (b.enabled and not b.dim) and colors.text or colors.textDim, -- dim: a muted label on a live button (a seen tip)
-    })
   end
+end
+
+--- The standard look of one button: a plate in its state, then its icon and label.
+function Buttons:drawOne(b, colors)
+  local fill = colors.button
+  if not b.enabled then
+    fill = colors.buttonDisabled
+  elseif self.pressed == b or b.selected then
+    fill = colors.buttonPressed
+  elseif self.hovered == b then
+    fill = colors.buttonHover
+  end
+  local ink
+  if b.style == "danger" then
+    ink = colors.danger
+  elseif b.style == "accent" or b.selected then
+    ink = colors.accent
+  end
+  if b.pulse then
+    -- A gentle, persistent attention pulse (never hover-only): the outline breathes toward amber.
+    local wave = 0.5 + 0.5 * math.sin(love.timer.getTime() * 2 * math.pi / Buttons.PULSE_PERIOD)
+    local dark, amber = colors.panelBorder, colors.accent
+    ink = {
+      dark[1] + (amber[1] - dark[1]) * wave,
+      dark[2] + (amber[2] - dark[2]) * wave,
+      dark[3] + (amber[3] - dark[3]) * wave,
+    }
+  end
+  local pressed = self.pressed == b
+  Plate.draw(b.x, b.y, b.w, b.h, {
+    base = fill,
+    kind = "button",
+    ink = ink,
+    lit = pressed and 0 or nil, -- a pressed button loses its sunlit edge, as if pushed in
+    alpha = 1,
+    weather = false,
+  })
+  if b.latched then
+    -- A held-on tool (the Plan latch, D94): a second, inner amber ring so it reads apart from a plain selection.
+    love.graphics.setColor(colors.accent)
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", b.x + 3.5, b.y + 3.5, b.w - 7, b.h - 7)
+  end
+  local tw, th = Text.measure(b.label, b.size or "body")
+  local textX, textW = b.x, b.w
+  if b.icon then
+    local icon = Assets.sprite(b.icon)
+    local total = icon.w + (b.label ~= "" and (3 + tw) or 0)
+    local ix = math.floor(b.x + (b.w - total) / 2)
+    love.graphics.setColor(1, 1, 1, b.enabled and 1 or 0.5)
+    love.graphics.draw(icon.image, icon.quad, ix, math.floor(b.y + (b.h - icon.h) / 2))
+    textX, textW = ix + icon.w + 3, tw + 1
+  end
+  Text.draw(b.label, textX, b.y + (b.h - th) / 2, {
+    size = b.size or "body",
+    width = textW,
+    align = b.icon and "left" or "center",
+    color = (b.enabled and not b.dim) and colors.text or colors.textDim, -- dim: a muted label on a live button (a seen tip)
+  })
 end
 
 return Buttons

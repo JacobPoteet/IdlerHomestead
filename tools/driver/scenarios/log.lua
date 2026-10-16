@@ -34,7 +34,7 @@ return function(d)
   d:frames(3)
   d:shot("toast") -- the toast on screen, the Log button beside Menu
 
-  d:press("Log")
+  d:pick("Log")
   d:frames(3)
   d:shot("open") -- newest first, the coalesced storage line and a repeat count in the list
   d:wheel(-6, 200, 200)
@@ -55,7 +55,7 @@ return function(d)
   world = d:world()
   local after = scene.log:lines()
   assert(#after == #before and after[1].text == before[1].text, "the reopened slot lost its message log")
-  d:press("Log")
+  d:pick("Log")
   d:frames(3)
   d:shot("reopened") -- the same lines as before the save
   d:key("escape")

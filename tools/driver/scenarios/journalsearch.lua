@@ -45,7 +45,7 @@ return function(d)
     error("no search chip")
   end
 
-  d:press("Journal")
+  d:pick("Journal")
   d:frames(8)
   d:shot("overview")
 
@@ -87,7 +87,7 @@ return function(d)
   d:key("escape") -- back to the overview
   d:key("escape") -- close
   d:frames(2)
-  d:press("Journal")
+  d:pick("Journal")
   d:frames(8)
   d:shot("reopened")
   d:key("escape") -- back to the overview
@@ -98,7 +98,7 @@ return function(d)
   JournalScene.chapterSource = oneBigChapter
   JournalScene.lastChapter = nil
   local ok, err = pcall(function()
-    d:press("Journal")
+    d:pick("Journal")
     d:frames(8)
     local s = d:scene()
     local tile = s.nav.grid.tileOf[1]

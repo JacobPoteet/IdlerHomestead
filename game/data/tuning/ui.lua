@@ -1,23 +1,12 @@
--- HUD layout metrics for the homestead (GDD §9): top bar, toolbar, speed/routine column.
+-- HUD layout metrics for the homestead (GDD §9.4): the resting HUD's plates, trays and panels.
 -- All sizes are virtual pixels (the view is at least 640x360 on desktop, narrower on phones).
 return {
-  topBarHeight = 24, -- height of the top bar's first row (date, clock, Menu)
-  compactTopBarHeight = 32, -- first-row height on narrow views, so the Menu button is a finger-sized target
-  statRowHeight = 20, -- extra top-bar row used when the stats don't fit beside the date
-  statGap = 9, -- space between two stats in the strip
-  statMinGap = 4, -- tightest gap the strip squeezes down to; narrower than that the stats wrap to their own row
   statIconGap = 3, -- space between a stat's icon and its value
-  barPadding = 6, -- left/right padding inside the top and bottom bars
-  buttonHeight = 24, -- toolbar and control button height on wide views
+  buttonHeight = 24, -- tray and panel button height on wide views
   compactButtonHeight = 30, -- the same on narrow views (phone), where fingers need more room
   compactWidth = 480, -- views narrower than this use the compact button height
   buttonGap = 4, -- space between neighbouring buttons
-  groupGap = 4, -- extra space between the tool group and the Place/Plan group
-  barMargin = 5, -- vertical padding above the first toolbar row and below the last
-  menuWidth = 50, -- Menu button width
-  controlMinWidth = 54, -- narrowest speed/routine/power button
   controlTextPadding = 14, -- horizontal padding around a control button's label
-  statsAfterDate = 162, -- left edge of the stat strip when it sits beside the date
   reportSeconds = 16, -- real seconds the morning report card waits before folding itself away (Got it closes it sooner; a tip card pauses the count)
   storageNoteRefresh = 0.5, -- game seconds between re-scans for which full stores are holding something back (the "Full:" pill, D93)
   planLatchWindow = 0.5, -- real seconds in which a second tap on Plan latches the tool on (touch counterpart of holding Shift, D94); a slower tap turns it off
@@ -51,7 +40,7 @@ return {
     nowFree = "Sandbox: free, and it goes straight to your inventory", -- the "Right now" line of a grantable item
   },
   scrollHintHeight = 12, -- virtual pixels reserved under a scrolling list for its "drag or scroll" hint
-  buttonWidths = { -- toolbar button widths
+  buttonWidths = { -- tray button widths (the tools tray, the books' trays)
     hand = 40,
     seed = 40,
     rod = 44,
@@ -63,16 +52,11 @@ return {
     fish = 78,
     catalog = 56,
     pantry = 52,
-    tools = 54, -- the palette button on narrow views
-    more = 46, -- the books palette button on narrow views
-    activeMin = 44, -- narrowest "tool in hand" shortcut beside the palette button
   },
-  paletteMaxRows = 4, -- rows of buttons a toolbar palette shows at once; more seeds or tools scroll (drag, wheel, keys) with a thumb beside them (D87, #184)
-  paletteGap = 4, -- virtual pixels between the toolbar and the palette that opens above it
-  pillHeight = 14, -- height of the small status pills above the toolbar (routine badge, tool caption)
-  pillGap = 4, -- space between those pills and the bar, and between two stacked pills
+  paletteMaxRows = 4, -- rows of buttons a tray shows at once; more seeds or tools scroll (drag, wheel, keys) with a thumb beside them (D87, #184)
+  pillHeight = 14, -- height of the small pills: the tool caption over the tool badge, the forecast lines
   chipHitPad = 2, -- virtual pixels a chip's tap target grows beyond its icon and number on each side
-  labels = { -- toolbar and control button texts (D72, #168); a name that says what tapping does
+  labels = { -- HUD and tray button texts (D72, #168, D137); a name that says what tapping does
     hand = "Hand",
     rod = "Rod",
     untill = "Untill",
@@ -86,12 +70,19 @@ return {
     catalog = "Catalog",
     fishGuide = "Fish guide",
     journal = "Journal",
-    power = "Power",
     tools = "Tools",
-    more = "More",
     place = "Place",
     moving = "Moving",
     tripReady = "ready", -- added to the truck charge chip while a trip to town is possible
+    log = "Log", -- the message log, on the Notebook's tray (D90)
+    pause = "Pause", -- speed plate: stop time
+    play = "Play", -- speed plate: normal speed
+    fast = "Fast", -- speed plate: the fast speeds, 2x then 4x on each tap
+    menu = "Menu",
+    notebook = "Notebook", -- book plate: what you know (Journal, Fish guide, Log) (D140)
+    ledger = "Ledger", -- book plate: what you run (Pantry, Routine list, Catalog) (D140)
+    journalStamp = "Pick an idea", -- decision stamp: the Journal has an idea to choose and nothing is queued
+    deliveryStamp = "Delivered: %s", -- decision stamp: an item waits in the crate to be placed; %s is its name
   },
   captions = { -- one line saying what the tool in hand does on the next tap (D72, #168); %s is the seed or object name
     rod = "Rod: tap the water to fish",
@@ -103,13 +94,6 @@ return {
     planKept = "Plan kept on: tap two corners; tap Plan to stop", -- the Plan latch is on (D94, #205); the caption is the same for a seed or a clear
     place = "Placing %s: tap where it goes",
     moving = "Moving %s: tap where it goes (tap Moving to cancel)", -- D98, #15
-  },
-  badges = { -- the routine badge above the toolbar (D72, #168); %d is seconds
-    asleep = "Sleeping",
-    paused = "Paused",
-    running = "Routine running: tap to take over",
-    resting = "Resting hours: the routine sleeps too",
-    countdown = "Routine starts in %ds if you stop tapping",
   },
   failure = { -- rescue and recovery words for what ended a run (D99, #216, #173); %s is a shelter or object name, lower case
     bothRatio = 2, -- ratio: cold and hunger both count when neither damage is at least this many times the other
@@ -278,7 +262,6 @@ return {
   log = { -- message log (D90, #167)
     maxLines = 40, -- lines kept, newest first; older ones drop off the end (a night of news is about a dozen)
     coalesceSeconds = 60, -- game seconds within which the pieces of one multi-part event (storage full for several goods) merge into one line
-    buttonWidth = 34, -- virtual pixels wide the Log button beside Menu in the top bar (the touch-size rule still makes it hittable)
     panelWidth = 400, -- virtual pixels wide the log panel (shrinks to fit a narrow view)
   },
   journal = { -- Field Journal navigation (D81, #194); all virtual pixels unless noted
@@ -350,7 +333,7 @@ return {
     barHeight = 2, -- virtual pixels: the fill bar under a chip's icon and number
     barGap = 1, -- virtual pixels between the icon and the bar under it
     barTrack = { 0, 0, 0, 0.45 }, -- rgba: the empty part of a chip's bar
-    barOk = { 0.55, 0.74, 0.45, 1 }, -- rgba: a bar whose chip is fine (amber and red use the theme accent and danger colours)
+    barOk = { 0.86, 0.80, 0.66, 1 }, -- rgba: a bar whose vital is fine, a quiet cream (amber and red use the theme accent and danger colours; no UI green, D142)
     marks = { [0] = "", "!", "!!" }, -- text after the number by alert level (0 fine, 1 amber, 2 red): the state is never colour alone
     markGap = 2, -- virtual pixels between a chip's number and its level mark or trend arrow
     trendSize = 5, -- virtual pixels: width and height of the trend triangle after a number
@@ -382,6 +365,41 @@ return {
     keyWidth = 76, -- virtual pixels: the key button of a row (shows the current key, or "Press a key...")
     resetWidth = 48, -- virtual pixels: the per-row Reset button
     buttonGap = 4, -- virtual pixels between a row's buttons
+  },
+  hud = { -- the resting HUD (src/ui/hud.lua, GDD §9.4, D137); UI pixels unless noted
+    pad = 4, -- margin between the plates and the view's edges
+    gap = 4, -- space between neighbouring plates
+    textPad = 6, -- space between a plate's edge and its words
+    clockH = 26, -- the clock plate: two lines (date, then time and the forecast glyphs)
+    speedSegment = 24, -- width of each speed button on the speed plate (at least the touch size)
+    vitalH = 24, -- height of a vitals plate (icon, value and the thin gauge under them)
+    vitalGap = 9, -- space between two vitals on a plate
+    vitalPad = 6, -- space between a vitals plate's edge and its first and last vital
+    stampSize = 24, -- a decision stamp's height, and its width when only the icon shows
+    badgeH = 30, -- the homesteader, tool and book plates
+    iconPad = 9, -- space round an icon on an icon-only plate
+    countdownSteps = 76, -- pixels round the homesteader portrait for the idle countdown ring (about 2 pi x the radius, so it reads as a line)
+    countdownRadius = 12, -- UI pixels from the portrait's centre to the ring
+    jobs = { -- the badge's second line for the job in hand, by task category (anything else reads "Working")
+      harvest = "Harvesting",
+      water = "Watering",
+      animals = "With the animals",
+      plant = "Planting",
+      process = "Preserving",
+      clear = "Clearing",
+      trees = "Felling",
+      fish = "Fishing",
+    },
+    states = { -- the badge's first line
+      routine = "Routine",
+      handsOn = "Hands-on",
+      asleep = "Asleep",
+      resting = "Resting",
+      paused = "Paused",
+    },
+    idleLine = "Nothing to do", -- the routine is on with no work (it opens the routine list)
+    countdownLine = "Routine in %ds", -- hands-on: when the routine takes over; %d is seconds
+    walking = "Walking", -- on the way to a job
   },
   plate = { -- frosted HUD and panel plates lit like the world (shaders/ui_plate.glsl, src/ui/plate.lua; GDD §9.4, D142)
     see = 0.36, -- 0..1 how much of the blurred world shows through a panel plate (higher = more glass, less contrast for text)

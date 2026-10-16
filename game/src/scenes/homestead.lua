@@ -58,7 +58,8 @@ local Plate = require("src.ui.plate")
 local Sketch = require("src.render.sketch")
 local ChipText = require("src.ui.chip_text")
 local ChipStrip = require("src.ui.chip_strip")
-local Toolbar = require("src.ui.toolbar")
+local Hud = require("src.ui.hud")
+local Icons = require("src.ui.icons")
 local ScrollList = require("src.ui.scroll_list")
 local MessageLog = require("src.ui.message_log")
 local Text = require("src.ui.text")
@@ -97,7 +98,11 @@ function Homestead:enter(slot, data)
   local relayout = function()
     self:layout()
   end
-  self.paletteLists = { tools = ScrollList.new(relayout), more = ScrollList.new(relayout) }
+  self.paletteLists = {
+    tools = ScrollList.new(relayout),
+    notebook = ScrollList.new(relayout),
+    ledger = ScrollList.new(relayout),
+  }
   self.mode = "act" -- "act" | "plan" | "place"
   self.seed = nil -- crop id in hand
   self.tool = nil -- "rod" in hand
@@ -640,93 +645,170 @@ function Homestead:nextPlaceable()
   return ids[1]
 end
 
---- Where each top-bar chip goes (D112): { rows = extra stat rows under the date (0 = beside it), items =
---- { { entry, x, rowTop, rowH, width } }, gap }. The chips sit beside the date when they fit, otherwise on
---- their own row(s) under it, wrapping to another row when one is not enough (many chips on a narrow
---- phone). The chips are the entries of src/ui/chip_strip.lua, built from the same accessors as the modals.
-function Homestead:chipLayout()
-  local world = self.world
-  local view = self.app.view
-  local ui = self.app.ctx.tuning.ui
-  local entries = ChipStrip.entries(world)
-  local topRowH = view.w < ui.compactWidth and ui.compactTopBarHeight or ui.topBarHeight
-  local beside = view.w - ui.menuWidth - ui.log.buttonWidth - 2 - ui.statsAfterDate - ui.barPadding
-  local items = {}
-  if ChipStrip.stripWidth(world, entries, ui.statMinGap) <= beside then
-    local gap = ChipStrip.stripWidth(world, entries, ui.statGap) <= beside and ui.statGap or ui.statMinGap
-    local x = ui.statsAfterDate
-    for _, e in ipairs(entries) do
-      local width = ChipStrip.width(world, e)
-      items[#items + 1] = { entry = e, x = x, rowTop = 0, rowH = topRowH, width = width }
-      x = x + width + gap
+-- The resting HUD (GDD §9.4, D137, #293) --------------------------------------------------
+
+--- The vitals the HUD shows: the chip strip's entries without the weather, which sits on the clock (D112
+--- chips, the same accessors as their cards). Returns the vitals and the weather entry.
+function Homestead:vitalEntries()
+  local out, weather = {}, nil
+  for _, e in ipairs(ChipStrip.entries(self.world)) do
+    if e.id == "weather" then
+      weather = e
+    else
+      out[#out + 1] = e
     end
-    return { rows = 0, items = items, gap = gap }
   end
-  local own = view.w - 2 * ui.barPadding
-  local gap = ChipStrip.stripWidth(world, entries, ui.statGap) <= own and ui.statGap or ui.statMinGap
-  local x, row = ui.barPadding, 1
-  for _, e in ipairs(entries) do
-    local width = ChipStrip.width(world, e)
-    if x > ui.barPadding and x + width > ui.barPadding + own then
-      row, x = row + 1, ui.barPadding
-    end
-    items[#items + 1] =
-      { entry = e, x = x, rowTop = topRowH + (row - 1) * ui.statRowHeight, rowH = ui.statRowHeight, width = width }
-    x = x + width + gap
+  return out, weather
+end
+
+--- "Day 3 · Spring", the clock's first line.
+function Homestead:dateText()
+  local now = Calendar.now(self.world)
+  return string.format("Day %d · %s", now.dayOfSeason, (now.season:gsub("^%l", string.upper)))
+end
+
+--- The decision stamps due now, in order (D137): { id, icon, label, color, onPress }. Each is something
+--- that waits on the player: an idea to pick, a winter that is not covered, a store holding things back, a
+--- delivery waiting in the crate.
+function Homestead:stampList()
+  local world, L = self.world, self.app.ctx.tuning.ui.labels
+  local colors = theme.colors
+  local list = {}
+  if Journal.needsChoice(world) then
+    list[#list + 1] = {
+      id = "journal",
+      icon = "icon_signal_idea",
+      label = L.journalStamp,
+      color = colors.accent,
+      onPress = function()
+        self:openPanel("journal")
+      end,
+    }
   end
-  return { rows = row, items = items, gap = gap }
+  local readyText, readyColor = AlertText.readinessPill(world)
+  if readyText and readyColor ~= colors.text then
+    list[#list + 1] = {
+      id = "readiness",
+      icon = "icon_signal_alert",
+      label = readyText,
+      color = readyColor,
+      onPress = function()
+        self:openReadiness()
+      end,
+    }
+  end
+  local notes = self:storageNotes()
+  if #notes > 0 then
+    list[#list + 1] = {
+      id = "storage",
+      icon = "icon_signal_alert",
+      label = notes[1][1],
+      color = notes[1][2],
+      onPress = function()
+        self:openStorageNotes(notes)
+      end,
+    }
+  end
+  local placeable = self.mode ~= "place" and self:nextPlaceable()
+  if placeable then
+    local def = world.registry:get("objects", placeable)
+    list[#list + 1] = {
+      id = "delivery",
+      icon = "icon_crate",
+      label = string.format(L.deliveryStamp, def.name:lower()),
+      color = colors.accent,
+      onPress = function()
+        self.mode, self.placing, self.moving, self.planStart = "place", placeable, nil, nil
+        self:showToast("Tap where the " .. def.name:lower() .. " should go")
+        self:layout()
+      end,
+    }
+  end
+  return list
+end
+
+--- The storage stamp, expanded: every store holding something back (D59, D93).
+function Homestead:openStorageNotes(notes)
+  local lines = {}
+  for _, n in ipairs(notes) do
+    lines[#lines + 1] = n[1]
+  end
+  self.app:push(require("src.scenes.notice").new({
+    title = "Storage",
+    message = table.concat(lines, "\n"),
+    okLabel = "Got it",
+  }))
+end
+
+--- What the HUD shows that changes its layout; the scene lays out again when this changes.
+function Homestead:hudKey()
+  local parts = {
+    self:dateText(),
+    self:speedLabel(),
+    self:routineLabel(),
+    tostring(self:hintKind()),
+    tostring(self.session:timeHeld()),
+    self.mode,
+    tostring(self.seed),
+    tostring(self.tool),
+    tostring(self.placing),
+    tostring(self.moving),
+    tostring(self.palette),
+    tostring(self:captionText()),
+    tostring(self.world.control),
+    tostring(Actors.homesteader(self.world).asleep),
+  }
+  for _, e in ipairs(ChipStrip.entries(self.world)) do
+    parts[#parts + 1] = e.id .. "=" .. e.text .. (e.icons and #e.icons or "")
+  end
+  for _, s in ipairs(self:stampList()) do
+    parts[#parts + 1] = s.id .. ":" .. s.label
+  end
+  return table.concat(parts, "|")
 end
 
 function Homestead:layout()
   local view = self.app.view
   local ui = self.app.ctx.tuning.ui
-  local compact = view.w < ui.compactWidth
-  local btnH = compact and ui.compactButtonHeight or ui.buttonHeight
-  self.btnH = btnH
-  self.statRows = self:chipLayout().rows
-  self.topRowH = compact and ui.compactTopBarHeight or ui.topBarHeight
-  self.topH = self.topRowH + self.statRows * ui.statRowHeight
+  self.btnH = view.w < ui.compactWidth and ui.compactButtonHeight or ui.buttonHeight
   self.buttons:clear()
   self.seedButtons = {}
-  self.buttons:add({
-    x = view.w - ui.menuWidth - 2,
-    y = 0,
-    w = ui.menuWidth,
-    h = self.topRowH,
-    label = "Menu",
-    onPress = function()
-      self:openMenu()
-    end,
-  })
-  -- The message log (D90, #167): everything the toasts said, one tap away beside Menu.
-  self.buttons:add({
-    x = view.w - ui.menuWidth - ui.log.buttonWidth - 4,
-    y = 0,
-    w = ui.log.buttonWidth,
-    h = self.topRowH,
-    label = "Log",
-    onPress = function()
-      self:openLog()
-    end,
-  })
-  self:layoutToolbar(view)
-  self:layoutControls(view)
+  self:layoutHud(view)
   self:layoutCard()
 end
 
---- Build the bottom toolbar and place it (D72, #168, #17). A wide view gets the classic bar (tools left,
---- books right, one row); a narrow one gets a palette bar: Hand, Tools, the tool in hand, Pantry, Journal
---- and More, with the rest of the tools and books in the palette that Tools and More open above the bar.
---- Placement is pure (src/ui/toolbar.lua); this only decides what the buttons are and what they say.
-function Homestead:layoutToolbar(view)
+--- The tool in hand as the tool badge shows it: { icon, extra icon or nil, label }.
+function Homestead:toolInHand()
+  local world, L = self.world, self.app.ctx.tuning.ui.labels
+  if self.mode == "place" and self.placing then
+    local def = world.registry:get("objects", self.placing)
+    local id = "icon_" .. self.placing
+    return Assets.has(id) and id or "icon_crate", nil, (self.moving and L.moving or L.place) .. " " .. def.name:lower()
+  elseif self.mode == "plan" then
+    return "icon_tool_hoe", self.seed and Icons.packet(self.seed) or nil, L.plan
+  elseif self.tool == "rod" then
+    return Icons.tool(world, "rod"), nil, L.rod
+  elseif self.tool == "untill" then
+    return "icon_verb_untill", nil, L.untill
+  elseif self.seed then
+    local crop = world.registry:get("crops", self.seed)
+    return "icon_tool_hoe", Icons.packet(self.seed), crop.name .. " " .. Ledger.get(world, crop.seed)
+  end
+  return "icon_tool_hand", nil, L.hand
+end
+
+--- Build the resting HUD's plates and the trays that open above them (D137). Placement is pure
+--- (src/ui/hud.lua); this decides what the plates are, what they say and what a tap does.
+function Homestead:layoutHud(view)
   local world = self.world
   local ui = self.app.ctx.tuning.ui
-  local bw, L = ui.buttonWidths, ui.labels
+  local H, L = ui.hud, ui.labels
+  local minTouch = self.app.ctx.tuning.input.minTouchTarget
   local inHand = self.mode == "act"
   local function fit(label, min, icon)
     return math.max(min, math.ceil(Text.measure(label, "body")) + ui.controlTextPadding + (icon and 15 or 0))
   end
-  -- A press on a tool or book closes an open palette, does its thing, and lays the bar out again.
+  -- A press on a tray button closes the tray, does its thing, and lays the HUD out again.
   local function act(fn)
     return function(b)
       self.palette = nil
@@ -734,23 +816,34 @@ function Homestead:layoutToolbar(view)
       self:layout()
     end
   end
-  self.seedButtons = {}
+  local function toggle(name)
+    return function()
+      self.palette = self.palette ~= name and name or nil
+      for _, list in pairs(self.paletteLists) do
+        list.offset = 0 -- a tray opens at its top
+      end
+      self:layout()
+    end
+  end
 
-  local hand = {
-    id = "hand",
-    w = bw.hand,
-    label = L.hand,
-    selected = inHand and not self.seed and not self.tool,
-    onPress = act(function()
-      self:setHand(nil, nil)
-    end),
+  -- The tools tray (until the tool wheel, #294): Hand, a packet per crop, Rod, Untill, Place, Plan field.
+  local tools = {
+    {
+      id = "hand",
+      w = fit(L.hand, ui.buttonWidths.hand, true),
+      icon = "icon_tool_hand",
+      label = L.hand,
+      selected = inHand and not self.seed and not self.tool,
+      onPress = act(function()
+        self:setHand(nil, nil)
+      end),
+    },
   }
-  local tools = {}
   for _, crop in ipairs(world.registry:all("crops")) do
     local button = {
       id = "seed:" .. crop.id,
-      w = bw.seed,
-      icon = "icon_" .. crop.seed,
+      w = ui.buttonWidths.seed,
+      icon = Icons.packet(crop.id),
       label = tostring(Ledger.get(world, crop.seed)),
       selected = self.seed == crop.id and self.mode ~= "place",
       onPress = act(function()
@@ -766,8 +859,8 @@ function Homestead:layoutToolbar(view)
   end
   tools[#tools + 1] = {
     id = "rod",
-    w = fit(L.rod, bw.rod, true),
-    icon = "icon_rod",
+    w = fit(L.rod, ui.buttonWidths.rod, true),
+    icon = Icons.tool(world, "rod"),
     label = L.rod,
     selected = inHand and self.tool == "rod",
     onPress = act(function()
@@ -776,7 +869,8 @@ function Homestead:layoutToolbar(view)
   }
   tools[#tools + 1] = {
     id = "untill",
-    w = fit(L.untill, bw.untill),
+    w = fit(L.untill, ui.buttonWidths.untill, true),
+    icon = "icon_verb_untill",
     label = L.untill,
     selected = inHand and self.tool == "untill",
     onPress = act(function()
@@ -789,10 +883,8 @@ function Homestead:layoutToolbar(view)
     local label = (self.moving and L.moving or L.place) .. " " .. def.name:lower()
     tools[#tools + 1] = {
       id = "place",
-      gapBefore = ui.groupGap,
-      w = math.max(bw.placeMin, math.ceil(Text.measure(label, "body")) + 12),
+      w = math.max(ui.buttonWidths.placeMin, math.ceil(Text.measure(label, "body")) + 12),
       label = label,
-      short = self.moving and L.moving or L.place,
       style = "accent",
       selected = self.mode == "place",
       onPress = act(function()
@@ -807,8 +899,7 @@ function Homestead:layoutToolbar(view)
   end
   tools[#tools + 1] = {
     id = "plan",
-    gapBefore = not placeable and ui.groupGap or nil,
-    w = fit(L.plan, bw.plan),
+    w = fit(L.plan, ui.buttonWidths.plan),
     label = L.plan,
     selected = self.mode == "plan",
     latched = self.mode == "plan" and self.planLatch or nil,
@@ -816,152 +907,247 @@ function Homestead:layoutToolbar(view)
       self:pressPlan(love.timer.getTime())
     end),
   }
-  local routineList = {
-    id = "routineList",
-    w = fit(L.routineList, bw.routine),
-    label = L.routineList,
-    onPress = act(function()
-      self.app:push(require("src.scenes.routine").new(world))
-    end),
-  }
-  self.journalPrompt = Journal.needsChoice(world)
-  local pantry = {
-    id = "pantry",
-    w = bw.pantry,
-    label = L.pantry,
-    onPress = act(function()
-      self.app:push(require("src.scenes.pantry").new(world))
-    end),
-  }
-  local catalog = {
-    id = "catalog",
-    w = bw.catalog,
-    label = L.catalog,
-    onPress = act(function()
-      self.app:push(require("src.scenes.catalog").new(world, self:toaster()))
-    end),
-  }
-  local fishGuide = {
-    id = "fish",
-    w = fit(L.fishGuide, bw.fish),
-    label = L.fishGuide,
-    onPress = act(function()
-      self.app:push(require("src.scenes.guide").new(world))
-    end),
-  }
-  local journal = {
-    id = "journal",
-    w = bw.journal,
-    label = L.journal,
-    style = self.journalPrompt and "accent" or nil,
-    onPress = act(function()
-      self.app:push(require("src.scenes.journal").new(world, self:toaster()))
-    end),
+
+  -- The books' trays (until the tabbed books, #296).
+  local function book(id, label, width, fn)
+    return { id = id, w = fit(label, width), label = label, onPress = act(fn) }
+  end
+  local trays = {
+    tools = tools,
+    notebook = {
+      book("journal", L.journal, ui.buttonWidths.journal, function()
+        self:openPanel("journal")
+      end),
+      book("fish", L.fishGuide, ui.buttonWidths.fish, function()
+        self.app:push(require("src.scenes.guide").new(world))
+      end),
+      book("log", L.log, ui.buttonWidths.journal, function()
+        self:openLog()
+      end),
+    },
+    ledger = {
+      book("pantry", L.pantry, ui.buttonWidths.pantry, function()
+        self:openPanel("pantry")
+      end),
+      book("routineList", L.routineList, ui.buttonWidths.routine, function()
+        self.app:push(require("src.scenes.routine").new(world))
+      end),
+      book("catalog", L.catalog, ui.buttonWidths.catalog, function()
+        self:openPanel("catalog")
+      end),
+    },
   }
 
-  -- Palette bar pieces: the two palette buttons and a shortcut for the tool in hand.
-  local function opener(id, label, min)
-    return {
-      id = id,
-      w = fit(label, min),
-      label = label,
-      selected = self.palette == id,
+  -- Measure the plates.
+  local vitals, weather = self:vitalEntries()
+  local weatherW = 0
+  for n, id in ipairs(weather and (weather.icons or { weather.icon }) or {}) do
+    weatherW = weatherW + Assets.sprite(id).w + (n > 1 and ui.topChips.iconGap or 0)
+  end
+  local timeW = Text.measure("00:00", "body")
+  local clockW = math.max(Text.measure(self:dateText(), "body"), timeW + H.gap + weatherW) + 2 * H.textPad
+  local spec = {
+    clock = { w = clockW, h = H.clockH },
+    speed = { w = 3 * H.speedSegment, h = H.clockH, segments = 3 },
+    menu = { w = math.max(minTouch, H.clockH), h = H.clockH },
+    vitals = {},
+    vitalH = H.vitalH,
+    stamps = {},
+    books = {},
+  }
+  for _, e in ipairs(vitals) do
+    spec.vitals[#spec.vitals + 1] = { id = e.id, w = ChipStrip.width(world, e) }
+  end
+  local stamps = self:stampList()
+  for _, s in ipairs(stamps) do
+    spec.stamps[#spec.stamps + 1] = {
+      id = s.id,
+      w = H.stampSize + Text.measure(s.label, "small") + H.textPad,
+      iconW = H.stampSize,
+      h = H.stampSize,
+    }
+  end
+  local state, line2 = self:badgeLines()
+  local portrait = Assets.sprite("homesteader")
+  spec.badge = {
+    w = portrait.w + 4 * H.textPad + math.max(Text.measure(state, "body"), Text.measure(line2, "small")),
+    compactW = H.badgeH,
+    h = H.badgeH,
+  }
+  local icon, extra, toolLabel = self:toolInHand()
+  local iconsW = Assets.sprite(icon).w + (extra and Assets.sprite(extra).w + 2 or 0)
+  spec.tool = {
+    w = iconsW + 3 * H.textPad + Text.measure(toolLabel, "body"),
+    compactW = iconsW + 2 * H.iconPad,
+    h = H.badgeH,
+  }
+  for _, b in ipairs({ { "notebook", L.notebook }, { "ledger", L.ledger } }) do
+    spec.books[#spec.books + 1] = {
+      id = b[1],
+      w = Assets.sprite("icon_book_" .. b[1]).w + 3 * H.textPad + Text.measure(b[2], "body"),
+      compactW = H.badgeH,
+    }
+  end
+  local caption = self:captionText()
+  if caption then
+    spec.caption = { w = Text.measure(caption, "small") + 2 * H.textPad, h = ui.pillHeight }
+  end
+  local out = Hud.arrange(spec, view, { pad = H.pad, gap = H.gap, vitalGap = H.vitalGap, vitalPad = H.vitalPad })
+  self.hud = out
+  self.hudCaption = caption
+  self.topH = out.topH
+  self.bottomH = view.h - out.bottomTop
+
+  -- The plates that answer a tap are buttons with their own drawing (Buttons `draw`), so a label stays for
+  -- the screenshot driver and the keyboard while the plate shows an icon.
+  local add = function(r, b)
+    b.x, b.y, b.w, b.h = r.x, r.y, r.w, r.h
+    return self.buttons:add(b)
+  end
+  add(out.clock, {
+    id = "clock",
+    label = self:dateText(),
+    onPress = function()
+      self:openChip("weather")
+    end,
+    draw = function(b)
+      self:drawClock(b, weather)
+    end,
+  })
+  local speed = self.session:effectiveSpeed()
+  local held = self.session:timeHeld() -- the speed waits for the drive home (D78) or the tip card (D92)
+  local steps = self.app.ctx.tuning.time.speedSteps
+  local segments = {
+    { id = "pause", label = L.pause, on = speed == 0, glyph = "pause", scale = 0 },
+    { id = "play", label = L.play, on = speed == 1, glyph = "play", scale = 1 },
+    { id = "fast", label = L.fast, on = speed > 1, glyph = "fast" },
+  }
+  for k, seg in ipairs(segments) do
+    add(out.segments[k], {
+      id = seg.id,
+      label = seg.label,
+      enabled = not held,
+      selected = seg.on,
       onPress = function()
-        self.palette = self.palette ~= id and id or nil
-        for _, list in pairs(self.paletteLists) do
-          list.offset = 0 -- a palette opens at its top
+        local scale = seg.scale
+        if not scale then
+          -- Fast: the first fast step, then the next on each tap.
+          scale = steps[#steps]
+          for _, s in ipairs(steps) do
+            if s > math.max(1, speed) then
+              scale = s
+              break
+            end
+          end
+          if speed >= steps[#steps] then
+            scale = steps[3] or steps[#steps]
+          end
         end
+        self.session:setSpeed(scale)
         self:layout()
       end,
-    }
+      draw = function(b)
+        self:drawSpeedSegment(b, seg.glyph, speed)
+      end,
+    })
   end
-  local toolsButton, moreButton = opener("tools", L.tools, bw.tools), opener("more", L.more, bw.more)
-  local active
-  for _, id in ipairs({ "place", "plan", "rod", "untill" }) do
-    for _, b in ipairs(tools) do
-      if b.id == id and b.selected and not active then
-        active = b
+  add(out.menu, {
+    id = "menu",
+    label = L.menu,
+    onPress = function()
+      self:openMenu()
+    end,
+    draw = function(b)
+      self:drawIconPlate(b, "icon_menu")
+    end,
+  })
+  for n, r in ipairs(out.stamps) do
+    local s = stamps[n]
+    add(r, {
+      id = s.id,
+      label = s.label,
+      onPress = s.onPress,
+      draw = function(b)
+        self:drawStamp(b, s, r.compact)
+      end,
+    })
+  end
+  -- The homesteader badge: what they are doing, and the routine switch (D43, D93). With the routine on and
+  -- nothing to do it opens the priorities instead; it pulses gently while a nudge applies.
+  local hint = self:hintKind()
+  add(out.badge, {
+    id = "badge",
+    label = self:routineLabel(),
+    pulse = hint ~= nil,
+    onPress = function()
+      if hint == "nothing" then
+        self.app:push(require("src.scenes.routine").new(world))
+      elseif world.control == "idle" then
+        self.session:cancelRoutine()
+        self.session:setControl("active")
+        self:layout()
+      else
+        self:startRoutine()
       end
-    end
-  end
-  for _, b in ipairs(tools) do
-    if not active and b.selected and b.id:find("^seed:") then
-      active = b
-    end
-  end
-  self.activeChip = nil
-  if active then
-    local label = active.short or active.label
-    self.activeChip = {
-      id = "active",
-      of = active.id,
-      source = active,
-      w = fit(label, bw.activeMin, active.icon ~= nil),
-      icon = active.icon,
-      label = label,
-      short = active.short,
-      selected = true,
-      latched = active.latched,
-      onPress = active.onPress,
-    }
+    end,
+    draw = function(b)
+      self:drawBadge(b, out.compact)
+    end,
+  })
+  add(out.tool, {
+    id = "tools",
+    label = L.tools,
+    selected = self.palette == "tools",
+    onPress = toggle("tools"),
+    draw = function(b)
+      self:drawToolBadge(b, out.compact)
+    end,
+  })
+  for i, r in ipairs(out.books) do
+    local id = spec.books[i].id
+    add(r, {
+      id = id,
+      label = L[id],
+      selected = self.palette == id,
+      onPress = toggle(id),
+      draw = function(b)
+        self:drawIconPlate(b, "icon_book_" .. id, not out.compact and L[id] or nil)
+      end,
+    })
   end
 
-  local left = { hand }
-  for _, b in ipairs(tools) do
-    left[#left + 1] = b
-  end
-  left[#left + 1] = routineList
-  local spec = {
-    left = left,
-    right = { pantry, catalog, fishGuide, journal },
-    fixedLeft = { hand },
-    toolsButton = toolsButton,
-    active = self.activeChip,
-    fixedRight = { pantry, journal },
-    moreButton = moreButton,
-    tools = tools,
-    more = { routineList, catalog, fishGuide },
-  }
-  -- The palette is capped (D87, #184): a few rows, and never up into the speed/routine/power column;
-  -- more than fits scrolls (drag, wheel, keys) with a thumb beside the buttons.
-  local scroll = {}
-  for name, list in pairs(self.paletteLists) do
-    scroll[name] = list.offset
-  end
-  local arranged = Toolbar.arrange(spec, view, {
-    pad = ui.barPadding,
-    gap = ui.buttonGap,
-    h = self.btnH,
-    margin = ui.barMargin,
-    paletteGap = ui.paletteGap,
-    paletteMaxRows = ui.paletteMaxRows,
-    paletteTop = self.topH + ui.buttonGap + 3 * (self.btnH + ui.buttonGap),
-    scrollBarWidth = ui.scrollBarWidth,
-    scroll = scroll,
-  })
-  self.toolbar = arranged
-  self.bottomH = arranged.bottomH
-  for _, b in ipairs(arranged.bar) do
-    self.buttons:add(b)
-  end
+  -- The open tray, above the plate that owns it; it scrolls when it is taller than its cap (D87).
   self.paletteRect = nil
   self.paletteButtons:clear()
-  if arranged.popups and self.palette then
-    local popup = arranged.popups[self.palette]
-    self.paletteRect = popup
-    self.paletteList = self.paletteLists[self.palette]
-    self.paletteList:fit(popup.view, popup.contentH, 0, 1)
-    self.paletteList.offset = popup.offset
+  self.paletteList = nil
+  if self.palette and not trays[self.palette] then
+    self.palette = nil
+  end
+  if self.palette then
+    local anchor = self.palette == "tools" and out.tool or out.books[self.palette == "notebook" and 1 or 2]
+    local list = self.paletteLists[self.palette]
+    local cfg = {
+      pad = H.pad,
+      gap = ui.buttonGap,
+      h = self.btnH,
+      maxRows = ui.paletteMaxRows,
+      top = self.topH,
+      scrollBarWidth = ui.scrollBarWidth,
+      scroll = list.offset,
+    }
+    local tray = Hud.tray(trays[self.palette], anchor, view, cfg, self.palette ~= "tools")
+    self.paletteRect = tray
+    self.paletteList = list
+    list:fit(tray.view, tray.contentH, 0, 1)
+    list.offset = tray.offset
     -- Buttons that scrolled out of the window are left out; half-hidden ones answer only inside it.
-    for _, b in ipairs(popup.items) do
-      if b.y + b.h > popup.view.y and b.y < popup.view.y + popup.view.h then
+    for _, b in ipairs(tray.items) do
+      if b.y + b.h > tray.view.y and b.y < tray.view.y + tray.view.h then
         self.paletteButtons:add(b)
       end
     end
-  else
-    self.palette = nil -- the view got wide enough for the full bar
-    self.paletteList = nil
   end
+  self.hudKeyShown = self:hudKey()
 end
 
 -- First-time tip card (D69, #152) ---------------------------------------------------------
@@ -1027,7 +1213,7 @@ end
 
 --- Where a placement card of height h goes so it never covers the tile it describes: the camera pans so the
 --- footprint sits above the card; when the map edge stops that, the card hangs under the top bar instead.
---- Returns the card's y (`y` is the usual slot above the toolbar).
+--- Returns the card's y (`y` is the usual slot above the bottom plates).
 function Homestead:keepTargetClear(y, h)
   local camera = self.camera
   local curX, curY = camera.x, camera.y
@@ -1052,7 +1238,7 @@ function Homestead:fitTarget(y, h)
   end
   local view = self.app.view
   if not PlaceCard.overlaps(rect, y, h, gap) then
-    -- Clear of the card, but a drag may have left it behind the top bar or the toolbar: bring it back if that keeps it clear.
+    -- Clear of the card, but a drag may have left it behind the top or bottom plates: bring it back if that keeps it clear.
     local into = PlaceCard.panIntoBand(rect, self.topH, view.h - self.bottomH, gap)
     if into == 0 then
       return y
@@ -1445,7 +1631,7 @@ function Homestead:drawCard()
   self.cardButtons:draw()
 end
 
--- Speed and routine buttons: a column under the top bar, away from the (crowded) toolbar.
+-- Speed and routine: the speed plate and the homesteader badge (D137).
 function Homestead:speedLabel()
   local speed = self.session:effectiveSpeed() -- fast while asleep (D56)
   return speed == 0 and "Paused" or string.format(self.app.ctx.tuning.ui.labels.speed, speed)
@@ -1483,16 +1669,6 @@ function Homestead:routineLabel()
   return self.world.control == "idle" and L.routineOn or L.startRoutine
 end
 
-function Homestead:controlsKey()
-  return self:speedLabel()
-    .. "|"
-    .. self:routineLabel()
-    .. "|"
-    .. tostring(Power.satisfaction(self.world) < 1)
-    .. "|"
-    .. tostring(self:hintKind())
-end
-
 --- The nudge that holds right now, for the Routine button's pulse (D93, #120). Not while asleep.
 function Homestead:hintKind()
   if self.session:sleeping() then
@@ -1523,49 +1699,6 @@ function Homestead:startRoutine()
   end
   self:layout()
   return ok
-end
-
-function Homestead:layoutControls(view)
-  local ui = self.app.ctx.tuning.ui
-  local x2, y = view.w - ui.buttonGap, self.topH + ui.buttonGap
-  local speedLabel, routineLabel = self:speedLabel(), self:routineLabel()
-  local function addCol(label, b)
-    b.label = label
-    b.w = math.max(ui.controlMinWidth, math.ceil(Text.measure(label, "body")) + ui.controlTextPadding)
-    b.x, b.y, b.h = x2 - b.w, y, self.btnH
-    self.buttons:add(b)
-    y = y + b.h + ui.buttonGap
-  end
-  addCol(speedLabel, {
-    style = self.session:effectiveSpeed() == 0 and "accent" or nil,
-    enabled = not self.session:timeHeld(), -- the speed waits for the drive home (D78) or the tip card (D92)
-    onPress = function()
-      self:cycleSpeed()
-    end,
-  })
-  -- A gentle pulse on the button while a nudge applies, so it survives panels and phone layouts (D93).
-  -- With the routine on and idle ("nothing"), the button opens the priorities instead. Asleep it reads
-  -- "Resting" and is disabled.
-  local hint = self:hintKind()
-  local nothing = hint == "nothing"
-  addCol(routineLabel, {
-    enabled = nothing or routineLabel == self.app.ctx.tuning.ui.labels.startRoutine,
-    pulse = hint ~= nil,
-    onPress = function()
-      if nothing then
-        self.app:push(require("src.scenes.routine").new(self.world))
-      else
-        self:startRoutine()
-      end
-    end,
-  })
-  addCol(ui.labels.power, {
-    style = Power.satisfaction(self.world) < 1 and "danger" or nil, -- lit while the homestead is short of power
-    onPress = function()
-      self:openPower()
-    end,
-  })
-  self.controlsKeyShown = self:controlsKey()
 end
 
 --- The winter-readiness card (D70, #166): the pill, expanded.
@@ -1661,19 +1794,13 @@ function Homestead:update(dt)
       end
     end
   end
-  if self:controlsKey() ~= self.controlsKeyShown or self:chipLayout().rows ~= self.statRows then
+  -- The HUD lays out again when what it shows changes size or kind (a vital's value, a stamp, the tool).
+  if self:hudKey() ~= self.hudKeyShown then
     self:layout()
   end
-  -- The Journal button lights up while there's an idea to pick and nothing queued (GDD §8.1).
-  if Journal.needsChoice(self.world) ~= self.journalPrompt then
-    self:layout()
-  end
-  -- Seed counts change as you plant and harvest; keep the toolbar labels current.
+  -- Seed counts change as you plant and harvest; keep the tray's labels current.
   for cropId, button in pairs(self.seedButtons) do
     button.label = tostring(Ledger.get(self.world, self.world.registry:get("crops", cropId).seed))
-  end
-  if self.activeChip then
-    self.activeChip.label = self.activeChip.short or self.activeChip.source.label -- the shortcut mirrors the tool in hand
   end
   if self.placeCard and self.placeCard.kind == "order" and not Placement.orderAt(self.world, self.placeCard.tile) then
     self.placeCard = nil -- the order was built or cancelled
@@ -1694,10 +1821,6 @@ function Homestead:tileAt(vx, vy)
     return Grid.index(self.world.state.grid, tx, ty)
   end
   return nil
-end
-
-function Homestead:inWorldArea(y)
-  return y > self.topH and y < self.app.view.h - self.bottomH
 end
 
 -- The tiles of the rectangle between tiles a and b, row by row.
@@ -2020,15 +2143,6 @@ function Homestead:action(name, data)
   if self.buttons:action(name, data) then
     return true
   end
-  -- The tile card's own button (discard a station's waiting output, D93).
-  if
-    self.infoButtons
-    and (name == "press" or name == "select" or name == "release")
-    and data.x
-    and self.infoButtons:action(name, data)
-  then
-    return true
-  end
   local pr = self.paletteRect
   if pr then
     local list = self.paletteList
@@ -2067,6 +2181,16 @@ function Homestead:action(name, data)
     end
     return true
   end
+  -- The tile card's own buttons (discard a station's waiting output, D93; pick up, move, destroy). An open
+  -- tray is drawn over the card, so it answers first.
+  if
+    self.infoButtons
+    and (name == "press" or name == "select" or name == "release")
+    and data.x
+    and self.infoButtons:action(name, data)
+  then
+    return true
+  end
   local view = self.app.view
   if name == "select" and data.x and self:overToast(data.x, data.y) then
     self:openLog() -- tapping the toast opens the message log (D90, #167)
@@ -2079,22 +2203,10 @@ function Homestead:action(name, data)
       return true
     end
   end
-  local hit = self.readinessHit
-  if
-    name == "select"
-    and hit
-    and data.x >= hit.x
-    and data.x < hit.x + hit.w
-    and data.y >= hit.y
-    and data.y < hit.y + hit.h
-  then
-    self:openReadiness()
-    return true
-  end
   if name == "press" then
     -- A finger held on a tile while placing shows the item's preview and range there (#268); a drag pans
     -- instead, and letting go places or not as before.
-    self.pressTile = self.mode == "place" and self:inWorldArea(data.y) and self:tileAt(data.x, data.y) or nil
+    self.pressTile = self.mode == "place" and self:inWorldArea(data.x, data.y) and self:tileAt(data.x, data.y) or nil
   elseif name == "release" then
     self.pressTile = nil
   end
@@ -2106,16 +2218,16 @@ function Homestead:action(name, data)
     self.camera:zoomBy(data.steps, data.x, data.y, view)
     self:mapMoved()
   elseif name == "hover" then
-    self.hover = self:inWorldArea(data.y) and self:tileAt(data.x, data.y) or nil
+    self.hover = self:inWorldArea(data.x, data.y) and self:tileAt(data.x, data.y) or nil
   elseif name == "select" then
-    if self:inWorldArea(data.y) then
+    if self:inWorldArea(data.x, data.y) then
       local i = self:tileAt(data.x, data.y)
       if i then
         self:tap(i)
       end
     end
   elseif name == "context" then
-    if self:inWorldArea(data.y) then
+    if self:inWorldArea(data.x, data.y) then
       self.selected = self:tileAt(data.x, data.y) -- inspect only
     end
   elseif name == "speed" then
@@ -2408,48 +2520,256 @@ function Homestead:drawOverlays()
   -- The selection outline is drawn over the graded world (Renderer:drawSelection, D85).
 end
 
-function Homestead:drawTopBar(view)
-  local world = self.world
-  local ui = self.app.ctx.tuning.ui
-  Plate.draw(0, 0, view.w, self.topH, { weather = false })
-  local now = Calendar.now(world)
-  local hour = math.floor(now.hour)
-  local minute = math.floor((now.hour - hour) * 60)
-  local season = now.season:gsub("^%l", string.upper)
-  local date = string.format("Day %d · %s · %02d:%02d", now.dayOfSeason, season, hour, minute)
-  local _, th = Text.measure(date, "body")
-  Text.draw(date, 8, math.floor((self.topRowH - th) / 2), { size = "body" })
-  -- Stats sit beside the date, or on their own row(s) under it when the view is too narrow.
-  local barRoom = ui.topChips.barGap + ui.topChips.barHeight -- the chip's fill bar hangs under its icon
-  for _, item in ipairs(self:chipLayout().items) do
-    local e = item.entry
-    local sprite = Assets.sprite(e.icons and e.icons[1] or e.icon)
-    ChipStrip.draw(world, e, item.x, item.rowTop + math.floor((item.rowH - sprite.h - barRoom) / 2))
+-- Drawing the resting HUD (D137, D142) -------------------------------------------------------
+
+--- A tap target's plate in its state: pressed, selected (amber outline), pulsing, or off.
+function Homestead:hudPlate(b, opts)
+  opts = opts or {}
+  local colors = theme.colors
+  local ink = opts.ink
+  if b.selected then
+    ink = colors.accent
+  end
+  if b.pulse then
+    local wave = 0.5 + 0.5 * math.sin(love.timer.getTime() * 2 * math.pi / Buttons.PULSE_PERIOD)
+    local dark, amber = colors.panelBorder, colors.accent
+    ink = {
+      dark[1] + (amber[1] - dark[1]) * wave,
+      dark[2] + (amber[2] - dark[2]) * wave,
+      dark[3] + (amber[3] - dark[3]) * wave,
+    }
+  end
+  local pressed = self.buttons.pressed == b
+  Plate.draw(b.x, b.y, b.w, b.h, {
+    ink = ink,
+    base = pressed and colors.buttonPressed or opts.base,
+    lit = pressed and 0 or nil,
+  })
+end
+
+--- An icon centred on its plate, or at the left with words after it.
+function Homestead:drawIconPlate(b, icon, words)
+  self:hudPlate(b)
+  local H = self.app.ctx.tuning.ui.hud
+  local sp = Assets.sprite(icon)
+  local iy = math.floor(b.y + (b.h - sp.h) / 2)
+  if words then
+    Icons.draw(icon, b.x + H.textPad, iy)
+    local _, th = Text.measure(words, "body")
+    Text.draw(words, b.x + 2 * H.textPad + sp.w, b.y + math.floor((b.h - th) / 2) + 1)
+  else
+    Icons.draw(icon, math.floor(b.x + (b.w - sp.w) / 2), iy)
   end
 end
 
---- The tap targets of the stat chips, { { id, x, y, w, h } }: each chip plus the gap after it, at least
---- the minimum touch size tall and wide, so a finger can hit one (D72, #158). Laid out exactly like
---- drawTopBar draws the strip, so a test can check them without a canvas.
+--- The clock: the date, then the time and the forecast glyphs (today first, the days after quieter).
+function Homestead:drawClock(b, weather)
+  self:hudPlate(b)
+  local H, ui = self.app.ctx.tuning.ui.hud, self.app.ctx.tuning.ui
+  local now = Calendar.now(self.world)
+  local hour = math.floor(now.hour)
+  local minute = math.floor((now.hour - hour) * 60)
+  local x = b.x + H.textPad
+  Text.draw(self:dateText(), x, b.y + 3)
+  local time = string.format("%02d:%02d", hour, minute)
+  Text.draw(time, x, b.y + 14, { color = theme.colors.textDim })
+  if weather then
+    local ix = x + Text.measure("00:00", "body") + H.gap
+    for n, id in ipairs(weather.icons or { weather.icon }) do
+      local sp = Assets.sprite(id)
+      Icons.draw(id, ix, b.y + 13, 1, n > 1 and 0.65 or 1)
+      ix = ix + sp.w + ui.topChips.iconGap
+    end
+  end
+end
+
+--- One speed button: pause bars, a play triangle, or the fast arrows (with the speed while fast).
+function Homestead:drawSpeedSegment(b, glyph, speed)
+  self:hudPlate(b)
+  local colors = theme.colors
+  local on = b.selected
+  local c = not b.enabled and colors.textDim or on and colors.accent or colors.text
+  local cx, cy = math.floor(b.x + b.w / 2), math.floor(b.y + b.h / 2)
+  love.graphics.setColor(c)
+  if glyph == "pause" then
+    love.graphics.rectangle("fill", cx - 3, cy - 4, 2, 8)
+    love.graphics.rectangle("fill", cx + 1, cy - 4, 2, 8)
+  elseif glyph == "play" then
+    for k = 0, 4 do
+      love.graphics.rectangle("fill", cx - 2 + k, cy - 4 + k, 1, 9 - 2 * k)
+    end
+  elseif on and speed > 1 then
+    local label = string.format("%gx", speed)
+    local tw, th = Text.measure(label, "small")
+    Text.draw(label, math.floor(cx - tw / 2), math.floor(cy - th / 2) + 1, { size = "small", color = c })
+  else
+    for k = 0, 3 do
+      love.graphics.rectangle("fill", cx - 5 + k, cy - 3 + k, 1, 7 - 2 * k)
+      love.graphics.rectangle("fill", cx + k, cy - 3 + k, 1, 7 - 2 * k)
+    end
+  end
+end
+
+--- A decision stamp: its signal icon, and its words while there is room.
+function Homestead:drawStamp(b, stamp, compact)
+  self:hudPlate(b, { ink = stamp.color })
+  local H = self.app.ctx.tuning.ui.hud
+  local sp = Assets.sprite(stamp.icon)
+  local ix = compact and math.floor(b.x + (b.w - sp.w) / 2) or b.x + math.floor((H.stampSize - sp.w) / 2)
+  Icons.draw(stamp.icon, ix, math.floor(b.y + (b.h - sp.h) / 2))
+  if not compact then
+    local _, th = Text.measure(stamp.label, "small")
+    Text.draw(stamp.label, b.x + H.stampSize, b.y + math.floor((b.h - th) / 2) + 1, {
+      size = "small",
+      color = stamp.color,
+    })
+  end
+end
+
+--- The homesteader badge's two lines: the state (Routine, Hands-on, Asleep, Resting, Paused) and what is
+--- happening (the job, the countdown to the routine, or nothing to do).
+function Homestead:badgeLines()
+  local H = self.app.ctx.tuning.ui.hud
+  local world = self.world
+  local hs = Actors.homesteader(world)
+  local function job()
+    if not hs.job then
+      return nil
+    end
+    if hs.job.task == "move" then
+      return H.walking
+    end
+    local def = Tasks.get(world, hs.job.task)
+    local category = type(def) == "table" and rawget(def, "category")
+    return category and rawget(H.jobs, category) or "Working"
+  end
+  if hs.asleep then
+    return H.states.asleep, self:untilMorningText()
+  elseif self.session:effectiveSpeed() == 0 then -- also true in town (D78)
+    return H.states.paused, job() or ""
+  elseif world.control == "idle" then
+    if self:hintKind() == "nothing" then
+      return H.states.routine, H.idleLine
+    end
+    return H.states.routine, job() or H.walking
+  elseif not self.session:canStartRoutine() then
+    return H.states.resting, job() or ""
+  end
+  local remaining = math.max(0, math.ceil(self:takeoverDelay() - self.app.ctx.input:idleSeconds()))
+  return H.states.handsOn, job() or string.format(H.countdownLine, remaining)
+end
+
+--- The homesteader badge: the portrait inside the idle countdown ring, and two lines while there is room.
+function Homestead:drawBadge(b, compact)
+  self:hudPlate(b)
+  local H = self.app.ctx.tuning.ui.hud
+  local colors = theme.colors
+  local sp = Assets.sprite("homesteader")
+  local px = compact and math.floor(b.x + (b.w - sp.w) / 2) or b.x + H.textPad
+  local py = math.floor(b.y + (b.h - sp.h) / 2)
+  Icons.draw("homesteader", px, py)
+  -- The countdown ring: the share of the takeover delay still to run, as a stepped arc round the portrait.
+  local world = self.world
+  if world.control ~= "idle" and self.session:canStartRoutine() and self.session:effectiveSpeed() > 0 then
+    local delay = self:takeoverDelay()
+    local left = math.max(0, math.min(1, 1 - self.app.ctx.input:idleSeconds() / delay))
+    local cx, cy = px + sp.w / 2, py + sp.h / 2
+    for k = 0, H.countdownSteps - 1 do
+      local a = -math.pi / 2 + k / H.countdownSteps * 2 * math.pi
+      local lit = k / H.countdownSteps < left
+      love.graphics.setColor(lit and colors.accent or colors.panelBorder)
+      love.graphics.rectangle(
+        "fill",
+        math.floor(cx + math.cos(a) * H.countdownRadius),
+        math.floor(cy + math.sin(a) * H.countdownRadius),
+        1,
+        1
+      )
+    end
+  end
+  if not compact then
+    local state, line2 = self:badgeLines()
+    local tx = px + sp.w + 2 * H.textPad
+    Text.draw(state, tx, b.y + 4)
+    Text.draw(line2, tx, b.y + 16, { size = "small", color = colors.textDim })
+  end
+end
+
+--- The tool badge: the tool in hand (and its seed packet), and its name while there is room.
+function Homestead:drawToolBadge(b, compact)
+  self:hudPlate(b)
+  local H = self.app.ctx.tuning.ui.hud
+  local icon, extra, label = self:toolInHand()
+  local sp = Assets.sprite(icon)
+  local ew = extra and Assets.sprite(extra).w + 2 or 0
+  local x = compact and math.floor(b.x + (b.w - sp.w - ew) / 2) or b.x + H.textPad
+  local iy = math.floor(b.y + (b.h - sp.h) / 2)
+  Icons.draw(icon, x, iy)
+  if extra then
+    Icons.draw(extra, x + sp.w + 2, iy)
+  end
+  if not compact then
+    local _, th = Text.measure(label, "body")
+    Text.draw(label, x + sp.w + ew + H.textPad, b.y + math.floor((b.h - th) / 2) + 1)
+  end
+end
+
+--- The vitals plates (D112 chips): icon, value, level mark and thin gauge, drawn fresh each frame.
+function Homestead:drawVitals()
+  local world = self.world
+  local byId = {}
+  for _, e in ipairs(self:vitalEntries()) do
+    byId[e.id] = e
+  end
+  for _, row in ipairs(self.hud.vitals) do
+    Plate.draw(row.x, row.y, row.w, row.h)
+    for _, item in ipairs(row.items) do
+      local e = byId[item.id]
+      if e then
+        ChipStrip.draw(world, e, item.x, row.y + 5)
+      end
+    end
+  end
+end
+
+--- What the next tap does with the tool in hand (D72, #168), on a plate above the tool badge.
+function Homestead:drawCaption()
+  local r = self.hud.caption
+  if not (r and self.hudCaption) then
+    return
+  end
+  Plate.draw(r.x, r.y, r.w, r.h)
+  local _, th = Text.measure(self.hudCaption, "small")
+  Text.draw(self.hudCaption, r.x, r.y + math.floor((r.h - th) / 2) + 1, {
+    size = "small",
+    width = r.w,
+    align = "center",
+  })
+end
+
+--- The tap targets of the vitals, { { id, x, y, w, h } }: each vital plus half the gap on either side, at
+--- least the minimum touch size tall, so a finger can hit one (D72, #158).
 function Homestead:chipRects()
   local minSize = self.app.ctx.tuning.input.minTouchTarget
-  local layout = self:chipLayout()
+  local gap = self.app.ctx.tuning.ui.hud.vitalGap
   local rects = {}
-  for _, item in ipairs(layout.items) do
-    local w = math.max(minSize, item.width + layout.gap)
-    local h = math.max(minSize, item.rowH)
-    rects[#rects + 1] = {
-      id = item.entry.id,
-      x = item.x - (w - item.width) / 2,
-      y = item.rowTop + (item.rowH - h) / 2,
-      w = w,
-      h = h,
-    }
+  for _, row in ipairs(self.hud and self.hud.vitals or {}) do
+    local h = math.max(minSize, row.h)
+    for _, item in ipairs(row.items) do
+      local w = math.max(minSize, item.w + gap)
+      rects[#rects + 1] = {
+        id = item.id,
+        x = item.x - (w - item.w) / 2,
+        y = row.y + (row.h - h) / 2,
+        w = w,
+        h = h,
+      }
+    end
   end
   return rects
 end
 
---- The chip id under a point, or nil.
+--- The vital under a point, or nil.
 function Homestead:chipAt(x, y)
   for _, r in ipairs(self:chipRects()) do
     if x >= r.x and x < r.x + r.w and y >= r.y and y < r.y + r.h then
@@ -2457,6 +2777,28 @@ function Homestead:chipAt(x, y)
     end
   end
   return nil
+end
+
+--- Is the point over the world, not over a HUD plate (the plates float over the land)?
+function Homestead:inWorldArea(x, y)
+  if not (x and y) then
+    return false
+  end
+  for _, b in ipairs(self.buttons.list) do
+    if x >= b.x and x < b.x + b.w and y >= b.y and y < b.y + b.h then
+      return false
+    end
+  end
+  for _, row in ipairs(self.hud and self.hud.vitals or {}) do
+    if x >= row.x and x < row.x + row.w and y >= row.y and y < row.y + row.h then
+      return false
+    end
+  end
+  local c = self.hud and self.hud.caption
+  if c and x >= c.x and x < c.x + c.w and y >= c.y and y < c.y + c.h then
+    return false
+  end
+  return true
 end
 
 --- Open the explanation card for a chip: what it is, its unit, its value in plain words, what moves it,
@@ -2553,7 +2895,7 @@ function Homestead:storageNotes()
   return notes
 end
 
--- Winter forecast under the top bar, from autumn on (GDD §4.1); loud during the cold snap.
+-- Winter forecast under the decision stamps, from autumn on (GDD §4.1); loud during the cold snap.
 function Homestead:drawForecast()
   local world = self.world
   -- The weather is a chip in the top bar now (D112): today and the days ahead as glyphs, the words in its modal.
@@ -2574,33 +2916,17 @@ function Homestead:drawForecast()
       lines[#lines + 1] = { (frozen and "This winter: " or "Forecast: ") .. summary, theme.colors.accent }
     end
   end
-  -- Winter readiness (D70, #166): fuel and food against the winter ahead; tap it for the details.
-  local readyText, readyColor = AlertText.readinessPill(world)
-  if readyText then
-    lines[#lines + 1] = { readyText .. " (tap)", readyColor, tag = "readiness" }
-  end
-  for _, line in ipairs(self:storageNotes()) do
-    lines[#lines + 1] = line
-  end
-  local y = self.topH + 4
-  self.readinessHit = nil
+  -- Winter readiness and full stores wait on the player, so they are decision stamps now (D137).
+  local pad = self.app.ctx.tuning.ui.hud.pad
+  local y = self.hud.stampsBottom
   for _, line in ipairs(lines) do
     local text, color = line[1], line[2]
     local w = Text.measure(text, "small") + 12
-    Plate.draw(4, y, w, 14)
-    Text.draw(text, 4, y + 2, { size = "small", width = w, align = "center", color = color })
-    if line.tag == "readiness" then
-      -- A finger-sized target around the pill (it is 14 px tall, the minimum is tuning.input.minTouchTarget).
-      local grow = math.max(0, (self.app.ctx.tuning.input.minTouchTarget - 14) / 2)
-      self.readinessHit = { x = 0, y = y - grow, w = w + 8, h = 14 + 2 * grow }
-    end
+    Plate.draw(pad, y, w, 14)
+    Text.draw(text, pad, y + 3, { size = "small", width = w, align = "center", color = color })
     y = y + 16
   end
   self.forecastBottom = y -- the sleep banner sits below the pills, so they never overlap on a narrow view
-end
-
-function Homestead:drawBottomBar(view)
-  Plate.draw(0, view.h - self.bottomH, view.w, self.bottomH, { weather = false })
 end
 
 --- "5 h to morning" / "40 min to morning" while sleeping (D56).
@@ -2652,49 +2978,6 @@ function Homestead:captionText()
     return string.format(c.seed, crop(self.seed))
   end
   return nil
-end
-
---- The routine badge's text and colour: what the homesteader is doing and, while the player is in
---- charge, when the routine would take over (D72, #168).
-function Homestead:badgeText()
-  local b = self.app.ctx.tuning.ui.badges
-  if Actors.homesteader(self.world).asleep then
-    return b.asleep, theme.colors.textDim
-  elseif self.session:effectiveSpeed() == 0 then -- also true in town (D78)
-    return b.paused, theme.colors.accent
-  elseif self.world.control == "idle" then
-    return b.running, theme.colors.accent
-  elseif not self.session:canStartRoutine() then
-    -- Bedtime (D35): the routine rests too, so a countdown would never finish.
-    return b.resting, theme.colors.textDim
-  end
-  local remaining = self:takeoverDelay() - self.app.ctx.input:idleSeconds()
-  return string.format(b.countdown, math.max(0, math.ceil(remaining))), theme.colors.textDim
-end
-
---- The status pills just above the toolbar: the tool caption at the left and the routine badge at the
---- right. When both do not fit side by side the caption rides one row higher. Sets self.captionTop, the
---- y of the caption's top (the tile card sits above it), or nil without a caption.
-function Homestead:drawPills(view)
-  local ui = self.app.ctx.tuning.ui
-  local h = ui.pillHeight
-  local rowY = view.h - self.bottomH - ui.pillGap - h
-  local badge, color = self:badgeText()
-  local bw = Text.measure(badge, "small") + 12
-  Plate.draw(view.w - bw - 4, rowY, bw, h)
-  Text.draw(badge, view.w - bw - 4, rowY + 2, { size = "small", width = bw, align = "center", color = color })
-  self.captionTop = nil
-  local caption = self:captionText()
-  if caption then
-    local cw = math.min(Text.measure(caption, "small") + 12, view.w - 8)
-    local cy = rowY
-    if cw + bw + 12 > view.w then
-      cy = rowY - h - ui.pillGap
-    end
-    Plate.draw(4, cy, cw, h)
-    Text.draw(caption, 4, cy + 2, { size = "small", width = cw, align = "center", color = theme.colors.text })
-    self.captionTop = cy
-  end
 end
 
 function Homestead:tileInfo(i)
@@ -2948,7 +3231,7 @@ function Homestead:drawInfo(view)
     local rows = (anchor and 1 or 0) + (movable and 2 or 0) + (cropHere and 1 or 0)
     local btnH = rows * (minSize + 4) -- room for the buttons under the lines
     local h = #lines * 11 + 8 + btnH
-    local y = (self.card and self.card.y or self.captionTop or view.h - self.bottomH) - h - 4 -- above the tip card (or the tool caption) when one is up
+    local y = (self.card and self.card.y or view.h - self.bottomH) - h - 4 -- above the tip card (or the tool caption) when one is up
     local w = 132
     for _, line in ipairs(lines) do
       w = math.max(w, Text.measure(line, "small") + 14) -- a long line widens the card rather than spilling out
@@ -3047,13 +3330,11 @@ function Homestead:drawInfo(view)
     local w = math.min(Text.measure(self.toast.text, "body") + 16, maxW)
     local textH = Text.wrappedHeight(self.toast.text, "body", w - 16)
     local h = math.max(18, textH + 8)
-    local ui = self.app.ctx.tuning.ui
-    local x, y = (view.w - w) / 2, view.h - self.bottomH - ui.pillHeight - ui.pillGap - 4 - h -- clear of the status pills
+    local x, y = (view.w - w) / 2, view.h - self.bottomH - h -- just above the bottom plates and the caption
     if info and x < info.x + info.w and y + h > info.y then
       y = info.y - 4 - h -- a wide toast on a narrow view rides above the tile card instead of covering it
     end
-    love.graphics.setColor(0, 0, 0, 0.55 * math.min(1, self.toast.time * 3))
-    love.graphics.rectangle("fill", x, y, w, h, 3, 3)
+    Plate.draw(x, y, w, h, { alpha = 0.92 * math.min(1, self.toast.time * 3), weather = false })
     Text.draw(self.toast.text, x + 8, y + 4, { size = "body", width = w - 16, align = "center" })
     -- The tap target: at least a finger tall, so a thin toast is still easy to hit.
     local minSize = self.app.ctx.tuning.input.minTouchTarget
@@ -3141,10 +3422,9 @@ function Homestead:draw()
   local snow, frozen = self.renderer:winterAmounts()
   Plate.setLight(tint, light, frozen, snow)
   ActionRing.draw(self.world, self.camera, view, { top = self.topH, bottom = view.h - self.bottomH })
-  self:drawTopBar(view)
+  self:drawVitals()
   self:drawForecast()
-  self:drawBottomBar(view)
-  self:drawPills(view)
+  self:drawCaption()
   self:drawSleepBanner(view)
   self:drawInfo(view)
   if self.paletteRect then
