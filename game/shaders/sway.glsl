@@ -6,7 +6,8 @@
 // The vertex colour carries per-plant data (no per-sprite uniform): r = sway phase 0..1 (neighbours
 // differ a little, so a gust rolls across the field), g = 1 when the crop is thirsty (tinted).
 // In autumn the sprite also gets the warm rim light of rim.glsl, worked out on the swayed picture so the
-// rim follows the leaning leaves.
+// rim follows the leaning leaves, and the same sun lighting (a faint lit side, a cool form shade away from
+// the light) every season.
 
 uniform float swayTime;      // radians; accumulated from the eased wind so a gust never jumps the pose
 uniform float amplitude;     // art pixels the tip leans at weight 1 (already scaled by the wind strength)
@@ -25,6 +26,10 @@ uniform float rimSide;       // -1 or 1: the atlas x direction toward the sun
 uniform float rimSideWeight; // 0..1 how much of the rim the sunward side gets
 uniform float rimTop;        // 0..1 how much of the rim the top edge gets
 uniform float inkLuma;       // brightness below which an opaque pixel counts as outline
+uniform float shadeStrength; // 0..1 how far a pixel on the side away from the light goes toward shadeColor (0 = off)
+uniform vec3 shadeColor;     // colour multiplier for that form shade (cool)
+uniform float shadeSideWeight; // 0..1 how much shade the side away from the sun gets
+uniform float shadeBottom;   // 0..1 how much shade the bottom edge gets (the sun is up-screen)
 
 #ifdef PIXEL
 #ifdef GL_ES
@@ -63,10 +68,26 @@ float lit(Image tex, vec2 uv, vec2 d, vec4 base, float phase) {
     return 0.0;
 }
 
+// 1 when the swayed pixel is on the edge facing direction `d`, 0.5 one pixel further in, else 0 (see rim.glsl).
+float edgeDepth(Image tex, vec2 uv, vec2 d, vec4 base, float phase) {
+    if (isInk(base) > 0.5) {
+        return 0.0;
+    }
+    if (lit(tex, uv, d, base, phase) > 0.5) {
+        return 1.0;
+    }
+    vec4 n1 = swayed(tex, uv + d, phase);
+    return (isInk(n1) < 0.5 && lit(tex, uv + d, d, n1, phase) > 0.5) ? 0.5 : 0.0;
+}
+
 vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     float phase = color.r * 6.2831853;
     vec4 base = swayed(tex, uv, phase);
     vec3 c = base.rgb;
+    if (shadeStrength > 0.0 && base.a >= 0.5) {
+        float s = max(edgeDepth(tex, uv, vec2(0.0, texel.y), base, phase) * shadeBottom, edgeDepth(tex, uv, vec2(-rimSide * texel.x, 0.0), base, phase) * shadeSideWeight);
+        c *= mix(vec3(1.0), shadeColor, s * shadeStrength);
+    }
     if (rimStrength > 0.0 && base.a >= 0.5) {
         float r = max(lit(tex, uv, vec2(0.0, -texel.y), base, phase) * rimTop, lit(tex, uv, vec2(rimSide * texel.x, 0.0), base, phase) * rimSideWeight);
         c += rimColor * (r * rimStrength);

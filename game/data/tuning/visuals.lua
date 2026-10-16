@@ -40,13 +40,13 @@ return {
     { hour = 20.5, tint = { 0.58, 0.60, 0.88 }, light = 0.62 },
     { hour = 24, tint = { 0.52, 0.58, 0.88 }, light = 0.56 },
   },
-  saturation = 0.92, -- 1 = unchanged; lower is more muted
+  saturation = 1.12, -- 1 = unchanged; lower is more muted
   tone = { -- split toning and contrast in the colour grade (D128); gradeStrength scales all of it toward neutral
-    shadowTone = { 0.93, 0.98, 1.07 }, -- colour multiplier for dark pixels (cool)
-    highlightTone = { 1.06, 1.01, 0.93 }, -- colour multiplier for bright pixels (warm)
+    shadowTone = { 0.86, 0.94, 1.14 }, -- colour multiplier for dark pixels (cool)
+    highlightTone = { 1.09, 1.03, 0.90 }, -- colour multiplier for bright pixels (warm)
     mid = 0.42, -- luma (0..1) where the tone swings from the shadow to the highlight colour
     width = 0.32, -- luma span either side of `mid` over which it swings
-    contrast = 0.22, -- 0..1 strength of the S-curve (0 = none)
+    contrast = 0.38, -- 0..1 strength of the S-curve (0 = none)
     blackLift = { 0.010, 0.014, 0.026 }, -- light added to the darkest pixels, so black reads as deep blue instead of mud
   },
   seasonGrade = { -- season id -> { tint multiplier, saturation multiplier } on top of the day/night grade
@@ -218,9 +218,9 @@ return {
   },
   shadows = { -- sun shadows (shaders/shadow.glsl): each sprite's silhouette is flipped onto the ground and sheared away from the sun, plus a small contact shadow underneath
     enabled = true,
-    color = { 0.06, 0.08, 0.20 }, -- shadow tint (cool, not black); the grade tints it afterwards
-    castStrength = 0.42, -- 0..1 alpha of cast shadows at full sun
-    contactStrength = 0.30, -- 0..1 alpha of the contact shadow under a sprite; it stays at night and in cloud
+    color = { 0.40, 0.45, 0.82 }, -- colour multiplier at full shade: the shadow multiplies the ground, so a cool blue-violet keeps grass green but deep and cool
+    castStrength = 0.85, -- 0..1 how far a cast shadow goes toward `color` at full sun (solid: no stipple, see dither.shadows.amount)
+    contactStrength = 0.80, -- 0..1 the same for the contact shadow under a sprite; it stays at night and in cloud
     maxShear = 1.1, -- sideways art pixels of shadow per art pixel of height at sunrise/sunset (west at dawn, east at dusk)
     lengthNoon = 0.28, -- vertical squash of the cast shadow at noon (1 = as long as the sprite is tall)
     lengthLow = 1.0, -- the same at sunrise and sunset
@@ -229,9 +229,15 @@ return {
     minHeight = 7, -- art pixels: sprites shorter than this cast no shadow
     contactMaxWidth = 26, -- art pixels, the widest contact shadow
     contactWidth = 0.8, -- share of the sprite's width the contact shadow spans
+    ao = { -- ambient occlusion: stepped rings of shade pooled round the base of anything standing on the ground, outside the contact shadow
+      levels = { 0.55, 0.28 }, -- 0..1 share of contactStrength for each ring, inner to outer (more entries = more rings)
+      spread = 3, -- art pixels each ring reaches past the one inside it, sideways
+      depth = 1, -- art pixels each ring reaches past the one inside it, up and down
+      segments = 16, -- polygon segments per ring
+    },
     dapple = { -- leaf dapple: sun flecks through a tree canopy's cast shadow (shaders/shadow_composite.glsl); trees opt in with `dapple` in data/content/objects.lua
       strength = 0.9, -- 0..1 share of the shadow a fleck's bright heart takes away (0 = no dapple)
-      shade = 1.5, -- multiplier on a canopy's cast shadow between the flecks (leaves shade deeper than a post or a wall)
+      shade = 1.15, -- multiplier on a canopy's cast shadow between the flecks (leaves shade deeper than a post or a wall)
       cover = 0.34, -- 0..1 share of a canopy's shadow that is fleck (its half-lit rim included)
       scale = 0.32, -- fleck noise frequency, 1/art pixels (0.32 = flecks about 3 art pixels across)
       sway = 1.6, -- art pixels the flecks shuffle at wind strength 1 (whole pixels, on the sway clock)
@@ -277,6 +283,38 @@ return {
     sideGain = 1.6, -- how fast the sunward side's share grows as the sun moves off noon (1 at side 1/sideGain)
     inkLuma = 0.16, -- brightness below which a pixel is outline: the rim sits just inside it and the outline stays dark
   },
+  groundDetail = { -- variety painted once into the grass (src/render/ground_detail.lua): soft patches of lighter and darker grass
+    enabled = true,
+    block = 2, -- art pixels per patch cell (the patch edges step in blocks this size)
+    patchScale = 0.012, -- patch noise frequency, 1/art pixels (0.012 = patches about 5 tiles across)
+    lightCut = 0.62, -- noise level above which the grass is a step lighter
+    darkCut = 0.38, -- noise level below which it is a step darker
+    step = 0.08, -- noise past a cut where the second, stronger step starts
+    light1 = { 0.95, 1.00, 0.70, 0.10 }, -- lighter, warmer grass (rgba over the tile; alpha is the strength)
+    light2 = { 0.95, 1.00, 0.70, 0.18 },
+    dark1 = { 0.12, 0.30, 0.22, 0.12 }, -- darker, cooler grass
+    dark2 = { 0.12, 0.30, 0.22, 0.22 },
+  },
+  forestFloor = { -- shade under a wood (drawn into the shadow mask as contact shade, so it takes shadows.color): every tree with enough trees round it pools a wide, low ellipse, and they merge into one shaded floor
+    minNeighbours = 3, -- of the 8 tiles round a tree, how many must hold trees for it to shade the floor
+    deepNeighbours = 6, -- from this many the floor under it is in deep shade
+    level = 0.35, -- 0..1 share of shadows.contactStrength under a tree at the edge of a wood
+    deepLevel = 0.6, -- the same in the thick of it
+    radiusX = 13, -- art pixels, half-width of the shade under one tree (wider than half a tile, so neighbours merge)
+    radiusY = 10, -- art pixels, half-height
+    drop = 2, -- art pixels the shade sits below the tile centre (toward the trunk)
+    segments = 16, -- polygon segments per ellipse
+  },
+  sunlight = { -- sprites lit by the sun (shaders/rim.glsl and sway.glsl): a faint lit edge on the sun side every season, and a cool form shade one or two pixels deep on the side away from the light and along the bottom, so objects read as solid
+    enabled = true,
+    lit = 0.22, -- 0..1 brightness added on the sun-side edge in full direct sun (the autumn rim adds on top)
+    litColor = { 1.00, 0.95, 0.80 }, -- warm daylight on that edge (graded afterwards)
+    shade = 0.75, -- 0..1 how far the far-side edge goes toward shadeColor in full direct sun
+    ambientShade = 0.35, -- 0..1 the same at night and under full cloud (soft light still leaves the underside darker)
+    shadeColor = { 0.55, 0.60, 0.85 }, -- colour multiplier of the form shade: cool, like the cast shadows
+    bottom = 1.0, -- 0..1 how much shade the bottom edge takes (the sun is up-screen, so undersides face away)
+    sideFloor = 0.4, -- 0..1 shade on the side away from the sun at noon (it grows to 1 as the sun moves off noon)
+  },
   depthOfField = { -- optional softening of the top and bottom of the view (shaders/grade.glsl, #283); the player turns it on in Settings > Visuals
     strength = 0.85, -- 0..1 how much of the softened picture shows at the very edge
     clear = 0.5, -- 0..1 share of the half-height, out from the middle of the view, that stays sharp
@@ -309,7 +347,7 @@ return {
     shadows = { -- sun shadows (shaders/shadow_composite.glsl)
       algorithm = "bayer8",
       alpha = 0.5, -- 0..1 alpha of one cast-shadow pixel; the share of pixels that are shadow is strength / this (0.42 / 0.5 = 84% in full sun, solid when alpha is at or under the strength). Lower = solid shadows that stipple only as they fade; higher = a more visible pattern
-      amount = 1.0, -- 0..1 how much of the cast shadow is stippled (0 = the old flat translucent tone, 1 = all stipple); contact shadows stay flat
+      amount = 0.0, -- 0..1 how much of the cast shadow is stippled (0 = a solid tone, 1 = all stipple); contact shadows stay flat
       scale = 1,
     },
     clouds = { -- cloud shadows (shaders/clouds.glsl)

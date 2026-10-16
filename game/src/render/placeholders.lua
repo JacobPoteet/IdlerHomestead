@@ -4,34 +4,36 @@
 
 local P = {}
 
+-- The value plan: the open ground is light and warm, foliage and objects are deep and cool, and the
+-- homesteader's red is kept for the homesteader and a few other things, so what matters stands out at a glance.
 local C = {
-  grass = { 0.36, 0.55, 0.29 },
-  grassDark = { 0.29, 0.46, 0.24 },
-  grassLight = { 0.45, 0.63, 0.34 },
-  road = { 0.55, 0.44, 0.31 },
-  roadDark = { 0.46, 0.36, 0.25 },
-  pebble = { 0.66, 0.60, 0.50 },
-  soilDry = { 0.45, 0.32, 0.21 },
-  furrowDry = { 0.35, 0.24, 0.15 },
-  soilWet = { 0.31, 0.21, 0.14 },
-  furrowWet = { 0.22, 0.15, 0.10 },
-  stone = { 0.60, 0.60, 0.56 },
-  stoneLight = { 0.76, 0.76, 0.71 },
-  stoneDark = { 0.40, 0.40, 0.38 },
-  leaf = { 0.22, 0.42, 0.20 },
-  leafLight = { 0.35, 0.58, 0.28 },
-  leafDark = { 0.15, 0.30, 0.15 },
-  bark = { 0.40, 0.28, 0.18 },
-  barkDark = { 0.28, 0.19, 0.12 },
-  barkLight = { 0.55, 0.40, 0.26 },
+  grass = { 0.561, 0.690, 0.373 },
+  grassDark = { 0.490, 0.624, 0.333 },
+  grassLight = { 0.631, 0.749, 0.420 },
+  road = { 0.72, 0.56, 0.38 },
+  roadDark = { 0.62, 0.46, 0.30 },
+  pebble = { 0.82, 0.74, 0.58 },
+  soilDry = { 0.57, 0.37, 0.24 },
+  furrowDry = { 0.44, 0.27, 0.18 },
+  soilWet = { 0.36, 0.22, 0.15 },
+  furrowWet = { 0.26, 0.15, 0.11 },
+  stone = { 0.56, 0.57, 0.60 },
+  stoneLight = { 0.76, 0.76, 0.75 },
+  stoneDark = { 0.33, 0.34, 0.38 },
+  leaf = { 0.15, 0.40, 0.24 },
+  leafLight = { 0.33, 0.57, 0.27 },
+  leafDark = { 0.08, 0.25, 0.18 },
+  bark = { 0.45, 0.28, 0.19 },
+  barkDark = { 0.27, 0.15, 0.13 },
+  barkLight = { 0.62, 0.42, 0.27 },
   rust = { 0.55, 0.30, 0.18 },
   metal = { 0.50, 0.53, 0.55 },
   shadow = { 0, 0, 0, 0.28 },
   radish = { 0.80, 0.22, 0.32 },
   potatoFlower = { 0.92, 0.90, 0.80 },
   skin = { 0.93, 0.76, 0.60 },
-  shirt = { 0.70, 0.25, 0.22 },
-  shirtDark = { 0.52, 0.17, 0.16 },
+  shirt = { 0.80, 0.24, 0.20 },
+  shirtDark = { 0.56, 0.15, 0.17 },
   pants = { 0.25, 0.32, 0.45 },
   hair = { 0.35, 0.24, 0.16 },
   boot = { 0.22, 0.16, 0.12 },
@@ -43,7 +45,7 @@ local C = {
   water = { 0.35, 0.62, 0.80 },
   white = { 0.95, 0.95, 0.92 },
   heart = { 0.86, 0.30, 0.32 },
-  outline = { 0.07, 0.09, 0.06 }, -- the 1-pixel edge round crops and small sprites (#20)
+  outline = { 0.07, 0.08, 0.12 }, -- the 1-pixel edge round crops and small sprites (#20); a cool ink, not black
   sprout = { 0.58, 0.88, 0.36 }, -- fresh bright green: sprouts and new leaves
   sproutLight = { 0.80, 0.97, 0.52 },
   sproutDark = { 0.30, 0.62, 0.24 },
@@ -63,8 +65,8 @@ local function speckle(p, w, h, base, specks, count)
 end
 
 function P.grass(p, w, h)
-  speckle(p, w, h, C.grass, { C.grassDark, C.grassLight }, 22)
-  for _ = 1, 3 do -- little blades
+  speckle(p, w, h, C.grass, { C.grassDark, C.grassLight }, 10) -- few specks: the ground is a calm plane the light and shadows play on
+  for _ = 1, 2 do -- little blades
     local x, y = p.rng:int(1, w - 2), p.rng:int(2, h - 1)
     p:px(x, y, C.grassDark)
     p:px(x, y - 1, C.grassLight)
@@ -138,94 +140,118 @@ function P.trip_marker(p)
   arrow(1, 1, C.gold)
 end
 
+-- Foliage as lit clumps instead of speckle: each clump { cx, cy, r } is a dark ball with a mid-tone ball
+-- nudged up-left, a light patch toward the top-left and a small highlight, painted back to front so the
+-- front clump's dark rim separates it from the one behind. `ramp` = { dark, mid, light, highlight }.
+local function clumps(p, list, ramp)
+  for _, k in ipairs(list) do
+    local cx, cy, r = k[1], k[2], k[3]
+    p:circle(cx, cy, r, ramp[1])
+    p:circle(cx - 1, cy - 1, r - 1, ramp[2])
+    local q = math.max(1, math.floor(r / 2))
+    p:circle(cx - math.ceil(r / 3), cy - math.ceil(r / 3), q - 1, ramp[3])
+    p:px(cx - math.ceil(r / 2), cy - math.ceil(r / 2), ramp[4])
+  end
+end
+
+local BROADLEAF = { C.leafDark, C.leaf, C.leafLight, { 0.52, 0.70, 0.33 } }
+local PINE = { { 0.05, 0.19, 0.16 }, { 0.09, 0.31, 0.22 }, { 0.19, 0.44, 0.27 }, { 0.32, 0.56, 0.31 } }
+local BIRCH = { { 0.20, 0.42, 0.20 }, { 0.36, 0.58, 0.27 }, { 0.55, 0.72, 0.33 }, { 0.74, 0.85, 0.45 } }
+
 function P.brush(p)
   p:ellipse(8, 13, 6, 2, C.shadow)
-  p:circle(5, 9, 4, C.leafDark)
-  p:circle(10, 8, 5, C.leaf)
-  p:circle(7, 6, 3, C.leaf)
-  for _ = 1, 8 do
-    p:px(p.rng:int(3, 13), p.rng:int(4, 11), C.leafLight)
-  end
+  clumps(p, { { 9, 6, 3 }, { 5, 9, 3 }, { 11, 9, 3 }, { 8, 11, 3 } }, BROADLEAF)
   p:px(4, 12, C.barkDark)
   p:px(11, 12, C.barkDark)
   p:outline(C.outline)
 end
 
+-- A boulder with a pebble beside it, in planes: a dark body, a mid face turned up-left, a lit facet on
+-- top and one highlight, so it reads as a solid lump rather than a grey disc.
 function P.rock(p)
   p:ellipse(8, 13, 6, 2, C.shadow)
-  p:ellipse(8, 9, 6, 4, C.stoneDark)
-  p:ellipse(8, 8, 5, 4, C.stone)
-  p:rect(5, 6, 3, 1, C.stoneLight)
-  p:px(10, 9, C.stoneDark)
+  p:ellipse(12, 11, 2, 2, C.stoneDark) -- the pebble
+  p:px(11, 10, C.stone)
+  p:ellipse(7, 9, 5, 4, C.stoneDark)
+  p:ellipse(6, 8, 4, 3, C.stone)
+  p:ellipse(5, 7, 2, 1, C.stoneLight)
+  p:px(4, 6, C.white)
+  p:rect(8, 10, 3, 1, C.stoneDark) -- a crack along the shaded side
   p:outline(C.outline)
 end
 
+-- A fallen log as a lit cylinder: a light band along the top, a dark underside, bark grooves, and a pale
+-- cut end with its rings.
 function P.log(p)
+  local grain, ring = { 0.84, 0.66, 0.44 }, { 0.66, 0.46, 0.28 }
   p:ellipse(8, 12, 7, 2, C.shadow)
-  p:rect(1, 7, 13, 5, C.bark)
-  p:rect(1, 7, 13, 1, C.barkLight)
-  p:rect(1, 11, 13, 1, C.barkDark)
-  p:ellipse(13, 9, 2, 2, C.barkLight)
-  p:px(13, 9, C.barkDark)
-  p:px(5, 9, C.barkDark)
-  p:px(9, 8, C.barkDark)
+  p:rect(1, 7, 12, 5, C.bark)
+  p:rect(1, 7, 12, 1, C.barkLight)
+  p:rect(1, 10, 12, 2, C.barkDark)
+  for _, g in ipairs({ { 3, 9, 3 }, { 7, 8, 4 }, { 10, 9, 2 } }) do
+    p:rect(g[1], g[2], g[3], 1, C.barkDark)
+  end
+  p:ellipse(13, 9, 2, 2, grain)
+  p:px(13, 9, ring)
+  p:px(14, 10, ring)
   p:outline(C.outline)
 end
 
+-- A crate, a tyre and a bent sheet of metal, each with a lit top and a shaded side.
 function P.junk(p)
+  local rustDark = { 0.36, 0.18, 0.12 }
   p:ellipse(8, 13, 7, 2, C.shadow)
   p:rect(2, 7, 6, 5, C.rust) -- crate
   p:rect(2, 7, 6, 1, C.barkLight)
-  p:circle(11, 10, 3, C.tire) -- tire
+  p:rect(2, 9, 5, 1, rustDark) -- plank line
+  p:rect(7, 8, 1, 4, rustDark) -- shaded side
+  p:circle(11, 10, 3, C.tire) -- tyre
   p:circle(11, 10, 1, C.metal)
+  p:px(9, 8, C.stoneDark)
   p:rect(5, 4, 5, 3, C.metal) -- sheet metal
-  p:px(6, 5, C.stoneLight)
+  p:rect(5, 4, 5, 1, C.stoneLight)
+  p:rect(5, 6, 5, 1, C.stoneDark)
   p:outline(C.outline)
 end
 
 function P.tree(p)
   p:ellipse(8, 30, 7, 2, C.shadow)
-  p:rect(6, 18, 4, 12, C.bark)
-  p:rect(6, 18, 1, 12, C.barkLight)
-  p:rect(9, 18, 1, 12, C.barkDark)
-  p:circle(8, 11, 8, C.leafDark)
-  p:circle(7, 9, 7, C.leaf)
-  p:circle(10, 12, 5, C.leaf)
-  for _ = 1, 14 do
-    p:px(p.rng:int(2, 13), p.rng:int(3, 15), C.leafLight)
-  end
+  p:rect(6, 16, 4, 14, C.bark)
+  p:rect(6, 16, 1, 14, C.barkLight)
+  p:rect(9, 16, 1, 14, C.barkDark)
+  clumps(p, { { 8, 5, 4 }, { 4, 9, 4 }, { 12, 8, 4 }, { 7, 13, 5 }, { 12, 13, 3 } }, BROADLEAF)
+  p:outline(C.outline)
 end
 
--- A conifer: a stack of narrowing dark-green tiers on a short trunk.
+-- A conifer: four stacked tiers, each a triangle lit on its left half, on a short trunk.
 function P.pine(p)
   p:ellipse(8, 30, 6, 2, C.shadow)
   p:rect(7, 24, 3, 6, C.bark)
   p:rect(7, 24, 1, 6, C.barkLight)
   p:rect(9, 24, 1, 6, C.barkDark)
-  for tier = 0, 3 do
-    local y, half = 3 + tier * 6, 3 + tier * 1.6
-    p:rect(math.floor(8 - half), y + 2, math.floor(half * 2), 4, C.leafDark)
-    p:rect(math.floor(8 - half * 0.7), y, math.floor(half * 1.4), 3, tier % 2 == 0 and C.leaf or C.leafDark)
+  for _, t in ipairs({ { 1, 7, 3 }, { 6, 7, 5 }, { 11, 8, 6 }, { 16, 8, 7 } }) do
+    local top, h, halfW = t[1], t[2], t[3]
+    for row = 0, h - 1 do
+      local half = math.max(1, math.floor(halfW * (row + 1) / h + 0.5))
+      p:rect(8 - half, top + row, half, 1, row < h - 1 and PINE[2] or PINE[1]) -- lit side
+      p:rect(8, top + row, half, 1, PINE[1]) -- shaded side
+      p:px(8 - half, top + row, PINE[3]) -- the lit edge
+    end
+    p:px(7, top + 1, PINE[4])
   end
-  for _ = 1, 8 do
-    p:px(p.rng:int(5, 11), p.rng:int(4, 22), C.leafLight)
-  end
+  p:outline(C.outline)
 end
 
--- A birch: pale spotted trunk under a light, airy crown.
+-- A birch: pale marked trunk under a light, airy crown of small clumps.
 function P.birch(p)
   local trunk, trunkDark = { 0.86, 0.85, 0.78 }, { 0.20, 0.19, 0.17 }
   p:ellipse(8, 30, 6, 2, C.shadow)
-  p:rect(7, 14, 3, 16, trunk)
+  p:rect(7, 12, 2, 18, trunk)
   for y = 16, 28, 4 do
-    p:rect(7, y, 2, 1, trunkDark)
+    p:px(7 + (y / 4) % 2, y, trunkDark)
   end
-  p:circle(8, 10, 7, C.leaf)
-  p:circle(6, 8, 5, C.leafLight)
-  p:circle(11, 12, 4, C.leafLight)
-  for _ = 1, 12 do
-    p:px(p.rng:int(2, 13), p.rng:int(3, 15), C.sproutLight)
-  end
+  clumps(p, { { 8, 4, 3 }, { 5, 8, 3 }, { 11, 7, 3 }, { 8, 11, 3 }, { 12, 12, 2 }, { 4, 13, 2 } }, BIRCH)
+  p:outline(C.outline)
 end
 
 function P.truck(p)
@@ -283,15 +309,10 @@ function P.potato(p, _, _, variant)
     p:circle(8, 8, 2, C.sprout)
     p:px(7, 7, C.sproutLight)
     p:px(9, 8, C.sproutLight)
-  elseif variant == 2 then -- growing: a bushy mound
-    p:circle(8, 8, 4, C.leaf)
-    p:px(6, 6, C.sproutLight)
-    p:px(7, 5, C.sproutLight)
-    p:px(10, 7, C.sprout)
-    p:px(5, 9, C.sprout)
-  else -- ready: a big dark bush dotted with white flowers
-    p:circle(8, 7, 6, C.leafDark)
-    p:circle(8, 7, 5, C.leaf)
+  elseif variant == 2 then -- growing: a bushy mound of two lit clumps
+    clumps(p, { { 7, 7, 3 }, { 9, 9, 3 } }, { C.sproutDark, C.sprout, C.sproutLight, C.white })
+  else -- ready: a big dark bush of lit clumps dotted with white flowers
+    clumps(p, { { 6, 5, 3 }, { 10, 6, 3 }, { 8, 9, 4 } }, BROADLEAF)
     for _, f in ipairs({ { 5, 4 }, { 10, 5 }, { 8, 8 }, { 6, 8 }, { 11, 9 }, { 8, 3 } }) do
       p:px(f[1], f[2], C.potatoFlower)
     end
@@ -322,22 +343,31 @@ function P.cue_ready(p, _, _, variant)
   p:outline(C.sparkleEdge)
 end
 
+-- The homesteader, lit from the top-left like everything else: the right side of the shirt, the right
+-- leg and the jaw take a shade, the hair catches a highlight, and a dark outline keeps the figure
+-- readable on any ground.
 function P.homesteader(p)
+  local pantsDark, skinShade, hairLight = { 0.17, 0.22, 0.33 }, { 0.78, 0.60, 0.48 }, { 0.52, 0.37, 0.24 }
   p:ellipse(8, 19, 4, 1, C.shadow)
   p:rect(6, 15, 2, 4, C.pants)
-  p:rect(9, 15, 2, 4, C.pants)
+  p:rect(9, 15, 2, 4, pantsDark)
   p:rect(6, 18, 2, 1, C.boot)
   p:rect(9, 18, 2, 1, C.boot)
   p:rect(5, 8, 7, 7, C.shirt)
   p:rect(5, 10, 7, 1, C.shirtDark) -- flannel check
   p:rect(8, 8, 1, 7, C.shirtDark)
+  p:rect(11, 8, 1, 7, C.shirtDark) -- the shaded side
   p:rect(4, 9, 1, 5, C.skin)
-  p:rect(12, 9, 1, 5, C.skin)
+  p:rect(12, 9, 1, 5, skinShade)
   p:rect(6, 2, 5, 6, C.skin)
+  p:rect(10, 3, 1, 5, skinShade)
+  p:rect(6, 7, 5, 1, skinShade) -- under the chin
   p:rect(6, 1, 5, 2, C.hair)
+  p:rect(7, 1, 2, 1, hairLight)
   p:px(6, 3, C.hair)
   p:px(7, 5, C.tire)
   p:px(9, 5, C.tire)
+  p:outline(C.outline)
 end
 
 local CAT_FUR = { 0.78, 0.52, 0.28 }

@@ -1,6 +1,8 @@
 // Sun shadows, composited: the shadow mask (one texel per world art pixel, drawn by shadow.glsl and
-// the contact rectangles) laid over the ground in one translucent pass, so cast and contact shadows
-// merge into a single darkness instead of stacking.
+// the contact rectangles) laid over the ground in one pass, so cast and contact shadows merge into a
+// single darkness instead of stacking. The pass MULTIPLIES the ground: a shadow is the ground's own
+// colour taken toward `shadowColor`, a cool blue-violet, so grass in shade stays green but deep and cool
+// instead of going grey under a black film.
 //  - red: a cast shadow (its strength follows the sun and the cloud)
 //  - green: a contact shadow under something standing there (it stays at night)
 //  - blue: the cast shadow belongs to a tree canopy, so sun flecks show through it (leaf dapple): pixel
@@ -8,7 +10,7 @@
 // World-anchored: the art pixel comes from the mask's texture coordinate (`origin` is the world art
 // pixel at the mask's top-left), never the vertex position.
 
-uniform vec3 shadowColor;
+uniform vec3 shadowColor;     // colour multiplier at full shade (cool, so shade reads blue-violet)
 uniform float castStrength;  // 0..1 alpha of a cast shadow right now
 uniform float contactStrength; // 0..1 alpha of a contact shadow
 uniform vec2 origin;         // world art pixel at the mask's top-left texel
@@ -67,6 +69,6 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
         shade = mix(shade, stipple, dither.z);
     }
     float a = max(shade, m.g * contactStrength);
-    return vec4(shadowColor, a) * color;
+    return vec4(mix(vec3(1.0), shadowColor, a), 1.0) * color; // drawn with the multiply blend
 }
 #endif

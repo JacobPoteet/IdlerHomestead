@@ -16,7 +16,10 @@ To replace a placeholder, put the image in `game/assets/sprites/` and change its
   16×32). Actor sprites are drawn bottom-centre at the feet.
 - **Variants:** `variants = n` gives ids `name_1..name_n`; in a sheet they're laid out left to right.
 - **Palette:** the colour grade shader tints everything by time of day, so author art in neutral
-  daylight colours. Avoid baked-in lighting direction beyond a soft top-left highlight.
+  daylight colours. Light every sprite from the top-left (D136): a lit face up and left, a darker face
+  down and right, and a dark outline round small sprites. The shaders add the sun's edge and a cool form
+  shade on top. Keep the value plan: light, calm ground; deep, cool foliage and objects; strong red only
+  on the homesteader and a few key things. Paint foliage as lit clumps, not random speckle.
 
 ## Sprites
 
@@ -26,7 +29,7 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 
 | Id | Variants | Status | Notes |
 |---|---|---|---|
-| `grass` | 4 | M1 | Base ground. Seasonal versions later (summer dry, autumn, snow). |
+| `grass` | 4 | M1 | Base ground. Seasonal versions later (summer dry, autumn, snow). Broad lighter and darker patches are painted over it once at load (`src/render/ground_detail.lua`, `visuals.groundDetail`, D136); a scattered texture and tufts were tried and dropped. |
 | `road` | 2 | M1 | Dirt road. |
 | `tilled_dry` / `tilled_wet` | 1 each | M1 | Furrowed soil; wet is darker. |
 | `ford_stones` | 1 | M1 | Transparent overlay of stepping stones drawn over water. |
@@ -42,7 +45,7 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 | `rock` | 16×16 | M1 | |
 | `log` | 16×16 | M1 | Fallen log. |
 | `junk` | 16×16 | M1 | Crate, tire, sheet metal. Gives scrap + a few dollars. |
-| `tree` | 16×32 | M1 | Needs 2–3 species and seasonal variants (bare in winter). |
+| `tree` | 16×32 | M1 | Oak placeholder drawn as lit leaf clumps with an outline (D136). Needs seasonal variants (bare in winter). |
 | `pine` | 16×32 | D135 | Conifer: narrow tiers, stays green in winter. Placeholder; needs seasonal art for snow. |
 | `birch` | 16×32 | D135 | Pale spotted trunk, light airy crown. Placeholder; needs bare-winter and autumn variants. |
 | `truck` | 32×24 | M1 | Electric pickup, 2×1 footprint. Later: charging cable, cargo states, trailer. |
@@ -127,6 +130,8 @@ gradients), avoid `sin()`-based hashes (precision on mobile), and keep everythin
 | `sway.glsl` | **D84** | Wind sway of crops, brush and tree canopies, drawn in place of the plain sprite (not while a snow cap is on it). Each row is shifted sideways by a whole number of art pixels, growing toward the tip (`root` share of the sprite stays still: a trunk does not bend), on a quad padded a few pixels so the tip is not clipped, with sampling clamped to the sprite's own atlas cell. Strength and speed from `Weather.windStrength` (eased; the sway clock accumulates, so a gust never jumps the pose), per-plant phase from the tile (a gust rolls across the field) carried in the vertex colour so there is no per-plant uniform. Content field `sway = { weight, root }` on objects; crops in `visuals.wind.crop` (`visuals.wind`). |
 | `mist.glsl` | **D84** | Morning mist: one translucent quad over the visible tiles after the sprites, before the grade (so dawn warms it). Banks of blocky banded noise drifting downwind, thickest on the creek and within `reach` tiles of it (a per-tile distance map baked in `Renderer:buildWater`). Strength = time of morning (forms `preHours` before sunrise, burns off after `holdHours + fadeHours`) x calm air (gone by `windKill`) x damp (stronger after rain) x frozen creek (`visuals.mist`). |
 | `shadow.glsl` | **D127** | Sun shadows: every y-sorted sprite's silhouette, auto-generated (no art), flipped onto the ground and sheared away from the sun, drawn solid into a mask canvas with one texel per world art pixel (so the sheared edges step on the art grid, D132) and composited once by `shadow_composite.glsl` in the shadow colour, so overlapping shadows never double. Sun side and height come from `Lighting.sun` (real hour, season's sunrise and sunset): shadows lean west at dawn, shorten to a squat blob at noon, lean east at dusk, fade near the horizon, thin under cloud and vanish at night. A small stepped contact shadow sits under everything (hens and goats included, D132), goes into the same mask (green channel) so it merges with the cast shadow instead of stacking, and stays at night. Crops cast too (no contact shadow). Content flag `flat = true` (drip line, sprinkler) casts nothing. Drawn after mist, before the sprites (`visuals.shadows`). |
+| `shadow_composite.glsl` (D136 changes) | **D136** | The composite now MULTIPLIES the ground toward `shadows.color` (a cool blue-violet) instead of laying a translucent dark tone on it, so shade keeps the ground's hue, and the cast shadow is solid (`dither.shadows.amount = 0`; the editor can bring the stipple back). The mask's contact channel also takes stepped ambient-occlusion rings round each object's base (`shadows.ao`) and a wide ellipse under each tree in a stand (`visuals.forestFloor`), drawn with a max blend so they pool instead of stacking. |
+| `rim.glsl`, `sway.glsl` (D136 sun lighting) | **D136** | Every season, plain sprites, crops and canopies catch the sun: a faint warm edge on the sun side (`sunlight.lit`, mixed with the autumn rim when both show) and a cool form shade one or two pixels deep on the side away from the sun and along the bottom (`sunlight.shade` in direct sun, `ambientShade` at night and under cloud). The outline stays dark. `visuals.sunlight`. |
 | `shadow_composite.glsl` | **D132** | Lays the shadow mask over the ground in one translucent pass: alpha = max(cast x the sun's strength, contact x `contactStrength`). Blue in the mask marks a tree canopy's cast shadow (content flag `dapple = true`): it is shaded deeper (`dapple.shade`) and sun flecks show through it, two-step pixel blobs from world-anchored noise that shuffle a whole art pixel at a time on the wind-sway clock (still under reduce motion). `visuals.shadows.dapple`. |
 | `include/dither.glsl` | **D133** | Shared dither helpers (`ditherQuantize`, `ditherMask`) with seven patterns (none, Bayer 2/4/8, blue noise, interleaved gradient noise, white), used by `light`, `grade` (heat shimmer and vignette), `shadow_composite`, `clouds`, `mist` and `sunbeams`; `#include "dither"` is expanded by `Shaders`. Each effect passes a vec4 from `tuning.visuals.dither.<effect>` (`src/render/dither.lua`). Always feed it a world art-pixel coordinate so the pattern stays on the land. Edit the settings live in the in-game editor (F8). |
 | `rim.glsl` (and `sway.glsl`) | **D132** | Autumn rim light: a warm line along the sun side of each sprite on clear afternoons. A pixel is rim when its neighbour toward the sun is empty, or is the dark outline (`inkLuma`) with empty beyond, so the light sits just inside the outline and the outline stays dark. The top edge always catches some (`top`; the sun is up-screen, the way shadows fall), the sunward side more as the sun moves off noon (`sideGain`). Strength by season (`seasons`, autumn only by default), stronger at low sun (`noonShare`), gone under cloud and at night. Plain sprites draw through `rim.glsl` (one shader for the whole y-sorted pass, so they still batch; mirrored hens and goats flip `rimSide`); crops and canopies get the same rim inside `sway.glsl`, worked out on the swayed picture. `visuals.rim`. |

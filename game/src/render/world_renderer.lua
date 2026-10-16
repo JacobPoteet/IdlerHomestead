@@ -21,6 +21,7 @@ local Weather = require("src.sim.systems.weather")
 local Assets = require("src.render.assets")
 local Shaders = require("src.render.shaders")
 local Dither = require("src.render.dither")
+local GroundDetail = require("src.render.ground_detail")
 local Lighting = require("src.render.lighting")
 local WeatherFx = require("src.render.weather_fx")
 local Lights = require("src.render.lights")
@@ -152,6 +153,7 @@ function Renderer:buildGround()
       Assets.draw(id, (x - 1) * tile, (y - 1) * tile)
     end
   end
+  GroundDetail.paint(grid, tile, self.world.tuning.visuals.groundDetail)
   love.graphics.pop()
   self.ground = canvas
 end
@@ -600,6 +602,11 @@ function Renderer:draw(alpha, visible, daylight)
     end
   end
   local defs, registry = {}, world.registry -- id -> definition, looked up once per frame
+  local floor = self.floorList or {} -- x, y, tree neighbours for each tree that shades the forest floor
+  self.floorList = floor
+  for k = #floor, 1, -1 do
+    floor[k] = nil
+  end
   -- Upgrade looks (D116): sprites drawn over a building while the equipment that upgrades it is owned.
   local looks
   for k = 1, Inventory.fillEquipmentIds(world, equipmentScratch) do
@@ -626,6 +633,32 @@ function Renderer:draw(alpha, visible, daylight)
       local smoking = batch and world.registry:get("recipes", batch.recipe).fuel ~= nil
       if not def.flat then
         self:castShadow(shadows, sprite, (x - 1) * tile + sprite.w / 2, bottom, 1, true, def.dapple)
+      end
+      if def.kind == "tree" then
+        -- Forest floor: a tree with enough trees round it shades the ground under the wood.
+        local n = 0
+        for dy = -1, 1 do
+          for dx = -1, 1 do
+            local o = (dx ~= 0 or dy ~= 0)
+              and Grid.inBounds(grid, x + dx, y + dy)
+              and grid.objects[Grid.index(grid, x + dx, y + dy)]
+            if o then
+              local od = defs[o.id]
+              if not od then
+                od = registry:get("objects", o.id)
+                defs[o.id] = od
+              end
+              if od.kind == "tree" then
+                n = n + 1
+              end
+            end
+          end
+        end
+        if n >= v.forestFloor.minNeighbours then
+          floor[#floor + 1] = x
+          floor[#floor + 1] = y
+          floor[#floor + 1] = n
+        end
       end
       items[#items + 1] = {
         bottom,
@@ -760,7 +793,7 @@ function Renderer:draw(alpha, visible, daylight)
   table.sort(items, function(a, b)
     return a[1] < b[1]
   end)
-  self:drawShadows(shadows)
+  self:drawShadows(shadows, floor)
   love.graphics.setShader(rim)
   for _, item in ipairs(items) do
     item[2]()
@@ -797,23 +830,48 @@ end
 function Renderer:rimShader(sway)
   local shader = Shaders.get("rim")
   local cfg = self.world.tuning.visuals.rim
-  local strength, side = 0, 0
+  local sl = self.world.tuning.visuals.sunlight
+  local strength, side, base, shade = 0, 0, 0, sl.ambientShade
   local season = cfg.seasons[Calendar.now(self.world).season] or 0
   local sunSide, height, cover = self:sun()
-  if shader and cfg.enabled and season > 0 and sunSide then
+  if sunSide then
     local rise = math.min(1, height / cfg.horizon)
-    local low = cfg.noonShare + (1 - cfg.noonShare) * (1 - height)
-    strength = cfg.strength * season * rise * low * (1 - cfg.cloudKill * cover)
+    local sun = rise * (1 - cfg.cloudKill * cover) -- direct sun: gone at the horizon and under cloud
+    if cfg.enabled and season > 0 then
+      local low = cfg.noonShare + (1 - cfg.noonShare) * (1 - height)
+      strength = cfg.strength * season * low * sun
+    end
+    base = sl.lit * sun
+    shade = sl.ambientShade + (sl.shade - sl.ambientShade) * sun
     side = -sunSide -- the sun is east (+x) in the morning, when the shadows fall west
   end
-  local on = strength > 0.005
+  if not sl.enabled then
+    base, shade = 0, 0
+  end
+  -- The autumn rim and the everyday lit edge share the rim pass: their colours are mixed by strength.
+  local color = cfg.color
+  if strength + base > 0 then
+    local a, b = strength / (strength + base), base / (strength + base)
+    color = {
+      cfg.color[1] * a + sl.litColor[1] * b,
+      cfg.color[2] * a + sl.litColor[2] * b,
+      cfg.color[3] * a + sl.litColor[3] * b,
+    }
+  end
+  strength = strength + base
+  local on = shader ~= nil and (strength > 0.005 or shade > 0.005)
+  local sideWeight = math.min(1, math.abs(side) * cfg.sideGain)
   local values = {
     rimStrength = on and strength or 0,
-    rimColor = cfg.color,
+    rimColor = color,
     rimSide = side >= 0 and 1 or -1,
-    rimSideWeight = math.min(1, math.abs(side) * cfg.sideGain),
+    rimSideWeight = sideWeight,
     rimTop = cfg.top,
     inkLuma = cfg.inkLuma,
+    shadeStrength = on and shade or 0,
+    shadeColor = sl.shadeColor,
+    shadeSideWeight = sl.sideFloor + (1 - sl.sideFloor) * sideWeight,
+    shadeBottom = sl.bottom,
   }
   if sway then
     Shaders.send(sway, values) -- sway sends its own texel per sprite
@@ -1441,7 +1499,7 @@ end
 --- step on the art grid) and composited once, so overlapping shadows never double up. The sun's height
 --- sets the length, its place along the day sets the lean, cloud and low sun thin it out. Sun flecks
 --- show through a tree's shadow (leaf dapple). The contact shadow stays through the night.
-function Renderer:drawShadows(list)
+function Renderer:drawShadows(list, floor)
   local world = self.world
   local cfg = world.tuning.visuals.shadows
   local composite = Shaders.get("shadow_composite")
@@ -1495,12 +1553,36 @@ function Renderer:drawShadows(list)
     love.graphics.setShader()
   end
   love.graphics.setColorMask(false, true, false, true)
-  love.graphics.setColor(1, 1, 1, 1)
+  -- Overlapping occlusion keeps the darker value (lighten = max), so neighbours pool together instead of stacking.
+  love.graphics.setBlendMode("lighten", "premultiplied")
+  -- The forest floor: a wide, low ellipse of shade under each tree in a stand, deeper where the wood is
+  -- thick. Neighbouring ellipses overlap and merge, so a wood reads as one shaded area.
+  local ff, tile = world.tuning.visuals.forestFloor, self.tile
+  for k = 1, floor and #floor or 0, 3 do
+    local level = floor[k + 2] >= ff.deepNeighbours and ff.deepLevel or ff.level
+    love.graphics.setColor(level, level, level, 1)
+    love.graphics.ellipse(
+      "fill",
+      (floor[k] - 0.5) * tile,
+      (floor[k + 1] - 0.5) * tile + ff.drop,
+      ff.radiusX,
+      ff.radiusY,
+      ff.segments
+    )
+  end
+  local ao = cfg.ao
   for k = 1, list.n, SHADOW_STRIDE do
     local sprite = list[k]
     if list[k + 4] then
       local w = math.min(cfg.contactMaxWidth, math.floor(sprite.w * cfg.contactWidth))
       local x, y = math.floor(list[k + 1]), math.floor(list[k + 2])
+      -- Ambient occlusion: stepped rings round the base, fainter the further out, so the object sits in the ground.
+      for r = #ao.levels, 1, -1 do
+        local level = ao.levels[r]
+        love.graphics.setColor(level, level, level, 1)
+        love.graphics.ellipse("fill", x, y + 0.5, w / 2 + r * ao.spread, 1.5 + r * ao.depth, ao.segments)
+      end
+      love.graphics.setColor(1, 1, 1, 1)
       local inner = math.floor(w * 0.7)
       love.graphics.rectangle("fill", x - math.floor(inner / 2), y - 1, inner, 3)
       love.graphics.rectangle("fill", x - math.floor(w / 2), y, w, 1)
@@ -1537,7 +1619,9 @@ function Renderer:drawShadows(list)
   Dither.send(composite, world.tuning, { dither = "shadows" })
   love.graphics.setShader(composite)
   love.graphics.setColor(1, 1, 1, 1)
+  love.graphics.setBlendMode("multiply", "premultiplied") -- the shadow tints the ground's own colour
   love.graphics.draw(mask, ox, oy)
+  love.graphics.setBlendMode("alpha")
   love.graphics.setShader()
 end
 
