@@ -90,7 +90,6 @@ return {
     dry = { 0.95, 0.40, 0.30, 0.30 },
   },
   waterSpots = { 0.35, 0.62, 0.80, 0.28 }, -- tint over tiles where a well or pump can be sunk, while placing one
-  frostPlan = { 0.95, 0.55, 0.15, 0.40 }, -- amber tint over a planned tile whose crop cannot ripen before winter (D70, #165)
   cropCues = { -- crop and plan readability (#20, D102; src/render/crop_cues.lua); icons are drawn over the graded world so they hold at night
     iconAlpha = 0.95, -- 0..1 opacity of the thirsty droplet and the ready sparkle at full strength
     nightIconDim = 0.15, -- 0..1 how much the icons fade at full darkness (they stay bright enough to read, but do not glare)
@@ -99,13 +98,34 @@ return {
     sparkleDuty = 0.35, -- 0..1 share of the cycle the sparkle twinkles; the rest of the time it rests as the small plus
     sparkleRest = 0.7, -- 0..1 opacity of the resting plus (the ripe cue is always visible, also under reduce motion)
     sparkleSpread = 8, -- number of staggered phases, so a whole field does not twinkle in step
-    planGhostAlpha = 0.5, -- 0..1 opacity of the faint sprout drawn on a planned tile (a plant it is not yet)
     nightLift = 0.4, -- 0..1 extra brightness added to crop sprites at full darkness, so a graded sprout keeps contrast against the dark soil
   },
   rangePreview = { -- placement range preview (#268, D108): the ranges of placed items of the same kind, and where they overlap the one being placed
     others = { 0.75, 0.80, 0.85, 0.10 }, -- dimmed tint over a placed item's range (rgba)
     othersEdge = { 0.75, 0.80, 0.85, 0.45 }, -- outline of each placed item's range (rgba), so touching ranges stay distinct
     overlap = { 1.00, 0.30, 0.25, 0.45 }, -- tint over tiles that two ranges both cover (rgba); strong enough to read over the other tints
+  },
+  sketch = { -- plans drawn in pencil on the land (src/render/sketch.lua, shaders/sketch.glsl; GDD §9.4, D142): what is planned but not real yet
+    ink = { 0.19, 0.20, 0.24 }, -- graphite: a cool dark grey that reads on grass, soil and snow without looking like a UI highlight
+    frostInk = { 0.62, 0.38, 0.08 }, -- amber pencil for a plan whose crop cannot ripen before winter (D70)
+    chalk = { 0.80, 0.84, 0.92 }, -- the same lines again over the graded world at night, in pale chalk
+    chalkShare = 0.9, -- 0..1 chalk strength as a share of the crop-cue night lift (cropCues.nightLift)
+    hatchAlpha = 0.42, -- 0..1 opacity of the diagonal hatch on planned, untilled tiles
+    hatchEvery = 4, -- art pixels between hatch lines (the tile size must be a multiple)
+    grain = 0.18, -- 0..1 share of hatch pixels the lead skips
+    edgeAlpha = 0.9, -- 0..1 opacity of the outline round a planned area
+    overshoot = 2, -- art pixels the outline runs past a corner of the planned area, like a quick pencil stroke
+    secondStroke = 0.28, -- 0..1 share of outline pixels with a faint second stroke beside them
+    sprite = { hatch = 0.55, wash = 0.1 }, -- a sketched planned crop: 0..1 hatch and flat wash inside its outline
+    ghost = { hatch = 0.55, wash = 0.16 }, -- a sketched building being placed or queued (D79)
+    status = { -- ink of a placement ghost by the D79 preview
+      ok = { 0.16, 0.42, 0.22 }, -- goes up at once
+      clear = { 0.62, 0.38, 0.08 }, -- something must be cleared first
+      refused = { 0.66, 0.16, 0.14 }, -- cannot go there
+      replace = { 0.16, 0.34, 0.56 }, -- an upgrade over the old building (D115)
+      queued = { 0.19, 0.20, 0.24 }, -- an order waiting for the way to be cleared (graphite)
+      held = { 0.66, 0.16, 0.14 }, -- an order held back (storage full, unreachable)
+    },
   },
   replacePreview = { -- planning over growing crops (D110, #257): tiles whose crop the plan would pull
     fill = { 0.90, 0.20, 0.15, 0.40 }, -- red tint over a tile that will be replaced (rgba)

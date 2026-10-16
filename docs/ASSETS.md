@@ -33,7 +33,7 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 | `road` | 2 | M1 | Dirt road. |
 | `tilled_dry` / `tilled_wet` | 1 each | M1 | Furrowed soil; wet is darker. |
 | `ford_stones` | 1 | M1 | Transparent overlay of stepping stones drawn over water. |
-| `plan_marker` | 1 | M1 | Corner ticks on planned field tiles. |
+| `plan_marker` | 1 | Retired (D142) | Planned tiles are now a pencil sketch (`src/render/sketch.lua`). |
 | Grass→dirt / grass→water transition tiles | autotile set | M7 | Today the creek edge is handled by the water shader's foam. |
 | Snow ground, frozen water | — | M3 | Done as shaders (`ground.glsl`, `snowcap.glsl`, `water.glsl` ice) over the normal tiles. |
 
@@ -75,7 +75,7 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 | `radish_1..3` | M1 | Ready stage shows the red root. |
 | `potato_1..3` | M1 | Ready stage flowers. |
 | `cue_droplet`, `cue_ready_1..2` | D102 | Thirsty droplet (7x9) and ripe sparkle frames (7x7), drawn over the graded world above the tile's top right. |
-| `plan_marker` | D102 | Dashed frame for a planned tile; the renderer draws a faint `<crop>_1` ghost inside it. |
+| `plan_marker` | Retired (D142) | Was a dashed frame with a faint `<crop>_1` ghost; plans are now pencil sketches of the ripe crop. |
 | More crops | M6–M7 | Carrots, beans, squash, corn (tall), greenhouse crops. |
 
 **Readability rules for crop and small-sprite art (#20, D102).** Give every crop stage a dark 1-pixel edge and a bright interior (the placeholder `p:outline(C.outline)` does this), keep the sprout at least about 8 pixels wide, and make stages differ by silhouette, not tint alone. The night grade multiplies colour, so contrast must come from the art and from `visuals.cropCues.nightLift`; do not rely on hue. The thirsty droplet and ripe sparkle are separate sprites drawn by the renderer, so real crop art should not paint them in. Tune in `data/tuning/visuals.lua` (`cropCues`) and check with `lovec tools/driver crops`.
@@ -162,6 +162,7 @@ gradients), avoid `sin()`-based hashes (precision on mobile), and keep everythin
 | Depth of field (`grade.glsl`) | **D132** | Optional (Settings > Visuals > Depth of field, off by default). Toward the top and bottom of the view the picture is softened in `steps`, each art pixel averaged with its neighbours one, then two art pixels away, sampled at art-pixel centres, so every screen pixel of an art pixel gets the same colour and the result stays blocky pixel art rather than a smear. `visuals.depthOfField`. A stronger diorama tilt-shift for the planned desktop widget mode can reuse it. |
 | Selection outline (`Renderer:drawSelection`) | **D85** | Not a shader: a pixel ring round the selected object's whole footprint (or the tile), a dark ring just outside, an accent ring, brighter corner brackets, and a slow alpha breath. Drawn over the graded world on the art-pixel grid so it reads at every zoom and at night; thickness is `max(thickness, ceil(minScreen / pixelSize))` so it never thins below `minScreen` physical pixels. Replaces the tile box for the selected tile; the hover box (mouse only, never needed) and planning boxes are unchanged. `visuals.selection`. |
 | `ui_plate.glsl` | **D142** | HUD, panel and button plates: the graded world, blurred (`src/ui/plate.lua` copies it at 1/`ui.plate.blurDivisor` and blurs it) and cut into levels with the shared dither on the UI pixel grid (`visuals.dither.plate`), pulled toward the plate colour, tinted by `ui.plate.gradeShare` of the grade and dimmed at night (`nightDim`). Dark outline, lit top-left edge, cool bottom-right shade, stepped corners. Frost from the corners on frozen days and snow along the top edge (not on plates under `snowMinSize`), off with Ambient effects. Text and icons are drawn over it, never graded. With no world behind (title, slots) the plate is solid. |
+| `sketch.glsl` + `src/render/sketch.lua` | **D142** | Plans in pencil (#292): planned, untilled tiles get a diagonal hatch and every planned area a pencil outline that overshoots its corners, both cut from one small white atlas built from `visuals.sketch` and tinted per tile (graphite, or amber when the crop cannot ripen before winter), so a field is one batch of same-texture draws. The planned crop's ripe sprite, placement ghosts (tinted by the D79 preview: ok, clear first, refused, upgrade) and queued orders go through `sketch.glsl`: the silhouette edge is a pencil line, the art's dark outline a second stroke, the inside a light hatch over a faint wash. At night the plans are drawn again over the graded world in pale chalk, scaled by the crop-cue night lift. |
 | Fishing water | Planned (M2) | Close-up underwater view for the tension mini-game (cutaway, light rays, fish silhouettes). |
 
 ### Shader audit (#193, D83)
