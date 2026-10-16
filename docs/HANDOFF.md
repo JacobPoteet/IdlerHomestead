@@ -1,136 +1,83 @@
-# UI redesign handoff (2026-10-16, updated after phase 8: all nine phases are built)
+# Handoff
 
-Read this first; the older master-agent prompt below still holds for workflow, but where they differ this wins.
+Read this first when picking up the project. Design lives in [GDD.md](GDD.md) (the decision log is the source of
+truth; next free decision is D149). The interface redesign (D137-D148, [PLAN_UI.md](PLAN_UI.md)) is finished and merged;
+this file keeps only what a new session still needs.
 
-## What the user asked for
-A ground-up interface rethink for the MVP (not a polish): fewer buttons, a distinct look that fits the art,
-room for the coming Power and Water views. Agreed design: GDD §9.4 and decisions D137-D142. Build plan,
-phases and the prototype's tuning notes: `docs/PLAN_UI.md`. Tracking issue #300; phases #291-#299
-(MVP milestone). The user chose: a quiet frosted HUD with paper books; a hold-to-open tool wheel with six
-fixed wedges (Hand, Hoe, Pail, Axe, Rod, Hammer), the Hand kept smart; no lens buttons and no second wheel;
-plans drawn in pencil; frost and snow on plates in winter.
+## State
+- `main` is green: 961 headless tests, the full driver sweep, StyLua and luacheck clean. `Save.SAVE_COMPAT` = 12.
+- Latest tag 0.4.0 (releases are pre-releases while the tag starts with `0.`). Notes are hand-written in
+  `docs/patch-notes/<tag>.md` from `TEMPLATE.md`; the redesign has not shipped in a tag yet.
+- Plan (D95): MVP first, balance after. Open MVP work is listed by `gh issue list --milestone MVP --state open`.
+- Open design questions for the user are in [ISSUE_AUDIT.md](ISSUE_AUDIT.md) section 2. Do not change issues in bulk
+  or guess decisions that are theirs.
 
-## Done (merged to main)
-| Phase | Issue | PR | Notes |
-|---|---|---|---|
-| Design doc, D137-D142, issues | #300 | #301 | GDD §9.4, PLAN_UI.md, `docs/screens/uxproto_*` |
-| 1 Pixel font, plates, icons | #291 | #302 | `src/ui/pixel_font.lua`, `text.lua`, `plate.lua`, `shaders/ui_plate.glsl`, `icons.lua`; driver `uikit` |
-| 2 Pencil plans | #292 | #303 | `src/render/sketch.lua`, `shaders/sketch.glsl`; driver `pencil` |
-| 3 Resting HUD | #293 | #304 | `src/ui/hud.lua` (pure layout + trays), homestead `layoutHud`/`draw*`; `tests/test_hud.lua` |
-| 4 Tool wheel | #294 | #305 | `src/ui/tool_wheel.lua`, `Input` wheel events, keys Q and 1-6; `tests/test_tool_wheel.lua`; driver `wheel` |
-| 5 Hammer and crate | #295 | #306 | `Homestead:hammerRing`/`hammerTap`, crate count on wedge and badge; `tests/test_hammer.lua`; driver `hammer` |
-| 6 Notebook and Ledger | #296 | (branch) | `src/scenes/book.lua` hosts the old panel scenes as tabs, `src/ui/books.lua` (pure state, shortcuts, tab layout), `src/ui/paper.lua`; D143, D144; `tests/test_books.lua`; driver `panels` |
+## Unverified after the redesign (tell the user)
+- Nobody has played the finished redesign for feel. Dissolve durations, signal timing, plate see-through, grade share
+  and night dim (`ui.plate`, `ui.motion`, tuned in the F8 editor) are first guesses, set from still frames. See #324.
+- Phone performance of the plate capture and the lens pass is unmeasured (#315, [PERF.md](PERF.md) checklist).
+- The idle countdown ring and badge texts were tuned by eye on desktop only.
+- Audio placeholders have never been heard (#243, #244).
 
-## Phase 8 (#298) built: motion, calm signals and plate weather (D148)
-`src/ui/transition.lua` (pure dissolve state: timing, stepped coverage, the Reduce motion two-step), `src/ui/signals.lua`
-(pure: amber glint place and moment, red three-frame beat), `src/ui/motion.lua` (the UI clock, `Motion.step`,
-`Motion.signal`, `Motion.night`), `src/render/dissolve.lua` + `shaders/ui_dissolve.glsl` (`Dissolve.begin(cover)` ... `finish()`;
-at coverage 1 it draws straight, so a settled screen costs nothing). Books dissolve through `App` (a scene with `dissolve = "book"`;
-a popped one stays in `app.leaving` until gone); the wheel, tip card, tile card and lens dissolve inside `Homestead:stepFades`
-and their draw functions (the wheel and cards keep their last state to draw going away; the lens keeps the graded frame under
-it in `lensMix`). The plate shader got a glint pixel and the small-plate frost ring; plates now dim with the daylight level (it
-used the light level, which only falls to 0.56, so night barely dimmed them); paper books get a lamp pool (`Paper.drawPool`,
-`Paper.drawLamp`). Tests: `tests/test_motion.lua`; driver: `motion` (mid-dissolve shots, signals, night book, winter plates).
-The driver sets `Motion.settled = true` so every other scenario shoots finished screens; `motion` turns it off.
-Not done (follow-ups): the Item card inside the Catalog and Truck pages closes with its book, not by itself; the FTUE tip highlight,
-the world selection ring and the rescue prompt still breathe on alpha (all well under 3 changes a second) and the FTUE highlight
-ignores Reduce motion; the dissolve and signal numbers were tuned from stills, not from a live feel.
+## Redesign follow-ups still open
+| Area | Issues |
+|---|---|
+| Books | #309 light paper with dark ink, #310 per-page layout pass, #311 keys to flip tabs, #312 real tab stamp art |
+| Lenses | #314 real wiring instead of inferred connections, #315 phone profile, #316 drip line tint and Water card detail |
+| Area drags | #318 edge scroll and a desktop pan route, #319 stronger mark patterns, #320 mark moist crops |
+| Motion | #322 item card dissolve, #323 remaining alpha pulses and Reduce motion, #324 tune by feel |
+| Older UI | #273 chip strip crowding on a phone, #269 touch range preview, #89 phone HUD check |
 
-## Phase 9 (#299) built: Axe and Pail area drags (D147)
-`src/sim/systems/marks.lua` (state `marks = { clear, water }`, the standing task types `clear_marked`, `water_marked`,
-`fetch_marked`; SAVE_COMPAT 12), `Homestead:areaDragBegin/Move/End` (the gesture; two fingers still pan, `Input` flags
-that pan with `pinch = true`), `Renderer:drawMarkSketch` + `Sketch.drawPlans`' `style` argument (hatch vs waves), a Cancel
-mark button on the tile card. Tests: `tests/test_marks.lua`; driver: `areadrag`. Phases 1-9 are all built.
+## Where the interface code lives
+| Part | Files |
+|---|---|
+| Font, plates, icons | `src/ui/pixel_font.lua`, `text.lua`, `plate.lua`, `icons.lua`, `shaders/ui_plate.glsl` |
+| Resting HUD | `src/ui/hud.lua` (pure layout), Homestead `layoutHud` / `draw*` |
+| Tool wheel, Hammer | `src/ui/tool_wheel.lua`, Homestead `hammerRing` / `hammerTap`, `Input` wheel events |
+| Pencil plans, marks | `src/render/sketch.lua`, `shaders/sketch.glsl`, `src/sim/systems/marks.lua`, Homestead `areaDrag*` |
+| Books | `src/scenes/book.lua` (hosts the old panel scenes as tabs), `src/ui/books.lua`, `src/ui/paper.lua` |
+| Lenses | `src/ui/lens.lua`, `lens_card.lua`, `src/render/lens.lua`, `lens_fields.lua`, `shaders/lens.glsl`; `Homestead:showLens("power"\|"water")` |
+| Motion | `src/ui/transition.lua`, `signals.lua`, `motion.lua`, `src/render/dissolve.lua`, `shaders/ui_dissolve.glsl` |
 
-## Phase 7 (#297) built: the Power and Water lenses (D145, D146)
-`src/ui/lens.lua` (pure: state, routes, card geometry), `src/render/lens_fields.lua` (pure data layer),
-`src/render/lens.lua` + `shaders/lens.glsl` (one pass into a second canvas that replaces the graded frame while a
-lens is on), `src/ui/lens_card.lua` (the card: the old Power panel's rows plus a Water card). `scenes/power.lua` and
-`openPower()` are gone; use `Homestead:showLens("power"|"water")`. Routes are `ui.lens.tools` and `ui.lens.vitals`;
-placement and tapping a device route by `Lens.forObject`. Tests: `tests/test_lens.lua`; driver: `lenses`; the driver's
-`d:press`/`d:pick` also find the card's buttons. F8 > Shaders has Power/Water lens buttons, a lens-effect switch and
-the lens dither entry. Not done: the dither open and close (phase 8).
-
-## Phase 6 (#296) built: the Notebook and Ledger
-`Book.open(app, name)` (`src/scenes/book.lua`) opens a book by shortcut name or book id; each tab hosts the old
-panel scene as a page (D143, D144). The Power panel was left alone. Things to know: pages call `Panel.box`, which
-returns the page body (`hosted`) inside a book; `d:scene()` returns the page showing, `d:book()` the book; the
-paper is dark kraft for now (follow-up: light paper with ink); the Journal, Catalog and Truck keep their own
-layouts and simply fill the page. In town the Ledger is locked to Truck & town.
-
-Next: phases 7-9 in order (#297 Power and Water lenses, #298 dither transitions and signals, #299 Axe and
-Pail area drags). Interim state still to replace: the Power panel is reached from the power vital's card
-(`scene:openPower()`).
-
-## Notes from phases 4 and 5
-- Run the whole driver sweep, not just the new scenarios: in phase 4 it found a crash the tests missed (a
-  local declared below the function using it, so a world tap hit a nil global). Run each scenario on its own
-  in a loop so one failure does not stop the rest (`for f in tools/driver/scenarios/*.lua ...`).
-- On a mouse, hovering a wedge with a ring (Hoe, Hammer) shows the ring, so a click on the wedge equips it;
-  the "first tap shows the ring" rule is the touch path. Driver scenarios hover first (`input:mousemoved`).
+Gotchas that cost time before:
+- On a mouse, hovering a wedge with a ring (Hoe, Hammer) shows the ring, so a click on the wedge equips it; the "first
+  tap shows the ring" rule is the touch path. Driver scenarios hover first (`input:mousemoved`).
 - A held wheel only draws after `showDelay` of real time; scenarios backdate `scene.wheel.at`.
-- The Controls list now has 13 rows and scrolls; the `controls` scenario rebinds a row above the fold.
+- Pages inside a book call `Panel.box`, which returns the page body (`hosted`); `d:scene()` is the page showing,
+  `d:book()` the book. In town the Ledger is locked to Truck & town.
+- The driver sets `Motion.settled = true` so scenarios shoot finished screens; only `motion` turns it off.
+- The Controls list scrolls (13 rows); the `controls` scenario rebinds a row above the fold.
+- Small and body text are the same pixel font size; a few tight rows touch (the Pantry wood line).
 
-## How this session worked (the user approved it)
-- Bypass permissions: the user said not to ask before running, pushing, opening PRs or merging green
-  PRs (memory `autonomy-bypass`). Branch per phase, PR, wait for CI (format, lint, tests), merge with a
-  descriptive `--merge` message, confirm the issue closed.
-- StyLua and luacheck are installed locally: `/c/Users/gwlpo/stylua-2.0.2/bin/stylua.exe game tests tools` (the pinned
-  2.0.2; never `~/.cargo/bin/stylua`) and `luacheck.exe game tests tools` (on PATH). Run both before committing.
-- Python works here (write files with `newline="
-"`, utf-8). Plain `open().write` on Windows wrote CRLF.
-- Verify every UI change with the driver at desktop, phone and landscape: run the scenarios that touch
-  the change (`lovec tools/driver stand panels size=both out=<dir>`). `all size=both` runs in parallel
-  child processes and takes about 3.5 minutes (it was 9.5 on one process); run it in the background.
-  It reports every failing scenario at the end rather than stopping at the first. Do not edit game code
-  while a sweep runs (modules load lazily).
-- Driver helpers added: `d:pick(label)` (a button on screen, or a tab or button in the Notebook or Ledger, or a tool), `d:hudButton(id)`,
-  `d:pressHud(id)` (plates and stamps by id: clock, pause, play, fast, menu, badge, tools, notebook,
-  ledger, journal, readiness, storage, delivery).
-- Wiki: notes updated in the Obsidian vault (Interface/Interface Redesign, Theme and UI Kit, Screens,
-  Shaders, Decision Log); update the matching note for each phase and commit only those files.
+## Tooling
+- StyLua 2.0.2 (the CI pin): `/c/Users/gwlpo/stylua-2.0.2/bin/stylua.exe --check game tests tools`. Never
+  `~/.cargo/bin/stylua` (2.6.0, cannot parse `goto`). luacheck 1.2.0: `luacheck.exe game tests tools`. Run both before
+  pushing; CI blocks on them. Never assign to `_` (luacheck flags it as a global; use `select(2, f())`).
+- Tests: `lovec tests [filter]` (about 35 s parallel). Driver: `lovec tools/driver <scenario|all> size=both out=<existing
+  dir>`; `all size=both` is about 3.5 min, run it in the background and do not edit game code while it runs. Helpers:
+  `d:pick(label)`, `d:hudButton(id)`, `d:pressHud(id)`.
+- Balance harness and perf probe: see CLAUDE.md, [BALANCE.md](BALANCE.md), [PERF.md](PERF.md).
+- The wiki (Obsidian vault) holds the matching notes; update the note for every change to main and commit only your own
+  notes. Its path is in agent memory, never in the repo.
 
-## Tuning notes still open (from the prototype and the builds)
-- Small and body text are the same pixel font size now; a few tight rows touch (the Pantry wood line).
-  The books phase relays those panels out. The Journal still has its own green tiles.
-- `ui.plate` see-through, grade share and night dim (now on the daylight level, 0.4) are first guesses; tune in the F8 editor (Frosted
-  plates entry) after the user sees them in play.
-- The idle countdown ring and the badge texts were tuned by eye on desktop only.
-
----
-
-# Master agent handoff prompt
-
-Paste everything below the line into a new Claude Code session opened in `F:\GitHub\IdlerHomestead`.
-
----
-
-You are the master agent for Idler Homestead (F:\GitHub\IdlerHomestead), a LÖVE 11.5 (LuaJIT) idle/roguelite homestead game. You run milestone work with subagents, verify and merge it, and keep the user informed. The user's FIRST message in this session will be their playtest notes on release 0.3.0: turn every note into a GitHub issue (labels `found-during-dev` plus a topic label: tech-debt, ux, art, shader, audio, balance, tooling; milestone MVP or Post-MVP; link related issues), tell them what you filed, then propose the order and wait for a go before starting agents.
-
-## Start here
-1. Read CLAUDE.md, the memory notes in `C:\Users\gwlpo\.claude\projects\F--GitHub-IdlerHomestead\memory\` (MEMORY.md indexes them), docs/GDD.md (the decision log D1-D104 is the design source of truth; read §3 pillars, §13 milestones and D95 first), docs/PLAN_FUEL.md (built), docs/ISSUE_AUDIT.md (issue-vs-design audit with open decisions), docs/PERF.md, docs/AUDIO.md, docs/BALANCE.md, docs/patch-notes/README.md.
-2. Run `git log --oneline -5`, `git status`, `git worktree list`, `gh issue list --milestone MVP --state open`, `gh api repos/JacobPoteet/IdlerHomestead/milestones`. Expected: main == origin/main at the 0.3.0 tag commit, 758 tests passing (`"/c/Program Files/LOVE/lovec.exe" tests`), only `main` exists locally, no agents running. Two empty folders under `.claude/worktrees/` (agent-a3771787f81e8f0f9, agent-a7de1a681f1fc8401) were held open by the app and are not registered worktrees; delete them if the lock is gone.
-3. `ListAgents` to confirm nothing is running.
-
-## State at handoff (2026-10-13)
-- Released: 0.1.0, 0.2.0, 0.3.0 (all pre-releases; tags starting `0.` are pre-releases automatically). Hand-written notes live in docs/patch-notes/<tag>.md and are used as the release body by the workflow (step "Compose release notes", first exercised by the 0.3.0 tag: CHECK the release page and attached artifacts for all platforms after the build finishes).
-- Plan (D95): MVP first, balance AFTER. The balance harness is a smoke test (crashes, runaway income, unreachable winters), not a tuning tool. Milestones on GitHub: MVP (open work) and Post-MVP (everything else: all balance issues, widget mode #32/#33, hauling #6/#7, cattle #44, tractor #45, content #46, art replacement #47, tooling, tech debt). Post-MVP per the user: widget, hauling, cattle, tractor.
-- Built recently: settings with UI size (D96), effect clock tied to game speed (D97), pick up and move (D98), rescue text and run-2 cards (D99), audio foundation with placeholder synth and a drop-in asset folder (D100, docs/AUDIO.md, F7 sound test), truck-ready marker and electric heat in readiness (D101), crop readability (D102), performance budget and compact saves (D103), one wood currency with a seasonal warmth curve (D104). `Save.SAVE_COMPAT` = 8.
-- Dropped or on hold: bed choice #210 (user: just upgrade the camp; parked in Post-MVP), dismantle-for-fuel, woodlot, stove heat levels, heated coop/pump house.
-- OPEN DECISIONS for the user (docs/ISSUE_AUDIT.md section 2): MVP progression goal #235 (pillar 3 may already define it); neglect-gated unlocks #126/#164; idle boundary #200/#138/#22 (#200 conflicts with "decisions never automated"); drinking-water need #95 and freezing pipes #91 (the GDD promises them); season length #121 (27 min vs a 15 min target); a minimum content slice #46 (only 2 crops exist). Also pending: user approval to apply the audit's "safe cleanup" (close stale #14, #169, #122; merge duplicates #104->#48, #219/#220->#218, #216/#156->#173, #209->#208, #234->#62, #147->#45, #132->#19; rescope #6, #21, #46, #77, #79, #106, #198; milestone fixes). Do NOT change issues in bulk until the user says so.
-- Unverified (tell the user): audio placeholders never heard; phone performance and shader cost (docs/PERF.md has a checklist); the new release-notes workflow step; the wood curve and caps are untuned (#251); driver scenarios `clock` and `thresholds` fail on main (#250); older docs/screens still show the old firewood UI (#203).
-- Remaining MVP issues: #244 #243 (audio tuning and assets), #237 (key rebinding), #235 (goal), #232 (pause the plot), #229 #224 #221 (small UX), #218 (phone GPU profile), #208 (journal search; unknown nodes must never reveal names), #201 (steppers: consider presets or a slider per pillar 8), #200 (see conflict above), #172, #89, #51 (mobile and touch QA), #48, #19.
-
-## Workflow (keep doing it; the user wants minimal token spend)
-- ONE subagent at a time, each with `isolation: "worktree"`, model `sonnet`. NEVER use Opus unless the user approves it in this session (they asked to avoid it). Run agents in the background and wait for the notification.
-- Each agent prompt contains: the issue numbers and the user's decisions; files and GDD sections to read first (tell them to grep first and read targeted ranges); the rules below; a task list; screenshot-driver verification (desktop 1280x720, phone 390x844, landscape 844x390; read the PNGs, fix problems, copy finals to docs/screens/ with a topic prefix); and a concise report format (what was built, files touched, test line, balance numbers if relevant, screenshots checked, GDD decisions added, follow-up issues opened, shortcuts, branch and commit hash). Tell the agent first to confirm its branch contains the latest main (`git merge main`).
-- Agent rules: commit on the worktree branch only (no push, no merge); the commit message has "Closes #N" (or "Refs #N" when partial) and ends with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`; commit only after the full suite shows "0 failed", re-run right before committing; never bypass 1Password signing (retry; if it still fails leave the work staged and report; then retry yourself in its worktree with `git commit -F <file>`, and if that fails tell the user to unlock 1Password; never bypass); the repo is LF-only; Python is not installed (use Edit and Write); the next free GDD decision is D117; follow-up issues are REQUIRED for every shortcut (`gh issue create`, labels found-during-dev plus a topic label, milestone MVP or Post-MVP, self-contained, check duplicates).
-- Architecture rules (CLAUDE.md, GDD §12): the sim is pure (no love.graphics or love.audio in src/sim); systems talk only via the ledger, task board, event bus or accessors; no balance literals in system code (content in game/data/content, knobs in game/data/tuning with unit and intent comments); seeded RNG only; render and audio are presentation only; touch-friendly, no hover-only UI; register new state keys and sim helper modules in tests/test_architecture.lua. SAVE POLICY (D74): no save migrations before launch; bump `Save.SAVE_COMPAT` (and the fingerprint test) on any change to the saved-state shape or meaning; old saves show an out-of-date prompt.
-- Check every new issue and proposal against the design pillars (GDD §3) and the decision log before queuing it; flag conflicts to the user.
-- After an agent reports: from the main checkout run `git merge --ff-only <worktree-branch>` (if main moved, merge main into the branch first, or use `git merge --no-ff -m "<descriptive message naming what changed, #issues, Dnnn>"`; NEVER leave the default "Merge branch ..." message), run `"/c/Program Files/LOVE/lovec.exe" tests` and confirm 0 failed, then `git worktree remove --force .claude/worktrees/agent-XXXX`, `git branch -d <branch>` (use `git worktree unlock`, `git worktree prune` and `git branch -D` if the app still holds a lock), and `rm -rf` the leftover folder. Keep only `main` locally.
-- Commit finished work to main (no PRs). Push main, force-push, or tag a release ONLY when the user asks. Before a release: write docs/patch-notes/<tag>.md from docs/patch-notes/TEMPLATE.md covering only commits since the previous tag, commit it, push main, run `git tag -s <tag> -m <tag>`, push the tag, then check the workflow and the release page.
-- After each merge report to the user concisely: what changed for players, the test result, caveats and unverified parts, follow-up issues opened, and what is next. Be honest about uncertainty. Stop starting work when the user says to stop. Ask (AskUserQuestion with a skip option) only for decisions that are genuinely theirs.
-- Balance harness: `"/c/Program Files/LOVE/lovec.exe" tools/balance policy=scripted,active seeds=5 years=2` (see docs/BALANCE.md). Screenshot driver: `lovec tools/driver <scenario|all> size=both out=<existing dir>` (the out dir must already exist). Headless perf: `lovec tools/perf`.
+## Working with agents (what worked for the redesign)
+- One Sonnet worktree agent at a time (`isolation: "worktree"`), in the background; never Opus unless the user allows it.
+- Prompt: issue numbers and decisions, files and GDD sections to read first, the repo rules (CLAUDE.md), a report format.
+  Tell the agent to `git merge main` first and to take its decision numbers from a stated range.
+- Verification the agent does: while building, only `lovec tests <filter>` and single driver scenarios; local lint
+  before committing; then the full test run and the full sweep once, just before the commit, with one wait and no chained
+  sleep timers. A failure that only shows under load gets re-run alone.
+- The coordinator re-runs lint, format and `lovec tests` in the agent's worktree, pushes the branch, opens a PR whose body
+  has `Closes #N`, waits for CI, and merges with a descriptive `--merge` subject. Never commit to main directly. A phase
+  of the redesign took about 17-21 minutes of agent time, 40-45% of it verification.
+- Commit messages end with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`; PR bodies end with the Claude
+  Code line. Never bypass commit signing. The repo is LF-only.
+- Every shortcut gets a follow-up issue (`found-during-dev` plus a topic label, milestone MVP or Post-MVP, self-contained,
+  checked for duplicates). Check new issues against the pillars (GDD §3) and the decision log.
+- Bump `Save.SAVE_COMPAT` and the fingerprint in `tests/test_save_compat.lua` on any saved-state change (D74).
 
 ## The user's preferences
-Usability and clarity matter most. The game is "really fun" but needs clearer UX. They playtest often and send notes: file them as issues, link related ones, queue them. Brief status updates when asked. They want a fun, complete MVP first and balance later. They like organized patch notes (use the template). They may be away: when they say "just keep going", work through safe, clear-cut items sequentially without pushing or tagging. Do not guess design decisions that are theirs.
+Usability and clarity matter most. The game is "really fun" but needs clearer UX. They playtest often and send notes:
+file them as issues, link related ones, queue them. They want a fun, complete MVP first and balance later, organized
+patch notes, brief status updates, minimal token spend, and honesty about what is unverified. When they say "just keep
+going", work through safe, clear-cut items one at a time. Ask only for decisions that are genuinely theirs.
