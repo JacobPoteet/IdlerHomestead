@@ -2360,14 +2360,14 @@ function Homestead:drawOverlays()
     local replaceTag = PlaceText.replaceTag(world, self.placing, preview)
     -- A pencil sketch in the preview's ink (D142): green goes up at once, amber clears first, red cannot go
     -- there, blue is an upgrade over the old building (D115), which is outlined.
-    local status = sketch.status
-    local ink = status.clear
+    local inks = sketch.status
+    local ink = inks.clear
     if not preview.ok then
-      ink = status.refused
+      ink = inks.refused
     elseif replaceTag then
-      ink = status.replace
+      ink = inks.replace
     elseif preview.immediate then
-      ink = status.ok
+      ink = inks.ok
     end
     local bottom = (y - 1 + (def.footprintH or 1)) * tile
     Sketch.sprite(sprite, (x - 1) * tile, bottom - sprite.h, ink, sketch.ghost)
