@@ -2733,8 +2733,6 @@ end
 
 --- Take a tool from the wheel or a key (D138): `id` is a wedge, `item` a ring item or nil.
 function Homestead:equip(id, item)
-  local world = self.world
-  local L = self.app.ctx.tuning.ui.labels
   self.palette = nil
   if id == "hand" then
     self:setHand(nil, nil)
@@ -3786,11 +3784,10 @@ function Homestead:drawInfo(view)
         { size = "small", color = n == 1 and theme.colors.text or theme.colors.textDim }
       )
     end
-    local rowY = y + #lines * 11 + 6
     if anchor then
       self.infoButtons:add({
         x = 10,
-        y = rowY,
+        y = y + #lines * 11 + 6,
         w = w - 12,
         h = minSize,
         label = "Discard waiting output",
@@ -3800,7 +3797,6 @@ function Homestead:drawInfo(view)
           self:askDiscard(anchor, batch)
         end,
       })
-      rowY = rowY + minSize + 4
     end
     if rows > 0 then
       self.infoButtons:draw()
