@@ -68,7 +68,7 @@ Gotchas that cost time before:
   before committing; then the full test run and the full sweep once, just before the commit, with one wait and no chained
   sleep timers. A failure that only shows under load gets re-run alone.
 - The coordinator re-runs lint, format and `lovec tests` in the agent's worktree, pushes the branch, opens a PR whose body
-  has `Closes #N`, waits for CI, and merges with a descriptive `--merge` subject. Never commit to main directly. A phase
+  has `Closes #N`, waits for CI, and squash-merges (`gh pr merge N --squash`, descriptive subject and body, no merge commits). Never commit to main directly. A phase
   of the redesign took about 17-21 minutes of agent time, 40-45% of it verification.
 - Commit messages end with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`; PR bodies end with the Claude
   Code line. Never bypass commit signing. The repo is LF-only.
