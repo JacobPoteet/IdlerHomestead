@@ -427,6 +427,8 @@ T.test("wardrobe: the wardrobe survives a save and load, run and slot both", fun
   ownAll(world)
   Wardrobe.markSeen(world, "scarf")
   Wardrobe.savePreset(world, "warm", classOutfit("light"))
+  Wardrobe.savePreset(world, "cold", classOutfit("heavy"))
+  Wardrobe.setAuto(world, true)
   setTime(world, 1, 7)
   T.truthy(Wardrobe.wear(world, classOutfit("heavy")))
   emit(world, "market.trip", {}, 2)
@@ -440,6 +442,8 @@ T.test("wardrobe: the wardrobe survives a save and load, run and slot both", fun
   T.falsy(Wardrobe.isNew(again, "scarf"))
   T.truthy(Wardrobe.isNew(again, "straw_hat"))
   T.same(Wardrobe.preset(again, "warm"), classOutfit("light"))
+  T.same(Wardrobe.preset(again, "cold"), classOutfit("heavy"))
+  T.falsy(Wardrobe.autoOn(again), "the manual Wear turned Auto off, and that is what was saved")
   T.eq(select(1, Wardrobe.progress(again, "denim_jacket")), 2, "the counters are saved")
 end)
 
@@ -465,6 +469,108 @@ T.test("wardrobe: unknown, misplaced and unowned ids in a save become the starte
   Wardrobe.init(world)
   T.eq(Wardrobe.dressed(world).head, "bare_head", "a run saved with a removed garment still loads")
   T.eq(Wardrobe.effects(world, { head = "ghost" }).work, 0, "the maths treats it as the starter too")
+end)
+
+-- Presets and the dawn auto-dress -----------------------------------------------------------------------
+
+local function presetWorld()
+  local world = newWorld()
+  ownAll(world)
+  Wardrobe.savePreset(world, "warm", classOutfit("light"))
+  Wardrobe.savePreset(world, "cold", classOutfit("heavy"))
+  Wardrobe.setAuto(world, true)
+  return world
+end
+
+T.test("wardrobe auto: a cold night dresses the Cold preset at dawn and says so", function()
+  local world = presetWorld()
+  setTime(world, dayIn("winter") - 1, 12)
+  local seen = {}
+  world.events:on("wardrobe.dressed", function(e)
+    seen[#seen + 1] = { reason = e.reason, night = e.night }
+  end)
+  T.eq(Wardrobe.autoNight(world), "cold")
+  acrossMidnight(world)
+  T.same(Wardrobe.dressed(world), classOutfit("heavy"), "today is the Cold preset")
+  T.same(Wardrobe.committed(world), classOutfit("heavy"), "and it is the chosen outfit")
+  T.same(seen, { { reason = "auto", night = "cold" } })
+  T.truthy(Wardrobe.autoOn(world), "Auto stays on")
+  T.truthy(Wardrobe.insulation(world) < 1)
+end)
+
+T.test("wardrobe auto: a warm night dresses the Warm preset", function()
+  local world = presetWorld()
+  Wardrobe.wear(world, classOutfit("heavy"))
+  Wardrobe.setAuto(world, true) -- a manual Wear turns it off; this test wants it on
+  setTime(world, dayIn("summer"), 12)
+  T.eq(Wardrobe.autoNight(world), "warm")
+  acrossMidnight(world)
+  T.same(Wardrobe.dressed(world), classOutfit("light"))
+  T.truthy(Wardrobe.workBonus(world) > 1)
+end)
+
+T.test("wardrobe auto: the threshold is the weather system's own figure", function()
+  local world = presetWorld()
+  local c = tun.wardrobe.autoColdNeed
+  for _, season in ipairs(tun.time.seasons) do
+    setTime(world, dayIn(season), 12)
+    local need = Weather.warmthNeed(world)
+    T.eq(Wardrobe.autoNight(world), need >= c and "cold" or "warm", season)
+  end
+end)
+
+T.test("wardrobe auto: an empty preset changes nothing, and nothing is ever written to a preset", function()
+  local world = newWorld()
+  ownAll(world)
+  Wardrobe.savePreset(world, "warm", classOutfit("light"))
+  Wardrobe.setAuto(world, true)
+  local before = Wardrobe.committed(world)
+  setTime(world, dayIn("winter") - 1, 12)
+  acrossMidnight(world)
+  T.same(Wardrobe.committed(world), before, "no Cold preset: today's clothes stay")
+  T.eq(Wardrobe.preset(world, "cold"), nil, "and the empty preset is still empty")
+  Wardrobe.savePreset(world, "cold", classOutfit("heavy"))
+  local warm, cold = Wardrobe.preset(world, "warm"), Wardrobe.preset(world, "cold")
+  acrossMidnight(world)
+  acrossMidnight(world)
+  T.same(Wardrobe.preset(world, "warm"), warm, "a preset is never edited by Auto")
+  T.same(Wardrobe.preset(world, "cold"), cold)
+end)
+
+T.test("wardrobe auto: off by default, and a manual Wear turns it off and says so", function()
+  local world = newWorld()
+  ownAll(world)
+  T.falsy(Wardrobe.autoOn(world), "off in a new slot")
+  Wardrobe.savePreset(world, "warm", classOutfit("light"))
+  Wardrobe.savePreset(world, "cold", classOutfit("heavy"))
+  setTime(world, dayIn("winter") - 1, 12)
+  local before = Wardrobe.committed(world)
+  acrossMidnight(world)
+  T.same(Wardrobe.dressed(world), before, "Auto off: dawn does not dress a preset")
+  Wardrobe.setAuto(world, true)
+  local ok, _, wasOn = Wardrobe.wear(world, { head = "straw_hat" })
+  T.truthy(ok)
+  T.truthy(wasOn, "the Wear reports that Auto was on")
+  T.falsy(Wardrobe.autoOn(world))
+  local _, _, again = Wardrobe.wear(world, { head = "bare_head" })
+  T.falsy(again, "and does not report it twice")
+end)
+
+T.test("wardrobe auto: a preset naming a garment the slot does not own is not worn", function()
+  local world = newWorld()
+  Wardrobe.grant(world, "wool_toque")
+  Wardrobe.savePreset(
+    world,
+    "cold",
+    { head = "wool_toque", torso = "flannel_shirt", legs = "work_pants", feet = "work_boots", extra = "no_extra" }
+  )
+  Wardrobe.setAuto(world, true)
+  world.meta.wardrobe.owned.wool_toque = nil -- lost since it was saved (cannot happen in play; a hand-edited save)
+  local before = Wardrobe.committed(world)
+  setTime(world, dayIn("winter") - 1, 12)
+  acrossMidnight(world)
+  T.same(Wardrobe.committed(world), before, "the preset is refused whole")
+  T.same(Wardrobe.preset(world, "cold").head, "wool_toque", "and left as it was saved")
 end)
 
 -- Sandbox --------------------------------------------------------------------------------------------------

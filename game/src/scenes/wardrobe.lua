@@ -89,6 +89,8 @@ function Wardrobe:enter()
   local last = WardrobeState.last()
   self.slot = last and last.slot or self.slots[1]
   self.lockedDef = nil -- a garment not yet earned that was tapped or focused (its shape and hint show)
+  self.saving = false -- Save was tapped and waits for a preset chip
+  self.note = nil -- a line about the last preset or Auto action, shown over the detail line until the next pick
   self.wantFocus = "tile:" .. self.state:draft()[self.slot] -- the first layout puts the (unshown) focus here
   -- Opening the Wardrobe answers the "New clothes" stamp. The first new garment, if there is one, is the slot
   -- shown and where the (unshown) focus starts; its dot stays until it is looked at.
@@ -139,8 +141,11 @@ end
 function Wardrobe:layout()
   local cfg = self.cfg
   self.garments = Sim.garments(self.world, self.slot)
-  self.L =
-    WardrobeLayout.rects(cfg, self.bookCfg, self.view, self.minTouch, #self.garments, { maxTiles = self.maxTiles })
+  self.L = WardrobeLayout.rects(cfg, self.bookCfg, self.view, self.minTouch, #self.garments, {
+    maxTiles = self.maxTiles,
+    presets = true,
+    save = true,
+  })
   local tiles, contentH = WardrobeLayout.tiles(cfg, self.L.grid, #self.garments)
   self.tileRects = tiles
   self.list:fit(self.L.grid, contentH, self.ui.scrollHintHeight)
@@ -227,6 +232,15 @@ function Wardrobe:layoutButtons()
         self:wear()
       end,
     },
+    {
+      "save",
+      L.save,
+      self.saving and cfg.saveCancel or cfg.save,
+      nil,
+      function()
+        self:armSave()
+      end,
+    },
   }) do
     local id, r, label, style, press = spec[1], spec[2], spec[3], spec[4], spec[5]
     buttons:add({
@@ -237,7 +251,8 @@ function Wardrobe:layoutButtons()
       id = id,
       label = label,
       style = style,
-      enabled = changed,
+      enabled = id == "save" or changed,
+      selected = id == "save" and self.saving,
       onPress = press,
       draw = function(b)
         self.buttons:drawOne(b, theme.colors)
@@ -247,6 +262,7 @@ function Wardrobe:layoutButtons()
     items[#items + 1] = { id = id, zone = "actions", x = r.x, y = r.y, w = r.w, h = r.h }
   end
 
+  self:layoutChips(items)
   for n, def in ipairs(self.garments) do
     local r = self.tileRects[n]
     items[#items + 1] = { id = "tile:" .. def.id, zone = "tiles", x = r.x, y = self.L.grid.y + r.y, w = r.w, h = r.h }
@@ -256,6 +272,138 @@ function Wardrobe:layoutButtons()
     self.focus:focus(self.wantFocus)
     self.wantFocus = nil
   end
+end
+
+--- The preset chips (Warm, Cold) and the Auto toggle under the meters. A chip names its outfit's night with a
+--- stamp; an empty one says so. Its button label stays "Warm" or "Cold" (the driver and the keys find it by it).
+function Wardrobe:layoutChips(items)
+  local cfg, L, world = self.cfg, self.L, self.world
+  local draft = self.state:draft()
+  local function add(id, label, r, spec)
+    local b = {
+      x = r.x,
+      y = r.y,
+      w = r.w,
+      h = r.h,
+      id = id,
+      label = label,
+      size = "small",
+      icon = spec.icon,
+      selected = spec.selected,
+      dim = spec.dim,
+      onPress = spec.onPress,
+      draw = function(btn)
+        local real = btn.label
+        btn.label = spec.shown or real
+        self.buttons:drawOne(btn, theme.colors)
+        btn.label = real
+        if spec.pip then
+          self:drawAutoPip(btn, spec.on)
+        end
+        self:drawFocus(btn)
+      end,
+    }
+    self.buttons:add(b)
+    items[#items + 1] = { id = id, zone = "presets", x = r.x, y = r.y, w = r.w, h = r.h }
+  end
+  local names = Sim.presets(world)
+  for n, name in ipairs(names) do
+    local outfit = Sim.preset(world, name)
+    add("preset:" .. name, self:presetWord(name), L.chips[n], {
+      icon = cfg.presetIcons[name],
+      shown = not outfit and cfg.presetEmpty or nil,
+      dim = outfit == nil,
+      selected = self.saving or (outfit ~= nil and WardrobeText.same(draft, outfit)),
+      onPress = function()
+        self:pressChip(name)
+      end,
+    })
+  end
+  local on = Sim.autoOn(world)
+  add("auto", cfg.auto, L.chips[#names + 1], {
+    selected = on,
+    pip = true,
+    on = on,
+    onPress = function()
+      self:toggleAuto()
+    end,
+  })
+end
+
+--- The word on a preset's chip: "Warm" or "Cold".
+function Wardrobe:presetWord(name)
+  return self.cfg["preset" .. name:sub(1, 1):upper() .. name:sub(2)]
+end
+
+--- The Auto chip's pip: filled amber when Auto is on, an outline when off. Shape as well as colour.
+function Wardrobe:drawAutoPip(b, on)
+  local cfg, colors = self.cfg, theme.colors
+  local d = cfg.autoPip
+  local x, y = b.x + cfg.chipPad, b.y + math.floor((b.h - d) / 2)
+  if on then
+    love.graphics.setColor(colors.accent)
+    love.graphics.rectangle("fill", x, y, d, d)
+  else
+    love.graphics.setColor(colors.textDim)
+    love.graphics.rectangle("line", x + 0.5, y + 0.5, d - 1, d - 1)
+  end
+end
+
+--- A preset chip was pressed. While Save waits, it stores the outfit on show there; otherwise it loads that outfit
+--- whole into the draft (the Wear that follows commits it). An empty chip only says it is empty.
+function Wardrobe:pressChip(name)
+  local world, cfg = self.world, self.cfg
+  local word = self:presetWord(name)
+  if self.saving then
+    self.saving = false
+    local ok, reason = Sim.savePreset(world, name, self.state:draft())
+    self.note = ok and string.format(cfg.saved, word) or nil
+    if ok then
+      self.worn = true -- the preset is saved with the slot when the Wardrobe closes
+    else
+      print("wardrobe: could not save the preset: " .. tostring(reason))
+    end
+  else
+    local outfit = Sim.preset(world, name)
+    if not outfit then
+      self.note = cfg.presetEmptyHint
+    else
+      local partial = false
+      for _, id in pairs(outfit) do
+        partial = partial or not Sim.owned(world, id)
+      end
+      self.state:loadPreset(outfit, name)
+      self.lockedDef = nil
+      self.note = partial and cfg.presetPartial or string.format(cfg.presetLoaded, word)
+    end
+  end
+  self:layoutButtons()
+  self:layoutTiles()
+end
+
+--- Save was pressed: the next chip stores the outfit on show (pressed again, it lets go).
+function Wardrobe:armSave()
+  self.saving = not self.saving
+  self.note = nil
+  self:layoutButtons()
+end
+
+--- Auto goes on or off. It only ever wears a saved preset, so an empty chip is said out loud.
+function Wardrobe:toggleAuto()
+  local world, cfg = self.world, self.cfg
+  local on = not Sim.autoOn(world)
+  Sim.setAuto(world, on)
+  if not on then
+    self.note = cfg.autoOffHint
+  else
+    local empty = false
+    for _, name in ipairs(Sim.presets(world)) do
+      empty = empty or Sim.preset(world, name) == nil
+    end
+    self.note = empty and cfg.autoEmptyHint or cfg.autoOnHint
+  end
+  self.worn = true -- the setting is saved with the slot when the Wardrobe closes
+  self:layoutButtons()
 end
 
 --- The garment tiles that are in the scroll window (only those get buttons, as in the Catalog).
@@ -296,6 +444,7 @@ function Wardrobe:showSlot(slot)
   end
   self.slot = slot
   self.lockedDef = nil
+  self.note = nil
   self.list.offset = 0
   self:layout()
 end
@@ -303,6 +452,7 @@ end
 --- A tile was tapped or focused: an owned garment goes into the draft; one not yet earned only shows its hint
 --- and shape, and the draft stays as it is.
 function Wardrobe:pick(def)
+  self.note = nil
   if Sim.owned(self.world, def.id) then
     self.state:preview(def.slot, def.id)
     self.lockedDef = nil
@@ -317,6 +467,7 @@ end
 function Wardrobe:resetDraft()
   self.state:reset()
   self.lockedDef = nil
+  self.note = nil
   self:layoutButtons()
   self:layoutTiles()
 end
@@ -335,6 +486,7 @@ function Wardrobe:wear()
   end
   self.worn = true
   self.lockedDef = nil
+  self.note = nil
   self.state:setCommitted(Sim.committed(world))
   self.onToast(now and cfg.toastNow or cfg.toastDawn)
   if autoWasOn then
@@ -352,6 +504,12 @@ function Wardrobe:update()
   local world = self.world
   -- Dawn passes while the menu is open: the sim moves today's outfit, and "Today" and "Dawn" move with it.
   if Sim.dressedKey(world) ~= self.dressedKey or Sim.appliesNow(world) ~= self.applies then
+    -- An Auto dawn chooses a new outfit: with no draft in progress the figure follows it.
+    local had = self.state:changed()
+    self.state:setCommitted(Sim.committed(world))
+    if not had then
+      self.state:reset()
+    end
     self:derive()
     self:layoutButtons()
     self:layoutTiles()
@@ -453,13 +611,19 @@ function Wardrobe:onFocus(id)
   end
 end
 
---- Enter presses the focused control (Close, Reset, Wear); anywhere else it wears the draft.
+--- Enter presses the focused control (Close, Reset, Save, a preset chip, Auto); anywhere else it wears the draft.
 function Wardrobe:activate()
   local id = self.focus:shown() and self.focus:current() or nil
   if id == "close" then
     self.app:pop()
   elseif id == "reset" then
     self:resetDraft()
+  elseif id == "save" or id == "auto" or (id and id:match("^preset:")) then
+    for _, b in ipairs(self.buttons.list) do
+      if b.id == id and b.onPress then
+        b.onPress(b)
+      end
+    end
   else
     self:wear()
   end
@@ -771,6 +935,12 @@ function Wardrobe:drawDetail()
   end
   local line1, line2 = WardrobeText.detail(cfg, def, owned, hint, have, need)
   local d = self.L.detail
+  local say = self.saving and cfg.saveArmed or self.note
+  if say then -- a word about Save, a preset or Auto goes first; the garment's line moves under it
+    Text.draw(say, d.x, d.y, { size = "small", width = d.w, color = colors.accent })
+    Text.draw(line1, d.x, d.y + cfg.lineH, { size = "small", width = d.w, color = colors.textDim })
+    return
+  end
   Text.draw(line1, d.x, d.y, { size = "small", width = d.w })
   if line2 then
     Text.draw(line2, d.x, d.y + cfg.lineH, { size = "small", width = d.w, color = colors.textDim })
