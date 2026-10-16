@@ -67,6 +67,9 @@ local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
 local Homestead = { name = "homestead", opaque = true }
+
+-- The Hammer's modes (D139): a tap on a building moves, picks up or demolishes it.
+local HAMMER_MODES = { move = true, pickup = true, demolish = true }
 Homestead.__index = Homestead
 
 local TOAST_TIME = 2.6
@@ -154,7 +157,9 @@ function Homestead:subscribe()
       end
     end),
     events:on("market.delivered", function(e)
-      self:showToast("Delivered: " .. name("catalog", e.item))
+      if not world.registry:get("catalog", e.item).object then
+        self:showToast("Delivered: " .. name("catalog", e.item)) -- a building counts on the Hammer instead (D139)
+      end
       self:layout()
     end),
     events:on("processing.done", function(e)
@@ -634,16 +639,44 @@ function Homestead:setHand(seed, tool)
   end
 end
 
--- First object waiting in the inventory (sorted for stability), or nil.
-function Homestead:nextPlaceable()
-  local ids = {}
+--- The crate (D139): delivered objects waiting to be placed, sorted by id for stability, as { { id, count } }.
+--- Items already promised to a queued order are not offered.
+function Homestead:crateItems()
+  local items = {}
   for id in pairs(self.world.state.inventory.objects) do
-    if Placement.available(self.world, id) > 0 then -- items already promised to a queued order are not offered
-      ids[#ids + 1] = id
+    local count = Placement.available(self.world, id)
+    if count > 0 then
+      items[#items + 1] = { id = id, count = count }
     end
   end
-  table.sort(ids)
-  return ids[1]
+  table.sort(items, function(a, b)
+    return a.id < b.id
+  end)
+  return items
+end
+
+--- How many things wait in the crate: the count on the Hammer wedge and the tool badge.
+function Homestead:crateCount()
+  local n = 0
+  for _, item in ipairs(self:crateItems()) do
+    n = n + item.count
+  end
+  return n
+end
+
+-- First object waiting in the crate, or nil.
+function Homestead:nextPlaceable()
+  local first = self:crateItems()[1]
+  return first and first.id
+end
+
+--- Hold a crate item's ghost for placing (D79 preview and confirm card).
+function Homestead:startPlacing(id)
+  local def = self.world.registry:get("objects", id)
+  self:setHand(nil, nil)
+  self.mode, self.placing, self.moving, self.planStart = "place", id, nil, nil
+  self:showToast("Tap where the " .. def.name:lower() .. " should go")
+  self:layout()
 end
 
 -- The resting HUD (GDD §9.4, D137, #293) --------------------------------------------------
@@ -716,12 +749,11 @@ function Homestead:stampList()
     list[#list + 1] = {
       id = "delivery",
       icon = "icon_crate",
-      label = string.format(L.deliveryStamp, def.name:lower()),
+      label = self:crateCount() > 1 and string.format(L.crateStamp, self:crateCount())
+        or string.format(L.deliveryStamp, def.name:lower()),
       color = colors.accent,
       onPress = function()
-        self.mode, self.placing, self.moving, self.planStart = "place", placeable, nil, nil
-        self:showToast("Tap where the " .. def.name:lower() .. " should go")
-        self:layout()
+        self:openHammerRing() -- the crate, with every delivery in it (D139)
       end,
     }
   end
@@ -785,6 +817,9 @@ function Homestead:toolInHand()
     local def = world.registry:get("objects", self.placing)
     local id = "icon_" .. self.placing -- the building in hand; the Hammer's own icon until the crate (#295)
     return Assets.has(id) and id or "icon_crate", nil, (self.moving and L.moving or L.place) .. " " .. def.name:lower()
+  elseif HAMMER_MODES[self.tool] then
+    local names = { move = L.hammerMove, pickup = L.hammerPickUp, demolish = L.hammerDemolish }
+    return "icon_verb_" .. self.tool, nil, names[self.tool]
   elseif self.mode == "plan" then
     return "icon_tool_hoe", self.seed and Icons.packet(self.seed) or nil, L.plan
   elseif self.tool == "rod" then
@@ -880,22 +915,22 @@ function Homestead:layoutHud(view)
       self:setHand(nil, self.tool ~= "untill" and "untill" or nil)
     end),
   }
-  local placeable = self.moving and self.placing or self:nextPlaceable() -- while moving, the button is the way to cancel
-  if placeable then
-    local def = world.registry:get("objects", placeable)
+  -- The crate (D139): a Place button per item waiting, or while moving the button that cancels.
+  local crate = self.moving and { { id = self.placing } } or self:crateItems()
+  for _, item in ipairs(crate) do
+    local def = world.registry:get("objects", item.id)
     local label = (self.moving and L.moving or L.place) .. " " .. def.name:lower()
     tools[#tools + 1] = {
-      id = "place",
+      id = "place:" .. item.id,
       w = math.max(ui.buttonWidths.placeMin, math.ceil(Text.measure(label, "body")) + 12),
       label = label,
       style = "accent",
-      selected = self.mode == "place",
+      selected = self.mode == "place" and self.placing == item.id,
       onPress = act(function()
-        if self.mode == "place" then
+        if self.mode == "place" and self.placing == item.id then
           self:setHand(nil, nil)
         else
-          self.mode, self.placing, self.moving, self.planStart = "place", placeable, nil, nil
-          self:showToast("Tap where the " .. def.name:lower() .. " should go")
+          self:startPlacing(item.id)
         end
       end),
     }
@@ -1948,6 +1983,33 @@ function Homestead:startMove(anchor)
   self:layout()
 end
 
+--- A tap with one of the Hammer's modes (D139): the D98 and D110 flows, on the building (or crop) tapped.
+function Homestead:hammerTap(i)
+  local world = self.world
+  local p = self.app.ctx.tuning.ui.placement
+  local def, anchor = Grid.object(world, i)
+  local building = def and def.placeable and anchor
+  if self.tool == "move" then
+    if building then
+      self:startMove(anchor)
+    else
+      self:showToast(p.noMove)
+    end
+  elseif self.tool == "pickup" then
+    if building then
+      self:askPickUp(anchor)
+    else
+      self:showToast(p.noPickUp)
+    end
+  elseif building then
+    self:askDestroy(anchor)
+  elseif world.state.crops[i] then
+    self:askDestroyCrop(i)
+  else
+    self:showToast(p.noDemolish)
+  end
+end
+
 --- Pick the object at `anchor` up, asking first when that throws something away (D98, #15).
 function Homestead:askPickUp(anchor)
   local world = self.world
@@ -2081,6 +2143,10 @@ function Homestead:tap(i)
   if queued then
     self.placeCard = { kind = "order", tile = queued.tile } -- a tap on a waiting building shows its order (D79)
     self:layoutCard()
+    return
+  end
+  if HAMMER_MODES[self.tool] then
+    self:hammerTap(i)
     return
   end
   if Cat.at(world, i) then
@@ -2562,7 +2628,7 @@ end
 
 --- The wheel's wedge for the tool in hand.
 function Homestead:currentTool()
-  if self.mode == "place" then
+  if self.mode == "place" or HAMMER_MODES[self.tool] then
     return "hammer"
   elseif self.mode == "plan" or self.seed or self.tool == "untill" then
     return "hoe"
@@ -2594,7 +2660,9 @@ end
 --- The ring a wedge fans out past the wheel: the Hoe's seed packets, then Untill and Plan field. More than
 --- fit end in More, which opens the full tray. { { kind, crop?, icon, label } }.
 function Homestead:ringItems(id)
-  if id ~= "hoe" then
+  if id == "hammer" then
+    return self:hammerRing()
+  elseif id ~= "hoe" then
     return {}
   end
   local world, ui = self.world, self.app.ctx.tuning.ui
@@ -2628,10 +2696,43 @@ function Homestead:ringItems(id)
   return items
 end
 
+--- The Hammer's ring (D139): each item in the crate as a thumbnail of its world sprite with its count, then
+--- Move, Pick up, Demolish and Order more. A crate too big to show ends in More, which opens the tools tray.
+function Homestead:hammerRing()
+  local world, ui = self.world, self.app.ctx.tuning.ui
+  local L = ui.labels
+  local tail = {
+    { kind = "move", icon = "icon_verb_move", label = L.hammerMove },
+    { kind = "pickup", icon = "icon_verb_pickup", label = L.hammerPickUp },
+    { kind = "demolish", icon = "icon_verb_demolish", label = L.hammerDemolish },
+    { kind = "order", icon = "icon_book_ledger", label = L.orderMore },
+  }
+  local crate = self:crateItems()
+  local room = ui.wheel.maxRing - #tail
+  local items = {}
+  for i, c in ipairs(crate) do
+    if #crate > room and i >= room then
+      items[#items + 1] = { kind = "more", icon = "icon_crate", label = L.more }
+      break
+    end
+    local name = world.registry:get("objects", c.id).name
+    items[#items + 1] = { kind = "crate", object = c.id, sprite = c.id, label = name, count = c.count }
+  end
+  for _, t in ipairs(tail) do
+    items[#items + 1] = t
+  end
+  return items
+end
+
+--- Open the wheel with the Hammer's ring showing, at the middle of the view (a delivery stamp, an empty crate).
+function Homestead:openHammerRing()
+  local view = self.app.view
+  self:openWheel(view.w / 2, view.h / 2, false)
+  self.wheel.highlight = "hammer"
+end
+
 --- Take a tool from the wheel or a key (D138): `id` is a wedge, `item` a ring item or nil.
 function Homestead:equip(id, item)
-  local world = self.world
-  local L = self.app.ctx.tuning.ui.labels
   self.palette = nil
   if id == "hand" then
     self:setHand(nil, nil)
@@ -2655,21 +2756,27 @@ function Homestead:equip(id, item)
   elseif id == "pail" or id == "axe" or id == "rod" then
     self:setHand(nil, id)
   elseif id == "hammer" then
-    local placeable = self:nextPlaceable()
+    -- D139: a crate item holds its ghost; Move, Pick up and Demolish are modes; Order more opens the Catalog.
+    -- The Hammer alone takes the first item in the crate, or shows its ring when the crate is empty.
+    local kind = item and item.kind
+    local placeable = kind == "crate" and item.object or (kind == nil and self:nextPlaceable())
     if placeable then
-      local def = world.registry:get("objects", placeable)
-      self.seed, self.tool = nil, nil
-      self.mode, self.placing, self.moving, self.planStart = "place", placeable, nil, nil
-      self:showToast("Tap where the " .. def.name:lower() .. " should go")
+      self:startPlacing(placeable)
+    elseif HAMMER_MODES[kind] then
+      self:setHand(nil, kind)
+    elseif kind == "order" then
+      self:openPanel("buildings")
+    elseif kind == "more" then
+      self.palette = "tools"
       self:layout()
     else
-      self:setHand(nil, nil)
-      self:showToast(L.hammerEmpty)
+      self:openHammerRing()
     end
   end
 end
 
---- Equip by a label the old toolbar used ("Hand", "Rod", "Untill", "Plan field", "Place campfire"), for the
+--- Equip by a label the old toolbar used ("Hand", "Rod", "Untill", "Plan field", "Place campfire", "Move",
+--- "Pick up", "Demolish", "Order more"), for the
 --- screenshot driver and keyboard-free scripts. Returns whether a label matched.
 function Homestead:equipByLabel(label)
   local L = self.app.ctx.tuning.ui.labels
@@ -2684,8 +2791,20 @@ function Homestead:equipByLabel(label)
     self:equip("hoe", { kind = "plan" })
   elseif want == L.pail:lower() or want == L.axe:lower() then
     self:equip(want)
+  elseif want == L.hammerMove:lower() or want == L.hammerPickUp:lower() or want == L.hammerDemolish:lower() then
+    local kinds = { [L.hammerMove:lower()] = "move", [L.hammerPickUp:lower()] = "pickup" }
+    self:equip("hammer", { kind = kinds[want] or "demolish" })
+  elseif want == L.orderMore:lower() then
+    self:equip("hammer", { kind = "order" })
   elseif want:find("^" .. L.place:lower() .. " ") then
-    self:equip("hammer")
+    local name = want:sub(#L.place + 2)
+    for _, c in ipairs(self:crateItems()) do
+      if self.world.registry:get("objects", c.id).name:lower() == name then
+        self:equip("hammer", { kind = "crate", object = c.id })
+        return true
+      end
+    end
+    return false
   else
     return false
   end
@@ -2844,6 +2963,7 @@ function Homestead:drawWheel()
   local spread = ToolWheel.spread(cfg, #items)
   local lay = ToolWheel.layout(w.cx, w.cy, cfg.wedges, sizes, w.highlight, #items, spread, w.highlight)
   self.wheelLayout = lay
+  local crate = self:crateCount()
   -- The world behind dims in two stepped bands round the wheel.
   love.graphics.setColor(cfg.dim)
   love.graphics.circle("fill", w.cx, w.cy, sizes.ring + sizes.ringItem / 2 + 6, 40)
@@ -2860,15 +2980,22 @@ function Homestead:drawWheel()
     local icon = Icons.tool(world, wedge.id)
     local sp = Assets.sprite(icon)
     Icons.draw(icon, r.x + math.floor((r.w - 2 * sp.w) / 2), r.y + math.floor((r.h - 2 * sp.h) / 2), 2)
+    if wedge.id == "hammer" and crate > 0 then
+      self:drawCount(crate, r.x + r.w, r.y + r.h) -- deliveries waiting in the crate (D139)
+    end
   end
   for k, r in ipairs(lay.ring) do
     local item = items[k]
     local on = k == w.sub
     Plate.draw(r.x, r.y, r.w, r.h, { ink = on and colors.accent or nil, lit = on and 0.35 or nil, weather = false })
-    local sp = Assets.sprite(item.icon)
-    local scale = r.w >= 2 * sp.w + 4 and 2 or 1
-    local ix, iy = r.x + math.floor((r.w - scale * sp.w) / 2), r.y + math.floor((r.h - scale * sp.h) / 2)
-    Icons.draw(item.icon, ix, iy, scale)
+    if item.sprite then
+      Icons.drawFit(item.sprite, r.x + 1, r.y + 1, r.w - 2, r.h - 2, 2) -- a crate item: its world sprite (D139)
+    else
+      local sp = Assets.sprite(item.icon)
+      local scale = r.w >= 2 * sp.w + 4 and 2 or 1
+      local ix, iy = r.x + math.floor((r.w - scale * sp.w) / 2), r.y + math.floor((r.h - scale * sp.h) / 2)
+      Icons.draw(item.icon, ix, iy, scale)
+    end
     if item.count then
       local text = tostring(item.count)
       local tw = Text.measure(text, "small")
@@ -3098,6 +3225,20 @@ function Homestead:drawToolBadge(b, compact)
     local _, th = Text.measure(label, "body")
     Text.draw(label, x + sp.w + ew + H.textPad, b.y + math.floor((b.h - th) / 2) + 1)
   end
+  local crate = self:crateCount()
+  if crate > 0 then
+    self:drawCount(crate, b.x + b.w, b.y + b.h) -- deliveries waiting in the crate (D139)
+  end
+end
+
+--- A count tag (amber, on a small plate) whose bottom-right corner sits at (right, bottom), just inside a plate.
+function Homestead:drawCount(n, right, bottom)
+  local text = tostring(n)
+  local tw, th = Text.measure(text, "small")
+  local w, h = tw + 4, th + 3
+  local x, y = math.floor(right - w + 2), math.floor(bottom - h + 2)
+  Plate.draw(x, y, w, h, { ink = theme.colors.accent, weather = false })
+  Text.draw(text, x + 2, y + 2, { size = "small", color = theme.colors.accent })
 end
 
 --- The vitals plates (D112 chips): icon, value, level mark and thin gauge, drawn fresh each frame.
@@ -3216,15 +3357,17 @@ function Homestead:openChip(id)
   }))
 end
 
---- Open a panel by name from a shortcut: "pantry" | "power" | "catalog" | "truck" | "load" | "journal".
+--- Open a panel by name from a shortcut: "pantry" | "power" | "catalog" | "buildings" | "truck" | "load" |
+--- "journal".
 function Homestead:openPanel(name)
   local world, app = self.world, self.app
   if name == "pantry" then
     app:push(require("src.scenes.pantry").new(world))
   elseif name == "power" then
     self:openPower()
-  elseif name == "catalog" then
-    app:push(require("src.scenes.catalog").new(world, self:toaster()))
+  elseif name == "catalog" or name == "buildings" then
+    -- "buildings": the Hammer's Order more opens the Catalog scrolled to its first building (D139)
+    app:push(require("src.scenes.catalog").new(world, self:toaster(), { buildings = name == "buildings" }))
   elseif name == "truck" then
     app:push(require("src.scenes.truck").new(world, self:toaster()))
   elseif name == "load" then
@@ -3365,6 +3508,8 @@ function Homestead:captionText()
     return c.pail
   elseif self.tool == "axe" then
     return c.axe
+  elseif HAMMER_MODES[self.tool] then
+    return c[self.tool]
   elseif self.seed then
     return string.format(c.seed, crop(self.seed))
   end
@@ -3614,12 +3759,12 @@ function Homestead:drawInfo(view)
     local lines = self:tileInfo(self.selected)
     local anchor, batch = self:blockedStation()
     local minSize = self.app.ctx.tuning.input.minTouchTarget
-    local def, placed = Grid.object(self.world, self.selected)
-    -- A player-placed object (not the truck) can be picked up or moved from its card (D98, #15).
-    local movable = def and def.placeable and self.mode ~= "place" and not Placement.orderAt(self.world, self.selected)
-    -- Destroy (D110, #255): any player-placed object (not the truck) and any growing crop; asks first.
-    local cropHere = self.mode ~= "place" and self.world.state.crops[self.selected] ~= nil
-    local rows = (anchor and 1 or 0) + (movable and 2 or 0) + (cropHere and 1 or 0)
+    local def = Grid.object(self.world, self.selected)
+    -- The card only informs (D139): a player-placed object says the Hammer moves, picks up or demolishes it.
+    if def and def.placeable and self.mode ~= "place" and not Placement.orderAt(self.world, self.selected) then
+      lines[#lines + 1] = self.app.ctx.tuning.ui.placement.hammerHint
+    end
+    local rows = anchor and 1 or 0
     local btnH = rows * (minSize + 4) -- room for the buttons under the lines
     local h = #lines * 11 + 8 + btnH
     local y = (self.card and self.card.y or view.h - self.bottomH) - h - 4 -- above the tip card (or the tool caption) when one is up
@@ -3639,11 +3784,10 @@ function Homestead:drawInfo(view)
         { size = "small", color = n == 1 and theme.colors.text or theme.colors.textDim }
       )
     end
-    local rowY = y + #lines * 11 + 6
     if anchor then
       self.infoButtons:add({
         x = 10,
-        y = rowY,
+        y = y + #lines * 11 + 6,
         w = w - 12,
         h = minSize,
         label = "Discard waiting output",
@@ -3651,62 +3795,6 @@ function Homestead:drawInfo(view)
         style = "danger",
         onPress = function()
           self:askDiscard(anchor, batch)
-        end,
-      })
-      rowY = rowY + minSize + 4
-    end
-    if movable then
-      local p = self.app.ctx.tuning.ui.placement
-      local half = math.floor((w - 12 - 4) / 2)
-      self.infoButtons:add({
-        x = 10,
-        y = rowY,
-        w = half,
-        h = minSize,
-        label = p.pickUp,
-        size = "small",
-        onPress = function()
-          self:askPickUp(placed)
-        end,
-      })
-      self.infoButtons:add({
-        x = 10 + half + 4,
-        y = rowY,
-        w = half,
-        h = minSize,
-        label = p.move,
-        size = "small",
-        onPress = function()
-          self:startMove(placed)
-        end,
-      })
-      rowY = rowY + minSize + 4
-      self.infoButtons:add({
-        x = 10,
-        y = rowY,
-        w = w - 12,
-        h = minSize,
-        label = p.destroy,
-        size = "small",
-        style = "danger",
-        onPress = function()
-          self:askDestroy(placed)
-        end,
-      })
-      rowY = rowY + minSize + 4
-    end
-    if cropHere then
-      local selected = self.selected
-      self.infoButtons:add({
-        x = 10,
-        y = rowY,
-        w = w - 12,
-        h = minSize,
-        label = self.app.ctx.tuning.ui.placement.destroy,
-        size = "small",
-        style = "danger",
-        onPress = function()
-          self:askDestroyCrop(selected)
         end,
       })
     end

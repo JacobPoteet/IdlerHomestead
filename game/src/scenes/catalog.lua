@@ -17,8 +17,9 @@ Catalog.__index = Catalog
 local ROW_H = 24
 local HINT_H = 30 -- px of footer for the two-line "where money comes from" hint
 
-function Catalog.new(world, onToast)
-  return setmetatable({ world = world, onToast = onToast }, Catalog)
+--- `opts.buildings`: open scrolled to the first building (the Hammer's Order more, D139).
+function Catalog.new(world, onToast, opts)
+  return setmetatable({ world = world, onToast = onToast, buildings = opts and opts.buildings }, Catalog)
 end
 
 function Catalog:enter()
@@ -86,6 +87,16 @@ function Catalog:resize(view)
   self.hintH = self.moneyHint and HINT_H or 0
   self.box = Panel.box(view, 380, 70 + (#items + self.heldCount) * ROW_H + 30 + self.hintH)
   self:layout()
+  if self.buildings then
+    self.buildings = nil -- once, on opening; later resizes keep the player's scroll
+    for n, item in ipairs(items) do
+      if item.object then
+        self.list:reveal((n - 1) * ROW_H, self.list.view.h)
+        self:layout()
+        break
+      end
+    end
+  end
   self.card:layout(view)
 end
 
