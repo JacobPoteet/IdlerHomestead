@@ -67,9 +67,9 @@ T.test("books: the world's taps route to their pages (truck, camp, shack)", func
   book, page = Books.shortcut(cfg, "journal")
   T.eq(book, "notebook")
   T.eq(page, "journal")
-  book, page = Books.shortcut(cfg, "buildings")
+  _, page = Books.shortcut(cfg, "buildings")
   T.eq(page, "catalog", "Order more opens the Catalog tab")
-  book, page = Books.shortcut(cfg, "log")
+  _, page = Books.shortcut(cfg, "log")
   T.eq(page, "diary")
 end)
 
