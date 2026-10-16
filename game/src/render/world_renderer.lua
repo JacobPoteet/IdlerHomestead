@@ -28,6 +28,7 @@ local EffectClock = require("src.render.effect_clock")
 local Wetness = require("src.render.wetness")
 local Ambient = require("src.render.ambient")
 local Settings = require("src.core.settings")
+local Marks = require("src.sim.systems.marks")
 local Sketch = require("src.render.sketch")
 
 local Renderer = {}
@@ -1334,6 +1335,7 @@ function Renderer:drawCropCues(visible, daylight)
   local x1, y1, x2, y2 = visible[1] - 1, visible[2] - 1, visible[3] + 1, visible[4] + 2
   if lift > 0.001 then -- the plans again in pale chalk, so a standing order still shows at night (D142)
     self:drawPlanSketch({ x1, y1, x2, y2 }, lift * world.tuning.visuals.sketch.chalkShare, true)
+    self:drawMarkSketch({ x1, y1, x2, y2 }, lift * world.tuning.visuals.sketch.chalkShare, true)
   end
   for i, crop in pairs(world.state.crops) do
     local x, y = Grid.coords(grid, i)
@@ -1390,6 +1392,56 @@ function Renderer:drawPlanSketch(visible, alpha, chalk)
     if x >= visible[1] and x <= visible[3] and y >= visible[2] and y <= visible[4] and planned(i) then
       local sprite = Assets.sprite(cropId .. "_3")
       Sketch.sprite(sprite, (x - 1) * tile, y * tile - sprite.h, inkFor(i), opts)
+    end
+  end
+end
+
+local MARK_STYLE = { clear = { always = true }, water = { wave = true } } -- the Axe hatches, the Pail waves (D147)
+
+--- The Axe's and the Pail's area marks as pencil (D147): hatch (clear) or waves (water) over each marked thing, one
+--- outline round the outer edge of each marked area. Drawn over the objects, so a marked tree wears its hatch;
+--- `chalk` draws the night pass over the graded world in pale chalk.
+function Renderer:drawMarkSketch(visible, alpha, chalk)
+  local world = self.world
+  local marks, grid, tile = world.state.marks, self.world.state.grid, self.tile
+  if next(marks.clear) == nil and next(marks.water) == nil then
+    return
+  end
+  local cfg = world.tuning.visuals.sketch
+  for _, kind in ipairs(Marks.KINDS) do
+    local set, list = {}, {}
+    for i in pairs(marks[kind]) do
+      local obj = grid.objects[i]
+      if kind == "water" then
+        set[i], list[#list + 1] = true, i
+      elseif obj then
+        local x, y = Grid.coords(grid, i)
+        for _, t in ipairs(Grid.footprintTiles(grid, world.registry:get("objects", obj.id), x, y) or { i }) do
+          set[t], list[#list + 1] = true, t
+        end
+      end
+    end
+    if #list > 0 then
+      local ink
+      if kind == "clear" then
+        ink = chalk and cfg.markClearChalk or cfg.markClearInk
+      else
+        ink = chalk and cfg.markWaterChalk or cfg.markWaterInk
+      end
+      Sketch.drawPlans(
+        world,
+        tile,
+        function(i)
+          return set[i] == true
+        end,
+        visible,
+        function()
+          return ink
+        end,
+        alpha,
+        list,
+        MARK_STYLE[kind]
+      )
     end
   end
 end

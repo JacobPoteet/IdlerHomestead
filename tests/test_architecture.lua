@@ -64,6 +64,7 @@ local STATE_OWNERS = {
   machines = "machines",
   ledger = "ledger",
   market = "market",
+  marks = "marks",
   needs = "needs",
   perks = "perks",
   perksApplied = "perks",

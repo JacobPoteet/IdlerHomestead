@@ -1,4 +1,4 @@
-# UI redesign handoff (2026-10-16, updated after phase 7)
+# UI redesign handoff (2026-10-16, updated after phase 9)
 
 Read this first; the older master-agent prompt below still holds for workflow, but where they differ this wins.
 
@@ -20,6 +20,12 @@ plans drawn in pencil; frost and snow on plates in winter.
 | 4 Tool wheel | #294 | #305 | `src/ui/tool_wheel.lua`, `Input` wheel events, keys Q and 1-6; `tests/test_tool_wheel.lua`; driver `wheel` |
 | 5 Hammer and crate | #295 | #306 | `Homestead:hammerRing`/`hammerTap`, crate count on wedge and badge; `tests/test_hammer.lua`; driver `hammer` |
 | 6 Notebook and Ledger | #296 | (branch) | `src/scenes/book.lua` hosts the old panel scenes as tabs, `src/ui/books.lua` (pure state, shortcuts, tab layout), `src/ui/paper.lua`; D143, D144; `tests/test_books.lua`; driver `panels` |
+
+## Phase 9 (#299) built: Axe and Pail area drags (D147)
+`src/sim/systems/marks.lua` (state `marks = { clear, water }`, the standing task types `clear_marked`, `water_marked`,
+`fetch_marked`; SAVE_COMPAT 12), `Homestead:areaDragBegin/Move/End` (the gesture; two fingers still pan, `Input` flags
+that pan with `pinch = true`), `Renderer:drawMarkSketch` + `Sketch.drawPlans`' `style` argument (hatch vs waves), a Cancel
+mark button on the tile card. Tests: `tests/test_marks.lua`; driver: `areadrag`. Phases 1-9 are all built.
 
 ## Phase 7 (#297) built: the Power and Water lenses (D145, D146)
 `src/ui/lens.lua` (pure: state, routes, card geometry), `src/render/lens_fields.lua` (pure data layer),
@@ -54,9 +60,8 @@ Pail area drags). Interim state still to replace: the Power panel is reached fro
 - Bypass permissions: the user said not to ask before running, pushing, opening PRs or merging green
   PRs (memory `autonomy-bypass`). Branch per phase, PR, wait for CI (format, lint, tests), merge with a
   descriptive `--merge` message, confirm the issue closed.
-- StyLua and luacheck are NOT installed locally. Keep code lines at 120 columns or less (trailing comments
-  are fine); avoid calls that pass a multi-line table before another argument (StyLua reflows them);
-  watch for shadowed locals (luacheck failed once on `status`).
+- StyLua and luacheck are installed locally: `/c/Users/gwlpo/stylua-2.0.2/bin/stylua.exe game tests tools` (the pinned
+  2.0.2; never `~/.cargo/bin/stylua`) and `luacheck.exe game tests tools` (on PATH). Run both before committing.
 - Python works here (write files with `newline="
 "`, utf-8). Plain `open().write` on Windows wrote CRLF.
 - Verify every UI change with the driver at desktop, phone and landscape: run the scenarios that touch

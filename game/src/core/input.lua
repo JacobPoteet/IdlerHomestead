@@ -252,7 +252,7 @@ function Input:touchmoved(id, x, y)
     local a, b = self.touches[self.touchOrder[1]], self.touches[self.touchOrder[2]]
     local midX, midY = (a.x + b.x) / 2, (a.y + b.y) / 2
     local scale = self.app.view.scale
-    self:emit("pan", { dx = (midX - self.pinch.midX) / scale, dy = (midY - self.pinch.midY) / scale })
+    self:emit("pan", { dx = (midX - self.pinch.midX) / scale, dy = (midY - self.pinch.midY) / scale, pinch = true })
     self.pinch.midX, self.pinch.midY = midX, midY
     local ratio = distance(a, b) / self.pinch.refDist
     local step = self.tuning.camera.pinchStepRatio

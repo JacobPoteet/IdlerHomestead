@@ -305,7 +305,7 @@ function Water.init(world)
   s.rain = s.rain or 0
   s.rained = s.rained or 0
   world.events:on("task.completed", function(e)
-    if e.task == "water_crop" then
+    if e.task == "water_crop" or e.task == "water_marked" then
       s.hand = s.hand + 1
     end
   end)
