@@ -303,18 +303,6 @@ return {
     sideGain = 1.6, -- how fast the sunward side's share grows as the sun moves off noon (1 at side 1/sideGain)
     inkLuma = 0.16, -- brightness below which a pixel is outline: the rim sits just inside it and the outline stays dark
   },
-  groundDetail = { -- variety painted once into the grass (src/render/ground_detail.lua): soft patches of lighter and darker grass
-    enabled = true,
-    block = 2, -- art pixels per patch cell (the patch edges step in blocks this size)
-    patchScale = 0.012, -- patch noise frequency, 1/art pixels (0.012 = patches about 5 tiles across)
-    lightCut = 0.62, -- noise level above which the grass is a step lighter
-    darkCut = 0.38, -- noise level below which it is a step darker
-    step = 0.08, -- noise past a cut where the second, stronger step starts
-    light1 = { 0.95, 1.00, 0.70, 0.10 }, -- lighter, warmer grass (rgba over the tile; alpha is the strength)
-    light2 = { 0.95, 1.00, 0.70, 0.18 },
-    dark1 = { 0.12, 0.30, 0.22, 0.12 }, -- darker, cooler grass
-    dark2 = { 0.12, 0.30, 0.22, 0.22 },
-  },
   forestFloor = { -- shade under a wood (drawn into the shadow mask as contact shade, so it takes shadows.color): every tree with enough trees round it pools a wide, low ellipse, and they merge into one shaded floor
     minNeighbours = 3, -- of the 8 tiles round a tree, how many must hold trees for it to shade the floor
     deepNeighbours = 6, -- from this many the floor under it is in deep shade
@@ -351,12 +339,12 @@ return {
     wideDivisor = 10, -- the wide layer is rendered at 1/this of the screen size
   },
   dither = { -- how each soft effect is cut into pixel-art steps (shaders/include/dither.glsl, src/render/dither.lua; D133). Edit them live in the in-game editor (F1 on, then F8)
-    algorithms = { "bands", "bayer2", "bayer4", "bayer8", "blue", "ign", "white" }, -- ids in the order the shader numbers them: bands = no pattern, bayerN = ordered NxN, blue = blue noise, ign = interleaved gradient noise, white = white noise
+    algorithms = { "bayer2", "bayer4", "bayer8", "blue", "ign", "white" }, -- ids in the order the shader numbers them: bayerN = ordered NxN, blue = blue noise, ign = interleaved gradient noise, white = white noise
     blueSize = 64, -- texels, edge of the blue-noise tile (the pattern repeats every this many art pixels)
     light = { -- night light pools (shaders/light.glsl)
       algorithm = "bayer8", -- one of `algorithms`
       steps = 5, -- brightness levels in the falloff (the dither interleaves them, so few levels still fade smoothly)
-      amount = 1.0, -- 0..1 how much of the pattern is used between levels (0 = plain bands, 1 = full dither)
+      amount = 1.0, -- 0..1 how much of the pattern is used between levels (0 = hard steps, 1 = full dither)
       scale = 1, -- art pixels per pattern cell (2 = chunkier)
     },
     heat = { -- the heat-shimmer column over a fire (shaders/grade.glsl)
@@ -371,19 +359,19 @@ return {
       scale = 1,
     },
     clouds = { -- cloud shadows (shaders/clouds.glsl)
-      algorithm = "bands", -- plain bands is the old look
+      algorithm = "bayer8",
       steps = 3, -- shadow levels
       amount = 1.0,
       scale = 1,
     },
     mist = { -- morning mist (shaders/mist.glsl)
-      algorithm = "bands",
+      algorithm = "bayer8",
       steps = 4, -- density levels
       amount = 1.0,
       scale = 1,
     },
     sunbeams = { -- sunbeams (shaders/sunbeams.glsl)
-      algorithm = "bands",
+      algorithm = "bayer8",
       steps = 3, -- brightness levels
       amount = 1.0,
       scale = 1,
@@ -395,7 +383,7 @@ return {
       scale = 1,
     },
     vignette = { -- the dark rim of the view (shaders/grade.glsl)
-      algorithm = "bands",
+      algorithm = "bayer8",
       steps = 0, -- darkness levels (0 = smooth, the old look)
       amount = 1.0,
       scale = 1,

@@ -7,13 +7,12 @@
 // stays glued to the land when the camera pans and is the same size at every zoom.
 //
 // Algorithm indices (the order of tuning.visuals.dither.algorithms):
-//   0 bands   no pattern: a plain cut at the middle of each step
-//   1 bayer2  ordered 2x2, a coarse checker
-//   2 bayer4  ordered 4x4
-//   3 bayer8  ordered 8x8 (the finest regular pattern)
-//   4 blue    blue noise (even, no grid look; a texture built in code, see src/render/blue_noise.lua)
-//   5 ign     interleaved gradient noise (a cheap diagonal-streaked noise)
-//   6 white   white noise (a hash: clumpy, for comparison)
+//   0 bayer2  ordered 2x2, a coarse checker
+//   1 bayer4  ordered 4x4
+//   2 bayer8  ordered 8x8 (the finest regular pattern)
+//   3 blue    blue noise (even, no grid look; a texture built in code, see src/render/blue_noise.lua)
+//   4 ign     interleaved gradient noise (a cheap diagonal-streaked noise)
+//   5 white   white noise (a hash: clumpy, for comparison)
 
 uniform Image blueNoise;     // one texel per art pixel, tiled; the rank of the pixel in 0..1
 uniform float blueSize;      // the blue-noise texture's edge in texels
@@ -43,16 +42,14 @@ float ditherHash(vec2 p) {
 float ditherThreshold(vec2 px, vec4 d) {
     vec2 q = floor(px / max(d.y, 1.0));
     if (d.x < 0.5) {
-        return 0.5;
-    } else if (d.x < 1.5) {
         return (bayer2(q) * 4.0 + 0.5) / 4.0;
-    } else if (d.x < 2.5) {
+    } else if (d.x < 1.5) {
         return (bayer4(q) * 16.0 + 0.5) / 16.0;
-    } else if (d.x < 3.5) {
+    } else if (d.x < 2.5) {
         return (bayer8(q) * 64.0 + 0.5) / 64.0;
-    } else if (d.x < 4.5) {
+    } else if (d.x < 3.5) {
         return Texel(blueNoise, (mod(q, blueSize) + 0.5) / blueSize).r;
-    } else if (d.x < 5.5) {
+    } else if (d.x < 4.5) {
         return fract(52.9829189 * fract(dot(q, vec2(0.06711056, 0.00583715))));
     }
     return ditherHash(q);

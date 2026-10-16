@@ -29,7 +29,7 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 
 | Id | Variants | Status | Notes |
 |---|---|---|---|
-| `grass` | 4 | M1 | Base ground. Seasonal versions later (summer dry, autumn, snow). Broad lighter and darker patches are painted over it once at load (`src/render/ground_detail.lua`, `visuals.groundDetail`, D136); a scattered texture and tufts were tried and dropped. |
+| `grass` | 4 | M1 | Base ground. Seasonal versions later (summer dry, autumn, snow). A scattered texture, tufts and broad light/dark patches were tried and dropped (D136). |
 | `road` | 2 | M1 | Dirt road. |
 | `tilled_dry` / `tilled_wet` | 1 each | M1 | Furrowed soil; wet is darker. |
 | `ford_stones` | 1 | M1 | Transparent overlay of stepping stones drawn over water. |
