@@ -14,9 +14,10 @@ local Plate = {}
 
 local tuning -- the live tuning tables (F6 reloads them in place)
 local frost -- the blurred world for this frame, or nil
-local light = { tint = { 1, 1, 1 }, frost = 0, snow = 0 }
+local light = { tint = { 1, 1, 1 }, frost = 0, snow = 0, level = 1 }
 local layers = {}
 local blank
+local NO_GLINT = { -1, -1 }
 
 --- Hand over the live tuning tables once at start-up.
 function Plate.setup(t)
@@ -27,7 +28,7 @@ end
 function Plate.beginFrame()
   frost = nil
   light.tint[1], light.tint[2], light.tint[3] = 1, 1, 1
-  light.frost, light.snow = 0, 0
+  light.frost, light.snow, light.level = 0, 0, 1
 end
 
 local function layer(key, w, h)
@@ -79,12 +80,18 @@ function Plate.setLight(tint, level, frozen, snow)
   local cfg = tuning.ui.plate
   local share = cfg.gradeShare
   local dim = 1 - cfg.nightDim * (1 - level)
+  light.level = level
   for i = 1, 3 do
     light.tint[i] = (1 + (tint[i] - 1) * share) * dim
   end
   local weather = Settings.read("ambientFx", true)
   light.frost = weather and frozen or 0
   light.snow = weather and snow or 0
+end
+
+--- The world's daylight level this frame (0 night .. 1 day), for things drawn over the world that follow it.
+function Plate.level()
+  return light.level
 end
 
 local function blankImage()
@@ -103,7 +110,8 @@ local function targetSize()
 end
 
 --- Draw a plate at x, y, w, h (UI pixels, current transform). opts: { base = colour, see = 0..1, lit = 0..1,
---- ink = outline colour, alpha, weather = false (no frost or snow), kind = "button" | "panel" (more solid) }.
+--- ink = outline colour, alpha, weather = false (no frost or snow), kind = "button" | "panel" (more solid),
+--- glintX, glintY (the amber signal's one pixel on the plate, src/ui/motion.lua) }.
 function Plate.draw(x, y, w, h, opts)
   opts = opts or {}
   x, y, w, h = math.floor(x + 0.5), math.floor(y + 0.5), math.floor(w + 0.5), math.floor(h + 0.5)
@@ -147,6 +155,9 @@ function Plate.draw(x, y, w, h, opts)
     cornerCut = cfg.cornerCut,
     frostAmount = weather and light.frost or 0,
     frostReach = cfg.frostReach,
+    frostRing = (w < cfg.frostMinSize or h < cfg.frostMinSize) and 1 or 0,
+    glintAt = opts.glintX and { opts.glintX, opts.glintY } or NO_GLINT,
+    glintColor = tuning.ui.motion.amber.color,
     frostColor = tuning.visuals.frostColor,
     snowAmount = snow,
     snowColor = tuning.visuals.snowColor,

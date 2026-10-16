@@ -17,6 +17,8 @@ local Shaders = require("src.render.shaders")
 local ScrollList = require("src.ui.scroll_list")
 local Text = require("src.ui.text")
 local Plate = require("src.ui.plate")
+local Dissolve = require("src.render.dissolve")
+local Motion = require("src.ui.motion")
 local theme = require("src.ui.theme")
 local TitleScene = require("src.scenes.title")
 
@@ -50,6 +52,8 @@ function Game.new(opts)
     fs = opts and opts.audioFs,
   })
   Plate.setup(tuning)
+  Dissolve.setup(tuning)
+  Motion.setup(tuning)
   Buttons.onActivate = function()
     ctx.audio:play("ui_tap")
   end
@@ -145,6 +149,7 @@ end
 
 function Game:update(dt)
   local started = Perf.enabled and Perf.now()
+  Motion.tick(dt)
   self.input:update(dt)
   self.app:update(dt)
   self.app.ctx.audio:update(dt)

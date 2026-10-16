@@ -1,4 +1,4 @@
-# UI redesign handoff (2026-10-16, updated after phase 9)
+# UI redesign handoff (2026-10-16, updated after phase 8: all nine phases are built)
 
 Read this first; the older master-agent prompt below still holds for workflow, but where they differ this wins.
 
@@ -20,6 +20,21 @@ plans drawn in pencil; frost and snow on plates in winter.
 | 4 Tool wheel | #294 | #305 | `src/ui/tool_wheel.lua`, `Input` wheel events, keys Q and 1-6; `tests/test_tool_wheel.lua`; driver `wheel` |
 | 5 Hammer and crate | #295 | #306 | `Homestead:hammerRing`/`hammerTap`, crate count on wedge and badge; `tests/test_hammer.lua`; driver `hammer` |
 | 6 Notebook and Ledger | #296 | (branch) | `src/scenes/book.lua` hosts the old panel scenes as tabs, `src/ui/books.lua` (pure state, shortcuts, tab layout), `src/ui/paper.lua`; D143, D144; `tests/test_books.lua`; driver `panels` |
+
+## Phase 8 (#298) built: motion, calm signals and plate weather (D148)
+`src/ui/transition.lua` (pure dissolve state: timing, stepped coverage, the Reduce motion two-step), `src/ui/signals.lua`
+(pure: amber glint place and moment, red three-frame beat), `src/ui/motion.lua` (the UI clock, `Motion.step`,
+`Motion.signal`, `Motion.night`), `src/render/dissolve.lua` + `shaders/ui_dissolve.glsl` (`Dissolve.begin(cover)` ... `finish()`;
+at coverage 1 it draws straight, so a settled screen costs nothing). Books dissolve through `App` (a scene with `dissolve = "book"`;
+a popped one stays in `app.leaving` until gone); the wheel, tip card, tile card and lens dissolve inside `Homestead:stepFades`
+and their draw functions (the wheel and cards keep their last state to draw going away; the lens keeps the graded frame under
+it in `lensMix`). The plate shader got a glint pixel and the small-plate frost ring; plates now dim with the daylight level (it
+used the light level, which only falls to 0.56, so night barely dimmed them); paper books get a lamp pool (`Paper.drawPool`,
+`Paper.drawLamp`). Tests: `tests/test_motion.lua`; driver: `motion` (mid-dissolve shots, signals, night book, winter plates).
+The driver sets `Motion.settled = true` so every other scenario shoots finished screens; `motion` turns it off.
+Not done (follow-ups): the Item card inside the Catalog and Truck pages closes with its book, not by itself; the FTUE tip highlight,
+the world selection ring and the rescue prompt still breathe on alpha (all well under 3 changes a second) and the FTUE highlight
+ignores Reduce motion; the dissolve and signal numbers were tuned from stills, not from a live feel.
 
 ## Phase 9 (#299) built: Axe and Pail area drags (D147)
 `src/sim/systems/marks.lua` (state `marks = { clear, water }`, the standing task types `clear_marked`, `water_marked`,
@@ -78,7 +93,7 @@ Pail area drags). Interim state still to replace: the Power panel is reached fro
 ## Tuning notes still open (from the prototype and the builds)
 - Small and body text are the same pixel font size now; a few tight rows touch (the Pantry wood line).
   The books phase relays those panels out. The Journal still has its own green tiles.
-- `ui.plate` see-through, grade share and night dim are first guesses; tune in the F8 editor (Frosted
+- `ui.plate` see-through, grade share and night dim (now on the daylight level, 0.4) are first guesses; tune in the F8 editor (Frosted
   plates entry) after the user sees them in play.
 - The idle countdown ring and the badge texts were tuned by eye on desktop only.
 

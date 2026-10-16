@@ -298,6 +298,16 @@ return {
     stampInk = { 0.95, 0.86, 0.62 }, -- the stamped icon's ink on a selected tab
     stampIdle = { 0.62, 0.55, 0.43 }, -- the stamped icon's ink on an unselected tab
     stampShade = { 0.06, 0.04, 0.03, 0.8 }, -- the misregistered second pass under the stamp
+    pool = { -- the warm night light pool behind the page (night only; ui.motion.night sets when)
+      color = { 1.0, 0.72, 0.38 }, -- the lamp light
+      alpha = 0.34, -- 0..1 opacity at the pool's heart at full night
+      spread = 34, -- UI pixels the pool reaches past the page on every side
+      washAlpha = 0.26, -- 0..1 opacity of the lamp's light on the page itself at its heart, at full night
+      washHeight = 0.3, -- 0..1 how far down the page the lamp's heart sits
+      washReach = 1.0, -- how far the light on the page spreads (1 = to the page's far sides, less = a tighter pool)
+      steps = 4, -- brightness levels of the pool (dithered between them, so few still fade softly)
+      cell = 2, -- UI pixels per pool cell (the pool is drawn from a small image scaled up, so this is its chunkiness)
+    },
     tabs = { -- each book's pages in order: id, label, stamp icon
       notebook = {
         { id = "journal", label = "Journal", icon = "icon_tab_journal" },
@@ -510,13 +520,39 @@ return {
     blurDivisor = 6, -- the world is copied at 1/this of the screen size before blurring (bigger = softer and cheaper)
     blurPasses = 2, -- horizontal plus vertical blur passes over that copy
     gradeShare = 0.45, -- 0..1 share of the world's time-of-day and season tint the plates take (text and icons take none)
-    nightDim = 0.35, -- 0..1 how much darker a plate's own colour gets at full night (on top of the grade share)
+    nightDim = 0.4, -- 0..1 how much darker a plate's own colour gets at full night (on top of the grade share; it follows the daylight level, 0 at night .. 1 by day, so the prototype's 0.35 on the light level barely dimmed them). Text and icons are never dimmed
     alpha = 0.92, -- 0..1 opacity of a plate's body
     litAmount = 0.16, -- 0..1 strength of the warm lit edge on the top and left (the world's sun side)
     shadeAmount = 0.35, -- 0..1 strength of the cool shade edge on the bottom and right
     cornerCut = 2, -- UI pixels cut from each corner in steps (0 = square corners)
     frostReach = 7, -- UI pixels frost creeps in from each corner at full frost (winter, D142)
     snowMinSize = 24, -- UI pixels: plates narrower or shorter than this get no snow along their top, so it never covers their icon
+    frostMinSize = 24, -- UI pixels: plates narrower or shorter than this keep their frost to the outline ring, so it never covers their icon
+  },
+  motion = { -- dissolves, calm signals and the night light pool (GDD §9.4, D142; src/ui/transition.lua, src/ui/signals.lua, src/ui/motion.lua)
+    kinds = { -- one dissolve per kind of thing that opens and closes; seconds of real time, and the number of dither steps the dissolve moves in
+      wheel = { open = 0.12, close = 0.10, steps = 5 }, -- the tool wheel (quick: it opens under a held press)
+      book = { open = 0.22, close = 0.16, steps = 6 }, -- the Notebook and the Ledger
+      card = { open = 0.16, close = 0.12, steps = 5 }, -- the tile card and the tip card
+      lens = { open = 0.30, close = 0.24, steps = 8 }, -- the Power and Water lens over the world
+    },
+    amber = { -- attention: a quiet amber outline with one pixel of glint now and then, in place of a pulsing border
+      steady = 0.35, -- 0..1 how far the outline sits toward amber all the time
+      reducedSteady = 1.0, -- 0..1 the same under Reduce motion (no glint, so the outline carries the cue by itself)
+      every = 4.0, -- seconds between glints
+      hold = 0.25, -- seconds one glint lasts (two changes per glint, so 0.5 changes a second)
+      color = { 1.0, 0.92, 0.62 }, -- the glint pixel
+    },
+    red = { -- danger: a slow three-frame beat of the outline between its rest colour and red
+      every = 3.6, -- seconds per beat (its four changes take 1.4 s, so no second ever holds more than three)
+      rest = 0.6, -- 0..1 share of the beat spent at frame 1 (the calm outline); frames 2, 3 and 2 again split the rest evenly
+      levels = { 0.35, 0.65, 1.0 }, -- 0..1 how far the outline sits toward red in frames 1, 2 and 3 (small steps, never off and on)
+    },
+    maxChangesPerSecond = 3, -- the flash limit: no signal changes its look more often than this (tests/test_motion.lua checks both schedules)
+    night = { -- the warm pool behind a paper book at night (off with Settings > Ambient effects)
+      startLevel = 0.6, -- 0..1 daylight level below which the pool begins to appear
+      fullLevel = 0.2, -- daylight level at which it is full
+    },
   },
   startRoutineHint = "Starts the routine now. It waters, plants, harvests and chops for you; any tap ends it.", -- toast when the routine starts
 }

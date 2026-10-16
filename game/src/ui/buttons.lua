@@ -6,12 +6,11 @@ local theme = require("src.ui.theme")
 local Text = require("src.ui.text")
 local HoldRepeat = require("src.ui.hold_repeat")
 local Assets = require("src.render.assets")
+local Motion = require("src.ui.motion")
 local Plate = require("src.ui.plate")
 
 local Buttons = {}
 Buttons.__index = Buttons
-
-Buttons.PULSE_PERIOD = 2 -- seconds per breath of a `pulse` button's border (presentation only)
 
 --- minSize: smallest allowed button edge in virtual pixels (tuning.input.minTouchTarget).
 function Buttons.new(minSize)
@@ -151,15 +150,10 @@ function Buttons:drawOne(b, colors)
   elseif b.style == "accent" or b.selected then
     ink = colors.accent
   end
+  local gx, gy
   if b.pulse then
-    -- A gentle, persistent attention pulse (never hover-only): the outline breathes toward amber.
-    local wave = 0.5 + 0.5 * math.sin(love.timer.getTime() * 2 * math.pi / Buttons.PULSE_PERIOD)
-    local dark, amber = colors.panelBorder, colors.accent
-    ink = {
-      dark[1] + (amber[1] - dark[1]) * wave,
-      dark[2] + (amber[2] - dark[2]) * wave,
-      dark[3] + (amber[3] - dark[3]) * wave,
-    }
+    -- A persistent attention cue (never hover-only): a quiet amber outline with a pixel of glint now and then.
+    ink, gx, gy = Motion.signal("amber", b.w, b.h, b.x * 31 + b.y)
   end
   local pressed = self.pressed == b
   Plate.draw(b.x, b.y, b.w, b.h, {
@@ -169,6 +163,8 @@ function Buttons:drawOne(b, colors)
     lit = pressed and 0 or nil, -- a pressed button loses its sunlit edge, as if pushed in
     alpha = 1,
     weather = false,
+    glintX = gx,
+    glintY = gy,
   })
   if b.latched then
     -- A held-on tool (the Plan latch, D94): a second, inner amber ring so it reads apart from a plain selection.

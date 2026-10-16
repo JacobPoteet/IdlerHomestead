@@ -37,6 +37,12 @@ M.ENTRIES = {
     shader = "ui_plate.glsl",
     hint = "The world seen through HUD and panel plates.",
   },
+  {
+    id = "transition",
+    title = "Dissolves (wheel, books, cards, lenses)",
+    shader = "ui_dissolve.glsl",
+    hint = "Open a book or the tool wheel; the pattern is how it dissolves in and out.",
+  },
 }
 
 --- The fields a control can change, in the order they are listed, with their limits.

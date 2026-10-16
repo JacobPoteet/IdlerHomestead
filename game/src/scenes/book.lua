@@ -8,12 +8,13 @@
 local Books = require("src.ui.books")
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
+local Motion = require("src.ui.motion")
 local Paper = require("src.ui.paper")
 local Plate = require("src.ui.plate")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
-local Book = { name = "book" }
+local Book = { name = "book", dissolve = "book" } -- it dissolves in and out (D142)
 Book.__index = Book
 
 --- Make the page scene for tab `id`. Each is the former panel's scene, built as it was.
@@ -258,7 +259,9 @@ end
 function Book:draw()
   local paper, strip = self.rects.paper, self.rects.strip
   Draw.overlay(self.app.view)
+  Paper.drawPool(self.cfg, paper.x, paper.y, paper.w, paper.h, Motion.night()) -- lamp light round the page at night
   Paper.draw(self.cfg, paper.x, paper.y, paper.w, paper.h)
+  Paper.drawLamp(self.cfg, paper.x, paper.y, paper.w, paper.h, Motion.night())
   love.graphics.setColor(theme.colors.panelBorder)
   love.graphics.rectangle("fill", paper.x + 2, strip.y + strip.h, paper.w - 4, 1)
   self.buttons:draw()
