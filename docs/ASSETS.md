@@ -112,6 +112,7 @@ tier owned and draws icons at whole-pixel scales (1x on the HUD, 2x in the tool 
 | `icon_verb_move`, `icon_verb_pickup`, `icon_verb_demolish`, `icon_verb_untill` | Verbs (Demolish on red) |
 | `icon_signal_alert`, `icon_signal_idea` | Round amber decision stamps |
 | `icon_book_notebook`, `icon_book_ledger`, `icon_menu` | The two books and Menu |
+| `icon_tab_journal`, `icon_tab_fish`, `icon_tab_diary`, `icon_tab_pantry`, `icon_tab_routine`, `icon_tab_catalog`, `icon_tab_truck` | One-colour ink stamps for the book tabs (drawn white, tinted when stamped, D143) |
 | `icon_packet`, `icon_packet_<crop>` | Seed packets: the template plus the crop's own icon shrunk onto it (radish, potato) |
 
 ### Fonts

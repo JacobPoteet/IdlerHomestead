@@ -1,5 +1,5 @@
 -- The message log panel (D90, #167): the last lines the toasts said, newest first, in a scrolling list.
--- Opened from the homestead by tapping a toast or the Log button. A browse panel: it reads the log
+-- The Notebook's Diary page (D143): opened by tapping a toast or the Notebook. A browse panel: it reads the log
 -- the homestead keeps (src/ui/message_log.lua) and changes nothing.
 
 local Buttons = require("src.ui.buttons")
@@ -10,7 +10,7 @@ local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
 local Scene = { name = "message_log" }
-Scene.__index = Scene
+Scene.__index = Scene -- (a Diary page: the Notebook hosts it)
 
 local PAD, HEAD_H, WHEN_H, ROW_GAP = 12, 38, 11, 7
 
@@ -74,7 +74,7 @@ end
 
 function Scene:draw()
   local b = self.box
-  Panel.frame(self.app.view, b, "Message log", "Newest first. Tap a toast or Log to open.")
+  Panel.frame(self.app.view, b, "Diary", "Newest first. Tap a toast to open it.")
   local dim = theme.colors.textDim
   self.list:begin(self.app.view.scale)
   local y0 = self.list:origin()

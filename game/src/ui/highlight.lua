@@ -10,8 +10,8 @@
 local Highlight = {}
 
 -- Where a button target falls back to when it is not on screen itself (D137): the stamp or plate that leads
--- to it, tried in order. Tools live in the tool badge's tray, books in the Notebook's and Ledger's trays, and
--- a delivery waiting to be placed has its own stamp.
+-- to it, tried in order. Tools live in the tool badge's tray, pages in the Notebook and the Ledger (their
+-- plates stand in for the tab, D143), and a delivery waiting to be placed has its own stamp.
 local FALLBACK = {
   place = { "delivery", "tools" },
   plan = { "tools" },

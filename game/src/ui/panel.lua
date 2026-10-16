@@ -7,16 +7,23 @@ local theme = require("src.ui.theme")
 
 local Panel = {}
 
---- A centred box no bigger than the view (with a margin).
+--- A centred box no bigger than the view (with a margin). A page hosted in a book (view.host, see
+--- src/ui/books.lua) gets the book's page body instead: as wide as the body, no taller than it, `hosted` set.
 function Panel.box(view, w, h)
+  if view.host then
+    local host = view.host
+    return { x = host.x, y = host.y, w = host.w, h = math.min(h, host.h), hosted = true }
+  end
   w = math.min(w, view.w - 16)
   h = math.min(h, view.h - 16)
   return { x = math.floor((view.w - w) / 2), y = math.floor((view.h - h) / 2), w = w, h = h }
 end
 
 function Panel.frame(view, box, title, subtitle)
-  Draw.overlay(view)
-  Draw.panel(box.x, box.y, box.w, box.h)
+  if not box.hosted then -- a page in a book sits on the book's paper, which draws the overlay and the plate
+    Draw.overlay(view)
+    Draw.panel(box.x, box.y, box.w, box.h)
+  end
   Text.draw(title, box.x + 12, box.y + 9, { size = "body" })
   if subtitle then
     Text.draw(subtitle, box.x + 12, box.y + 24, { size = "small", color = theme.colors.textDim })
@@ -25,6 +32,9 @@ end
 
 --- "Close" button in the top-right corner.
 function Panel.closeButton(buttons, box, onPress)
+  if box.hosted then
+    return nil -- a book has one Close tab for all its pages
+  end
   return buttons:add({ x = box.x + box.w - 58, y = box.y + 6, w = 52, h = 22, label = "Close", onPress = onPress })
 end
 

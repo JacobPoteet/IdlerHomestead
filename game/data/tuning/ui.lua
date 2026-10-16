@@ -47,11 +47,6 @@ return {
     untill = 54,
     placeMin = 80,
     plan = 66,
-    routine = 78,
-    journal = 56,
-    fish = 78,
-    catalog = 56,
-    pantry = 52,
   },
   paletteMaxRows = 4, -- rows of buttons a tray shows at once; more seeds or tools scroll (drag, wheel, keys) with a thumb beside them (D87, #184)
   pillHeight = 14, -- height of the small pills: the tool caption over the tool badge, the forecast lines
@@ -79,8 +74,8 @@ return {
     play = "Play", -- speed plate: normal speed
     fast = "Fast", -- speed plate: the fast speeds, 2x then 4x on each tap
     menu = "Menu",
-    notebook = "Notebook", -- book plate: what you know (Journal, Fish guide, Log) (D140)
-    ledger = "Ledger", -- book plate: what you run (Pantry, Routine list, Catalog) (D140)
+    notebook = "Notebook", -- book plate: what you know (Journal, Fish guide, Diary) (D140)
+    ledger = "Ledger", -- book plate: what you run (Pantry, Routine, Catalog, Truck & town) (D140)
     hoe = "Hoe", -- the tool wheel's tools (D138); Hand and Rod are above
     pail = "Pail",
     axe = "Axe",
@@ -275,6 +270,51 @@ return {
       water = "Needs to touch the creek",
       replace = "An upgrade goes over the building it replaces: place it on that one",
       replaceAsleep = "The homesteader is sleeping in the old building: wait for morning",
+    },
+  },
+  book = { -- the Notebook and the Ledger, tabbed paper books (GDD §9.4, D140, D143; src/ui/books.lua, src/scenes/book.lua)
+    width = { notebook = 720, ledger = 600 }, -- UI pixels: widest each book gets (the Journal map and the town lists need the room)
+    margin = 8, -- UI pixels left clear round the book on every side
+    tabHeight = 26, -- UI pixels: the tab strip (raised to input.minTouchTarget if that is larger)
+    tabGap = 2, -- UI pixels between tabs
+    tabPad = 6, -- UI pixels either side of a tab's icon and label
+    iconSize = 12, -- UI pixels: the tab stamps' edge (the 12x12 icon grid of docs/ASSETS.md)
+    iconGap = 3, -- UI pixels between a tab's icon and its label
+    closeWidth = 52, -- UI pixels: the Close tab at the strip's right end
+    bodyGap = 2, -- UI pixels between the tab strip and the page below it
+    paper = { 0.20, 0.16, 0.12 }, -- the page's base colour (a dark kraft paper, so the pages' light ink keeps reading)
+    tabIdle = { 0.14, 0.11, 0.08 }, -- an unselected tab's paper, a shade darker than the page
+    fibreDensity = 0.07, -- 0..1 share of the art-pixel cells carrying a paper fibre fleck
+    fibreLight = 0.05, -- 0..1 how much lighter a light fleck is than the page
+    fibreDark = 0.06, -- 0..1 how much darker a dark fleck is than the page
+    fibreLength = 3, -- art pixels a fleck runs (horizontal or vertical)
+    stampShift = 1, -- UI pixels the ink stamp's second pass sits right and down (a printing misregistration)
+    stampInk = { 0.95, 0.86, 0.62 }, -- the stamped icon's ink on a selected tab
+    stampIdle = { 0.62, 0.55, 0.43 }, -- the stamped icon's ink on an unselected tab
+    stampShade = { 0.06, 0.04, 0.03, 0.8 }, -- the misregistered second pass under the stamp
+    tabs = { -- each book's pages in order: id, label, stamp icon
+      notebook = {
+        { id = "journal", label = "Journal", icon = "icon_tab_journal" },
+        { id = "fish", label = "Fish guide", icon = "icon_tab_fish" },
+        { id = "diary", label = "Diary", icon = "icon_tab_diary" },
+      },
+      ledger = {
+        { id = "pantry", label = "Pantry", icon = "icon_tab_pantry" },
+        { id = "routine", label = "Routine", icon = "icon_tab_routine" },
+        { id = "catalog", label = "Catalog", icon = "icon_tab_catalog" },
+        { id = "truck", label = "Truck & town", icon = "icon_tab_truck" },
+      },
+    },
+    shortcuts = { -- a name a shortcut uses -> the book and page it opens (the old panel names and the world's taps)
+      journal = { "notebook", "journal" },
+      fish = { "notebook", "fish" },
+      diary = { "notebook", "diary" },
+      log = { "notebook", "diary" },
+      pantry = { "ledger", "pantry" },
+      routine = { "ledger", "routine" },
+      catalog = { "ledger", "catalog" },
+      buildings = { "ledger", "catalog" },
+      truck = { "ledger", "truck" },
     },
   },
   log = { -- message log (D90, #167)

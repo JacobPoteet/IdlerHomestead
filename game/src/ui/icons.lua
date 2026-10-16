@@ -40,6 +40,12 @@ function Icons.draw(id, x, y, scale, alpha)
   return sp.w * scale, sp.h * scale
 end
 
+--- Draw sprite `id` in the colour already set (a one-ink stamp, D143), snapped to whole pixels.
+function Icons.drawTinted(id, x, y)
+  local sp = Assets.sprite(id)
+  love.graphics.draw(sp.image, sp.quad, math.floor(x + 0.5), math.floor(y + 0.5))
+end
+
 --- The scale that fits sprite `id` in a w x h box: the largest whole number up to `max`, or 1/2, 1/3 ... when
 --- even 1x is too big (a world sprite as a crate thumbnail, D139).
 function Icons.fitScale(id, w, h, max)

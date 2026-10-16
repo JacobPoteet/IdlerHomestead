@@ -20,7 +20,7 @@ return function(d)
   local world = d:world()
   d:advance(1)
 
-  d:pick("Routine list")
+  d:pick("Routine")
   d:frames(3)
   d:shot("panel_off")
   local scene = d:scene()
@@ -34,6 +34,8 @@ return function(d)
   assert(at, "Clear trees is not in the routine list")
 
   -- Switch it on: the On/Off button on its row.
+  scene.list:reveal((at - 1) * 26, 26) -- the book's page is shorter than the old panel: scroll the row into view
+  scene:layout()
   local row = scene.rows[at]
   assert(row.visible, "the Clear trees row is scrolled out of view")
   local button

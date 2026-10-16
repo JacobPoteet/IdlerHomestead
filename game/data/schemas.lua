@@ -50,6 +50,7 @@ return {
     station = "string?", -- processor station id used by recipes (e.g. "smoker")
     shelter = "boolean?", -- the homesteader sleeps here (GDD §5.3 shelter ladder, D82)
     replaces = "string?", -- object id this one is placed over and removes (the shack over the camp, D115); with one placed, this must overlap it
+    book = "string?", -- a tap opens the book page this tuning.ui.book.shortcuts name stands for (truck, camp, shack; D143)
     shelterRank = "number?", -- shelter: higher is better; Sleep picks the best reachable (truck 0, camp 1, shack 2)
     insulation = "number?", -- shelter: multiplier on the night's warmth need (1 = none, lower keeps more heat)
     recovery = "number?", -- shelter: multiplier on the daily Condition recovery of a fed, warm day

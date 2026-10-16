@@ -7,7 +7,7 @@ local Tasks = require("src.sim.systems.tasks")
 local Rules = require("src.sim.routine_rules")
 local ScrollList = require("src.ui.scroll_list")
 local Buttons = require("src.ui.buttons")
-local Draw = require("src.ui.draw")
+local Panel = require("src.ui.panel")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
@@ -33,9 +33,7 @@ end
 
 function Routine:resize(view)
   local list = self.world.state.priorities
-  local w = math.min(380, view.w - 24)
-  local h = math.min(HEADER_H + #list * ROW_H + EDITOR_H + 44, view.h - 16)
-  self.box = { x = (view.w - w) / 2, y = math.max(8, (view.h - h) / 2), w = w, h = h }
+  self.box = Panel.box(view, 380, HEADER_H + #list * ROW_H + EDITOR_H + 44)
   self:layout()
 end
 
@@ -181,14 +179,8 @@ function Routine:valueText(cond)
 end
 
 function Routine:draw()
-  Draw.overlay(self.app.view)
   local b = self.box
-  Draw.panel(b.x, b.y, b.w, b.h)
-  Text.draw("Routine", b.x + 12, b.y + 8, { size = "body" })
-  Text.draw("Done top to bottom while you are away.", b.x + 12, b.y + 24, {
-    size = "small",
-    color = theme.colors.textDim,
-  })
+  Panel.frame(self.app.view, b, "Routine", "Done top to bottom while you are away.")
   self.list:begin(self.app.view.scale)
   for i, row in ipairs(self.rows) do
     local cat = row.entry.category

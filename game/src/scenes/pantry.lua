@@ -290,14 +290,15 @@ function Pantry:draw()
     })
     if res.heat then
       -- The wood row's second line (D104): the same outlook as the HUD chip and the readiness card.
-      Text.draw(self:woodLine(), b.x + 28, row.y + ROW_H - 4, { size = "small", color = dim })
+      -- (a note sits under the row's buttons, never beside them, so a narrow page cannot run it under one, #296)
+      Text.draw(self:woodLine(), b.x + 28, row.y + ROW_H, { size = "small", color = dim })
     end
     if info then
       -- The "!" keeps the warning readable without relying on colour.
       Text.draw(
         (warn and "! " or "") .. SpoilText.ageLine(info),
         b.x + 28,
-        row.y + ROW_H - 4,
+        row.y + ROW_H, -- under the buttons, never beside them (#296)
         { size = "small", color = warn and theme.colors.danger or dim }
       )
     end

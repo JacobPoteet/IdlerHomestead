@@ -1467,6 +1467,7 @@ local UI_INK = {
   a = { 0.96, 0.74, 0.32 }, -- amber: needs you
   r = { 0.78, 0.25, 0.22 }, -- red: danger
   l = { 0.90, 0.92, 0.95, 0.8 }, -- fishing line
+  k = { 1, 1, 1 }, -- a stamp's ink: white, so the book tabs tint it (#296)
 }
 
 local function rows(lines)
@@ -1727,6 +1728,90 @@ P.icon_book_ledger = rows({
   ".onNppppNpo.",
   ".onnnnnnnpo.",
   ".oooooooooo.",
+})
+
+-- Ink-stamp icons for the books' tabs (D143): one colour, tinted when drawn.
+P.icon_tab_journal = rows({
+  "",
+  "..kkkkkkkk..",
+  "..k......k..",
+  "..k.kkkk.k..",
+  "..k......k..",
+  "..k.kkkk.k..",
+  "..k......k..",
+  "..k.kkk..k..",
+  "..k......k..",
+  "..kkkkkkkk..",
+})
+
+P.icon_tab_fish = rows({
+  "",
+  "",
+  "...kkkk.....",
+  "..kkkkkk..k.",
+  ".kk.kkkkkkk.",
+  "..kkkkkk..k.",
+  "...kkkk.....",
+})
+
+P.icon_tab_diary = rows({
+  ".kkkkkkkkkk.",
+  ".k........k.",
+  ".k.kkkkkk.k.",
+  ".k........k.",
+  ".k.kkkk...k.",
+  ".k........k.",
+  ".kkkkkkkkkk.",
+  "..kkk.......",
+  "..kk........",
+  "..k.........",
+})
+
+P.icon_tab_pantry = rows({
+  "",
+  "...kkkkkk...",
+  "...k....k...",
+  "..kkkkkkkk..",
+  "..k......k..",
+  "..k.kkkk.k..",
+  "..k......k..",
+  "..k.kkkk.k..",
+  "..k......k..",
+  "..kkkkkkkk..",
+})
+
+P.icon_tab_routine = rows({
+  "",
+  ".kk.kkkkkkk.",
+  ".kk.........",
+  "",
+  ".kk.kkkkkkk.",
+  ".kk.........",
+  "",
+  ".kk.kkkkkkk.",
+  ".kk.........",
+})
+
+P.icon_tab_catalog = rows({
+  "",
+  "...kkkkkkk..",
+  "..kk.....k..",
+  ".kk..kk..k..",
+  "kk...kk..k..",
+  ".kk......k..",
+  "..kk.....k..",
+  "...kkkkkkk..",
+})
+
+P.icon_tab_truck = rows({
+  "",
+  "",
+  ".kkkkkkk....",
+  ".k.....k.kk.",
+  ".k.....kkk.k",
+  ".kkkkkkkkkkk",
+  "..kk...kk...",
+  "..kk...kk...",
 })
 
 P.icon_menu = rows({
