@@ -797,23 +797,48 @@ end
 function Renderer:rimShader(sway)
   local shader = Shaders.get("rim")
   local cfg = self.world.tuning.visuals.rim
-  local strength, side = 0, 0
+  local sl = self.world.tuning.visuals.sunlight
+  local strength, side, base, shade = 0, 0, 0, sl.ambientShade
   local season = cfg.seasons[Calendar.now(self.world).season] or 0
   local sunSide, height, cover = self:sun()
-  if shader and cfg.enabled and season > 0 and sunSide then
+  if sunSide then
     local rise = math.min(1, height / cfg.horizon)
-    local low = cfg.noonShare + (1 - cfg.noonShare) * (1 - height)
-    strength = cfg.strength * season * rise * low * (1 - cfg.cloudKill * cover)
+    local sun = rise * (1 - cfg.cloudKill * cover) -- direct sun: gone at the horizon and under cloud
+    if cfg.enabled and season > 0 then
+      local low = cfg.noonShare + (1 - cfg.noonShare) * (1 - height)
+      strength = cfg.strength * season * low * sun
+    end
+    base = sl.lit * sun
+    shade = sl.ambientShade + (sl.shade - sl.ambientShade) * sun
     side = -sunSide -- the sun is east (+x) in the morning, when the shadows fall west
   end
-  local on = strength > 0.005
+  if not sl.enabled then
+    base, shade = 0, 0
+  end
+  -- The autumn rim and the everyday lit edge share the rim pass: their colours are mixed by strength.
+  local color = cfg.color
+  if strength + base > 0 then
+    local a, b = strength / (strength + base), base / (strength + base)
+    color = {
+      cfg.color[1] * a + sl.litColor[1] * b,
+      cfg.color[2] * a + sl.litColor[2] * b,
+      cfg.color[3] * a + sl.litColor[3] * b,
+    }
+  end
+  strength = strength + base
+  local on = shader ~= nil and (strength > 0.005 or shade > 0.005)
+  local sideWeight = math.min(1, math.abs(side) * cfg.sideGain)
   local values = {
     rimStrength = on and strength or 0,
-    rimColor = cfg.color,
+    rimColor = color,
     rimSide = side >= 0 and 1 or -1,
-    rimSideWeight = math.min(1, math.abs(side) * cfg.sideGain),
+    rimSideWeight = sideWeight,
     rimTop = cfg.top,
     inkLuma = cfg.inkLuma,
+    shadeStrength = on and shade or 0,
+    shadeColor = sl.shadeColor,
+    shadeSideWeight = sl.sideFloor + (1 - sl.sideFloor) * sideWeight,
+    shadeBottom = sl.bottom,
   }
   if sway then
     Shaders.send(sway, values) -- sway sends its own texel per sprite
@@ -1495,12 +1520,21 @@ function Renderer:drawShadows(list)
     love.graphics.setShader()
   end
   love.graphics.setColorMask(false, true, false, true)
-  love.graphics.setColor(1, 1, 1, 1)
+  -- Overlapping occlusion keeps the darker value (lighten = max), so neighbours pool together instead of stacking.
+  love.graphics.setBlendMode("lighten", "premultiplied")
+  local ao = cfg.ao
   for k = 1, list.n, SHADOW_STRIDE do
     local sprite = list[k]
     if list[k + 4] then
       local w = math.min(cfg.contactMaxWidth, math.floor(sprite.w * cfg.contactWidth))
       local x, y = math.floor(list[k + 1]), math.floor(list[k + 2])
+      -- Ambient occlusion: stepped rings round the base, fainter the further out, so the object sits in the ground.
+      for r = #ao.levels, 1, -1 do
+        local level = ao.levels[r]
+        love.graphics.setColor(level, level, level, 1)
+        love.graphics.ellipse("fill", x, y + 0.5, w / 2 + r * ao.spread, 1.5 + r * ao.depth, ao.segments)
+      end
+      love.graphics.setColor(1, 1, 1, 1)
       local inner = math.floor(w * 0.7)
       love.graphics.rectangle("fill", x - math.floor(inner / 2), y - 1, inner, 3)
       love.graphics.rectangle("fill", x - math.floor(w / 2), y, w, 1)
@@ -1537,7 +1571,9 @@ function Renderer:drawShadows(list)
   Dither.send(composite, world.tuning, { dither = "shadows" })
   love.graphics.setShader(composite)
   love.graphics.setColor(1, 1, 1, 1)
+  love.graphics.setBlendMode("multiply", "premultiplied") -- the shadow tints the ground's own colour
   love.graphics.draw(mask, ox, oy)
+  love.graphics.setBlendMode("alpha")
   love.graphics.setShader()
 end
 
