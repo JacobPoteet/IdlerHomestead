@@ -17,7 +17,6 @@ return {
     tilled_dry = { placeholder = "tilled_dry", w = 16, h = 16 },
     tilled_wet = { placeholder = "tilled_wet", w = 16, h = 16 },
     ford_stones = { placeholder = "ford_stones", w = 16, h = 16 },
-    plan_marker = { placeholder = "plan_marker", w = 16, h = 16 }, -- dashed frame on a planned tile (D92 standing order, D102)
     cue_droplet = { placeholder = "cue_droplet", w = 7, h = 9 }, -- thirsty crop (D102)
     cue_ready = { placeholder = "cue_ready", w = 7, h = 7, variants = 2 }, -- ripe crop sparkle: 1 = small plus, 2 = star (D102)
 

@@ -29,6 +29,7 @@ local EffectClock = require("src.render.effect_clock")
 local Wetness = require("src.render.wetness")
 local Ambient = require("src.render.ambient")
 local Settings = require("src.core.settings")
+local Sketch = require("src.render.sketch")
 
 local Renderer = {}
 
@@ -520,28 +521,10 @@ function Renderer:draw(alpha, visible, daylight)
     end
   end
   love.graphics.setColor(1, 1, 1, 1)
-  local risky = {} -- crop id -> would a crop planted today be caught by the frost? (one answer per crop per frame)
-  for i, cropId in pairs(fields.plan) do
-    if not crops[i] and onScreen(i) then
-      local x, y = Grid.coords(grid, i)
-      if CropCues.planState(cropId, fields.tilled[i], crops[i]) then
-        -- A faint sprout says what is planned; a planted crop is solid, so a plan never passes for a plant (D102).
-        local ghost = Assets.sprite(cropId .. "_1")
-        love.graphics.setColor(1, 1, 1, v.cropCues.planGhostAlpha)
-        love.graphics.draw(ghost.image, ghost.quad, (x - 1) * tile, y * tile - ghost.h)
-        love.graphics.setColor(1, 1, 1, 1)
-      end
-      Assets.draw("plan_marker", (x - 1) * tile, (y - 1) * tile)
-      if risky[cropId] == nil then
-        risky[cropId] = Crops.frostRisk(world, cropId) ~= nil
-      end
-      if risky[cropId] then
-        love.graphics.setColor(world.tuning.visuals.frostPlan)
-        love.graphics.rectangle("fill", (x - 1) * tile, (y - 1) * tile, tile, tile)
-        love.graphics.setColor(1, 1, 1, 1)
-      end
-    end
-  end
+  -- Plans are pencil on the land (D142): the hatch and outline of the planned area, then a sketch of the
+  -- ripe crop on each planned tile, so a plan never passes for a plant (D102). A plan whose crop cannot
+  -- ripen before winter is drawn in amber pencil (D70).
+  self:drawPlanSketch({ x1, y1, x2, y2 }, 1)
 
   -- Snow resting on top of objects while the ground is white.
   local capShader = snow > 0 and Shaders.get("snowcap") or nil
@@ -1351,17 +1334,8 @@ function Renderer:drawCropCues(visible, daylight)
   local alpha = CropCues.iconAlpha(daylight, cfg)
   local reduce = Settings.read("reduceMotion", false)
   local x1, y1, x2, y2 = visible[1] - 1, visible[2] - 1, visible[3] + 1, visible[4] + 2
-  if lift > 0.001 then -- planned tiles get the same lift, so a standing order still shows at night
-    local frame = Assets.sprite("plan_marker")
-    love.graphics.setBlendMode("add", "alphamultiply")
-    love.graphics.setColor(1, 1, 1, lift)
-    for i in pairs(world.state.fields.plan) do
-      local x, y = Grid.coords(grid, i)
-      if not world.state.crops[i] and x >= x1 and x <= x2 and y >= y1 and y <= y2 then
-        love.graphics.draw(frame.image, frame.quad, (x - 1) * tile, (y - 1) * tile)
-      end
-    end
-    love.graphics.setBlendMode("alpha")
+  if lift > 0.001 then -- the plans again in pale chalk, so a standing order still shows at night (D142)
+    self:drawPlanSketch({ x1, y1, x2, y2 }, lift * world.tuning.visuals.sketch.chalkShare, true)
   end
   for i, crop in pairs(world.state.crops) do
     local x, y = Grid.coords(grid, i)
@@ -1388,6 +1362,38 @@ function Renderer:drawCropCues(visible, daylight)
     end
   end
   love.graphics.setColor(1, 1, 1, 1)
+end
+
+--- The planned area as a pencil sketch (D142): hatch and outline, then a sketch of the ripe crop on each
+--- planned tile. `visible` is { x1, y1, x2, y2 } in tiles; `alpha` scales the ink; `chalk` draws the night
+--- pass in pale chalk instead of graphite (called over the graded world).
+function Renderer:drawPlanSketch(visible, alpha, chalk)
+  local world, grid, tile = self.world, self.world.state.grid, self.tile
+  local cfg = world.tuning.visuals.sketch
+  local fields, crops = world.state.fields, world.state.crops
+  local risky = {} -- crop id -> would a crop planted today be caught by the frost? (one answer per crop per call)
+  local function planned(i)
+    return CropCues.planState(fields.plan[i], fields.tilled[i], crops[i]) ~= nil
+  end
+  local function inkFor(i)
+    if chalk then
+      return cfg.chalk
+    end
+    local cropId = fields.plan[i]
+    if risky[cropId] == nil then
+      risky[cropId] = Crops.frostRisk(world, cropId) ~= nil
+    end
+    return risky[cropId] and cfg.frostInk or cfg.ink
+  end
+  Sketch.drawPlans(world, tile, planned, visible, inkFor, alpha)
+  local opts = { hatch = cfg.sprite.hatch, wash = cfg.sprite.wash, alpha = alpha }
+  for i, cropId in pairs(fields.plan) do
+    local x, y = Grid.coords(grid, i)
+    if x >= visible[1] and x <= visible[3] and y >= visible[2] and y <= visible[4] and planned(i) then
+      local sprite = Assets.sprite(cropId .. "_3")
+      Sketch.sprite(sprite, (x - 1) * tile, y * tile - sprite.h, inkFor(i), opts)
+    end
+  end
 end
 
 local SHADOW_STRIDE = 6 -- values per sprite in the shadow list

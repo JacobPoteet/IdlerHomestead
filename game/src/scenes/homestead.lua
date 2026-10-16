@@ -55,6 +55,7 @@ local Assets = require("src.render.assets")
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
 local Plate = require("src.ui.plate")
+local Sketch = require("src.render.sketch")
 local ChipText = require("src.ui.chip_text")
 local ChipStrip = require("src.ui.chip_strip")
 local Toolbar = require("src.ui.toolbar")
@@ -2180,16 +2181,18 @@ function Homestead:drawOverlays()
   end
   if self.planStart then
     local target = self.hover or self.planStart
-    local ax, ay = Grid.coords(grid, self.planStart)
-    local bx, by = Grid.coords(grid, target)
-    love.graphics.setColor(0.95, 0.88, 0.6, 0.25)
-    love.graphics.rectangle(
-      "fill",
-      (math.min(ax, bx) - 1) * tile,
-      (math.min(ay, by) - 1) * tile,
-      (math.abs(ax - bx) + 1) * tile,
-      (math.abs(ay - by) + 1) * tile
-    )
+    -- The plan being drawn, in pencil like the plans it will join (D142).
+    local rect = self:rectTiles(self.planStart, target)
+    local inRect = {}
+    for _, i in ipairs(rect) do
+      inRect[i] = true
+    end
+    local x1, y1, x2, y2 = camera:visibleTiles(self.app.view)
+    Sketch.drawPlans(world, tile, function(i)
+      return inRect[i] == true
+    end, { x1, y1, x2, y2 }, function()
+      return world.tuning.visuals.sketch.ink
+    end, 1, rect)
     -- Tiles whose crop this plan would replace (D110, #257): a red tint and an X, so the loss is visible before the second tap.
     if self.seed then
       local replaced = Crops.replacePreview(world, self:rectTiles(self.planStart, target), self.seed)
@@ -2326,13 +2329,14 @@ function Homestead:drawOverlays()
       love.graphics.rectangle("fill", wx, wy, tile, tile)
     end
   end
-  -- Buildings waiting for the way to be cleared (D79): a faint ghost with an accent outline on the footprint.
+  -- Buildings waiting for the way to be cleared (D79): a pencil sketch (D142) with an accent outline on the footprint.
+  local sketch = visuals.sketch
   for _, order in ipairs(Placement.orders(world)) do
     local def = world.registry:get("objects", order.object)
     local sprite = Assets.sprite(order.object)
     local x, y = Grid.coords(grid, order.tile)
-    love.graphics.setColor(1, 1, 1, 0.4)
-    love.graphics.draw(sprite.image, sprite.quad, (x - 1) * tile, (y - 1 + (def.footprintH or 1)) * tile - sprite.h)
+    local ink = order.why and sketch.status.held or sketch.status.queued
+    Sketch.sprite(sprite, (x - 1) * tile, (y - 1 + (def.footprintH or 1)) * tile - sprite.h, ink, sketch.ghost)
     for _, t in ipairs(Grid.footprintTiles(grid, def, x, y)) do
       outlineTile(camera, t, grid, order.why and theme.colors.danger or theme.colors.accent, 2)
     end
@@ -2354,17 +2358,19 @@ function Homestead:drawOverlays()
     local x, y = Grid.coords(grid, target)
     local preview = Placement.preview(world, self.placing, target, self.moving)
     local replaceTag = PlaceText.replaceTag(world, self.placing, preview)
+    -- A pencil sketch in the preview's ink (D142): green goes up at once, amber clears first, red cannot go
+    -- there, blue is an upgrade over the old building (D115), which is outlined.
+    local status = sketch.status
+    local ink = status.clear
     if not preview.ok then
-      love.graphics.setColor(1, 0.45, 0.45, 0.7)
+      ink = status.refused
     elseif replaceTag then
-      love.graphics.setColor(0.65, 0.85, 1, 0.75) -- an upgrade over the old building (D115): cool tint, the old one outlined
+      ink = status.replace
     elseif preview.immediate then
-      love.graphics.setColor(0.6, 1, 0.6, 0.7)
-    else
-      love.graphics.setColor(1, 0.8, 0.4, 0.7)
+      ink = status.ok
     end
     local bottom = (y - 1 + (def.footprintH or 1)) * tile
-    love.graphics.draw(sprite.image, sprite.quad, (x - 1) * tile, bottom - sprite.h)
+    Sketch.sprite(sprite, (x - 1) * tile, bottom - sprite.h, ink, sketch.ghost)
     if preview.ok then
       for _, old in ipairs(preview.replaces) do
         local odef = world.registry:get("objects", grid.objects[old].id)

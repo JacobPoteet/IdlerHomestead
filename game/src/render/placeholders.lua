@@ -103,29 +103,6 @@ function P.ford_stones(p)
   end
 end
 
-function P.plan_marker(p, w, h)
-  -- A dashed gold frame with a dark dash just inside it (#20, D102): a standing order, not a plant. The
-  -- renderer adds a faint ghost of the planned crop in the middle.
-  local c = { 1.00, 0.90, 0.52, 0.95 }
-  local dark = { 0.07, 0.06, 0.03, 0.55 }
-  for n = 1, w - 2 do
-    if n % 4 ~= 0 then
-      p:px(n, 1, c)
-      p:px(n, h - 2, c)
-      p:px(n, 2, dark)
-      p:px(n, h - 3, dark)
-    end
-  end
-  for n = 2, h - 3 do
-    if n % 4 ~= 0 then
-      p:px(1, n, c)
-      p:px(w - 2, n, c)
-      p:px(2, n, dark)
-      p:px(w - 3, n, dark)
-    end
-  end
-end
-
 function P.trip_marker(p)
   -- A downward arrow, gold with a dark edge, pointing at the truck (D101).
   local function arrow(ox, oy, color)
