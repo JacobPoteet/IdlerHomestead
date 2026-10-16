@@ -339,12 +339,12 @@ return {
     wideDivisor = 10, -- the wide layer is rendered at 1/this of the screen size
   },
   dither = { -- how each soft effect is cut into pixel-art steps (shaders/include/dither.glsl, src/render/dither.lua; D133). Edit them live in the in-game editor (F1 on, then F8)
-    algorithms = { "bands", "bayer2", "bayer4", "bayer8", "blue", "ign", "white" }, -- ids in the order the shader numbers them: bands = no pattern, bayerN = ordered NxN, blue = blue noise, ign = interleaved gradient noise, white = white noise
+    algorithms = { "bayer2", "bayer4", "bayer8", "blue", "ign", "white" }, -- ids in the order the shader numbers them: bayerN = ordered NxN, blue = blue noise, ign = interleaved gradient noise, white = white noise
     blueSize = 64, -- texels, edge of the blue-noise tile (the pattern repeats every this many art pixels)
     light = { -- night light pools (shaders/light.glsl)
       algorithm = "bayer8", -- one of `algorithms`
       steps = 5, -- brightness levels in the falloff (the dither interleaves them, so few levels still fade smoothly)
-      amount = 1.0, -- 0..1 how much of the pattern is used between levels (0 = plain bands, 1 = full dither)
+      amount = 1.0, -- 0..1 how much of the pattern is used between levels (0 = hard steps, 1 = full dither)
       scale = 1, -- art pixels per pattern cell (2 = chunkier)
     },
     heat = { -- the heat-shimmer column over a fire (shaders/grade.glsl)
@@ -359,19 +359,19 @@ return {
       scale = 1,
     },
     clouds = { -- cloud shadows (shaders/clouds.glsl)
-      algorithm = "bands", -- plain bands is the old look
+      algorithm = "bayer8",
       steps = 3, -- shadow levels
       amount = 1.0,
       scale = 1,
     },
     mist = { -- morning mist (shaders/mist.glsl)
-      algorithm = "bands",
+      algorithm = "bayer8",
       steps = 4, -- density levels
       amount = 1.0,
       scale = 1,
     },
     sunbeams = { -- sunbeams (shaders/sunbeams.glsl)
-      algorithm = "bands",
+      algorithm = "bayer8",
       steps = 3, -- brightness levels
       amount = 1.0,
       scale = 1,
@@ -383,7 +383,7 @@ return {
       scale = 1,
     },
     vignette = { -- the dark rim of the view (shaders/grade.glsl)
-      algorithm = "bands",
+      algorithm = "bayer8",
       steps = 0, -- darkness levels (0 = smooth, the old look)
       amount = 1.0,
       scale = 1,

@@ -48,7 +48,7 @@ T.test("every effect names a known algorithm and has values inside the editor's 
   for _, name in ipairs(d.algorithms) do
     known[name] = true
   end
-  T.eq(d.algorithms[1], "bands", "index 0 is plain bands, which shaders/include/dither.glsl relies on")
+  T.falsy(known.bands, "plain bands are not a dither pattern")
   for _, entry in ipairs(Model.ENTRIES) do
     local cfg = d[entry.id]
     T.truthy(known[cfg.algorithm], entry.id .. ": unknown algorithm " .. tostring(cfg.algorithm))
