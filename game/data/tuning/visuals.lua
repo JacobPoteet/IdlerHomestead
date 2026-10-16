@@ -89,7 +89,56 @@ return {
     ok = { 0.35, 0.62, 0.80, 0.30 },
     dry = { 0.95, 0.40, 0.30, 0.30 },
   },
-  waterSpots = { 0.35, 0.62, 0.80, 0.28 }, -- tint over tiles where a well or pump can be sunk, while placing one
+  lens = { -- the Power and Water lenses (GDD §9.4, D141, D145; src/render/lens.lua, shaders/lens.glsl): the world washed to a blueprint, one system painted in dither density
+    enabled = true, -- false skips the world pass (the side card still works); also a switch in the F8 editor
+    wash = { -- the blueprint
+      tint = { 0.58, 0.72, 1.00 }, -- cool multiplier the washed world is tinted with
+      keepColor = 0.22, -- 0..1 how much of the world's own colour stays (0 = grey, 1 = none washed)
+      amount = 0.85, -- 0..1 strength of the wash
+      darken = 0.78, -- brightness multiplier of the washed world, so the pattern reads over it
+      nightDim = 0.45, -- 0..1 how much the pattern and wash darken at full night
+    },
+    paint = { -- the data layer, shared by both lenses
+      alpha = 0.92, -- 0..1 opacity of a painted pixel
+      edgeAlpha = 0.5, -- 0..1 opacity of the thin contour line between two bands
+      source = { 1.00, 0.72, 0.26 }, -- warm: power sources
+      sink = { 0.40, 0.78, 1.00 }, -- cool: power sinks
+      short = { 1.00, 0.36, 0.30 }, -- a sink that is short of power
+      store = { 0.52, 0.92, 0.46 }, -- batteries and the cistern gauge
+      table = { 0.45, 0.72, 1.00 }, -- the water table
+      cover = { 0.52, 0.98, 0.88 }, -- irrigation coverage
+      dry = { 1.00, 0.52, 0.30 }, -- coverage of a line that has run dry
+      spot = { 1.00, 0.96, 0.62 }, -- ground a well or pump can go on
+      line = { 0.70, 0.90, 1.00 }, -- connection dots and reach rings
+    },
+    power = {
+      sourceBase = 1.6, -- tiles: radius of a source's pool before its peak adds to it
+      sourcePerKw = 0.7, -- tiles of pool radius per kW of peak output
+      sourceFloor = 0.35, -- 0..1 pool strength of a source making nothing (the pool brightens up to 1 at its peak)
+      sinkBase = 1.0, -- tiles: radius of a sink's band before its draw adds to it
+      sinkPerKw = 1.1, -- tiles of band radius per kW drawn
+      sinkFloor = 0.45, -- 0..1 band strength of the smallest draw
+      drawFull = 1.5, -- kW at which a sink's band is at full strength
+      offLevel = 0.3, -- share of strength a sink switched off keeps
+      idleLevel = 0.65, -- share of strength a sink with nothing to do keeps
+      falloff = 1.0, -- exponent of the pool's fade (higher = tighter core)
+      maxConnections = 64, -- most connection lines drawn
+      dotSpacing = 5, -- art pixels between the dots marching along a connection
+      dotSpeed = 6, -- art pixels per second the dots march (effect clock: paused with the game, still with reduce motion)
+      reachDash = 3, -- art pixels per dash of a reach ring
+      gaugeW = 5, -- art pixels wide the battery gauge is
+      gaugeH = 9, -- art pixels tall the battery gauge is
+    },
+    water = {
+      coverStep = 0.25, -- 0..1 channel added per line covering a tile (so four overlapping lines read full)
+      gaugeW = 5, -- art pixels wide the cistern gauge is
+      gaugeH = 9, -- art pixels tall the cistern gauge is
+      coverDensity = 0.45, -- 0..1 stipple density of the irrigation coverage at one line
+      spotDensity = 0.5, -- 0..1 stipple density on ground a well or pump can go on
+      tableFloor = 0.08, -- 0..1 water table level below which nothing is painted
+    },
+    refreshSeconds = 0.25, -- real seconds between rebuilds of the data texture while a lens is on
+  },
   cropCues = { -- crop and plan readability (#20, D102; src/render/crop_cues.lua); icons are drawn over the graded world so they hold at night
     iconAlpha = 0.95, -- 0..1 opacity of the thirsty droplet and the ready sparkle at full strength
     nightIconDim = 0.15, -- 0..1 how much the icons fade at full darkness (they stay bright enough to read, but do not glare)
@@ -373,6 +422,12 @@ return {
     sunbeams = { -- sunbeams (shaders/sunbeams.glsl)
       algorithm = "bayer8",
       steps = 3, -- brightness levels
+      amount = 1.0,
+      scale = 1,
+    },
+    lens = { -- lens pools, bands and coverage (shaders/lens.glsl); steps = bands in a pool or table
+      algorithm = "bayer4",
+      steps = 4,
       amount = 1.0,
       scale = 1,
     },

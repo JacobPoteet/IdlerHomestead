@@ -1,6 +1,6 @@
 -- Open each page of the two books from the homestead and close it again (D143): the Ledger's Pantry, Routine,
 -- Catalog and Truck & town (by tapping the truck tile), the Notebook's Journal, Fish guide and Diary, and
--- the Power panel (the power vital's card has the way in until the Power lens, #297). Then the book plates
+-- the Power lens's card (a lens, not a book page; D145). Then the book plates
 -- reopen each book on the page it was last left on, and the camp is a way into the Pantry.
 return function(d)
   d:newGame()
@@ -8,13 +8,18 @@ return function(d)
 
   local function panel(label, name)
     if label == "Power" then
-      d:scene():openPower()
+      d:scene():showLens("power")
     else
       d:pick(label)
     end
     d:frames(5)
     d:shot(name)
-    d:key("escape")
+    if label == "Power" then
+      assert(d:scene().lens:active() == "power", "the Power lens is on")
+      d:scene().lens:dismiss()
+    else
+      d:key("escape")
+    end
     d:frames(3)
   end
 

@@ -26,6 +26,12 @@ M.ENTRIES = {
   { id = "sunbeams", title = "Sunbeams", shader = "sunbeams.glsl", hint = "Slanted shafts at low sun on a clear day." },
   { id = "vignette", title = "Vignette", shader = "grade.glsl", hint = "The dark rim of the view; steps 0 is smooth." },
   {
+    id = "lens",
+    title = "Lenses (Power, Water)",
+    shader = "lens.glsl",
+    hint = "Pools, bands and coverage; turn a lens on with the buttons above.",
+  },
+  {
     id = "plate",
     title = "Frosted plates",
     shader = "ui_plate.glsl",

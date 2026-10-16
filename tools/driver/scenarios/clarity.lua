@@ -35,10 +35,10 @@ return function(d)
   tapChip(d, "battery")
   d:frames(3)
   d:shot("chip_battery")
-  d:press("Open Power")
+  d:press("Show power")
   d:frames(3)
-  assert(d:scene().name == "power", "the shortcut opens the Power panel")
-  d:key("escape")
+  assert(d:scene().lens:active() == "power", "the shortcut shows the Power lens")
+  d:scene().lens:dismiss()
   d:frames(3)
 
   -- The tools tray and a book's tray (D137), then the tool caption.

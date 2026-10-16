@@ -6,6 +6,7 @@
 local Calendar = require("src.sim.systems.calendar")
 local Weather = require("src.sim.systems.weather")
 local Layout = require("src.ui.settings_layout")
+local LensState = require("src.ui.lens")
 local Model = require("src.ui.editor_shaders")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
@@ -38,6 +39,7 @@ end
 
 --- Put back what compare mode swapped out and restart the clock if it was frozen (called when the editor closes).
 function Panel:close()
+  LensState.forced = nil
   if self.compare then
     self:toggleCompare()
   end
@@ -146,6 +148,36 @@ function Panel:layout(rect)
     }
   end
   y = self:row(buttons, rect, y, specs)
+  -- The lenses (D145): hold one on to look at it, and the switch for the lens pass itself.
+  local lensCfg = tuning.visuals.lens
+  y = self:row(buttons, rect, y, {
+    {
+      "Power lens",
+      function()
+        LensState.forced = LensState.forced ~= "power" and "power" or nil
+        relayout()
+      end,
+      LensState.forced == "power",
+      live,
+    },
+    {
+      "Water lens",
+      function()
+        LensState.forced = LensState.forced ~= "water" and "water" or nil
+        relayout()
+      end,
+      LensState.forced == "water",
+      live,
+    },
+    {
+      lensCfg.enabled and "Lens effect on" or "Lens effect off",
+      function()
+        lensCfg.enabled = not lensCfg.enabled
+        relayout()
+      end,
+      lensCfg.enabled,
+    },
+  })
 
   -- Footer: freeze and compare, then reset, set saved, copy.
   local footerH = 2 * (ctrlH + Layout.GAP)

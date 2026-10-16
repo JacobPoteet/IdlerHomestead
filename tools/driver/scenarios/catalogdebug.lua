@@ -55,8 +55,8 @@ return function(d)
   assert(Ledger.get(world, "money") == money, "no money moved")
   assert(#world.state.market.orders == 0, "nothing ordered")
 
-  -- The unique woodshed now reads Owned; it is refused a second time.
-  assert(not Market.debugGrant(world, "woodshed"))
+  -- Woodsheds are repeatable (#308): a second grant works.
+  assert(Market.debugGrant(world, "woodshed"))
   d:frames(2)
   d:shot("owned")
   d:key("escape")

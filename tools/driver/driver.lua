@@ -166,6 +166,9 @@ local function buttonGroups(scene)
     end
   end
   collect(scene)
+  if scene.lensCard and scene.lens:active() then
+    collect(scene.lensCard) -- a lens's card: Close, fold and its switches (D145)
+  end
   if scene.name == "book" and scene.page then
     collect(scene.page) -- an open book: its tabs, then the page showing
   end

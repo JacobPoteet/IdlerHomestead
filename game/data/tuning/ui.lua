@@ -459,6 +459,25 @@ return {
     countdownLine = "Routine in %ds", -- hands-on: when the routine takes over; %d is seconds
     walking = "Walking", -- on the way to a job
   },
+  lens = { -- the lenses' switch-on routes and side card (GDD §9.4, D141, D145; src/ui/lens.lua, src/ui/lens_card.lua); UI pixels
+    tools = { pail = "water" }, -- tool in hand -> the lens it shows
+    vitals = { battery = "power", weather = "power", water = "water" }, -- vital (chip) -> the lens a tap opens
+    margin = 8, -- gap between the card and the view edge and the HUD plates
+    stripH = 30, -- height of the collapsed strip (at least the touch target)
+    tallMin = 500, -- a view shorter than this (a landscape phone) gets the narrower card
+    sideWidth = 340, -- width of the card at the side of a wide view
+    sideWidthShort = 300, -- width of the card on a short wide view
+    sheetMaxWidth = 460, -- widest the bottom sheet gets on a tall view
+    sheetShare = 0.5, -- 0..1 share of the free height the bottom sheet takes
+    collapseOnPlace = true, -- a card that came with a placement opens as a strip on small views, so the ground stays in sight
+    smallView = 600, -- a view whose short side is under this counts as small
+    rowH = 24, -- height of a row of the card
+    title = { power = "Power", water = "Water" },
+    legend = {
+      power = "Warm pools make power, cool bands use it. Dots march along each connection.",
+      water = "Contour bands are the water table. Dotted ground is watered. A well or pump needs a bright band.",
+    },
+  },
   wheel = { -- the tool wheel (src/ui/tool_wheel.lua, GDD §9.4, D138); UI pixels and degrees unless noted
     wedges = { -- the six tools and their fixed directions (0 = right, 90 = down): never reorder after release
       { id = "hand", angle = -60 },
