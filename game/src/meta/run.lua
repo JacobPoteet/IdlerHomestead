@@ -24,6 +24,7 @@ local Events = require("src.core.events")
 local Ftue = require("src.sim.systems.ftue")
 local Income = require("src.sim.systems.income")
 local Journal = require("src.sim.systems.journal")
+local Wardrobe = require("src.sim.systems.wardrobe")
 
 local Run = {}
 
@@ -202,6 +203,7 @@ function Run.fail(data, world, depleted)
   career.best.years = math.max(career.best.years, summary.yearsSurvived)
   career.best.yearIncome = math.max(career.best.yearIncome, summary.bestYearIncome)
   career.history[#career.history + 1] = summary
+  Wardrobe.evaluate(world) -- being rescued earns clothes (D152): the run's clothes are named on the recovery screen
   -- A study in progress finishes while you recover (GDD §8.1).
   local finished = Journal.finishStudy(world)
   data.meta.recovery = { summary = summary, finishedStudy = finished, freeStudyUsed = false }

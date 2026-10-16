@@ -11,6 +11,7 @@ local Inventory = require("src.sim.systems.inventory")
 local Machines = require("src.sim.systems.machines")
 local Power = require("src.sim.systems.power")
 local Stand = require("src.sim.systems.stand")
+local Wardrobe = require("src.sim.systems.wardrobe")
 local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
@@ -379,10 +380,30 @@ local function playRun(ctx, session, policyName, seed, years, features)
   return result
 end
 
+--- Dress the homesteader in a whole outfit of one weight class ("light", "mid" or "heavy"): the first garment
+--- of that class in each slot, earned through the wardrobe's own grant and put on with its own wear, so the
+--- rules (owned, right slot, today's outfit in the opening window) apply as they do for a player.
+function Balance.dress(world, class)
+  local outfit = {}
+  for _, def in ipairs(world.registry:all("garments")) do
+    if def.class == class and not outfit[def.slot] then
+      outfit[def.slot] = def.id
+    end
+  end
+  assert(next(outfit), "outfit=" .. tostring(class) .. ": expected light, mid or heavy")
+  for _, slot in ipairs(Wardrobe.slots(world)) do
+    Wardrobe.grant(world, outfit[slot])
+  end
+  local ok, reason = Wardrobe.wear(world, outfit)
+  assert(ok, "outfit=" .. class .. ": " .. tostring(reason))
+end
+
 --- Play one seed. With `runs` > 1, a failed run is followed by recovery (the policy's free study)
 --- and a fresh run on new land with the knowledge kept (GDD §4.3); a run that survives the span
---- ends the career there. Returns a list of run results.
-function Balance.playSeed(ctx, policyName, seed, years, runs, features)
+--- ends the career there. `outfit` ("light", "mid" or "heavy", optional) dresses the homesteader in the first
+--- garment of that weight class in every slot at the start of each run (Balance.dress). Returns a list of run
+--- results.
+function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit)
   local data = Save.newSlotData("balance")
   local store = Save.new(Save.memoryBackend(), { slotCount = 1 })
   local results = {}
@@ -396,6 +417,9 @@ function Balance.playSeed(ctx, policyName, seed, years, runs, features)
       tuning = ctx.tuning,
       seed = runSeed,
     })
+    if outfit then
+      Balance.dress(session.world, outfit)
+    end
     local result = playRun(ctx, session, policyName, runSeed, years, features)
     result.run = r
     result.baseSeed = seed

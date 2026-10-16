@@ -617,7 +617,7 @@ local function solve(world, hours, commit)
   thermostat.need = 0
   for _, anchor in ipairs(sinks) do
     if defAt(world, anchor).sink.schedule == "heat" then
-      thermostat.need = Weather.warmthNeed(world) * Shelter.insulation(world)
+      thermostat.need = Weather.warmthNeed(world) * Shelter.nightInsulation(world)
       break
     end
   end

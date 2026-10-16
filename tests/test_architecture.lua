@@ -68,6 +68,7 @@ local STATE_OWNERS = {
   needs = "needs",
   perks = "perks",
   perksApplied = "perks",
+  wardrobe = "wardrobe",
   placement = "placement",
   power = "power",
   priorities = "tasks",
@@ -116,5 +117,28 @@ T.test("only the ftue system touches meta.ftue", function()
   end
   for _, path in ipairs(files) do
     T.falsy(readFile(path):find("meta%.ftue"), path .. " reaches into meta.ftue; use the Ftue accessors")
+  end
+end)
+
+-- The wardrobe (D149) lives in the slot meta as meta.wardrobe and is owned by the wardrobe system;
+-- everything else goes through its accessors and writers (Wardrobe.owned, Wardrobe.wear ...). Scenes that
+-- the wardrobe menu adds (scenes/wardrobe.lua, ui/wardrobe_*.lua) join this list when they exist.
+T.test("only the wardrobe system touches meta.wardrobe", function()
+  local files = {
+    "game/src/meta/run.lua",
+    "game/src/render/character.lua",
+    "game/src/scenes/homestead.lua",
+    "game/src/scenes/menu.lua",
+    "game/src/scenes/recovery.lua",
+    "game/src/scenes/slots.lua",
+    "game/src/session.lua",
+  }
+  for _, name in ipairs(require("src.sim.systems.init")) do
+    if name ~= "wardrobe" then
+      files[#files + 1] = "game/src/sim/systems/" .. name .. ".lua"
+    end
+  end
+  for _, path in ipairs(files) do
+    T.falsy(readFile(path):find("meta%.wardrobe"), path .. " reaches into meta.wardrobe; use the Wardrobe accessors")
   end
 end)

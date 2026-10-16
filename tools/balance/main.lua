@@ -16,6 +16,8 @@ Idler Homestead balance harness. Usage:  lovec tools/balance [key=value ...]
   features=all|none|a,b                 optional policy behaviours (default all): cat, stand, chickens, goats,
                                         water, power, machines, finds, weather; `none` plays the harness as it was
                                         before them. Policies: see docs/BALANCE.md
+  outfit=light|mid|heavy                dress the homesteader in a whole outfit of one weight class
+                                        (the wardrobe's grant and wear; default: the starter outfit, all mid)
   jobs=N                                worker threads that play seeds in parallel (default: the
                                         CPU count, at most 16); jobs=1 plays them one after another
                                         in this thread. The report and out= files are identical.
@@ -70,16 +72,22 @@ function love.load(args)
     local quiet = opts.quiet ~= nil
     local Features = require("features")
     local features = Features.parse(opts.features)
+    local outfit = opts.outfit
+    assert(
+      outfit == nil or outfit == "light" or outfit == "mid" or outfit == "heavy",
+      "outfit= must be light, mid or heavy"
+    )
 
     io.write(
       string.format(
-        "balance: policies=%s seeds=%d (from %d) years=%d runs=%d features=%s%s\n",
+        "balance: policies=%s seeds=%d (from %d) years=%d runs=%d features=%s%s%s\n",
         table.concat(names, ","),
         seeds,
         seed0,
         years,
         runs,
         Features.label(features),
+        outfit and (" outfit=" .. outfit) or "",
         #opts.sets > 0 and (" overrides: " .. table.concat(opts.sets, " ")) or ""
       )
     )
@@ -112,6 +120,7 @@ function love.load(args)
         years = years,
         runs = runs,
         features = opts.features,
+        outfit = outfit,
         sets = opts.sets,
         jobs = jobs,
         onProgress = function(done, total)
@@ -128,12 +137,12 @@ function love.load(args)
       if played then
         return played[name][seed]
       end
-      return Balance.playSeed(ctx, name, seed, years, runs, features)
+      return Balance.playSeed(ctx, name, seed, years, runs, features, outfit)
     end
 
     local all, report =
       {}, {
-        config = { seeds = seeds, seed0 = seed0, years = years, runs = runs, overrides = opts.sets, features = Features.label(features) },
+        config = { seeds = seeds, seed0 = seed0, years = years, runs = runs, overrides = opts.sets, features = Features.label(features), outfit = outfit },
         policies = {},
       }
     for _, name in ipairs(names) do

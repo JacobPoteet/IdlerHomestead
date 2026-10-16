@@ -17,6 +17,7 @@ local Land = require("src.sim.systems.land")
 local Sleep = require("src.sim.systems.sleep")
 local Stats = require("src.sim.stats")
 local Tasks = require("src.sim.systems.tasks")
+local Wardrobe = require("src.sim.systems.wardrobe")
 
 local Actors = {}
 
@@ -118,7 +119,9 @@ end
 -- jobs at the idle one (GDD §5.2).
 local function workRate(world, job)
   local idle = world.tuning.idle
-  return job.ordered and idle.activeWorkMultiplier or idle.idleWorkMultiplier + Stats.modifier(world, "idleEfficiency")
+  local rate = job.ordered and idle.activeWorkMultiplier
+    or idle.idleWorkMultiplier + Stats.modifier(world, "idleEfficiency")
+  return rate * Wardrobe.workBonus(world) -- today's clothes (D149): exactly 1 in the starter outfit
 end
 
 --- Progress of the actor's current timed action, for the UI (GDD D44), or nil when there is none:

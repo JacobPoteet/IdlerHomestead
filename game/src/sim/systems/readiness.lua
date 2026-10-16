@@ -31,7 +31,7 @@ local function nightsAhead(world)
   local time = world.tuning.time
   local now = Calendar.now(world)
   local nights, exact = {}, true
-  local insulation = Shelter.insulation(world) -- D82: the shelter you sleep in keeps part of the cold out
+  local insulation = Shelter.nightInsulation(world) -- D82, D149: the shelter you sleep in and the clothes you wear keep part of the cold out
   local idx, day, seenFrozen = now.seasonIndex, now.dayOfSeason, false
   for _ = 1, #time.seasons + 1 do
     local season = time.seasons[idx]
@@ -118,7 +118,7 @@ function Readiness.warmthAhead(world)
   if done == 0 and not inWinter then
     return 0 -- no season ever froze
   end
-  return total * Shelter.insulation(world) -- D82: the same accessor as tonight's need
+  return total * Shelter.nightInsulation(world) -- D82, D149: the same accessor as tonight's need
 end
 
 --- Winter readiness, or nil when it is not due yet. Returns

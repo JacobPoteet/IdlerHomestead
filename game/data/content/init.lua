@@ -16,4 +16,5 @@ return {
   "routine_conditions",
   "ftue",
   "chips",
+  "garments",
 }

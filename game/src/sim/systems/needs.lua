@@ -112,9 +112,9 @@ function Needs.warmthInStock(world)
 end
 
 --- Warmth needed tonight: the season's base, scaled by the winter's severity and any cold snap, then
---- by the best shelter's insulation (D82).
+--- by the best shelter's insulation (D82) and today's clothes (D149).
 function Needs.warmthNeeded(world)
-  return Weather.warmthNeed(world) * Shelter.insulation(world)
+  return Weather.warmthNeed(world) * Shelter.nightInsulation(world)
 end
 
 --- The wood outlook (D104), the one accessor behind the HUD wood chip, the Pantry row and the alerts:

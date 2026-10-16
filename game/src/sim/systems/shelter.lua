@@ -10,6 +10,7 @@
 -- Other systems read the numbers only through these functions.
 
 local Grid = require("src.sim.grid")
+local Wardrobe = require("src.sim.systems.wardrobe")
 
 local Shelter = {}
 
@@ -54,6 +55,13 @@ end
 function Shelter.insulation(world)
   local _, d = Shelter.best(world)
   return d and d.insulation or world.tuning.shelter.defaultInsulation
+end
+
+--- Multiplier on the night's warmth need from the bed and the clothes together (D82, D149): the shelter's
+--- insulation times the wardrobe's. The one product tonight's need, the thermostat and the readiness forecast
+--- share, so they stay in step. Exactly the shelter's in the starter outfit.
+function Shelter.nightInsulation(world)
+  return Shelter.insulation(world) * Wardrobe.insulation(world)
 end
 
 --- Multiplier on the daily Condition recovery.

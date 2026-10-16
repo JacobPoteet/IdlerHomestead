@@ -32,6 +32,20 @@ local RAMPS = {
   trous = { "#737781", "#4f535f", "#313542" },
   cuff = { "#ffffff", "#eceff2", "#b2b9c4" },
   mitt = { "#8a6240", "#6a4730", "#40291c" },
+  -- Wardrobe garments (docs/PLAN_WARDROBE.md): each a three-step ramp in the same family as the rest.
+  tweed = { "#9aa874", "#6f7f50", "#465436" }, -- the flat cap: moss
+  pelt = { "#b08a64", "#82603f", "#573d29" }, -- the trapper hat
+  fur = { "#f6f1e7", "#d9d0c0", "#9f9482" }, -- fur trim and the parka's hem
+  sage = { "#bdd3b0", "#93b088", "#62845f" }, -- the tank top
+  denim = { "#a9c2dc", "#7396bd", "#4a6790" }, -- the denim jacket, faded lighter than the jeans
+  oil = { "#f2d25e", "#d3a835", "#9a7222" }, -- the oilskin coat
+  parka = { "#79adb2", "#4c808c", "#305468" }, -- the down parka
+  overall = { "#6f86b0", "#34497a", "#202e54" }, -- overalls, darker than the jeans
+  bibs = { "#6f9a82", "#456f58", "#2c4a3c" }, -- insulated bibs
+  felt = { "#a89880", "#7d6e58", "#53473a" }, -- felt-lined boots
+  snow = { "#7f8b9c", "#4d5868", "#2d3445" }, -- snow boots
+  leather = { "#d4b078", "#a8814a", "#74552f" }, -- work gloves
+  knit = { "#b4cdbf", "#85a898", "#5a7c6d" }, -- mittens
 }
 for _, ramp in pairs(RAMPS) do
   for k = 1, 3 do
@@ -56,7 +70,12 @@ local GEO = {
   bootH = 2,
 }
 
--- What is worn. Each slot names a ramp. The starter outfit is today's flannel, jeans and boots.
+-- What is worn: the fields of a "look", each naming a ramp: top, sleeve, legs, boots, plus `hat` (straw, toque,
+-- cap, trapper). `cuff` and `mitts` take a ramp (true is the default ramp), `glove` thins the hands to one row,
+-- `shorts` bares the shins, `belt` is a ramp for a hem row, `bib` a ramp for a bib over the torso, `bandana`
+-- ties a small red kerchief, `accent` puts four red pixels at the hem of a torso that is not the red flannel (the red
+-- travels). The starter outfit is today's flannel, jeans and boots. Garments name these fields in
+-- data/content/garments.lua and `Character.outfitFor` merges them.
 Character.outfits = {
   starter = { legs = "jeans", boots = "boot", top = "shirt", sleeve = "shirt" },
   summer = { legs = "khaki", boots = "canvas", top = "cream", hat = "straw" },
@@ -71,6 +90,40 @@ Character.outfits = {
     scarf = true,
   },
 }
+
+Character.slots = { "head", "torso", "legs", "feet", "extra" } -- the wardrobe's slots, in paint order
+
+--- The look (the fields `build` reads) of a wardrobe outfit `{ slot = garmentId }`: each slot's garment
+--- `look` merged in slot order. A missing or unknown id, or one for another slot, wears that slot's default
+--- garment. Pure: reads the registry's garments, draws nothing.
+function Character.outfitFor(registry, outfit)
+  local look = {}
+  local garments = registry:all("garments")
+  for _, slot in ipairs(Character.slots) do
+    local id = outfit and outfit[slot]
+    local def
+    if id and registry:has("garments", id) then
+      def = registry:get("garments", id)
+      if def.slot ~= slot then
+        def = nil
+      end
+    end
+    if not def then
+      for _, g in ipairs(garments) do
+        if g.slot == slot and g.default then
+          def = g
+          break
+        end
+      end
+    end
+    if def then
+      for field, value in pairs(def.look) do
+        look[field] = value
+      end
+    end
+  end
+  return look
+end
 
 local function newGrid()
   local g = {}
@@ -142,13 +195,19 @@ function Character.build(o)
   local lw = math.floor(geo.torsoW / 2)
 
   parts.legL, parts.legR = o.legs, o.legs
-  fill(g, "legL", tx, ly, lw, geo.legH)
-  fill(g, "legR", tx + lw, ly, lw, geo.legH)
+  fill(g, "legL", tx, ly, lw, o.shorts and 1 or geo.legH)
+  fill(g, "legR", tx + lw, ly, lw, o.shorts and 1 or geo.legH)
+  if o.shorts then
+    parts.shinL, parts.shinR = "skin", "skin"
+    fill(g, "shinL", tx, ly + 1, lw, 1)
+    fill(g, "shinR", tx + lw, ly + 1, lw, 1)
+  end
   parts.bootL, parts.bootR = o.boots, o.boots
   fill(g, "bootL", tx - 1, by, lw + 1, geo.bootH)
   fill(g, "bootR", tx + lw, by, lw + 1, geo.bootH)
   if o.cuff then
-    parts.cuffL, parts.cuffR = "cuff", "cuff"
+    local cuff = o.cuff == true and "cuff" or o.cuff
+    parts.cuffL, parts.cuffR = cuff, cuff
     fill(g, "cuffL", tx - 1, by - 1, lw + 1, 1)
     fill(g, "cuffR", tx + lw, by - 1, lw + 1, 1)
   end
@@ -158,11 +217,22 @@ function Character.build(o)
   parts.armL, parts.armR = sleeve, sleeve
   fill(g, "armL", tx - geo.armW, ty, geo.armW, geo.armH - 1)
   fill(g, "armR", tx + geo.torsoW, ty, geo.armW, geo.armH - 1)
-  local hand = o.mitts and "mitt" or "skin"
+  local hand = "skin"
+  if o.mitts then
+    hand = o.mitts == true and "mitt" or o.mitts
+  end
   parts.handL, parts.handR = hand, hand
-  local handH = o.mitts and 2 or 1
+  local handH = (o.mitts and not o.glove) and 2 or 1
   fill(g, "handL", tx - geo.armW, ty + geo.armH - 1, geo.armW, handH)
   fill(g, "handR", tx + geo.torsoW, ty + geo.armH - 1, geo.armW, handH)
+  if o.belt then
+    parts.belt = o.belt
+    fill(g, "belt", tx, ty + geo.torsoH - 1, geo.torsoW, 1)
+  end
+  if o.bib then
+    parts.bib = o.bib
+    fill(g, "bib", tx + 1, ty + 1, geo.torsoW - 2, 2)
+  end
 
   fill(g, "skin", hx, TOP, geo.headW, geo.headH, true)
   fill(g, "hair", hx, TOP, geo.headW, 3, true)
@@ -184,13 +254,35 @@ function Character.build(o)
     fill(g, "toque", hx, TOP - 1, geo.headW, 4, true)
     fill(g, "cuff", hx, TOP + 2, geo.headW, 1)
     fill(g, "cuff", CX - 1, TOP - 3, 2, 2)
+  elseif o.hat == "cap" then
+    fill(g, "tweed", hx, TOP - 1, geo.headW, 3, true) -- the crown, flat and wide
+    parts.brim = "tweed"
+    fill(g, "brim", hx + 2, TOP + 2, geo.headW - 4, 2) -- the bill over the forehead
+  elseif o.hat == "trapper" then
+    fill(g, "pelt", hx, TOP - 1, geo.headW, 4, true)
+    parts.band = "fur"
+    fill(g, "band", hx, TOP + 2, geo.headW, 1) -- the fur turn-up
+    parts.flapL, parts.flapR = "pelt", "pelt"
+    fill(g, "flapL", hx - 1, TOP + 2, 2, 5, true) -- ear flaps hang past the cheeks
+    fill(g, "flapR", hx + geo.headW - 1, TOP + 2, 2, 5, true)
   end
   if o.scarf then
     fill(g, "shirt", tx - 1, ty - 1, geo.torsoW + 2, 2)
     fill(g, "shirt", tx + geo.torsoW - 2, ty + 1, 2, math.min(3, geo.torsoH))
+  elseif o.bandana then
+    parts.knot = "shirt"
+    fill(g, "knot", tx, ty - 1, geo.torsoW, 2, true) -- a small kerchief, tied at the throat
   end
 
   local out = shade(g, parts)
+
+  -- The red travels: a torso that is not the red flannel keeps four red pixels at its hem (a tag, a buckle),
+  -- drawn after shading so they stay saturated. Four pixels read as the homesteader's accent, not a patch.
+  if o.accent then
+    for dx = -2, 1 do
+      out[ty + geo.torsoH - 1][CX + dx] = RAMPS.shirt[2]
+    end
+  end
 
   -- The face goes on after shading so it keeps its own colours: 2x2 eyes with a glint, blush, a mouth.
   local ey = TOP + geo.headH - 5
