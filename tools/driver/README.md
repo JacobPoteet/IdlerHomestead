@@ -57,6 +57,8 @@ Also `scroll` (D87: the Tools palette with 42 seeds scrolled by wheel and drag o
 
 Also `shelf` (D73, D74: an out-of-date save planted in the in-memory store, listed as "can't be loaded", its Keep it / Delete save prompt and the second confirmation; then a Pantry with batches of different ages, "Oldest batch spoils in N days", no red chip while nothing rots, then the chip and the Pantry warning two nights later).
 
+Also `wardrobe` (D154: the Wardrobe menu, its preview, locked hints, the dawn rule and keyboard focus), `wardrobe_unlock` (D155: the unlock toast, the New clothes stamp, the dot on a new tile and tab, the recovery scene's clothes row, the Wardrobe opened from recovery, and the next run dressed in the choice) and `wardrobe_sandbox` (D155: a Sandbox slot owns every garment, with no dots, stamp or toast).
+
 On narrow views some toolbar buttons live in the Tools or More palette: `d:pick(label)` presses a toolbar button wherever it is (it opens the palette when needed), `d:press` only sees what is on screen.
 
 First-time tip cards (D69) are off in every scenario by default so they never cover a screenshot; `d:newGame({ tips = true })` starts the slot with them on.

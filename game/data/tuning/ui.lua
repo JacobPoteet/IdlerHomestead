@@ -485,6 +485,9 @@ return {
     pipPad = 3, -- space between a tile's top right corner and its pips
     pips = { light = 1, mid = 2, heavy = 3 }, -- pips a weight class shows
     focusGap = 2, -- space between a tile and its focus ring; also the room the grid keeps round its tiles
+    dotSize = 4, -- the new-garment dot's edge on a tile and on a slot tab (a stepped amber square with a dark rim)
+    dotPad = 3, -- space between a tile's top left corner and its dot; the dot sits this far inside a tab's top right corner
+    dotRim = { 0.07, 0.08, 0.12 }, -- rgb: the dot's one-pixel rim, so it reads on a tile and on the dark strip
     pillH = 12, -- the Today and Dawn pill's height
     pillPad = 3, -- space either side of a pill's word
     pillTodayInk = { 0.62, 0.55, 0.43 }, -- rgb: the Today pill's outline and word (the Dawn pill uses the amber accent)
@@ -540,6 +543,14 @@ return {
     toastNow = "Changed clothes", -- toast after Wear when it applies at once
     toastAutoOff = "Auto is off: you chose an outfit", -- toast when Wear turns the dawn auto-dress off
     menuRow = "Wardrobe", -- the in-game menu's button
+    toastUnlocked = "New clothes: %s", -- toast when one garment is earned
+    toastUnlockedMany = "New clothes: %d garments", -- toast when several are earned on one dawn
+    stamp = "New clothes", -- the left-edge decision stamp until the Wardrobe is next opened
+    recoveryButton = "Change clothes", -- the recovery scene's button beside Head out
+    recoveryRow = "New clothes this run (%d)", -- the recovery scene's row label
+    recoveryThumbScale = 1, -- whole scale of a garment's thumbnail on the recovery row (the figure is 20 x 22 art px)
+    recoveryThumbGap = 2, -- space between thumbnails on the recovery row
+    recoveryRowH = 38, -- how far the recovery scene's blocks move down when the new-clothes row shows (label plus thumbnails)
   },
   hud = { -- the resting HUD (src/ui/hud.lua, GDD §9.4, D137); UI pixels unless noted
     pad = 4, -- margin between the plates and the view's edges

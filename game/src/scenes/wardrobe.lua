@@ -90,7 +90,27 @@ function Wardrobe:enter()
   self.slot = last and last.slot or self.slots[1]
   self.lockedDef = nil -- a garment not yet earned that was tapped or focused (its shape and hint show)
   self.wantFocus = "tile:" .. self.state:draft()[self.slot] -- the first layout puts the (unshown) focus here
+  -- Opening the Wardrobe answers the "New clothes" stamp. The first new garment, if there is one, is the slot
+  -- shown and where the (unshown) focus starts; its dot stays until it is looked at.
+  Sim.stampSeen(world)
+  local firstNew = self:firstNew()
+  if firstNew then
+    self.slot = firstNew.slot
+    self.wantFocus = "tile:" .. firstNew.id
+  end
   self:derive()
+end
+
+--- The first garment that is new, in slot order then content order, or nil.
+function Wardrobe:firstNew()
+  for _, slot in ipairs(self.slots) do
+    for _, def in ipairs(Sim.garments(self.world, slot)) do
+      if Sim.isNew(self.world, def.id) then
+        return def
+      end
+    end
+  end
+  return nil
 end
 
 function Wardrobe:exit()
@@ -161,6 +181,9 @@ function Wardrobe:layoutButtons()
       end,
       draw = function(b)
         Paper.drawTab(bookCfg, b, self.buttons.pressed == b)
+        if Sim.newCount(self.world, page.id) > 0 then
+          self:drawDot(b.x + b.w - self.cfg.dotSize - 2, b.y + 2)
+        end
         self:drawFocus(b)
       end,
     })
@@ -283,6 +306,7 @@ function Wardrobe:pick(def)
   if Sim.owned(self.world, def.id) then
     self.state:preview(def.slot, def.id)
     self.lockedDef = nil
+    Sim.markSeen(self.world, def.id) -- looked at: its dot (and its tab's, if it was the last) goes
   else
     self.lockedDef = def
   end
@@ -494,10 +518,18 @@ function Wardrobe:drawTile(b, def)
   elseif self.tileButtons.hovered == b then
     fill = colors.buttonHover
   end
+  local isNew = Sim.isNew(self.world, def.id)
+  local ring = (selected and colors.accent) or (self.lockedDef == def and colors.textDim) or nil -- a locked tile in view gets a quiet ring
+  local gx, gy
+  if isNew and not selected then
+    ring, gx, gy = Motion.signal("amber", b.w, b.h, b.x * 31 + b.y) -- the calm amber glint on a new garment
+  end
   Plate.draw(b.x, b.y, b.w, b.h, {
     base = fill,
     kind = "button",
-    ink = (selected and colors.accent) or (self.lockedDef == def and colors.textDim) or nil, -- a locked tile in view gets a quiet ring
+    ink = ring,
+    glintX = gx,
+    glintY = gy,
     lit = pressed and 0 or nil,
     alpha = 1,
     weather = false,
@@ -553,7 +585,22 @@ function Wardrobe:drawTile(b, def)
       { size = "small", color = ink, shadow = false }
     )
   end
+  if isNew then
+    self:drawDot(b.x + cfg.dotPad, b.y + cfg.dotPad)
+  end
   self:drawFocus(b, true)
+end
+
+--- The new-garment dot: a stepped amber square with a dark rim, at (x, y).
+function Wardrobe:drawDot(x, y)
+  local cfg = self.cfg
+  local d = cfg.dotSize
+  love.graphics.setColor(cfg.dotRim[1], cfg.dotRim[2], cfg.dotRim[3], 1)
+  love.graphics.rectangle("fill", x - 1, y, d + 2, d)
+  love.graphics.rectangle("fill", x, y - 1, d, d + 2)
+  love.graphics.setColor(theme.colors.accent)
+  love.graphics.rectangle("fill", x + 1, y, d - 2, d)
+  love.graphics.rectangle("fill", x, y + 1, d, d - 2)
 end
 
 -- The ground under the figure: the grass sprite's top rows in spring to autumn (and always in the recovery

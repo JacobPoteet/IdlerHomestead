@@ -53,6 +53,7 @@ local Wardrobe = require("src.sim.systems.wardrobe")
 local WardrobePreview = require("src.render.wardrobe_preview")
 local WardrobeScene = require("src.scenes.wardrobe")
 local WardrobeState = require("src.ui.wardrobe_state")
+local WardrobeText = require("src.ui.wardrobe_text")
 local Renderer = require("src.render.world_renderer")
 local Sampler = require("src.audio.sampler")
 local ActionRing = require("src.render.action_ring")
@@ -143,6 +144,7 @@ function Homestead:enter(slot, data)
   self.world.state.log = self.world.state.log or {}
   self.log = MessageLog.new(logCfg.maxLines, logCfg.coalesceSeconds, self.world.state.log) -- what the toasts said (D90, #167); kept in the run state so it is saved (D120, #224)
   self.held = {} -- toasts that came in while asleep, shown in the morning (D70)
+  self.newClothes = {} -- names of garments earned and not yet announced; one toast says them all (D155)
   self.frostTold = {} -- crop id -> calendar day its won't-ripen warning last showed (D70, #165)
   self:subscribe()
   WardrobePreview.dressWorld(self.world.registry, Wardrobe.dressed(self.world)) -- the figure wears today's outfit from the first frame
@@ -431,6 +433,9 @@ function Homestead:subscribe()
       local where = Journal.kindOf(world, e.item) == "perks" and "from your next run" or "now in the catalog"
       self:queueToast("Learned: " .. Journal.node(world, e.item).name .. " · " .. where)
     end),
+    events:on("wardrobe.unlocked", function(e) -- earned clothes: named in one toast once the homesteader is up
+      self.newClothes[#self.newClothes + 1] = world.registry:get("garments", e.id).name
+    end),
     events:on(
       "wardrobe.dressed",
       function(e) -- the outfit changed (a Wear that applies now, or a dawn): repaint the figure
@@ -624,6 +629,22 @@ function Homestead:openLog()
   self:openPanel("diary")
 end
 
+--- One toast for the garments earned since the last one (several on one dawn read as one), held while the
+--- homesteader sleeps like the other news.
+function Homestead:announceClothes()
+  local names = self.newClothes
+  if #names == 0 or self.session:sleeping() then
+    return
+  end
+  self.newClothes = {}
+  self:queueToast(WardrobeText.unlockToast(self.app.ctx.tuning.ui.wardrobe, names))
+end
+
+--- Open the Wardrobe (the "New clothes" stamp, the C key).
+function Homestead:openWardrobe()
+  WardrobeScene.open(self.app)
+end
+
 function Homestead:toaster()
   return function(text)
     self:showToast(text)
@@ -786,6 +807,17 @@ function Homestead:stampList()
       color = colors.accent,
       onPress = function()
         self:openHammerRing() -- the crate, with every delivery in it (D139)
+      end,
+    }
+  end
+  if Wardrobe.stampDue(world) then
+    list[#list + 1] = {
+      id = "wardrobe",
+      icon = "icon_signal_clothes",
+      label = self.app.ctx.tuning.ui.wardrobe.stamp,
+      color = colors.accent,
+      onPress = function()
+        self:openWardrobe() -- opening it answers the stamp
       end,
     }
   end
@@ -1916,6 +1948,7 @@ function Homestead:update(dt)
   end
   self:updateCardPan(dt)
   self:releaseHeld()
+  self:announceClothes()
   if self.toast then
     self.toast.time = self.toast.time - dt
     if self.toast.time <= 0 then
@@ -2390,7 +2423,7 @@ function Homestead:action(name, data)
     self:openWheel(view.w / 2, view.h / 2, false)
     return true
   elseif name == "wardrobe" then
-    WardrobeScene.open(self.app) -- C: the homesteader's clothes (D154)
+    self:openWardrobe() -- C: the homesteader's clothes (D154)
     return true
   elseif name:match("^tool%d$") then
     local wedge = self.app.ctx.tuning.ui.wheel.wedges[tonumber(name:sub(5))]
