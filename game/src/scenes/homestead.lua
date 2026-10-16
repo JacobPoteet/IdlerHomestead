@@ -54,6 +54,7 @@ local ActionRing = require("src.render.action_ring")
 local Assets = require("src.render.assets")
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
+local Plate = require("src.ui.plate")
 local ChipText = require("src.ui.chip_text")
 local ChipStrip = require("src.ui.chip_strip")
 local Toolbar = require("src.ui.toolbar")
@@ -2404,8 +2405,7 @@ end
 function Homestead:drawTopBar(view)
   local world = self.world
   local ui = self.app.ctx.tuning.ui
-  love.graphics.setColor(theme.colors.panel)
-  love.graphics.rectangle("fill", 0, 0, view.w, self.topH)
+  Plate.draw(0, 0, view.w, self.topH, { weather = false })
   local now = Calendar.now(world)
   local hour = math.floor(now.hour)
   local minute = math.floor((now.hour - hour) * 60)
@@ -2581,8 +2581,7 @@ function Homestead:drawForecast()
   for _, line in ipairs(lines) do
     local text, color = line[1], line[2]
     local w = Text.measure(text, "small") + 12
-    love.graphics.setColor(0, 0, 0, 0.45)
-    love.graphics.rectangle("fill", 4, y, w, 14, 3, 3)
+    Plate.draw(4, y, w, 14)
     Text.draw(text, 4, y + 2, { size = "small", width = w, align = "center", color = color })
     if line.tag == "readiness" then
       -- A finger-sized target around the pill (it is 14 px tall, the minimum is tuning.input.minTouchTarget).
@@ -2595,8 +2594,7 @@ function Homestead:drawForecast()
 end
 
 function Homestead:drawBottomBar(view)
-  love.graphics.setColor(theme.colors.panel)
-  love.graphics.rectangle("fill", 0, view.h - self.bottomH, view.w, self.bottomH)
+  Plate.draw(0, view.h - self.bottomH, view.w, self.bottomH, { weather = false })
 end
 
 --- "5 h to morning" / "40 min to morning" while sleeping (D56).
@@ -2622,8 +2620,7 @@ function Homestead:drawSleepBanner(view)
   local w, h = Text.measure(text, "body")
   w = w + 20
   local x, y = math.floor((view.w - w) / 2), math.max(self.topH + 6, (self.forecastBottom or 0) + 2)
-  love.graphics.setColor(0, 0, 0, 0.6)
-  love.graphics.rectangle("fill", x, y, w, h + 8, 6, 6)
+  Plate.draw(x, y, w, h + 8)
   Text.draw(text, x, y + 4, { size = "body", width = w, align = "center", color = theme.colors.accent })
 end
 
@@ -2678,8 +2675,7 @@ function Homestead:drawPills(view)
   local rowY = view.h - self.bottomH - ui.pillGap - h
   local badge, color = self:badgeText()
   local bw = Text.measure(badge, "small") + 12
-  love.graphics.setColor(0, 0, 0, 0.45)
-  love.graphics.rectangle("fill", view.w - bw - 4, rowY, bw, h, 3, 3)
+  Plate.draw(view.w - bw - 4, rowY, bw, h)
   Text.draw(badge, view.w - bw - 4, rowY + 2, { size = "small", width = bw, align = "center", color = color })
   self.captionTop = nil
   local caption = self:captionText()
@@ -2689,8 +2685,7 @@ function Homestead:drawPills(view)
     if cw + bw + 12 > view.w then
       cy = rowY - h - ui.pillGap
     end
-    love.graphics.setColor(0, 0, 0, 0.45)
-    love.graphics.rectangle("fill", 4, cy, cw, h, 3, 3)
+    Plate.draw(4, cy, cw, h)
     Text.draw(caption, 4, cy + 2, { size = "small", width = cw, align = "center", color = theme.colors.text })
     self.captionTop = cy
   end
@@ -3087,14 +3082,12 @@ function Homestead:draw()
   love.graphics.pop() -- the camera transform
   love.graphics.pop()
   local bloom = self.renderer:bloomOn()
-  local graded
-  if bloom then
-    -- The graded frame, lit windows, flame cores and fireflies go into one canvas so the bloom can glow round them (D129).
-    graded = self.renderer:gradedBuffer(self.canvas:getWidth(), self.canvas:getHeight())
-    love.graphics.push("all")
-    love.graphics.setCanvas(graded)
-    love.graphics.clear(0, 0, 0, 1)
-  end
+  -- The graded frame goes into a canvas: with bloom, lit windows, flame cores and fireflies join it so the
+  -- bloom can glow round them (D129); either way the HUD plates look through a blurred copy of it (D142).
+  local graded = self.renderer:gradedBuffer(self.canvas:getWidth(), self.canvas:getHeight())
+  love.graphics.push("all")
+  love.graphics.setCanvas(graded)
+  love.graphics.clear(0, 0, 0, 1)
   local ox, oy = self.renderer.screenGrid(self.camera, view)
   self.renderer:drawGraded(self.canvas, tint, light, view.scale * self.camera:zoom(), haze, lights, { ox, oy })
   if bloom then
@@ -3105,9 +3098,15 @@ function Homestead:draw()
     self.renderer:drawAmbient({ x1, y1, x2, y2 }, daylight)
     love.graphics.pop() -- the camera transform
     love.graphics.pop()
-    love.graphics.pop() -- back from the graded canvas to the screen
-    self.renderer:drawBloom(graded, daylight)
   end
+  love.graphics.pop() -- back from the graded canvas to the screen
+  if bloom then
+    self.renderer:drawBloom(graded, daylight)
+  else
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(graded, 0, 0)
+  end
+  Plate.capture(graded)
   love.graphics.pop()
   -- Lit windows, fireflies, dust and the selection outline sit over the graded world, in world space again.
   love.graphics.push("all")
@@ -3132,7 +3131,9 @@ function Homestead:draw()
     wy = math.ceil(self.camera.y - view.h / 2 / z),
   })
 
-  -- HUD (not graded)
+  -- HUD (not graded; its plates take a share of the world's light, D142)
+  local snow, frozen = self.renderer:winterAmounts()
+  Plate.setLight(tint, light, frozen, snow)
   ActionRing.draw(self.world, self.camera, view, { top = self.topH, bottom = view.h - self.bottomH })
   self:drawTopBar(view)
   self:drawForecast()

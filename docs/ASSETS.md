@@ -100,10 +100,27 @@ Legend: **M1** = in the game now (placeholder) · **M2–M7** = needed by that m
 | `bobber` (8×10) for the fishing mini-game | M2 |
 | `icon_cold`, `icon_axe`, `icon_campfire`, `icon_woodshed`, `icon_wood_stove` | M3 |
 
+### Interface icons (12×12, D142)
+
+Drawn from rows of palette letters in `placeholders.lua` (`rows`), lit from the top left with a warm dark
+outline; tools lie on one diagonal, handle bottom left. `src/ui/icons.lua` picks a tool's icon by the
+tier owned and draws icons at whole-pixel scales (1x on the HUD, 2x in the tool wheel).
+
+| Id | What |
+|---|---|
+| `icon_tool_hand`, `icon_tool_hoe`, `icon_tool_pail`, `icon_tool_pail_big`, `icon_tool_hatchet`, `icon_tool_axe`, `icon_tool_rod`, `icon_tool_rod_sturdy`, `icon_tool_hammer` | Tools and their owned tiers |
+| `icon_verb_move`, `icon_verb_pickup`, `icon_verb_demolish`, `icon_verb_untill` | Verbs (Demolish on red) |
+| `icon_signal_alert`, `icon_signal_idea` | Round amber decision stamps |
+| `icon_book_notebook`, `icon_book_ledger`, `icon_menu` | The two books and Menu |
+| `icon_packet`, `icon_packet_<crop>` | Seed packets: the template plus the crop's own icon shrunk onto it (radish, potato) |
+
 ### Fonts
 
-Currently LÖVE's default font, rendered crisp at every scale. A pixel font with good small sizes and
-accented characters is wanted before the art pass.
+`src/ui/pixel_font.lua`: a hand-made pixel font (7 px caps, 2 px descenders, printable ASCII plus
+`· × ° → …`), built into a LÖVE ImageFont at load. `src/ui/text.lua` draws it at whole UI pixels per font
+pixel (`theme.textScale`: small and body 1, heading 2, title 3) with a warm dark shadow one pixel down and
+right. `tests/test_pixel_font.lua` fails if content or tuning text uses a character with no glyph.
+Accented letters are still to add.
 
 ## Audio
 
@@ -144,6 +161,7 @@ gradients), avoid `sin()`-based hashes (precision on mobile), and keep everythin
 | Fireflies, dust motes (`ambient.lua`) | **D85** | Not shaders: art-pixel squares in world cells, a pure function of the cell hash and the render clock (no `math.random`), so they pan and zoom with the land. **Fireflies**: additive warm dots with a soft 4-pixel halo, wandering and pulsing, on summer (less in spring and autumn) evenings from just before sunset to ~4 h after, on grass only and likelier beside the creek (`Renderer.reach`); not in rain or a gale. **Dust motes**: pale 1-pixel specks (longer streaks in a gale) drifting downwind (`weather_fx` accumulates `dustDrift`), by daylight on dry ground, more in wind, none under rain or snow; they fade along their path so the cell wrap is never seen. `visuals.fireflies`, `visuals.dust`. Cost: a few hundred `rectangle` calls at most, only while active. |
 | Depth of field (`grade.glsl`) | **D132** | Optional (Settings > Visuals > Depth of field, off by default). Toward the top and bottom of the view the picture is softened in `steps`, each art pixel averaged with its neighbours one, then two art pixels away, sampled at art-pixel centres, so every screen pixel of an art pixel gets the same colour and the result stays blocky pixel art rather than a smear. `visuals.depthOfField`. A stronger diorama tilt-shift for the planned desktop widget mode can reuse it. |
 | Selection outline (`Renderer:drawSelection`) | **D85** | Not a shader: a pixel ring round the selected object's whole footprint (or the tile), a dark ring just outside, an accent ring, brighter corner brackets, and a slow alpha breath. Drawn over the graded world on the art-pixel grid so it reads at every zoom and at night; thickness is `max(thickness, ceil(minScreen / pixelSize))` so it never thins below `minScreen` physical pixels. Replaces the tile box for the selected tile; the hover box (mouse only, never needed) and planning boxes are unchanged. `visuals.selection`. |
+| `ui_plate.glsl` | **D142** | HUD, panel and button plates: the graded world, blurred (`src/ui/plate.lua` copies it at 1/`ui.plate.blurDivisor` and blurs it) and cut into levels with the shared dither on the UI pixel grid (`visuals.dither.plate`), pulled toward the plate colour, tinted by `ui.plate.gradeShare` of the grade and dimmed at night (`nightDim`). Dark outline, lit top-left edge, cool bottom-right shade, stepped corners. Frost from the corners on frozen days and snow along the top edge (not on plates under `snowMinSize`), off with Ambient effects. Text and icons are drawn over it, never graded. With no world behind (title, slots) the plate is solid. |
 | Fishing water | Planned (M2) | Close-up underwater view for the tension mini-game (cutaway, light rays, fish silhouettes). |
 
 ### Shader audit (#193, D83)

@@ -1467,4 +1467,341 @@ function P.fish_icon(p, _, _, _, id)
   p:outline(C.outline)
 end
 
+-- Interface icons (GDD §9.4, D142) ------------------------------------------------------
+-- Tools, verbs, signals, books and seed packets, on the 12x12 icon grid. Lit from the top left with a
+-- warm dark outline; tools lie on one diagonal (handle bottom left, head top right). Each is drawn
+-- from rows of palette letters, so a placeholder reads like the pixel art it stands in for.
+
+local UI_INK = {
+  o = { 0.10, 0.08, 0.07 }, -- the warm dark outline
+  w = { 0.50, 0.33, 0.19 }, -- wood
+  W = { 0.70, 0.49, 0.29 }, -- wood, sunlit
+  m = { 0.52, 0.56, 0.61 }, -- metal
+  M = { 0.82, 0.85, 0.88 }, -- metal, sunlit
+  d = { 0.30, 0.32, 0.37 }, -- metal in shade
+  g = { 0.74, 0.56, 0.33 }, -- glove leather
+  G = { 0.90, 0.75, 0.50 }, -- glove leather, sunlit
+  b = { 0.50, 0.22, 0.17 }, -- notebook cover
+  B = { 0.69, 0.33, 0.23 }, -- notebook cover, sunlit
+  n = { 0.20, 0.27, 0.42 }, -- ledger cover
+  N = { 0.31, 0.40, 0.57 }, -- ledger cover, sunlit
+  p = { 0.93, 0.88, 0.75 }, -- paper
+  P = { 0.80, 0.74, 0.60 }, -- paper in shade
+  a = { 0.96, 0.74, 0.32 }, -- amber: needs you
+  r = { 0.78, 0.25, 0.22 }, -- red: danger
+  l = { 0.90, 0.92, 0.95, 0.8 }, -- fishing line
+}
+
+local function rows(lines)
+  return function(p)
+    for y, line in ipairs(lines) do
+      for x = 1, #line do
+        local c = UI_INK[line:sub(x, x)]
+        if c then
+          p:px(x - 1, y - 1, c)
+        end
+      end
+    end
+  end
+end
+
+P.icon_tool_hand = rows({
+  "...o.o.o....",
+  "..oGoGoGo...",
+  "..oGoGoGo.o.",
+  "..oGGGGGGoGo",
+  "..oGGGGGGGgo",
+  "..ogGGGGGgo.",
+  "..oggggggo..",
+  "...ogggggo..",
+  "...oooooo...",
+  "...odddddo..",
+  "...ooooooo..",
+})
+
+P.icon_tool_hoe = rows({
+  "",
+  ".......ooooo",
+  "......oMMMmo",
+  ".....oWoommo",
+  "....oWwo.oo.",
+  "...oWwo.....",
+  "..oWwo......",
+  ".oWwo.......",
+  "oWwo........",
+  "owo.........",
+  "oo..........",
+})
+
+P.icon_tool_pail = rows({
+  "",
+  "...oooooo...",
+  "..o......o..",
+  ".o........o.",
+  "oooooooooooo",
+  "oMMmmmmmmddo",
+  ".oMmmmmmmdo.",
+  ".oMmmmmmmdo.",
+  ".oMmmmmmmdo.",
+  "..oMmmmmdo..",
+  "..oooooooo..",
+})
+
+P.icon_tool_pail_big = rows({
+  "..oooooooo..",
+  ".o........o.",
+  "oooooooooooo",
+  "oMMmmmmmmmdo",
+  "oMmmmmmmmmdo",
+  "odddddddddo.",
+  "oMmmmmmmmmdo",
+  ".oMmmmmmmdo.",
+  ".oMmmmmmmdo.",
+  ".oMmmmmmmdo.",
+  ".oooooooooo.",
+})
+
+P.icon_tool_hatchet = rows({
+  "",
+  "",
+  "........oo..",
+  ".......oMMo.",
+  "......oMmmdo",
+  ".....oWoMddo",
+  "....oWo.ooo.",
+  "...oWo......",
+  "..oWo.......",
+  ".oWo........",
+  ".oo.........",
+})
+
+P.icon_tool_axe = rows({
+  ".......oooo.",
+  "......oMMMmo",
+  ".....oMMmmdo",
+  "....oWoMmmdo",
+  "...oWo.oMddo",
+  "..oWo...ooo.",
+  ".oWo........",
+  "oWo.........",
+  "oo..........",
+})
+
+P.icon_tool_rod = rows({
+  "..........oM",
+  ".........oWo",
+  "........oWo.",
+  ".......oWo.l",
+  "......oWo..l",
+  ".....oWo...l",
+  "...odWo....l",
+  "..oddo.....o",
+  ".oWo.......o",
+  "oWo.........",
+  "oo..........",
+})
+
+P.icon_tool_rod_sturdy = rows({
+  "..........oM",
+  ".........owo",
+  "........owo.",
+  ".......owo.l",
+  "......oro..l",
+  ".....owo...l",
+  "...odwo....l",
+  "..oddo.....o",
+  ".owo.......o",
+  "owo.........",
+  "oo..........",
+})
+
+P.icon_tool_hammer = rows({
+  "....oooooo..",
+  "...oMMMMmdo.",
+  "...oMmmmmdo.",
+  "....oooWWo..",
+  ".......oWo..",
+  "......oWo...",
+  ".....oWo....",
+  "....oWo.....",
+  "...oWo......",
+  "..oWo.......",
+  "..oo........",
+})
+
+P.icon_verb_move = rows({
+  ".....oo.....",
+  "....oppo....",
+  "...oppppo...",
+  ".....pp.....",
+  ".oo..pp..oo.",
+  "oppppppppppo",
+  "oppppppppppo",
+  ".oo..pp..oo.",
+  ".....pp.....",
+  "...oppppo...",
+  "....oppo....",
+  ".....oo.....",
+})
+
+P.icon_verb_pickup = rows({
+  "....oo......",
+  "...oppo.....",
+  "..oppppo....",
+  "....pp......",
+  ".ooooooooo..",
+  ".oWWWWWWWo..",
+  ".owwwwwwwo..",
+  ".oWWWWWWWo..",
+  ".owwwwwwwo..",
+  ".ooooooooo..",
+})
+
+P.icon_verb_demolish = rows({
+  ".oooooooooo.",
+  "orrrrrrrrMMo",
+  "orrrrrrrrMro",
+  "orrrrrrrMrro",
+  "orrrrrrMrrro",
+  "orrrrrMrrrro",
+  "orrrrMrrrrro",
+  "orrrMrrrrrro",
+  "orrMrrrrrrro",
+  "orMMrrrrrrro",
+  ".oooooooooo.",
+})
+
+P.icon_verb_untill = rows({
+  "",
+  ".......ooooo",
+  "......oMMMmo",
+  ".....oWoommo",
+  "....oWwo.oo.",
+  "...oWwo.....",
+  "..oWwo..r..r",
+  ".oWwo....rr.",
+  "oWwo.....rr.",
+  "owo.....r..r",
+  "oo..........",
+})
+
+P.icon_signal_alert = rows({
+  "...oooooo...",
+  "..oaaaaaao..",
+  ".oaaaooaaao.",
+  ".oaaaooaaao.",
+  ".oaaaooaaao.",
+  ".oaaaooaaao.",
+  ".oaaaaaaaao.",
+  ".oaaaooaaao.",
+  "..oaaaaaao..",
+  "...oooooo...",
+})
+
+P.icon_signal_idea = rows({
+  "...oooooo...",
+  "..oaaaaaao..",
+  ".oaaooooaao.",
+  ".oaoaaaaoao.",
+  ".oaaaaaoaao.",
+  ".oaaaaoaaao.",
+  ".oaaaoaaaao.",
+  ".oaaaaaaaao.",
+  "..oaaoaaao..",
+  "...oooooo...",
+})
+
+P.icon_book_notebook = rows({
+  "",
+  ".oooooooooo.",
+  ".obBBBBBBpo.",
+  ".obBBBBBBpo.",
+  ".obBBaaBBpo.",
+  ".obBBaaBBpo.",
+  ".obBBBBBBpo.",
+  ".obBBBBBBpo.",
+  ".obbbbbbbpo.",
+  ".oooooooooo.",
+})
+
+P.icon_book_ledger = rows({
+  "",
+  ".oooooooooo.",
+  ".onNNNNNNpo.",
+  ".onNppppNpo.",
+  ".onNNNNNNpo.",
+  ".onNppppNpo.",
+  ".onNNNNNNpo.",
+  ".onNppppNpo.",
+  ".onnnnnnnpo.",
+  ".oooooooooo.",
+})
+
+P.icon_menu = rows({
+  "",
+  "",
+  ".pppppppppp.",
+  ".oooooooooo.",
+  "",
+  ".pppppppppp.",
+  ".oooooooooo.",
+  "",
+  ".pppppppppp.",
+  ".oooooooooo.",
+})
+
+local PACKET = {
+  "oooooooooooo",
+  "oPPPPPPPPPPo",
+  "oppppppppppo",
+  "oppppppppppo",
+  "oppppppppppo",
+  "oppppppppppo",
+  "oppppppppppo",
+  "oppppppppppo",
+  "oppppppppppo",
+  "oppppppppppo",
+  "oppppppppppo",
+  "oooooooooooo",
+}
+P.icon_packet = rows(PACKET)
+
+--- A seed packet with a crop on it: the packet, then the crop's own 12x12 icon painter drawn shrunk to
+--- 8x8 in the middle (nearest pixel), so every crop gets a packet without a new drawing.
+local function packet(cropPainter)
+  return function(p)
+    rows(PACKET)(p)
+    local k = 8 / 12
+    local q = { w = 12, h = 12 }
+    function q.px(_, x, y, c)
+      if x >= 0 and y >= 0 and x < 12 and y < 12 then
+        p:px(2 + math.floor(x * k), 3 + math.floor(y * k), c)
+      end
+    end
+    function q.rect(self, x, y, w, h, c)
+      for yy = y, y + h - 1 do
+        for xx = x, x + w - 1 do
+          self:px(xx, yy, c)
+        end
+      end
+    end
+    function q.ellipse(self, cx, cy, rx, ry, c)
+      for y = -ry, ry do
+        for x = -rx, rx do
+          if (x * x) / (rx * rx + 0.5) + (y * y) / (ry * ry + 0.5) <= 1 then
+            self:px(cx + x, cy + y, c)
+          end
+        end
+      end
+    end
+    function q.circle(self, cx, cy, r, c)
+      self:ellipse(cx, cy, r, r, c)
+    end
+    function q.outline() end -- the packet frames it already
+    cropPainter(q)
+  end
+end
+P.icon_packet_radish = packet(P.icon_seed_radish)
+P.icon_packet_potato = packet(P.icon_seed_potato)
+
 return P
