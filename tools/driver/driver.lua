@@ -44,6 +44,8 @@ function Driver.new(opts)
     tips = false,
     audioBackend = self.audioBackend,
   })
+  -- Dissolves settle at once, so a shot after a tap is the finished screen; the `motion` scenario lets time run (D142).
+  require("src.ui.motion").settled = true
   self:frames(2)
   return self
 end

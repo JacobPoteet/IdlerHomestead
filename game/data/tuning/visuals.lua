@@ -445,6 +445,11 @@ return {
       amount = 1.0,
       scale = 1,
     },
+    transition = { -- the dissolve of the wheel, books, cards and lenses (shaders/ui_dissolve.glsl, D142); cells are UI pixels
+      algorithm = "bayer8",
+      amount = 1.0,
+      scale = 1,
+    },
     vignette = { -- the dark rim of the view (shaders/grade.glsl)
       algorithm = "bayer8",
       steps = 0, -- darkness levels (0 = smooth, the old look)

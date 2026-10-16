@@ -62,7 +62,9 @@ local Sketch = require("src.render.sketch")
 local ChipText = require("src.ui.chip_text")
 local ChipStrip = require("src.ui.chip_strip")
 local Hud = require("src.ui.hud")
+local Dissolve = require("src.render.dissolve")
 local LensCard = require("src.ui.lens_card")
+local Motion = require("src.ui.motion")
 local LensRenderer = require("src.render.lens")
 local LensState = require("src.ui.lens")
 local Settings = require("src.core.settings")
@@ -110,6 +112,12 @@ function Homestead:enter(slot, data)
   self.lens = LensState.new(tuning.ui.lens) -- the Power and Water lenses (D141, D145)
   self.lensView = LensRenderer.new(self.world)
   self.lensCard = LensCard.new(ctx, self.world)
+  -- Dissolves (D142): the wheel, the tip card, the tile card and the lens come in and go out through the dither.
+  self.wheelFade = Motion.transition("wheel")
+  self.cardFade = Motion.transition("card")
+  self.infoFade = Motion.transition("card")
+  self.lensFade = Motion.transition("lens")
+  self.wheelLast = {} -- the wheel's last shown state, kept to draw it dissolving away
   self.paletteButtons = Buttons.new(tuning.input.minTouchTarget)
   local relayout = function()
     self:layout()
@@ -1639,11 +1647,18 @@ function Homestead:drawHighlight()
 end
 
 function Homestead:drawCard()
-  local c = self.card
-  if not c then
+  local c, list = self.card, nil
+  if c then
+    self.cardLast, self.cardLastButtons = c, self.cardButtons.list -- kept to draw it dissolving away
+  else
+    c, list = self.cardLast, self.cardLastButtons
+  end
+  if not c or not Dissolve.begin(self.cardFade:coverage()) then
     return
   end
-  self:drawHighlight()
+  if self.card then
+    self:drawHighlight()
+  end
   Draw.panel(c.x, c.y, c.w, c.h)
   Text.draw(c.title, c.x + c.pad, c.y + c.pad, { size = "body", color = theme.colors.accent })
   local y = c.y + c.pad + c.titleH + 3
@@ -1651,7 +1666,14 @@ function Homestead:drawCard()
     Text.draw(line.text, c.x + c.pad, y, { size = "small", width = c.w - 2 * c.pad, color = line.color })
     y = y + line.h + c.lineGap
   end
-  self.cardButtons:draw()
+  if list then
+    for _, b in ipairs(list) do -- going away: the buttons are drawn but no longer answer
+      self.cardButtons:drawOne(b, theme.colors)
+    end
+  else
+    self.cardButtons:draw()
+  end
+  Dissolve.finish()
 end
 
 -- Speed and routine: the speed plate and the homesteader badge (D137).
@@ -1664,6 +1686,32 @@ local HINT_TEXT = {
   idle = "Homesteader is idle: press R or tap Start routine",
   nothing = "Nothing to do: check the Routine priorities",
 }
+
+--- Move the dissolves toward where things are now (D142). The wheel counts as there once it shows (a held
+--- press waits `showDelay` first).
+function Homestead:stepFades(dt)
+  local w = self.wheel
+  local shown = w ~= nil and not (w.held and love.timer.getTime() - w.at < self.app.ctx.tuning.ui.wheel.showDelay)
+  Motion.step(self.wheelFade, shown, dt)
+  Motion.step(self.cardFade, self.card ~= nil, dt)
+  Motion.step(self.infoFade, self.selected ~= nil, dt)
+  local id = self.lens:active()
+  if id and self.lensLast and id ~= self.lensLast then
+    self.lensFade.amount = 0 -- one lens switched for another: the new one dissolves in
+  end
+  Motion.step(self.lensFade, id ~= nil, dt)
+  if id then
+    self.lensLast = id
+  elseif not self.lensFade:shown() then
+    self.lensLast = nil
+  end
+  if not self.cardFade:shown() then
+    self.cardLast, self.cardLastButtons = nil, nil
+  end
+  if not self.infoFade:shown() then
+    self.infoLast = nil
+  end
+end
 
 --- Show an idle nudge now, or hold it while a panel covers the world (D93, #120).
 function Homestead:raiseHint(kind)
@@ -1831,6 +1879,7 @@ function Homestead:update(dt)
   self.renderer:update(dt, self.session:effectiveSpeed()) -- effects follow game speed and pause (D97)
   self.lens:sync(self:lensTrigger())
   self.lensView:tick(dt)
+  self:stepFades(dt)
   if self.lens:active() then
     self:layoutLensCard()
     self.lensCard:update(dt)
@@ -3078,21 +3127,32 @@ end
 function Homestead:drawWheel()
   local w = self.wheel
   self.wheelLayout = nil
-  if not w then
-    return
-  end
   local ui = self.app.ctx.tuning.ui
   local cfg = ui.wheel
-  if w.held and love.timer.getTime() - w.at < cfg.showDelay then
+  if w then
+    if w.held and love.timer.getTime() - w.at < cfg.showDelay then
+      return
+    end
+    local last = self.wheelLast -- kept (in one table) to draw the wheel dissolving away once it is let go
+    last.cx, last.cy, last.px, last.py, last.held, last.highlight, last.sub =
+      w.cx, w.cy, w.px, w.py, w.held, w.highlight, w.sub
+  else
+    w = self.wheelLast.cx and self.wheelLast -- a closed wheel: only the dissolve is left
+  end
+  if not w or not Dissolve.begin(self.wheelFade:coverage()) then
+    if not self.wheelFade:shown() then
+      self.wheelLast.cx = nil
+    end
     return
   end
+  local closing = self.wheel == nil
   local colors = theme.colors
   local world, view = self.world, self.app.view
   local sizes = ToolWheel.sizes(cfg, view)
   local items = self:ringItems(w.highlight)
   local spread = ToolWheel.spread(cfg, #items)
   local lay = ToolWheel.layout(w.cx, w.cy, cfg.wedges, sizes, w.highlight, #items, spread, w.highlight)
-  self.wheelLayout = lay
+  self.wheelLayout = not closing and lay or nil
   local crate = self:crateCount()
   -- The world behind dims in two stepped bands round the wheel.
   love.graphics.setColor(cfg.dim)
@@ -3161,11 +3221,14 @@ function Homestead:drawWheel()
     love.graphics.setColor(colors.accent)
     love.graphics.rectangle("fill", math.floor(w.px) - 1, math.floor(w.py) - 1, 3, 3)
   end
+  Dissolve.finish()
 end
 
 -- Drawing the resting HUD (D137, D142) -------------------------------------------------------
 
---- A tap target's plate in its state: pressed, selected (amber outline), pulsing, or off.
+--- A tap target's plate in its state: pressed, selected (amber outline), signalling, or off. `opts.signal` is
+--- "amber" (attention: a quiet outline with a glint) or "red" (danger: a slow beat); a button that `pulse`s
+--- signals amber (D142). Nothing flashes (src/ui/motion.lua).
 function Homestead:hudPlate(b, opts)
   opts = opts or {}
   local colors = theme.colors
@@ -3173,20 +3236,18 @@ function Homestead:hudPlate(b, opts)
   if b.selected then
     ink = colors.accent
   end
-  if b.pulse then
-    local wave = 0.5 + 0.5 * math.sin(love.timer.getTime() * 2 * math.pi / Buttons.PULSE_PERIOD)
-    local dark, amber = colors.panelBorder, colors.accent
-    ink = {
-      dark[1] + (amber[1] - dark[1]) * wave,
-      dark[2] + (amber[2] - dark[2]) * wave,
-      dark[3] + (amber[3] - dark[3]) * wave,
-    }
+  local signal = opts.signal or (b.pulse and "amber") or nil
+  local gx, gy
+  if signal and not b.selected then
+    ink, gx, gy = Motion.signal(signal, b.w, b.h, b.x * 31 + b.y)
   end
   local pressed = self.buttons.pressed == b
   Plate.draw(b.x, b.y, b.w, b.h, {
     ink = ink,
     base = pressed and colors.buttonPressed or opts.base,
     lit = pressed and 0 or nil,
+    glintX = gx,
+    glintY = gy,
   })
 end
 
@@ -3255,7 +3316,9 @@ end
 
 --- A decision stamp: its signal icon, and its words while there is room.
 function Homestead:drawStamp(b, stamp, compact)
-  self:hudPlate(b, { ink = stamp.color })
+  local colors = theme.colors
+  local signal = (stamp.color == colors.danger and "red") or (stamp.color == colors.accent and "amber") or nil
+  self:hudPlate(b, { ink = stamp.color, signal = signal })
   local H = self.app.ctx.tuning.ui.hud
   local sp = Assets.sprite(stamp.icon)
   local ix = compact and math.floor(b.x + (b.w - sp.w) / 2) or b.x + math.floor((H.stampSize - sp.w) / 2)
@@ -3379,7 +3442,17 @@ function Homestead:drawVitals()
     byId[e.id] = e
   end
   for _, row in ipairs(self.hud.vitals) do
-    Plate.draw(row.x, row.y, row.w, row.h)
+    local worst = 0 -- the row's plate signals its worst vital: amber for a warning, red for danger (D112, D142)
+    for _, item in ipairs(row.items) do
+      local e = byId[item.id]
+      worst = e and math.max(worst, e.level or 0) or worst
+    end
+    if worst > 0 then
+      local ink, gx, gy = Motion.signal(worst >= 2 and "red" or "amber", row.w, row.h, row.x * 31 + row.y)
+      Plate.draw(row.x, row.y, row.w, row.h, { ink = ink, glintX = gx, glintY = gy })
+    else
+      Plate.draw(row.x, row.y, row.w, row.h)
+    end
     for _, item in ipairs(row.items) do
       local e = byId[item.id]
       if e then
@@ -3856,8 +3929,8 @@ function Homestead:tileInfo(i)
 end
 
 --- The selected station and its batch when the batch is finished and waiting for storage room (D93, #135).
-function Homestead:blockedStation()
-  local obj, anchor = Grid.object(self.world, self.selected)
+function Homestead:blockedStation(tile)
+  local obj, anchor = Grid.object(self.world, tile or self.selected)
   local batch = obj and obj.station and Processing.batch(self.world, anchor)
   if batch and batch.blocked then
     return anchor, batch
@@ -3890,16 +3963,22 @@ function Homestead:drawInfo(view)
   local info -- the tile card's rectangle, when it is up (a wide toast keeps clear of it)
   self.infoButtons = self.infoButtons or Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
   self.infoButtons:clear()
-  if self.selected then
-    local lines = self:tileInfo(self.selected)
-    local anchor, batch = self:blockedStation()
+  local selected = self.selected
+  if selected then
+    self.infoLast = selected -- kept to draw the card dissolving away
+  else
+    selected = self.infoLast
+  end
+  if selected and Dissolve.begin(self.infoFade:coverage()) then
+    local lines = self:tileInfo(selected)
+    local anchor, batch = self:blockedStation(selected)
     local minSize = self.app.ctx.tuning.input.minTouchTarget
-    local def = Grid.object(self.world, self.selected)
+    local def = Grid.object(self.world, selected)
     -- The card only informs (D139): a player-placed object says the Hammer moves, picks up or demolishes it.
-    if def and def.placeable and self.mode ~= "place" and not Placement.orderAt(self.world, self.selected) then
+    if def and def.placeable and self.mode ~= "place" and not Placement.orderAt(self.world, selected) then
       lines[#lines + 1] = self.app.ctx.tuning.ui.placement.hammerHint
     end
-    local mark = Marks.kindAt(self.world, self.selected)
+    local mark = Marks.kindAt(self.world, selected)
     local rows = (anchor and 1 or 0) + (mark and 1 or 0)
     local btnH = rows * (minSize + 4) -- room for the buttons under the lines
     local h = #lines * 11 + 8 + btnH
@@ -3931,7 +4010,7 @@ function Homestead:drawInfo(view)
         label = self.app.ctx.tuning.ui.placement.cancelMark,
         size = "small",
         onPress = function()
-          Marks.remove(self.world, mark, { self.selected })
+          Marks.remove(self.world, mark, { selected })
         end,
       })
       buttonY = buttonY + minSize + 4
@@ -3953,6 +4032,10 @@ function Homestead:drawInfo(view)
     if rows > 0 then
       self.infoButtons:draw()
     end
+    if not self.selected then
+      self.infoButtons:clear() -- going away: nothing on it answers any more
+    end
+    Dissolve.finish()
     info = { x = 4, y = y, w = w, h = h }
   end
   if self.toast then
@@ -4024,11 +4107,18 @@ function Homestead:draw()
   love.graphics.pop() -- back from the graded canvas to the screen
   -- A lens (D141, D145) runs the graded frame through one more pass into a canvas of its own, which then stands
   -- in for the frame, so the plates look through the blueprint too.
-  local lensId = self.lens:active()
+  -- It dissolves in and out through the dither (D142): while it does, the graded frame stays under it.
+  local lensId = self.lens:active() or (self.lensFade:shown() and self.lensLast) or nil
   local shown = graded
-  local lensOn = lensId ~= nil and self.world.tuning.visuals.lens.enabled and self:lensPass(graded, ox, oy, daylight)
+  local lensOn = lensId ~= nil
+    and self.world.tuning.visuals.lens.enabled
+    and self:lensPass(graded, ox, oy, daylight, lensId)
   if lensOn then
     shown = self.lensCanvas
+    local cover = self.lensFade:coverage()
+    if cover < 1 then
+      shown = self:lensMix(graded, cover, view)
+    end
   end
   if bloom and not lensOn then
     self.renderer:drawBloom(graded, daylight)
@@ -4066,7 +4156,7 @@ function Homestead:draw()
 
   -- HUD (not graded; its plates take a share of the world's light, D142)
   local snow, frozen = self.renderer:winterAmounts()
-  Plate.setLight(tint, light, frozen, snow)
+  Plate.setLight(tint, daylight, frozen, snow) -- the daylight level (0 night .. 1 day), so plates dim at night (D142)
   ActionRing.draw(self.world, self.camera, view, { top = self.topH, bottom = view.h - self.bottomH })
   self:drawVitals()
   self:drawForecast()
@@ -4091,14 +4181,35 @@ function Homestead:draw()
   end
   self.buttons:draw()
   self:drawCard()
-  if self.lens:active() then
+  if self.lens:active() and Dissolve.begin(self.lensFade:coverage()) then
     self.lensCard:draw(view)
+    Dissolve.finish()
   end
   self:drawWheel()
 end
 
+--- The graded frame with the lens dissolved over it at `cover` (0..1), in a canvas of its own.
+function Homestead:lensMix(graded, cover, view)
+  local w, h = graded:getDimensions()
+  if not self.lensMixCanvas or self.lensMixCanvas:getWidth() ~= w or self.lensMixCanvas:getHeight() ~= h then
+    self.lensMixCanvas = love.graphics.newCanvas(w, h)
+    self.lensMixCanvas:setFilter("linear", "linear")
+  end
+  love.graphics.push("all")
+  love.graphics.setCanvas(self.lensMixCanvas)
+  love.graphics.origin()
+  love.graphics.setColor(1, 1, 1, 1)
+  love.graphics.draw(graded, 0, 0)
+  if Dissolve.begin(cover, view.scale) then
+    love.graphics.draw(self.lensCanvas, 0, 0)
+    Dissolve.finish()
+  end
+  love.graphics.pop()
+  return self.lensMixCanvas
+end
+
 --- Run the graded frame through the lens into `self.lensCanvas`. Returns false when the shader is missing.
-function Homestead:lensPass(graded, ox, oy, daylight)
+function Homestead:lensPass(graded, ox, oy, daylight, id)
   local w, h = graded:getDimensions()
   if not self.lensCanvas or self.lensCanvas:getWidth() ~= w or self.lensCanvas:getHeight() ~= h then
     self.lensCanvas = love.graphics.newCanvas(w, h)
@@ -4111,7 +4222,7 @@ function Homestead:lensPass(graded, ox, oy, daylight)
     preview = { id = self.placing, tile = self:placeTarget(), skip = self.moving }
   end
   return self.lensView:pass(graded, self.lensCanvas, {
-    id = self.lens:active(),
+    id = id,
     camera = self.camera,
     view = view,
     origin = { ox, oy },

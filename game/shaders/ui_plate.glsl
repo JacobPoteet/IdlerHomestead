@@ -22,10 +22,13 @@ uniform float alpha;
 uniform float cornerCut;   // UI pixels
 uniform float frostAmount; // 0..1
 uniform float frostReach;  // UI pixels from a corner at full frost
+uniform float frostRing;   // 1 on a small plate: frost stays on the outline ring, off the middle (where an icon sits)
 uniform vec3 frostColor;
 uniform float snowAmount;  // 0..1
 uniform vec3 snowColor;
 uniform vec3 snowShade;
+uniform vec2 glintAt;      // the amber glint's pixel on the plate, UI pixels (-1 = none)
+uniform vec3 glintColor;
 uniform vec4 dither;       // tuning.visuals.dither.plate (src/render/dither.lua)
 
 #ifdef PIXEL
@@ -68,7 +71,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
         float d = cx + cy;
         float reach = frostReach * frostAmount;
         float h = ditherHash(q * 1.7 + 3.1);
-        if (d < reach + cornerCut && h < (1.0 - (d - cornerCut) / max(reach, 0.001)) * 0.9) {
+        if ((frostRing < 0.5 || edge < 1.0) && d < reach + cornerCut && h < (1.0 - (d - cornerCut) / max(reach, 0.001)) * 0.9) {
             col = mix(col, frostColor, edge < 1.0 ? 0.8 : 0.6);
             a = max(a, 0.9);
         }
@@ -81,6 +84,11 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
             col = q.y < 1.5 ? snowColor : snowShade;
             a = 1.0;
         }
+    }
+    // One pixel of glint on the outline (a calm amber signal, src/ui/signals.lua).
+    if (abs(q.x - glintAt.x) < 0.5 && abs(q.y - glintAt.y) < 0.5) {
+        col = glintColor;
+        a = 1.0;
     }
     return vec4(col, a) * color;
 }

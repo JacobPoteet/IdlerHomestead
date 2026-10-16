@@ -12,8 +12,12 @@
 --   textinput(text), keypressed(key)             raw text entry for text fields (top scene only)
 --   resize(view), focus(hasFocus), quit()
 --   opaque = true                                scenes below it are not drawn
+--   dissolve = "book"                            comes in and goes out with the dither dissolve of that kind
+--                                                (tuning.ui.motion.kinds; src/render/dissolve.lua, D142)
 --   name = "..."                                 for the debug overlay
 
+local Dissolve = require("src.render.dissolve")
+local Motion = require("src.ui.motion")
 local UiScale = require("src.core.ui_scale")
 
 local App = {}
@@ -21,7 +25,7 @@ App.__index = App
 
 --- ctx: shared services ({ tuning, registry, store, platform, ... }) available to scenes as app.ctx.
 function App.new(ctx)
-  local self = setmetatable({ ctx = ctx, stack = {}, view = { w = 0, h = 0, scale = 1 } }, App)
+  local self = setmetatable({ ctx = ctx, stack = {}, leaving = {}, view = { w = 0, h = 0, scale = 1 } }, App)
   return self
 end
 
@@ -56,6 +60,9 @@ function App:push(scene, ...)
     current:pause()
   end
   scene.app = self
+  if scene.dissolve and Motion.ready() then
+    scene.fade = Motion.transition(scene.dissolve) -- starts away; update brings it in
+  end
   self.stack[#self.stack + 1] = scene
   if scene.enter then
     scene:enter(...)
@@ -69,6 +76,9 @@ function App:pop()
   local scene = table.remove(self.stack)
   if scene and scene.exit then
     scene:exit()
+  end
+  if scene and scene.fade and not Motion.instant() and scene.fade:shown() then
+    self.leaving[#self.leaving + 1] = scene -- stays on screen while it dissolves away (not drawn again once gone)
   end
   local current = self:top()
   if current and current.resume then
@@ -92,8 +102,18 @@ function App:update(dt)
   -- Copy: scenes may push/pop during update.
   local stack = { unpack(self.stack) }
   for _, scene in ipairs(stack) do
+    if scene.fade then
+      Motion.step(scene.fade, true, dt)
+    end
     if scene.update then
       scene:update(dt)
+    end
+  end
+  for i = #self.leaving, 1, -1 do
+    local scene = self.leaving[i]
+    Motion.step(scene.fade, false, dt)
+    if not scene.fade:shown() then
+      table.remove(self.leaving, i)
     end
   end
 end
@@ -107,14 +127,27 @@ function App:draw()
     end
   end
   for i = first, #self.stack do
-    local scene = self.stack[i]
-    if scene.draw then
-      love.graphics.push("all")
-      love.graphics.scale(self.view.scale)
-      scene:draw()
-      love.graphics.pop()
-    end
+    self:drawScene(self.stack[i])
   end
+  for _, scene in ipairs(self.leaving) do
+    self:drawScene(scene)
+  end
+end
+
+--- Draw one scene at the view's scale, through its dissolve when it has one.
+function App:drawScene(scene)
+  if not scene.draw then
+    return
+  end
+  love.graphics.push("all")
+  love.graphics.scale(self.view.scale)
+  if not scene.fade then
+    scene:draw()
+  elseif Dissolve.begin(scene.fade:coverage()) then
+    scene:draw()
+    Dissolve.finish()
+  end
+  love.graphics.pop()
 end
 
 --- Deliver an input action to the top scene.
