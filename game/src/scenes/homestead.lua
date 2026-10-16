@@ -2029,6 +2029,12 @@ function Homestead:askDestroyCrop(i)
   }))
 end
 
+-- Tools that only take part of what a tap can do: the Pail only waters, the Axe only clears and fells.
+local TOOL_CATEGORIES = {
+  pail = { water = true },
+  axe = { clear = true, trees = true },
+}
+
 function Homestead:tap(i)
   local world = self.world
   self.selected = i
@@ -2553,12 +2559,6 @@ function Homestead:drawOverlays()
 end
 
 -- The tool wheel (GDD §9.4, D138, #294) ---------------------------------------------------
-
--- Tools that only take part of what a tap can do: the Pail only waters, the Axe only clears and fells.
-local TOOL_CATEGORIES = {
-  pail = { water = true },
-  axe = { clear = true, trees = true },
-}
 
 --- The wheel's wedge for the tool in hand.
 function Homestead:currentTool()
