@@ -165,6 +165,14 @@ return {
     edgeAlpha = 0.9, -- 0..1 opacity of the outline round a planned area
     overshoot = 2, -- art pixels the outline runs past a corner of the planned area, like a quick pencil stroke
     secondStroke = 0.28, -- 0..1 share of outline pixels with a faint second stroke beside them
+    waveEvery = 4, -- art pixels between the rows of the Pail's wavy hatch (D147)
+    waveAmp = 1, -- art pixels a wave rises and falls
+    waveCycles = 2, -- whole waves across one tile (a whole number, so tiles join up)
+    markClearInk = { 0.97, 0.86, 0.55 }, -- the Axe's marks: pale yellow pencil hatch, light enough to read on dark bush and bark (D147)
+    markWaterInk = { 0.45, 0.72, 1.00 }, -- the Pail's marks: light blue pencil waves, bright enough on dark soil (D147)
+    markClearChalk = { 1.00, 0.94, 0.74 }, -- the Axe's marks at night and under a lens: warm cream chalk (D147)
+    markWaterChalk = { 0.74, 0.88, 1.00 }, -- the Pail's marks at night and under a lens: pale blue chalk (D147)
+    previewShare = 0.8, -- 0..1 opacity of the area being dragged out, against a standing mark
     sprite = { hatch = 0.55, wash = 0.1 }, -- a sketched planned crop: 0..1 hatch and flat wash inside its outline
     ghost = { hatch = 0.55, wash = 0.16 }, -- a sketched building being placed or queued (D79)
     status = { -- ink of a placement ghost by the D79 preview

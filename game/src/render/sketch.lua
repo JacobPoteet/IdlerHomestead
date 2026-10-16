@@ -4,6 +4,9 @@
 -- sketches through shaders/sketch.glsl. At night the scene draws the same lines again over the graded world
 -- in pale chalk. Presentation only: it reads the sim's plan, crops and tilled soil and never changes them.
 --
+-- Area marks (D147) share the pass: the Axe's marks use the diagonal hatch in graphite, the Pail's a wavy hatch
+-- (a run of little waves, like water) in blue pencil, so the two read apart in daylight and in chalk at night.
+--
 -- The hatch and the edge strokes are cut from one small white atlas built from tuning.visuals.sketch, so a
 -- field of any size is a run of same-texture draws that LÖVE batches.
 
@@ -23,7 +26,18 @@ end
 -- Build (or reuse) the atlas for this tile size and these tuning values.
 local function build(cfg, tile)
   local ov = cfg.overshoot
-  local parts = { tile, ov, cfg.hatchAlpha, cfg.hatchEvery, cfg.grain, cfg.edgeAlpha, cfg.secondStroke }
+  local parts = {
+    tile,
+    ov,
+    cfg.hatchAlpha,
+    cfg.hatchEvery,
+    cfg.grain,
+    cfg.edgeAlpha,
+    cfg.secondStroke,
+    cfg.waveEvery,
+    cfg.waveAmp,
+    cfg.waveCycles,
+  }
   local key = table.concat(parts, ":")
   if atlas and atlas.key == key then
     return atlas
@@ -56,10 +70,23 @@ local function build(cfg, tile)
   end
   local image = love.graphics.newImage(data)
   image:setFilter("nearest", "nearest")
+  -- The wavy hatch: rows of little waves, `waveCycles` to a tile so neighbouring tiles join up.
+  local waves = love.image.newImageData(tile, tile)
+  for row = 1, tile - 1, cfg.waveEvery do
+    for x = 0, tile - 1 do
+      local y = row + math.floor(math.sin(2 * math.pi * cfg.waveCycles * x / tile) * cfg.waveAmp + 0.5)
+      if y >= 0 and y < tile and hash(x, y + 99) >= cfg.grain then
+        waves:setPixel(x, y, 1, 1, 1, cfg.hatchAlpha)
+      end
+    end
+  end
+  local waveImage = love.graphics.newImage(waves)
+  waveImage:setFilter("nearest", "nearest")
   local function q(x, y, w, h)
     return love.graphics.newQuad(x, y, w, h, size, size)
   end
-  local quads = { hatch = q(0, 0, tile, tile), h = {}, v = {} }
+  local quads =
+    { hatch = q(0, 0, tile, tile), wave = love.graphics.newQuad(0, 0, tile, tile, tile, tile), h = {}, v = {} }
   for a = 0, 1 do
     quads.h[a], quads.v[a] = {}, {}
     for b = 0, 1 do
@@ -68,14 +95,15 @@ local function build(cfg, tile)
       quads.v[a][b] = q(vx, from, 2, len)
     end
   end
-  atlas = { image = image, key = key, quads = quads, ov = ov }
+  atlas = { image = image, waveImage = waveImage, key = key, quads = quads, ov = ov }
   return atlas
 end
 
 --- Hatch and outline an area. `planned(i)` says whether tile i belongs to it, `visible` is { x1, y1, x2, y2 }
 --- in tiles, `inkFor(i)` gives a tile's ink colour, and `alpha` scales it. The tiles looked at are the keys
---- of the plan, or `list` (an array of tile indexes) when given.
-function Sketch.drawPlans(world, tile, planned, visible, inkFor, alpha, list)
+--- of the plan, or `list` (an array of tile indexes) when given. `style` (optional) is { wave, always }: `wave`
+--- shades with the wavy hatch (the Pail's marks), `always` shades tilled tiles too (a marked crop).
+function Sketch.drawPlans(world, tile, planned, visible, inkFor, alpha, list, style)
   local cfg = world.tuning.visuals.sketch
   local A = build(cfg, tile)
   local grid, tilled = world.state.grid, world.state.fields.tilled
@@ -89,7 +117,9 @@ function Sketch.drawPlans(world, tile, planned, visible, inkFor, alpha, list)
       local ink = inkFor(i)
       love.graphics.setColor(ink[1], ink[2], ink[3], alpha)
       local left, top = (x - 1) * tile, (y - 1) * tile
-      if not tilled[i] then
+      if style and style.wave then
+        love.graphics.draw(A.waveImage, quads.wave, left, top)
+      elseif not tilled[i] or style and style.always then
         love.graphics.draw(A.image, quads.hatch, left, top)
       end
       -- Overshoot at the ends of a run: where the area does not go on along the edge.

@@ -91,8 +91,8 @@ return {
   },
   captions = { -- one line saying what the tool in hand does on the next tap (D72, #168); %s is the seed or object name
     rod = "Rod: tap the water to fish",
-    pail = "Pail: tap a thirsty crop to water it", -- D138
-    axe = "Axe: tap a tree, rock, log or brush to clear it", -- D138
+    pail = "Pail: tap a thirsty crop to water it, or drag over crops to mark them", -- D138, D147
+    axe = "Axe: tap a tree, rock, log or brush to clear it, or drag to mark an area", -- D138, D147
     untill = "Untill: tap a crop to pull it, tap bare tilled soil to turn it back to grass",
     seed = "%s in hand: tap open ground to till and plant",
     plan = "Plan field: tap two corners",
@@ -217,6 +217,12 @@ return {
     noUntill = "Only tilled soil can be untilled",
     noWater = "Nothing to water there", -- the Pail tapped where no crop is thirsty (D138)
     noClear = "Nothing to clear there", -- the Axe tapped where nothing can be cleared (D138)
+    markedClear = "Marked %d to clear", -- the Axe dragged over an area: how many things were marked (D147)
+    markedWater = "Marked %d to water", -- the Pail dragged over crops: how many were marked (D147)
+    unmarked = "Cancelled %d marks", -- a drag from a marked tile with the same tool cancelled marks (D147)
+    cancelMark = "Cancel mark", -- the tile card's button on a marked tile (D147)
+    markClear = "Marked: to be cleared", -- tile card line on a tile the Axe marked (D147)
+    markWater = "Marked: to be watered", -- tile card line on a tile the Pail marked (D147)
     noMove = "No building to move there", -- the Hammer's Move tapped off a building (D139)
     noPickUp = "No building to pick up there", -- the Hammer's Pick up tapped off a building
     noDemolish = "Nothing to demolish there", -- the Hammer's Demolish tapped off a building or crop

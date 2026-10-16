@@ -21,6 +21,7 @@ local Needs = require("src.sim.systems.needs")
 local Food = require("src.sim.systems.food")
 local Established = require("src.sim.systems.established")
 local Ftue = require("src.sim.systems.ftue")
+local Marks = require("src.sim.systems.marks")
 local Placement = require("src.sim.systems.placement")
 local PlaceCard = require("src.ui.place_card")
 local Highlight = require("src.ui.highlight")
@@ -2234,6 +2235,78 @@ function Homestead:tap(i)
   end
 end
 
+-- Area drags (GDD §9.4, D138, D147) ----------------------------------------------------------
+
+local AREA_TOOLS = { axe = "clear", pail = "water" } -- the tool in hand -> the kind of mark it drags out
+
+--- A press with the Axe or the Pail in hand starts an area at that tile. A drag that begins on a tile already marked
+--- (by this tool) cancels marks instead of adding them. Two fingers cancel it and pan (Input marks that pan).
+function Homestead:areaDragBegin(data)
+  self.areaDrag = nil
+  local kind = AREA_TOOLS[self.tool]
+  if not kind or self.mode ~= "act" or self.app:top() ~= self or self.wheel or not data.x then
+    return
+  end
+  if not self:inWorldArea(data.x, data.y) or self:chipAt(data.x, data.y) then
+    return
+  end
+  local i = self:tileAt(data.x, data.y)
+  if i then
+    self.areaDrag = {
+      kind = kind,
+      start = i,
+      last = i,
+      x = data.x,
+      y = data.y,
+      panned = false,
+      erase = Marks.has(self.world, kind, i),
+    }
+  end
+end
+
+--- A drag moved the pointer: grow the area. Returns true when the drag was ours (the view does not pan).
+function Homestead:areaDragMove(data)
+  local d = self.areaDrag
+  if not d then
+    return false
+  end
+  if data.pinch or data.keys then
+    self.areaDrag = nil -- two fingers pan and zoom; the keys pan
+    return false
+  end
+  d.x, d.y, d.panned = d.x + data.dx, d.y + data.dy, true
+  d.last = (self:inWorldArea(d.x, d.y) and self:tileAt(d.x, d.y)) or d.last
+  return true
+end
+
+--- The pointer let go: mark (or cancel) the area, or, if the pointer never left its tile, treat it as the tap it was.
+function Homestead:areaDragEnd(data)
+  local d = self.areaDrag
+  self.areaDrag = nil
+  if not d or not d.panned then
+    return -- a plain tap: Input follows with `select`
+  end
+  local last = (data.x and self:inWorldArea(data.x, data.y) and self:tileAt(data.x, data.y)) or d.last
+  if last == d.start then
+    self:tap(d.start) -- a wobble inside one tile is still a tap
+    return
+  end
+  local tiles = self:rectTiles(d.start, last)
+  local text = self.app.ctx.tuning.ui.placement
+  local n
+  if d.erase then
+    n = Marks.remove(self.world, d.kind, tiles)
+    self:showToast(n > 0 and string.format(text.unmarked, n) or text[d.kind == "clear" and "noClear" or "noWater"])
+  else
+    n = Marks.add(self.world, d.kind, tiles)
+    if n > 0 then
+      self:showToast(string.format(d.kind == "clear" and text.markedClear or text.markedWater, n))
+    else
+      self:showToast(text[d.kind == "clear" and "noClear" or "noWater"])
+    end
+  end
+end
+
 function Homestead:action(name, data)
   if name == "press" then
     self.pointerDown = true
@@ -2248,6 +2321,7 @@ function Homestead:action(name, data)
     return true
   end
   if name == "wheelOpen" then
+    self.areaDrag = nil -- a long press became the wheel, not an area
     self:openWheel(data.x, data.y, true)
     return true
   elseif name == "toolWheel" then
@@ -2338,6 +2412,14 @@ function Homestead:action(name, data)
       return true
     end
   end
+  -- The Axe and the Pail drag out an area to mark (D147); the drag does not pan the view.
+  if name == "press" then
+    self:areaDragBegin(data)
+  elseif name == "release" then
+    self:areaDragEnd(data)
+  elseif name == "pan" and self:areaDragMove(data) then
+    return true
+  end
   if name == "press" then
     -- A finger held on a tile while placing shows the item's preview and range there (#268); a drag pans
     -- instead, and letting go places or not as before.
@@ -2376,6 +2458,8 @@ function Homestead:action(name, data)
     elseif self.placeCard then
       self.placeCard = nil
       self:layoutCard()
+    elseif self.areaDrag then
+      self.areaDrag = nil
     elseif self.planStart then
       self.planStart = nil
     elseif self.mode ~= "act" then
@@ -2460,6 +2544,24 @@ function Homestead:drawOverlays()
         love.graphics.line(wx + tile - 2, wy + 2, wx + 2, wy + tile - 2)
       end
     end
+  end
+  local drag = self.areaDrag
+  if drag and drag.panned and drag.last ~= drag.start then
+    -- The area being dragged out, in the pencil of the tool: hatch for the Axe, waves for the Pail; red when it cancels.
+    local rect = self:rectTiles(drag.start, drag.last)
+    local cfg = world.tuning.visuals.sketch
+    local ink = drag.erase and cfg.status.refused or (drag.kind == "clear" and cfg.markClearInk or cfg.markWaterInk)
+    local x1, y1, x2, y2 = camera:visibleTiles(self.app.view)
+    local style = drag.kind == "water" and { wave = true } or { always = true }
+    local inArea = {}
+    for _, i in ipairs(rect) do
+      inArea[i] = true
+    end
+    Sketch.drawPlans(world, tile, function(i)
+      return inArea[i] == true
+    end, { x1, y1, x2, y2 }, function()
+      return ink
+    end, cfg.previewShare, rect, style)
   end
   local visuals = world.tuning.visuals
   -- Range preview while placing (#268): the ranges of placed items of the same kind, dimmed, drawn first so the
@@ -3556,6 +3658,10 @@ function Homestead:tileInfo(i)
   end
   local terrain = Grid.terrain(world, i)
   lines[#lines + 1] = world.state.fields.tilled[i] and "Tilled soil" or terrain.name
+  local mark = Marks.kindAt(world, i)
+  if mark then
+    lines[#lines + 1] = self.app.ctx.tuning.ui.placement[mark == "clear" and "markClear" or "markWater"]
+  end
   if terrain.tillable then
     lines[#lines + 1] = string.format("Soil %d%%", math.floor(grid.soil[i] * 100 + 0.5))
     if Land.hasWaterTable(world, i) and not world.occupancy[i] then
@@ -3793,7 +3899,8 @@ function Homestead:drawInfo(view)
     if def and def.placeable and self.mode ~= "place" and not Placement.orderAt(self.world, self.selected) then
       lines[#lines + 1] = self.app.ctx.tuning.ui.placement.hammerHint
     end
-    local rows = anchor and 1 or 0
+    local mark = Marks.kindAt(self.world, self.selected)
+    local rows = (anchor and 1 or 0) + (mark and 1 or 0)
     local btnH = rows * (minSize + 4) -- room for the buttons under the lines
     local h = #lines * 11 + 8 + btnH
     local y = (self.card and self.card.y or view.h - self.bottomH) - h - 4 -- above the tip card (or the tool caption) when one is up
@@ -3813,10 +3920,26 @@ function Homestead:drawInfo(view)
         { size = "small", color = n == 1 and theme.colors.text or theme.colors.textDim }
       )
     end
+    local buttonY = y + #lines * 11 + 6
+    if mark then
+      -- A mark is an order on the board: the card cancels it (D147). Dragging the same tool over it does too.
+      self.infoButtons:add({
+        x = 10,
+        y = buttonY,
+        w = w - 12,
+        h = minSize,
+        label = self.app.ctx.tuning.ui.placement.cancelMark,
+        size = "small",
+        onPress = function()
+          Marks.remove(self.world, mark, { self.selected })
+        end,
+      })
+      buttonY = buttonY + minSize + 4
+    end
     if anchor then
       self.infoButtons:add({
         x = 10,
-        y = y + #lines * 11 + 6,
+        y = buttonY,
         w = w - 12,
         h = minSize,
         label = "Discard waiting output",
@@ -3867,6 +3990,7 @@ function Homestead:draw()
   self.camera:attach(view)
   local x1, y1, x2, y2 = self.camera:visibleTiles(view)
   self.renderer:draw(self.session.clock:alpha(), { x1, y1, x2, y2 }, daylight)
+  self.renderer:drawMarkSketch({ x1, y1, x2, y2 }, 1) -- the Axe's and the Pail's marks, in pencil over the objects (D147)
   self:drawOverlays()
   love.graphics.pop()
   love.graphics.setCanvas()
@@ -3923,6 +4047,9 @@ function Homestead:draw()
     self.renderer:drawAmbient({ x1, y1, x2, y2 }, daylight)
   end
   self.renderer:drawCropCues({ x1, y1, x2, y2 }, daylight)
+  if lensOn then -- the lens repaints the world, so the marks go over it again, in chalk (D147)
+    self.renderer:drawMarkSketch({ x1, y1, x2, y2 }, self.world.tuning.visuals.sketch.chalkShare, true)
+  end
   if self.selected then
     self.renderer:drawSelection(self.selected, view.scale * self.camera:zoom())
   end

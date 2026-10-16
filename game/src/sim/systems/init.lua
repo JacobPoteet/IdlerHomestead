@@ -17,6 +17,7 @@ return {
   "spoilage",
   "water",
   "clearing",
+  "marks", -- D147: the Axe's and the Pail's area marks, standing orders over the clear and water tasks
   "placement", -- D79: orders to build over trees, rocks and crops; hands the homesteader its clearing jobs
   "fishing",
   "processing",

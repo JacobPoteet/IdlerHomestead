@@ -14,6 +14,15 @@ local function clearable(def)
   return def.clearable ~= false and def.clearTime ~= nil
 end
 
+--- The anchor of the object on tile i when the Axe can clear it (the rules of a single tap, storage room aside), or nil.
+function Clearing.clearableAt(world, i)
+  local def, anchor = Grid.object(world, i)
+  if def and clearable(def) then
+    return anchor
+  end
+  return nil
+end
+
 --- The largest yield of each resource that clearing this object can give: { [resourceId] = amount }.
 function Clearing.mostYield(def)
   local most = {}
