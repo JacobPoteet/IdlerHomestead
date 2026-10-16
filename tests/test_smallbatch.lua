@@ -9,7 +9,8 @@ local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
 local Land = require("src.sim.systems.land")
 local Power = require("src.sim.systems.power")
-local PowerPanel = require("src.scenes.power")
+local LensCard = require("src.ui.lens_card")
+local LensState = require("src.ui.lens")
 
 local tun = tuningLoader.load()
 local reg = Registry.new():loadAll()
@@ -101,14 +102,20 @@ T.test("power refresh: reordering priorities shows at once and does not break de
   T.eq(withoutFlow(a), withoutFlow(b), "a refresh in the middle leaves the run identical")
 end)
 
--- Power panel scrolling (#82) -------------------------------------------------------------------------
+-- Power card scrolling (#82, D145) -------------------------------------------------------------------------
 
 local function panelFor(world, w, h)
-  local panel = PowerPanel.new(world)
-  panel.app = { ctx = { tuning = tun }, view = { w = w, h = h, scale = 1 }, pop = function() end }
-  panel:enter()
-  panel:resize({ w = w, h = h })
+  local panel = LensCard.new({ tuning = tun }, world)
+  local spec = LensState.cardRect(tun.ui.lens, { w = w, h = h }, { top = 40, bottom = h - 40 }, false, 44)
+  panel:setup("power", spec.rect, false, function() end, function() end)
+  panel.box = spec.rect
   return panel
+end
+
+--- A point inside the card's list, where a wheel or drag is read.
+local function inside(panel)
+  local v = panel.list.view
+  return { x = v.x + v.w / 2, y = v.y + v.h / 2 }
 end
 
 local function manyDevices(world, n)
@@ -124,7 +131,7 @@ end
 
 local VIEWS = { { 1280, 720 }, { 390, 844 }, { 844, 390 } }
 
-T.test("power panel: a long device list overflows its window and every switch is reachable by scrolling", function()
+T.test("power card: a long device list overflows its window and every switch is reachable by scrolling", function()
   for _, v in ipairs(VIEWS) do
     local world = newWorld()
     manyDevices(world, 30)
@@ -150,18 +157,19 @@ T.test("power panel: a long device list overflows its window and every switch is
   end
 end)
 
-T.test("power panel: row buttons answer only inside the window; wheel and drag scroll", function()
+T.test("power card: row buttons answer only inside the window; wheel and drag scroll", function()
   local world = newWorld()
   manyDevices(world, 30)
   world:tick(STEP)
   local panel = panelFor(world, 390, 844)
   T.eq(panel.list.offset, 0)
-  panel:action("zoom", { steps = -2 })
+  local at = inside(panel)
+  panel:action("zoom", { steps = -2, x = at.x, y = at.y })
   T.truthy(panel.list.offset > 0, "wheel down scrolls")
   local scrolled = panel.list.offset
-  panel:action("pan", { dy = -30 })
+  panel:action("pan", { dy = -30, x = at.x, y = at.y })
   T.truthy(panel.list.offset > scrolled, "dragging up shows later rows")
-  panel:action("pan", { dy = 10000 })
+  panel:action("pan", { dy = 10000, x = at.x, y = at.y })
   T.eq(panel.list.offset, 0, "clamped at the top")
   -- A button half-scrolled above the window must not respond to a tap outside the window.
   panel.list.offset = 30
@@ -184,18 +192,25 @@ T.test("power panel: row buttons answer only inside the window; wheel and drag s
   end
 end)
 
-T.test("power panel: tapping a switch while paused updates the numbers at once", function()
+T.test("power card: tapping a switch while paused updates the numbers at once", function()
   local world = newWorld()
   manyDevices(world, 3)
   world:tick(STEP)
   local panel = panelFor(world, 1280, 720)
   local demand = Power.flow(world).demand
   T.truthy(demand > 0)
-  local button = panel.rowButtons.list[1]
+  local function firstSwitch()
+    for _, b in ipairs(panel.rowButtons.list) do
+      if b.label == "On" or b.label == "Off" then
+        return b
+      end
+    end
+  end
+  local button = firstSwitch()
   T.eq(button.label, "On")
   panel:action("select", { x = button.x + 2, y = button.y + 2 })
   T.truthy(Power.flow(world).demand < demand, "demand dropped without a tick")
-  T.eq(panel.rowButtons.list[1].label, "Off")
+  T.eq(firstSwitch().label, "Off")
   T.truthy(switchCount(panel) >= 1)
 end)
 

@@ -155,7 +155,7 @@ T.test("chips: a modal is a short summary, not a paragraph", function()
     end
     if card.shortcut then
       T.truthy(
-        ({ pantry = 1, power = 1, catalog = 1, truck = 1, load = 1, journal = 1 })[card.shortcut.panel],
+        ({ pantry = 1, power = 1, water = 1, catalog = 1, truck = 1, load = 1, journal = 1 })[card.shortcut.panel],
         id .. " shortcut panel"
       )
       T.truthy(#card.shortcut.label > 0, id .. " shortcut label")

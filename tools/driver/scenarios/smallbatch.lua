@@ -48,10 +48,10 @@ return function(d)
   dismissFinds(d)
   d:setSpeed(0)
   d:frames(3)
-  d:scene():openPower() -- the power vital's way in until the Power lens (#297)
+  d:scene():showLens("power")
   d:frames(4)
   d:shot("power_top")
-  local scene = d:scene()
+  local scene = d:scene().lensCard
   local v = scene.list.view
   d:wheel(-4, v.x + v.w / 2, v.y + v.h / 2)
   d:frames(3)
@@ -60,10 +60,13 @@ return function(d)
   d:frames(3)
   d:shot("power_dragged")
   -- Switch the first visible device off while paused: the numbers on the left follow at once.
+  scene.list.offset = scene.list.contentH -- to the devices at the end of the card
+  scene:layout()
+  d:frames(2)
   local before = Power.flow(world).demand
   local button
   for _, b in ipairs(scene.rowButtons.list) do
-    if b.y >= v.y and not button then
+    if b.y >= v.y and (b.label == "On" or b.label == "Off") and not button then
       button = b -- the first switch fully inside the window
     end
   end
@@ -71,7 +74,7 @@ return function(d)
   d:frames(2)
   assert(Power.flow(world).demand < before, "demand did not drop while paused")
   d:shot("power_switched_paused")
-  d:key("escape")
+  d:scene().lens:dismiss()
   d:frames(2)
 
   -- Plan (#192): the button is lit while planning and plain afterwards.
@@ -79,9 +82,18 @@ return function(d)
   d:scene().seedButtons.potato.onPress()
   d:frames(3)
   dismissFinds(d)
+  if d:scene().name == "notice" then
+    d:press("Got it") -- the food card came up while the clock ran
+    d:frames(2)
+  end
   d:pick("Plan field")
   d:frames(2)
   d:shot("plan_on")
+  d:setSpeed(0) -- no card comes up between the two corners
+  local camera = d:scene().camera
+  local hx, hy = d:homesteaderTile()
+  local wx, wy = camera:tileToWorld(hx, hy)
+  camera:centerOn(wx + camera.tileSize / 2, wy + camera.tileSize / 2, d.game.app.view) -- the drag above moved it
   d:clickTile(d:freeTileNear(2, 2))
   d:clickTile(d:freeTileNear(4, 3))
   d:frames(3)

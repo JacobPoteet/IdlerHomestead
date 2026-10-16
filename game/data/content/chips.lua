@@ -7,7 +7,7 @@
 --   rows: { key, label, fmt }; the value is string.format(fmt, ...) of what chip_text computes for `key`
 --         (a row with no value in the current state is skipped).
 --   why: optional one short line by state key, shown only for that state (say what to do about it).
---   panel / panelLabel: the one action, the panel it opens ("pantry" | "power" | "catalog" | "load"); absent = no action.
+--   panel / panelLabel: the one action, the panel it opens ("pantry" | "power" | "water" | "catalog" | "load"); "power" and "water" switch a lens on (D145); absent = no action.
 return {
   {
     id = "weather",
@@ -31,7 +31,7 @@ return {
       cold = "Nights burn extra wood.",
     },
     panel = "power",
-    panelLabel = "Open Power",
+    panelLabel = "Show power",
   },
   {
     id = "money",
@@ -79,7 +79,7 @@ return {
     },
     why = { idle = "Spare solar, wind or hydro charges it." },
     panel = "power",
-    panelLabel = "Open Power",
+    panelLabel = "Show power",
   },
   {
     id = "surplus",
@@ -138,8 +138,8 @@ return {
       { key = "stored", label = "Stored", fmt = "%d of %d" },
     },
     why = { low = "Rain or a pump refills it.", bad = "Rain or a pump refills it." },
-    panel = "power",
-    panelLabel = "Open Power",
+    panel = "water",
+    panelLabel = "Show water",
   },
   {
     id = "hens",

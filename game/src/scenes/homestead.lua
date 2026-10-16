@@ -61,6 +61,10 @@ local Sketch = require("src.render.sketch")
 local ChipText = require("src.ui.chip_text")
 local ChipStrip = require("src.ui.chip_strip")
 local Hud = require("src.ui.hud")
+local LensCard = require("src.ui.lens_card")
+local LensRenderer = require("src.render.lens")
+local LensState = require("src.ui.lens")
+local Settings = require("src.core.settings")
 local Icons = require("src.ui.icons")
 local ToolWheel = require("src.ui.tool_wheel")
 local ScrollList = require("src.ui.scroll_list")
@@ -101,6 +105,10 @@ function Homestead:enter(slot, data)
   self.camera.x, self.camera.y = (hs.x - 0.5) * tile, (hs.y - 0.5) * tile
   self.renderer = Renderer.new(self.world)
   self.buttons = Buttons.new(tuning.input.minTouchTarget)
+  LensState.forced = nil
+  self.lens = LensState.new(tuning.ui.lens) -- the Power and Water lenses (D141, D145)
+  self.lensView = LensRenderer.new(self.world)
+  self.lensCard = LensCard.new(ctx, self.world)
   self.paletteButtons = Buttons.new(tuning.input.minTouchTarget)
   local relayout = function()
     self:layout()
@@ -1691,8 +1699,49 @@ function Homestead:hintKind()
   return Routine.hintKind(self.world)
 end
 
-function Homestead:openPower()
-  self.app:push(require("src.scenes.power").new(self.world, self:toaster()))
+--- Switch a lens on by hand ("power" | "water"), as the vital or a tap on a device does (D141, D145).
+function Homestead:showLens(id)
+  self.lens:show(id, "vital")
+  self.lensFold = nil
+end
+
+--- The lens the tool in hand or the item being placed wants right now, or nil.
+function Homestead:lensTrigger()
+  if self.mode == "place" and self.placing then
+    return LensState.forObject(self.world.registry:get("objects", self.placing))
+  end
+  return LensState.forTool(self.app.ctx.tuning.ui.lens, self.tool)
+end
+
+--- Where the lens card is and what it shows; set up again only when something it depends on changes.
+function Homestead:layoutLensCard()
+  local id = self.lens:active()
+  if not id then
+    self.lensCardKey = nil
+    return
+  end
+  local view, cfg = self.app.view, self.app.ctx.tuning.ui.lens
+  local small = math.min(view.w, view.h) < cfg.smallView
+  local collapsed = self.lensFold
+  if collapsed == nil then
+    collapsed = cfg.collapseOnPlace and small and self.lens.source == "trigger" and self.mode == "place"
+  end
+  local touch = self.app.ctx.tuning.input.minTouchTarget
+  local bounds = { top = self.topH, bottom = view.h - self.bottomH }
+  local spec = LensState.cardRect(cfg, view, bounds, collapsed, touch)
+  self.lensRect, self.lensLayout = spec.rect, spec.layout
+  local r = spec.rect
+  local key = table.concat({ id, tostring(collapsed), r.x, r.y, r.w, r.h }, ":")
+  if key ~= self.lensCardKey then
+    self.lensCardKey = key
+    self.lensCard:setup(id, r, collapsed, function()
+      self.lens:dismiss()
+      self.lensFold = nil
+    end, function(folded)
+      self.lensFold = folded
+      self.lensCardKey = nil
+    end)
+  end
 end
 
 function Homestead:cycleSpeed()
@@ -1779,6 +1828,12 @@ function Homestead:update(dt)
     return
   end
   self.renderer:update(dt, self.session:effectiveSpeed()) -- effects follow game speed and pause (D97)
+  self.lens:sync(self:lensTrigger())
+  self.lensView:tick(dt)
+  if self.lens:active() then
+    self:layoutLensCard()
+    self.lensCard:update(dt)
+  end
   -- A find waits for a free screen (not behind the fishing mini-game or a panel), also after a load.
   if Finds.pending(self.world) and self.app:top() == self then
     self.app:push(require("src.scenes.finds").new(self.world))
@@ -2148,7 +2203,7 @@ function Homestead:tap(i)
     return -- a tap on a machine shows its card (and reach); its power switch is in the power panel
   end
   if obj and (obj.source or obj.sink or obj.battery) then
-    self:openPower() -- panels, batteries and powered devices open the power panel
+    self:showLens(LensState.forObject(obj)) -- a panel, battery or powered device shows its lens (D141)
     return
   end
   local hs = Actors.homesteader(world)
@@ -2184,6 +2239,9 @@ function Homestead:action(name, data)
     self.pointerDown = true
   elseif name == "release" then
     self.pointerDown = false
+  end
+  if self.lens:active() and self.lensCard:action(name, data) then
+    return true
   end
   -- The tool wheel (D138): held by a right press or long-press, or open after a tap on the tool badge.
   if self:wheelAction(name, data) then
@@ -2271,7 +2329,12 @@ function Homestead:action(name, data)
   if name == "select" and data.x then
     local chip = self:chipAt(data.x, data.y)
     if chip then
-      self:openChip(chip)
+      local lens = LensState.forVital(self.app.ctx.tuning.ui.lens, chip)
+      if lens and self.lens:active() == lens then
+        self.lens:dismiss() -- the vital again puts its lens away
+      else
+        self:openChip(chip)
+      end
       return true
     end
   end
@@ -2349,6 +2412,11 @@ function Homestead:placeTarget()
   return self.pressTile or self.hover
 end
 
+--- Is lens `id` showing and painting the world (so the separate tints it replaces stay off)?
+function Homestead:lensDraws(id)
+  return self.lens:active() == id and self.world.tuning.visuals.lens.enabled
+end
+
 function Homestead:drawOverlays()
   local world = self.world
   local grid, camera, tile = world.state.grid, self.camera, self.camera.tileSize
@@ -2394,23 +2462,15 @@ function Homestead:drawOverlays()
     end
   end
   local visuals = world.tuning.visuals
-  if self.mode == "place" and world.registry:get("objects", self.placing).placeOn == "waterTable" then
-    -- Wells and pumps only go where the water table is high: tint those tiles while placing one.
-    love.graphics.setColor(visuals.waterSpots)
-    for i = 1, #grid.terrain do
-      if Grid.terrain(world, i).tillable and not world.occupancy[i] and Land.hasWaterTable(world, i) then
-        local x, y = Grid.coords(grid, i)
-        local wx, wy = camera:tileToWorld(x, y)
-        love.graphics.rectangle("fill", wx, wy, tile, tile)
-      end
-    end
-  end
   -- Range preview while placing (#268): the ranges of placed items of the same kind, dimmed, drawn first so the
   -- range being placed and its overlaps sit on top; touch shows it while the finger is held on a tile.
   local rangePreview
   local placeTile = self:placeTarget()
   if placeTile then
     rangePreview = RangePreview.build(world, self.placing, placeTile, self.moving)
+  end
+  if rangePreview and (rangePreview.kind == "drip" or rangePreview.kind == "sprinkler") and self:lensDraws("water") then
+    rangePreview = nil -- the Water lens shows irrigation coverage while placing (D145)
   end
   if rangePreview then
     local look = visuals.rangePreview
@@ -3280,6 +3340,9 @@ function Homestead:inWorldArea(x, y)
   if not (x and y) then
     return false
   end
+  if self.lens:active() and self.lensCard:contains(x, y) then
+    return false
+  end
   for _, b in ipairs(self.buttons.list) do
     if x >= b.x and x < b.x + b.w and y >= b.y and y < b.y + b.h then
       return false
@@ -3330,8 +3393,8 @@ end
 --- Hammer's Order more, the Catalog scrolled to its first building (D139). Also "power" and "load".
 function Homestead:openPanel(name)
   local world, app = self.world, self.app
-  if name == "power" then
-    self:openPower()
+  if name == "power" or name == "water" then
+    self:showLens(name)
   elseif name == "load" then
     app:push(require("src.scenes.load").new(world, self:toaster()))
   else
@@ -3776,6 +3839,9 @@ function Homestead:drawInfo(view)
     local textH = Text.wrappedHeight(self.toast.text, "body", w - 16)
     local h = math.max(18, textH + 8)
     local x, y = (view.w - w) / 2, view.h - self.bottomH - h -- just above the bottom plates and the caption
+    if self.lens:active() and self.lensLayout == "sheet" and self.lensRect then
+      y = math.min(y, self.lensRect.y - 4 - h) -- a toast rides above the lens sheet on a tall view
+    end
     if info and x < info.x + info.w and y + h > info.y then
       y = info.y - 4 - h -- a wide toast on a narrow view rides above the tile card instead of covering it
     end
@@ -3832,18 +3898,26 @@ function Homestead:draw()
     love.graphics.pop()
   end
   love.graphics.pop() -- back from the graded canvas to the screen
-  if bloom then
+  -- A lens (D141, D145) runs the graded frame through one more pass into a canvas of its own, which then stands
+  -- in for the frame, so the plates look through the blueprint too.
+  local lensId = self.lens:active()
+  local shown = graded
+  local lensOn = lensId ~= nil and self.world.tuning.visuals.lens.enabled and self:lensPass(graded, ox, oy, daylight)
+  if lensOn then
+    shown = self.lensCanvas
+  end
+  if bloom and not lensOn then
     self.renderer:drawBloom(graded, daylight)
   else
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.draw(graded, 0, 0)
+    love.graphics.draw(shown, 0, 0)
   end
-  Plate.capture(graded)
+  Plate.capture(shown)
   love.graphics.pop()
   -- Lit windows, fireflies, dust and the selection outline sit over the graded world, in world space again.
   love.graphics.push("all")
   self.camera:attach(view)
-  if not bloom then
+  if not bloom and not lensOn then
     self.renderer:drawSunbeams({ x1, y1, x2, y2 })
     self.renderer:drawEmissive()
     self.renderer:drawAmbient({ x1, y1, x2, y2 }, daylight)
@@ -3890,7 +3964,35 @@ function Homestead:draw()
   end
   self.buttons:draw()
   self:drawCard()
+  if self.lens:active() then
+    self.lensCard:draw(view)
+  end
   self:drawWheel()
+end
+
+--- Run the graded frame through the lens into `self.lensCanvas`. Returns false when the shader is missing.
+function Homestead:lensPass(graded, ox, oy, daylight)
+  local w, h = graded:getDimensions()
+  if not self.lensCanvas or self.lensCanvas:getWidth() ~= w or self.lensCanvas:getHeight() ~= h then
+    self.lensCanvas = love.graphics.newCanvas(w, h)
+    self.lensCanvas:setFilter("linear", "linear")
+  end
+  local view = self.app.view
+  local still = Settings.read("reduceMotion", false) or not Settings.read("ambientFx", true)
+  local preview
+  if self.mode == "place" and self.placing then
+    preview = { id = self.placing, tile = self:placeTarget(), skip = self.moving }
+  end
+  return self.lensView:pass(graded, self.lensCanvas, {
+    id = self.lens:active(),
+    camera = self.camera,
+    view = view,
+    origin = { ox, oy },
+    pixelSize = view.scale * self.camera:zoom(),
+    daylight = daylight,
+    time = still and 0 or self.renderer.time,
+    preview = preview,
+  })
 end
 
 function Homestead:debugLines()

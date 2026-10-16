@@ -1,4 +1,4 @@
-# UI redesign handoff (2026-10-16, updated after phase 6)
+# UI redesign handoff (2026-10-16, updated after phase 7)
 
 Read this first; the older master-agent prompt below still holds for workflow, but where they differ this wins.
 
@@ -20,6 +20,15 @@ plans drawn in pencil; frost and snow on plates in winter.
 | 4 Tool wheel | #294 | #305 | `src/ui/tool_wheel.lua`, `Input` wheel events, keys Q and 1-6; `tests/test_tool_wheel.lua`; driver `wheel` |
 | 5 Hammer and crate | #295 | #306 | `Homestead:hammerRing`/`hammerTap`, crate count on wedge and badge; `tests/test_hammer.lua`; driver `hammer` |
 | 6 Notebook and Ledger | #296 | (branch) | `src/scenes/book.lua` hosts the old panel scenes as tabs, `src/ui/books.lua` (pure state, shortcuts, tab layout), `src/ui/paper.lua`; D143, D144; `tests/test_books.lua`; driver `panels` |
+
+## Phase 7 (#297) built: the Power and Water lenses (D145, D146)
+`src/ui/lens.lua` (pure: state, routes, card geometry), `src/render/lens_fields.lua` (pure data layer),
+`src/render/lens.lua` + `shaders/lens.glsl` (one pass into a second canvas that replaces the graded frame while a
+lens is on), `src/ui/lens_card.lua` (the card: the old Power panel's rows plus a Water card). `scenes/power.lua` and
+`openPower()` are gone; use `Homestead:showLens("power"|"water")`. Routes are `ui.lens.tools` and `ui.lens.vitals`;
+placement and tapping a device route by `Lens.forObject`. Tests: `tests/test_lens.lua`; driver: `lenses`; the driver's
+`d:press`/`d:pick` also find the card's buttons. F8 > Shaders has Power/Water lens buttons, a lens-effect switch and
+the lens dither entry. Not done: the dither open and close (phase 8).
 
 ## Phase 6 (#296) built: the Notebook and Ledger
 `Book.open(app, name)` (`src/scenes/book.lua`) opens a book by shortcut name or book id; each tab hosts the old
