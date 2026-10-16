@@ -3,6 +3,7 @@
 
 local Ftue = require("src.sim.systems.ftue")
 local SpoilText = require("src.ui.spoil_text")
+local Book = require("src.scenes.book")
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
 local Text = require("src.ui.text")
@@ -28,7 +29,7 @@ function Tips:replay(def)
     opts.more = {
       label = "Open Pantry",
       onPress = function()
-        app:push(require("src.scenes.pantry").new(world))
+        Book.open(app, "pantry")
       end,
     }
   end

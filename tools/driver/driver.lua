@@ -158,10 +158,16 @@ end
 --- All Buttons groups on the top scene (any field holding one).
 local function buttonGroups(scene)
   local groups = {}
-  for _, v in pairs(scene) do
-    if type(v) == "table" and getmetatable(v) == Buttons then
-      groups[#groups + 1] = v
+  local function collect(s)
+    for _, v in pairs(s) do
+      if type(v) == "table" and getmetatable(v) == Buttons then
+        groups[#groups + 1] = v
+      end
     end
+  end
+  collect(scene)
+  if scene.name == "book" and scene.page then
+    collect(scene.page) -- an open book: its tabs, then the page showing
   end
   return groups
 end
@@ -217,8 +223,9 @@ function Driver:tryPress(label)
   return false
 end
 
---- Press a HUD button wherever it lives: on screen, or inside the tray of the tool badge or a book
---- (D137), which it opens first. Errors like press when the button is nowhere.
+--- Press a HUD button wherever it lives: on screen, on a page's tab or buttons in an open book, or inside
+--- the tool badge's tray or a book (D137, D143), which it opens first. Errors like press when the button
+--- is nowhere.
 function Driver:pick(label)
   if self:tryPress(label) then
     return
@@ -228,12 +235,17 @@ function Driver:pick(label)
     self:frames(1)
     return -- a tool: taken as the tool wheel would (D138)
   end
-  for _, opener in ipairs({ "Tools", "Notebook", "Ledger" }) do
+  for _, opener in ipairs({ "Notebook", "Ledger", "Tools" }) do
     if self:tryPress(opener) then
       if self:tryPress(label) then
         return
       end
-      self:tryPress(opener) -- not here: close it again
+      if self.game.app:top().name == "book" then
+        self:key("escape") -- not in this book: close it again
+        self:frames(2)
+      else
+        self:tryPress(opener) -- not here: close the tray again
+      end
     end
   end
   self:press(label) -- raises the usual error listing what exists
@@ -261,8 +273,20 @@ function Driver:pressHud(id)
   self:click(b.x + b.w / 2, b.y + b.h / 2)
 end
 
+--- The scene on top; for an open book, the page showing (the former panel's scene). `Driver:book()` is the book.
 function Driver:scene()
-  return self.game.app:top()
+  local top = self.game.app:top()
+  if top.name == "book" and top.page then
+    return top.page
+  end
+  return top
+end
+
+--- The open book scene (errors when the top scene is not one).
+function Driver:book()
+  local top = self.game.app:top()
+  assert(top.name == "book", "no book is open; the top scene is " .. tostring(top.name))
+  return top
 end
 
 function Driver:world()

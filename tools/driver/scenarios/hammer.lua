@@ -57,7 +57,7 @@ return function(d)
   Market.setCheat(world, true)
   d:pick("Order more")
   d:frames(3)
-  local catalog = d.game.app:top()
+  local catalog = d:scene() -- the Ledger's Catalog page
   assert(catalog.name == "catalog", "Order more opens the Catalog")
   assert(catalog.list.offset > 0, "scrolled down to the buildings")
   d:shot("order_more")

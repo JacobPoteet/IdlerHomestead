@@ -101,7 +101,7 @@ Helper API (`tools/driver/driver.lua`):
 | `d:setSpeed(scale)` | Set game speed, 0 pauses. |
 | `d:press(label)`, `d:tryPress(label)` | Click a button on the top scene by label (case-insensitive). |
 | `d:labels()` | Labels on the top scene, handy while writing a scenario. |
-| `d:pick(label)` | Press a toolbar button on the bar or inside the Tools / More palette (narrow views). |
+| `d:pick(label)` | Press a HUD button, a tool, or a tab or button of the Notebook or Ledger (it opens the book that has it, D143). `d:scene()` returns the page showing in an open book; `d:book()` the book. |
 | `d:click(vx, vy)`, `d:clickPixel(px, py)` | Click at a virtual or window position, through the real mouse handler. |
 | `d:hold(vx, vy, seconds)` | Press, hold for scripted seconds, release (hold-to-repeat steppers). |
 | `d:clickTile(tx, ty)` | Click a homestead tile, centring the camera on it if off screen. |

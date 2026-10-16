@@ -52,6 +52,8 @@ local Renderer = require("src.render.world_renderer")
 local Sampler = require("src.audio.sampler")
 local ActionRing = require("src.render.action_ring")
 local Assets = require("src.render.assets")
+local Book = require("src.scenes.book")
+local Books = require("src.ui.books")
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
 local Plate = require("src.ui.plate")
@@ -83,6 +85,7 @@ function Homestead:enter(slot, data)
   local tuning = ctx.tuning
   self.session = Session.new({ store = ctx.store, slot = slot, data = data, registry = ctx.registry, tuning = tuning })
   ctx.session = self.session
+  Books.reset() -- the books open on their first pages in a fresh session (D143)
   self.session:save() -- a new slot exists on disk as soon as it's started
   self.world = self.session.world
 
@@ -473,7 +476,7 @@ function Homestead:spoilageNews()
       more = {
         label = "Open Pantry",
         onPress = function()
-          app:push(require("src.scenes.pantry").new(world))
+          Book.open(app, "pantry")
         end,
       },
     }))
@@ -589,7 +592,7 @@ end
 
 --- Open the message log (tap the toast area or the Log button).
 function Homestead:openLog()
-  self.app:push(require("src.scenes.message_log").new(self.log))
+  self:openPanel("diary")
 end
 
 function Homestead:toaster()
@@ -854,15 +857,6 @@ function Homestead:layoutHud(view)
       self:layout()
     end
   end
-  local function toggle(name)
-    return function()
-      self.palette = self.palette ~= name and name or nil
-      for _, list in pairs(self.paletteLists) do
-        list.offset = 0 -- a tray opens at its top
-      end
-      self:layout()
-    end
-  end
 
   -- The tools tray (until the tool wheel, #294): Hand, a packet per crop, Rod, Untill, Place, Plan field.
   local tools = {
@@ -946,35 +940,7 @@ function Homestead:layoutHud(view)
     end),
   }
 
-  -- The books' trays (until the tabbed books, #296).
-  local function book(id, label, width, fn)
-    return { id = id, w = fit(label, width), label = label, onPress = act(fn) }
-  end
-  local trays = {
-    tools = tools,
-    notebook = {
-      book("journal", L.journal, ui.buttonWidths.journal, function()
-        self:openPanel("journal")
-      end),
-      book("fish", L.fishGuide, ui.buttonWidths.fish, function()
-        self.app:push(require("src.scenes.guide").new(world))
-      end),
-      book("log", L.log, ui.buttonWidths.journal, function()
-        self:openLog()
-      end),
-    },
-    ledger = {
-      book("pantry", L.pantry, ui.buttonWidths.pantry, function()
-        self:openPanel("pantry")
-      end),
-      book("routineList", L.routineList, ui.buttonWidths.routine, function()
-        self.app:push(require("src.scenes.routine").new(world))
-      end),
-      book("catalog", L.catalog, ui.buttonWidths.catalog, function()
-        self:openPanel("catalog")
-      end),
-    },
-  }
+  local trays = { tools = tools } -- the books open as books (#296); only the tools tray is left
 
   -- Measure the plates.
   local vitals, weather = self:vitalEntries()
@@ -1119,7 +1085,7 @@ function Homestead:layoutHud(view)
     pulse = hint ~= nil,
     onPress = function()
       if hint == "nothing" then
-        self.app:push(require("src.scenes.routine").new(world))
+        self:openPanel("routine")
       elseif world.control == "idle" then
         self.session:cancelRoutine()
         self.session:setControl("active")
@@ -1154,8 +1120,10 @@ function Homestead:layoutHud(view)
     add(r, {
       id = id,
       label = L[id],
-      selected = self.palette == id,
-      onPress = toggle(id),
+      onPress = function()
+        self.palette = nil
+        self:openBook(id) -- the Notebook or the Ledger, on the page it was left on
+      end,
       draw = function(b)
         self:drawIconPlate(b, "icon_book_" .. id, not out.compact and L[id] or nil)
       end,
@@ -1170,7 +1138,7 @@ function Homestead:layoutHud(view)
     self.palette = nil
   end
   if self.palette then
-    local anchor = self.palette == "tools" and out.tool or out.books[self.palette == "notebook" and 1 or 2]
+    local anchor = out.tool
     local list = self.paletteLists[self.palette]
     local cfg = {
       pad = H.pad,
@@ -1181,7 +1149,7 @@ function Homestead:layoutHud(view)
       scrollBarWidth = ui.scrollBarWidth,
       scroll = list.offset,
     }
-    local tray = Hud.tray(trays[self.palette], anchor, view, cfg, self.palette ~= "tools")
+    local tray = Hud.tray(trays[self.palette], anchor, view, cfg, false)
     self.paletteRect = tray
     self.paletteList = list
     list:fit(tray.view, tray.contentH, 0, 1)
@@ -1496,7 +1464,7 @@ function Homestead:cardSpec()
   local left = {
     leftLabel = "Pantry",
     onLeft = function()
-      self.app:push(require("src.scenes.pantry").new(world))
+      self:openPanel("pantry")
     end,
   }
   if view.first then
@@ -1513,7 +1481,7 @@ function Homestead:cardSpec()
           more = {
             label = "Open Pantry",
             onPress = function()
-              app:push(require("src.scenes.pantry").new(world))
+              Book.open(app, "pantry")
             end,
           },
         }))
@@ -1523,7 +1491,7 @@ function Homestead:cardSpec()
     left = {
       leftLabel = "Journal",
       onLeft = function()
-        self.app:push(require("src.scenes.journal").new(world, self:toaster()))
+        self:openPanel("journal")
       end,
     }
   end
@@ -1763,7 +1731,7 @@ function Homestead:openReadiness()
     more = {
       label = "Open Pantry",
       onPress = function()
-        app:push(require("src.scenes.pantry").new(world))
+        Book.open(app, "pantry")
       end,
     },
   }))
@@ -2154,8 +2122,8 @@ function Homestead:tap(i)
     return
   end
   local obj = Grid.object(world, i)
-  if obj and obj.id == "truck" then
-    self.app:push(require("src.scenes.truck").new(world, self:toaster()))
+  if obj and obj.book then
+    self:openPanel(obj.book) -- the truck opens the Ledger on Truck & town, the camp or shack on the Pantry (D143)
     return
   end
   if obj and obj.station then
@@ -3357,26 +3325,24 @@ function Homestead:openChip(id)
   }))
 end
 
---- Open a panel by name from a shortcut: "pantry" | "power" | "catalog" | "buildings" | "truck" | "load" |
---- "journal".
+--- Open a panel by name from a shortcut. A name in tuning.ui.book.shortcuts ("pantry" | "routine" | "catalog" |
+--- "buildings" | "truck" | "journal" | "fish" | "diary") opens its book on that page (D143); "buildings" is the
+--- Hammer's Order more, the Catalog scrolled to its first building (D139). Also "power" and "load".
 function Homestead:openPanel(name)
   local world, app = self.world, self.app
-  if name == "pantry" then
-    app:push(require("src.scenes.pantry").new(world))
-  elseif name == "power" then
+  if name == "power" then
     self:openPower()
-  elseif name == "catalog" or name == "buildings" then
-    -- "buildings": the Hammer's Order more opens the Catalog scrolled to its first building (D139)
-    app:push(require("src.scenes.catalog").new(world, self:toaster(), { buildings = name == "buildings" }))
-  elseif name == "truck" then
-    app:push(require("src.scenes.truck").new(world, self:toaster()))
   elseif name == "load" then
     app:push(require("src.scenes.load").new(world, self:toaster()))
-  elseif name == "journal" then
-    app:push(require("src.scenes.journal").new(world, self:toaster()))
   else
-    error("unknown panel " .. tostring(name))
+    self:openBook(name, name == "buildings" and { buildings = true } or nil)
   end
+end
+
+--- Open a book: by shortcut name (on that page) or by book id, "notebook" | "ledger" (on the page it was last left
+--- on). `catalogOpts` goes to the Catalog page.
+function Homestead:openBook(name, catalogOpts)
+  Book.open(self.app, name, catalogOpts)
 end
 
 -- Storage pills (D59): which stores are full, and what is being held back for lack of room.

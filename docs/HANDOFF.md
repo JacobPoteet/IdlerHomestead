@@ -1,4 +1,4 @@
-# UI redesign handoff (2026-10-16, updated after phase 5)
+# UI redesign handoff (2026-10-16, updated after phase 6)
 
 Read this first; the older master-agent prompt below still holds for workflow, but where they differ this wins.
 
@@ -19,18 +19,18 @@ plans drawn in pencil; frost and snow on plates in winter.
 | 3 Resting HUD | #293 | #304 | `src/ui/hud.lua` (pure layout + trays), homestead `layoutHud`/`draw*`; `tests/test_hud.lua` |
 | 4 Tool wheel | #294 | #305 | `src/ui/tool_wheel.lua`, `Input` wheel events, keys Q and 1-6; `tests/test_tool_wheel.lua`; driver `wheel` |
 | 5 Hammer and crate | #295 | #306 | `Homestead:hammerRing`/`hammerTap`, crate count on wedge and badge; `tests/test_hammer.lua`; driver `hammer` |
+| 6 Notebook and Ledger | #296 | (branch) | `src/scenes/book.lua` hosts the old panel scenes as tabs, `src/ui/books.lua` (pure state, shortcuts, tab layout), `src/ui/paper.lua`; D143, D144; `tests/test_books.lua`; driver `panels` |
 
-## Next: phase 6, the Notebook and Ledger books (#296)
-Tabbed paper books replace the trays the book plates open today. Notebook: Journal, Fish guide, Diary (the
-message log). Ledger: Pantry, Routine, Catalog, Truck & town. World shortcuts open a book on its page (the
-truck opens Truck & town, the camp or shack the Pantry, a journal stamp the Journal). Tabs remember the last
-page within a session. Read GDD §9.4 "Two books (D140)" and the D142 "Books are paper" bullet first. The
-Catalog already takes `{ buildings = true }` (the Hammer's Order more opens it on its first building); keep
-that working when it becomes a Ledger tab.
+## Phase 6 (#296) built: the Notebook and Ledger
+`Book.open(app, name)` (`src/scenes/book.lua`) opens a book by shortcut name or book id; each tab hosts the old
+panel scene as a page (D143, D144). The Power panel was left alone. Things to know: pages call `Panel.box`, which
+returns the page body (`hosted`) inside a book; `d:scene()` returns the page showing, `d:book()` the book; the
+paper is dark kraft for now (follow-up: light paper with ink); the Journal, Catalog and Truck keep their own
+layouts and simply fill the page. In town the Ledger is locked to Truck & town.
 
-Then phases 7-9 in order (#297 Power and Water lenses, #298 dither transitions and signals, #299 Axe and
-Pail area drags). Interim states still to replace: the book plates open trays of the old panels; the Power
-panel is reached from the power vital's card (`scene:openPower()`).
+Next: phases 7-9 in order (#297 Power and Water lenses, #298 dither transitions and signals, #299 Axe and
+Pail area drags). Interim state still to replace: the Power panel is reached from the power vital's card
+(`scene:openPower()`).
 
 ## Notes from phases 4 and 5
 - Run the whole driver sweep, not just the new scenarios: in phase 4 it found a crash the tests missed (a
@@ -55,7 +55,7 @@ panel is reached from the power vital's card (`scene:openPower()`).
   child processes and takes about 3.5 minutes (it was 9.5 on one process); run it in the background.
   It reports every failing scenario at the end rather than stopping at the first. Do not edit game code
   while a sweep runs (modules load lazily).
-- Driver helpers added: `d:pick(label)` (looks in the Tools, Notebook and Ledger trays), `d:hudButton(id)`,
+- Driver helpers added: `d:pick(label)` (a button on screen, or a tab or button in the Notebook or Ledger, or a tool), `d:hudButton(id)`,
   `d:pressHud(id)` (plates and stamps by id: clock, pause, play, fast, menu, badge, tools, notebook,
   ledger, journal, readiness, storage, delivery).
 - Wiki: notes updated in the Obsidian vault (Interface/Interface Redesign, Theme and UI Kit, Screens,

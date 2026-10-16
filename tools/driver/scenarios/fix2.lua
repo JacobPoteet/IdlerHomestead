@@ -27,7 +27,7 @@ return function(d)
 
   -- Routine list in a short window: it scrolls.
   d:resize(winW, 230)
-  d:pick("Routine list")
+  d:pick("Routine")
   d:frames(3)
   local routine = d:scene()
   assert(routine.list.overflow, "the routine list should scroll in a short window")

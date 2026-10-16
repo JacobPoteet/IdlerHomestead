@@ -33,7 +33,13 @@ return function(d)
 
   local scene = d:scene()
   local box = scene.box
-  -- A tap on a row opens the card: free, and "Right now" says so.
+  -- A tap on a row opens the card: free, and "Right now" says so. (The book's page is short: scroll to the row.)
+  for n, item in ipairs(scene:items()) do
+    if item.id == "woodshed" then
+      scene.list:reveal((n - 1) * 24, 24)
+    end
+  end
+  scene:layout()
   d:click(box.x + 60, rowFor(scene, "woodshed").y + 8)
   d:frames(2)
   assert(scene.card:isOpen())

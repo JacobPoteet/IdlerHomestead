@@ -74,6 +74,7 @@ return {
     clearable = false,
     footprintW = 2,
     footprintH = 1,
+    book = "truck", -- a tap opens the Ledger on this page (tuning.ui.book.shortcuts, D143)
     battery = 60, -- kWh it can store (GDD §7.6)
     vehicle = true, -- charged in the truck priority tier; lends power to the homestead only above a trip reserve (tuning.power.truckReserveKwh)
     maxRate = 11, -- kW it can charge or discharge at (onboard charger)
@@ -96,6 +97,7 @@ return {
     footprintH = 2,
     shelter = true,
     shelterRank = 1,
+    book = "pantry", -- a tap opens the Ledger on this page (D143)
     insulation = 0.85, -- 15% less warmth needed
     recovery = 1.3, -- 30% more Condition on a fed, warm day
     heaterRadius = 4, -- tiles
@@ -110,6 +112,7 @@ return {
     footprintH = 2,
     shelter = true,
     shelterRank = 2,
+    book = "pantry", -- a tap opens the Ledger on this page (D143)
     replaces = "camp", -- placed over the camp, which it removes (D115)
     insulation = 0.6, -- 40% less warmth needed
     recovery = 1.6, -- 60% more Condition on a fed, warm day

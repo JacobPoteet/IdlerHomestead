@@ -945,7 +945,7 @@ function JournalScene:draw()
   Text.draw(string.format("$%d", Ledger.get(world, "money")), b.x, b.y + 9, {
     size = "small",
     color = theme.colors.textDim,
-    width = b.w - 70,
+    width = b.w - (b.hosted and 12 or 70), -- a hosted page has no Close button to leave room for
     align = "right",
   })
 end

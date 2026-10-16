@@ -5,14 +5,14 @@ local Tasks = require("src.sim.systems.tasks")
 --- Press the nth visible "If" button (rows are in priority order; they live in the scene's scrolling
 --- `rowButtons`, and rows outside the view have none).
 local function pressIf(d, n)
-  local seen = 0
-  for _, b in ipairs(d:scene().rowButtons.list) do
-    if b.label == "If" then
-      seen = seen + 1
-      if seen == n then
-        d:click(b.x + b.w / 2, b.y + b.h / 2)
-        return
-      end
+  local scene = d:scene()
+  scene.list:reveal((n - 1) * 26, 26) -- the book's page is shorter than the old panel: scroll the row into view
+  scene:layout()
+  local row = scene.rows[n]
+  for _, b in ipairs(scene.rowButtons.list) do
+    if b.label == "If" and b.y == row.y then
+      d:click(b.x + b.w / 2, b.y + b.h / 2)
+      return
     end
   end
   error("no If button #" .. n)
@@ -24,7 +24,7 @@ return function(d)
   Tasks.setCondition(world, "harvest", "hour_after")
   Tasks.setCondition(world, "clear", "wood_below")
   d:advance(0.5)
-  d:pick("Routine list")
+  d:pick("Routine")
   d:frames(2)
   d:shot("list")
 
