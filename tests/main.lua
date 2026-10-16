@@ -55,8 +55,11 @@ local function runParallel(files, jobs)
     while #running < jobs and nextFile <= #files do
       local name = files[nextFile]
       nextFile = nextFile + 1
-      local cmd = string.format('"%s" "%s" %s jobs=1 2>&1"', arg[-2], source, name)
-      running[#running + 1] = { name = name, pipe = assert(io.popen('"' .. cmd, "r"), "cannot start " .. name) }
+      local cmd = string.format('"%s" "%s" %s jobs=1 2>&1', arg[-2], source, name)
+      if package.config:sub(1, 1) == "\\" then
+        cmd = '"' .. cmd .. '"' -- cmd.exe /c strips one outer pair of quotes when the line starts with one
+      end
+      running[#running + 1] = { name = name, pipe = assert(io.popen(cmd, "r"), "cannot start " .. name) }
     end
   end
   launch()

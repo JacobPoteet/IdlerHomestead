@@ -133,7 +133,11 @@ local function runParallel(opts, names, sizes, jobs)
           parts[#parts + 1] = key .. '="' .. opts[key] .. '"'
         end
       end
-      queue[#queue + 1] = { name = name, size = size, cmd = '"' .. table.concat(parts, " ") .. ' 2>&1"' }
+      local cmd = table.concat(parts, " ") .. " 2>&1"
+      if package.config:sub(1, 1) == "\\" then
+        cmd = '"' .. cmd .. '"' -- cmd.exe /c strips one outer pair of quotes when the line starts with one
+      end
+      queue[#queue + 1] = { name = name, size = size, cmd = cmd }
     end
   end
   local running, nextJob, allOk = {}, 1, true
