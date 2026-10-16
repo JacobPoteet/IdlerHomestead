@@ -51,8 +51,9 @@ return function(d)
   assert(settings:keyOverrides().routine == "x" and settings:keyOverrides().speed == "r", "swapped")
   d:shot("swapped")
 
-  -- Escape cancels a rebind; Reset puts one row back; Reset all clears the rest.
-  d:press("Home")
+  -- Escape cancels a rebind (the Tool wheel row, on screen above the fold); Reset puts one row back;
+  -- Reset all clears the rest.
+  d:press("Q")
   d:frames(2)
   d:key("escape")
   assert(d:scene().waiting == nil and app:top().name == "controls", "Esc only cancels the rebind")

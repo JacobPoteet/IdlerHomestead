@@ -81,17 +81,25 @@ return {
     menu = "Menu",
     notebook = "Notebook", -- book plate: what you know (Journal, Fish guide, Log) (D140)
     ledger = "Ledger", -- book plate: what you run (Pantry, Routine list, Catalog) (D140)
+    hoe = "Hoe", -- the tool wheel's tools (D138); Hand and Rod are above
+    pail = "Pail",
+    axe = "Axe",
+    hammer = "Hammer",
+    more = "More", -- the last item of a ring too long to show: opens the full tray
+    hammerEmpty = "Nothing in the crate to build: order buildings in the Catalog", -- the Hammer with an empty crate
     journalStamp = "Pick an idea", -- decision stamp: the Journal has an idea to choose and nothing is queued
     deliveryStamp = "Delivered: %s", -- decision stamp: an item waits in the crate to be placed; %s is its name
   },
   captions = { -- one line saying what the tool in hand does on the next tap (D72, #168); %s is the seed or object name
     rod = "Rod: tap the water to fish",
+    pail = "Pail: tap a thirsty crop to water it", -- D138
+    axe = "Axe: tap a tree, rock, log or brush to clear it", -- D138
     untill = "Untill: tap a crop to pull it, tap bare tilled soil to turn it back to grass",
     seed = "%s in hand: tap open ground to till and plant",
     plan = "Plan field: tap two corners",
-    planSeed = "Plan %s: tap two corners (double-tap Plan to keep on)",
-    planClear = "Plan field: tap two corners to clear a plan (double-tap Plan to keep on)",
-    planKept = "Plan kept on: tap two corners; tap Plan to stop", -- the Plan latch is on (D94, #205); the caption is the same for a seed or a clear
+    planSeed = "Plan %s: tap two corners (take Plan again quickly to keep it on)",
+    planClear = "Plan field: tap two corners to clear a plan (take Plan again quickly to keep it on)",
+    planKept = "Plan kept on: tap two corners; take Plan again to stop", -- the Plan latch is on (D94, #205); the caption is the same for a seed or a clear
     place = "Placing %s: tap where it goes",
     moving = "Moving %s: tap where it goes (tap Moving to cancel)", -- D98, #15
   },
@@ -205,6 +213,8 @@ return {
     done = "Built the %s",
     lostItem = "The %s order was dropped",
     noUntill = "Only tilled soil can be untilled",
+    noWater = "Nothing to water there", -- the Pail tapped where no crop is thirsty (D138)
+    noClear = "Nothing to clear there", -- the Axe tapped where nothing can be cleared (D138)
     pullCrop = "Pulling the %s. Nothing is refunded", -- toast when Untill is aimed at a planted crop (%s: crop name, lower case, #254)
     pulledCrop = "Pulled the %s", -- toast when the homesteader finishes pulling it (#254)
     destroy = "Destroy", -- card button for objects and crops (D110, #255); no refund, the card asks first
@@ -400,6 +410,25 @@ return {
     idleLine = "Nothing to do", -- the routine is on with no work (it opens the routine list)
     countdownLine = "Routine in %ds", -- hands-on: when the routine takes over; %d is seconds
     walking = "Walking", -- on the way to a job
+  },
+  wheel = { -- the tool wheel (src/ui/tool_wheel.lua, GDD §9.4, D138); UI pixels and degrees unless noted
+    wedges = { -- the six tools and their fixed directions (0 = right, 90 = down): never reorder after release
+      { id = "hand", angle = -60 },
+      { id = "hoe", angle = 0 },
+      { id = "pail", angle = 60 },
+      { id = "axe", angle = 120 },
+      { id = "rod", angle = 180 },
+      { id = "hammer", angle = 240 },
+    },
+    holdTime = 0.18, -- real seconds a still right-press is held before the wheel opens (a quicker click inspects)
+    showDelay = 0.12, -- real seconds after opening before the wheel is drawn: a flick released sooner equips without it
+    spread = 24, -- degrees between the items of a tool's ring
+    maxFan = 150, -- degrees the widest ring may fan; more items sit closer together
+    maxRing = 9, -- ring items shown at most; a longer list ends in a More item that opens the full tray
+    smallWidth = 300, -- views narrower than this use the small sizes
+    normal = { radius = 58, wedge = 32, selected = 36, ring = 106, ringItem = 28, subRadius = 84, deadZone = 14 },
+    small = { radius = 48, wedge = 28, selected = 30, ring = 84, ringItem = 26, subRadius = 68, deadZone = 12 },
+    dim = { 0.03, 0.03, 0.05, 0.22 }, -- rgba: the world behind the wheel, darkened in a stepped ring round it
   },
   plate = { -- frosted HUD and panel plates lit like the world (shaders/ui_plate.glsl, src/ui/plate.lua; GDD §9.4, D142)
     see = 0.36, -- 0..1 how much of the blurred world shows through a panel plate (higher = more glass, less contrast for text)

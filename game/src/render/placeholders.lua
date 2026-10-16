@@ -1662,6 +1662,21 @@ P.icon_verb_untill = rows({
   "oo..........",
 })
 
+P.icon_verb_plan = rows({
+  "........oo..",
+  ".......oaao.",
+  "......oWoao.",
+  ".....oWWo...",
+  "....oWWo....",
+  "...oWWo.....",
+  "..oWWo......",
+  ".opWo.......",
+  ".opo........",
+  ".oo.........",
+  "............",
+  "pppppppppp..",
+})
+
 P.icon_signal_alert = rows({
   "...oooooo...",
   "..oaaaaaao..",

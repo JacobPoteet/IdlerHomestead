@@ -12,6 +12,11 @@
 --   cancel  {}            Escape / Android back
 --   speed   {}            Space: cycle the game speed (the on-screen button does the same)
 --   routine {}            R: start the idle routine now
+--   wheelOpen {x, y}      hold right click, a right drag, or a long-press, where the top scene wants the
+--                         tool wheel there (scene:wantsWheel(x, y), D138); a quick right click is still `context`
+--   wheelMove {x, y}      the pointer moved while the wheel is held open
+--   wheelRelease {x, y}   the pointer let go of a held wheel (the scene equips what it points at)
+--   toolWheel, tool1..tool6 {}   keys: open the wheel, equip a tool directly
 --
 -- Also tracks the time of the last real input for idle takeover (GDD §5.2).
 
@@ -103,9 +108,19 @@ function Input:pointerDown(px, py, button)
     longFired = false,
     button = button,
   }
+  local top = self.app.top and self.app:top()
+  -- A right press or a long-press on a scene that hosts the tool wheel can open it (D138).
+  self.pointer.wheelable = top ~= nil and top.wantsWheel ~= nil and top:wantsWheel(x, y) == true
   if button == 1 then
     self:emit("press", { x = x, y = y })
   end
+end
+
+--- Open the tool wheel for the held pointer (D138), at the point where it went down.
+function Input:openWheel(p)
+  p.wheel = true
+  p.longFired = true
+  self:emit("wheelOpen", { x = p.startX, y = p.startY })
 end
 
 function Input:pointerMove(px, py)
@@ -114,9 +129,21 @@ function Input:pointerMove(px, py)
     return
   end
   local x, y = self.app:toVirtual(px, py)
+  if p.wheel then
+    p.x, p.y = x, y
+    self:emit("wheelMove", { x = x, y = y })
+    return
+  end
   if not p.dragging then
     local dx, dy = x - p.startX, y - p.startY
     if dx * dx + dy * dy >= self.tuning.input.dragThreshold ^ 2 then
+      if p.button == 2 and p.wheelable then
+        -- A right drag is a flick on the wheel: it opens at once and chooses by direction (D138).
+        self:openWheel(p)
+        p.x, p.y = x, y
+        self:emit("wheelMove", { x = x, y = y })
+        return
+      end
       p.dragging = true
     end
   end
@@ -135,6 +162,10 @@ function Input:pointerUp(px, py)
   local x, y = self.app:toVirtual(px, py)
   if p.button == 1 then
     self:emit("release", { x = x, y = y })
+  end
+  if p.wheel then
+    self:emit("wheelRelease", { x = x, y = y })
+    return
   end
   if p.dragging or p.longFired then
     return
@@ -279,10 +310,19 @@ end
 
 function Input:update(dt)
   local p = self.pointer
+  local held = p and love.timer.getTime() - p.startTime or 0
   if p and p.button == 1 and not p.dragging and not p.longFired then
-    if love.timer.getTime() - p.startTime >= self.tuning.input.longPressTime then
-      p.longFired = true
-      self:emit("context", { x = p.x, y = p.y })
+    if held >= self.tuning.input.longPressTime then
+      if p.wheelable then
+        self:openWheel(p) -- a long-press on the world opens the tool wheel (D138)
+      else
+        p.longFired = true
+        self:emit("context", { x = p.x, y = p.y })
+      end
+    end
+  elseif p and p.button == 2 and p.wheelable and not p.wheel and not p.dragging then
+    if held >= self.tuning.ui.wheel.holdTime then
+      self:openWheel(p) -- a held right click opens the tool wheel; a quicker one inspects
     end
   end
   local dx, dy = 0, 0

@@ -214,10 +214,12 @@ end
 --- The task the player means by tapping tile i, or nil.
 --- A task type that would apply to the tile but for a full store stops the search: the tap is
 --- refused (nil) and the second return is the id of the resource that is full (#74), rather than
---- quietly falling through to some lesser task.
+--- quietly falling through to some lesser task. `order.categories` (a set of task category ids), when
+--- given, limits the tap to those categories: the tool in hand does only its own work (D138).
 function Tasks.taskForTile(world, actor, i, order)
+  local only = order and order.categories
   for _, t in ipairs(world.taskTypes.list) do
-    if t.clickOrder then
+    if t.clickOrder and (not only or only[t.category]) then
       local full = t.blocked and t.blocked(world, actor, i, order)
       if full then
         return nil, full

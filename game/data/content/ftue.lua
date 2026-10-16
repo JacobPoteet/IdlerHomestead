@@ -39,7 +39,7 @@ return {
     trigger = "object.cleared",
     after = { step = "welcome", seconds = 60 },
     retire = { "crop.planted" },
-    text = "Cleared! Tap the tool at the bottom, pick a seed, then tap open ground to till and plant it.",
+    text = "Cleared! Hold right click (or press and hold on a touch screen) for your tools: take the Hoe and a seed, then tap open ground to till and plant it. The tool at the bottom opens them too.",
   },
   {
     -- Early money is invisible (#161, D88): the first junk pile cleared pays, so say that is where it comes from.
