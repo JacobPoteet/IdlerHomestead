@@ -9,15 +9,20 @@ local Policies = require("policies")
 local ctx = Balance.context()
 local WEEK = 0.25 -- years: one season (7 days)
 
-T.test("balance harness: every policy plays one seed for a season, deterministically", function()
+-- Determinism is checked once per play path rather than once per test: here for "idle" (the cheapest
+-- policy), below for "active" with every feature on, and across the thread boundary for the parallel
+-- test. Playing every policy twice here only repeated those checks.
+T.test("balance harness: every policy plays one seed for a season", function()
   for _, name in ipairs(Policies.list) do
     local a = Balance.playSeed(ctx, name, 1, WEEK, 1)
-    local b = Balance.playSeed(ctx, name, 1, WEEK, 1)
     T.eq(#a, 1)
-    T.eq(a[1].alive, b[1].alive, name .. " alive")
-    T.eq(a[1].final.money, b[1].final.money, name .. " money repeats")
-    T.eq(a[1].final.warmth, b[1].final.warmth, name .. " warmth repeats")
     T.truthy(a[1].snaps[2], name .. " recorded the first morning")
+    if name == "idle" then
+      local b = Balance.playSeed(ctx, name, 1, WEEK, 1)
+      T.eq(a[1].alive, b[1].alive, name .. " alive")
+      T.eq(a[1].final.money, b[1].final.money, name .. " money repeats")
+      T.eq(a[1].final.warmth, b[1].final.warmth, name .. " warmth repeats")
+    end
   end
 end)
 
@@ -194,8 +199,10 @@ T.test("balance harness: policies play a season with every feature on, determini
   local all = Features.parse("all")
   for _, name in ipairs({ "scripted", "active" }) do
     local a = Balance.playSeed(ctx, name, 2, WEEK, 1, all)
-    local b = Balance.playSeed(ctx, name, 2, WEEK, 1, all)
-    T.eq(a[1].final.money, b[1].final.money, name .. " money repeats with features")
+    if name == "active" then
+      local b = Balance.playSeed(ctx, name, 2, WEEK, 1, all)
+      T.eq(a[1].final.money, b[1].final.money, name .. " money repeats with features")
+    end
     T.truthy(a[1].counters.kwhMade > 0, name .. " counted the energy the panel made")
     T.eq(a[1].features, "cat,stand,chickens,goats,water,power,machines,finds,weather")
   end

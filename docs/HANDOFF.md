@@ -41,9 +41,11 @@ the book plates open trays of the old panels; the Power panel is reached from th
   watch for shadowed locals (luacheck failed once on `status`).
 - Python works here (write files with `newline="
 "`, utf-8). Plain `open().write` on Windows wrote CRLF.
-- Verify every UI change with the driver at desktop, phone and landscape: `lovec tools/driver all
-  size=<desktop|phone|landscape> out=<dir>` takes about 12 minutes per size; run it in the background.
-  It stops at the first failing scenario. Do not edit game code while a sweep runs (modules load lazily).
+- Verify every UI change with the driver at desktop, phone and landscape: run the scenarios that touch
+  the change (`lovec tools/driver stand panels size=both out=<dir>`). `all size=both` runs in parallel
+  child processes and takes about 3.5 minutes (it was 9.5 on one process); run it in the background.
+  It reports every failing scenario at the end rather than stopping at the first. Do not edit game code
+  while a sweep runs (modules load lazily).
 - Driver helpers added: `d:pick(label)` (looks in the Tools, Notebook and Ledger trays), `d:hudButton(id)`,
   `d:pressHud(id)` (plates and stamps by id: clock, pause, play, fast, menu, badge, tools, notebook,
   ledger, journal, readiness, storage, delivery).
