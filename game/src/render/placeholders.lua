@@ -2,6 +2,8 @@
 -- Each painter receives a pixel helper `p` (0-based coordinates inside the sprite) and the
 -- variant number. Replace entries in assets/manifest.lua with real art to retire these.
 
+local Character = require("src.render.character")
+
 local P = {}
 
 -- The value plan: the open ground is light and warm, foliage and objects are deep and cool, and the
@@ -320,31 +322,9 @@ function P.cue_ready(p, _, _, variant)
   p:outline(C.sparkleEdge)
 end
 
--- The homesteader, lit from the top-left like everything else: the right side of the shirt, the right
--- leg and the jaw take a shade, the hair catches a highlight, and a dark outline keeps the figure
--- readable on any ground.
+-- The homesteader: a big-headed chibi built from shaded parts (src/render/character.lua).
 function P.homesteader(p)
-  local pantsDark, skinShade, hairLight = { 0.17, 0.22, 0.33 }, { 0.78, 0.60, 0.48 }, { 0.52, 0.37, 0.24 }
-  p:ellipse(8, 19, 4, 1, C.shadow)
-  p:rect(6, 15, 2, 4, C.pants)
-  p:rect(9, 15, 2, 4, pantsDark)
-  p:rect(6, 18, 2, 1, C.boot)
-  p:rect(9, 18, 2, 1, C.boot)
-  p:rect(5, 8, 7, 7, C.shirt)
-  p:rect(5, 10, 7, 1, C.shirtDark) -- flannel check
-  p:rect(8, 8, 1, 7, C.shirtDark)
-  p:rect(11, 8, 1, 7, C.shirtDark) -- the shaded side
-  p:rect(4, 9, 1, 5, C.skin)
-  p:rect(12, 9, 1, 5, skinShade)
-  p:rect(6, 2, 5, 6, C.skin)
-  p:rect(10, 3, 1, 5, skinShade)
-  p:rect(6, 7, 5, 1, skinShade) -- under the chin
-  p:rect(6, 1, 5, 2, C.hair)
-  p:rect(7, 1, 2, 1, hairLight)
-  p:px(6, 3, C.hair)
-  p:px(7, 5, C.tire)
-  p:px(9, 5, C.tire)
-  p:outline(C.outline)
+  Character.paint(p, Character.outfits.starter, C.shadow)
 end
 
 local CAT_FUR = { 0.78, 0.52, 0.28 }
