@@ -443,3 +443,44 @@ T.test("wardrobe words: the tuning strings used by the scene exist and the weigh
   T.truthy(cfg.tileW >= MIN and cfg.tileH >= MIN, "tiles are never below the touch target")
   T.eq(cfg.pips.light < cfg.pips.mid and cfg.pips.mid < cfg.pips.heavy, true)
 end)
+
+-- Earning surfaces (D155) ----------------------------------------------------------------------------------
+
+T.test("wardrobe earning: the unlock toast names one garment and counts several", function()
+  T.eq(WardrobeText.unlockToast(cfg, { "Straw hat" }), "New clothes: Straw hat")
+  T.eq(WardrobeText.unlockToast(cfg, { "Straw hat", "Scarf" }), "New clothes: 2 garments")
+  T.eq(WardrobeText.unlockToast(cfg, { "A", "B", "C" }), "New clothes: 3 garments")
+end)
+
+T.test("wardrobe earning: a recovery thumbnail's outfit is what is worn with the garment on, and a copy", function()
+  local world = newWorld()
+  local worn = Wardrobe.committed(world)
+  local out = WardrobeText.outfitWith(worn, "head", "straw_hat")
+  T.eq(out.head, "straw_hat")
+  T.eq(out.torso, worn.torso)
+  T.falsy(worn.head == "straw_hat", "the worn outfit is left alone")
+end)
+
+T.test("wardrobe earning: the stamp, dot and recovery strings exist, fit the font and have art", function()
+  local manifest = require("assets.manifest")
+  for _, key in ipairs({ "stamp", "recoveryButton", "recoveryRow", "toastUnlocked", "toastUnlockedMany" }) do
+    T.truthy(type(cfg[key]) == "string" and #cfg[key] > 0, key)
+  end
+  T.truthy(manifest.sprites.icon_signal_clothes, "the stamp has an icon")
+  T.truthy(cfg.dotSize >= 3 and cfg.recoveryThumbScale >= 1)
+  T.truthy(cfg.recoveryRowH >= 22 * cfg.recoveryThumbScale + 12, "the row holds its label and figures")
+  T.eq(string.format(cfg.recoveryRow, 2), "New clothes this run (2)")
+end)
+
+T.test("wardrobe earning: a sandbox slot has no dots, no stamp and nothing earned", function()
+  local world = World.new({ registry = reg, tuning = tun, meta = { sandbox = true } }, World.newState(1))
+  T.falsy(Wardrobe.grant(world, "scarf"), "nothing to grant")
+  T.same(Wardrobe.evaluate(world), {})
+  T.eq(Wardrobe.newCount(world), 0)
+  T.falsy(Wardrobe.stampDue(world))
+  T.same(Wardrobe.earnedThisRun(world), {})
+  for _, def in ipairs(reg:all("garments")) do
+    T.truthy(Wardrobe.owned(world, def.id), def.id)
+    T.falsy(Wardrobe.isNew(world, def.id), def.id)
+  end
+end)

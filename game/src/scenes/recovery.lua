@@ -1,7 +1,12 @@
 -- Recovery in town (GDD §4.3): review the run, take the one free study, then head out to new
 -- land. Shown after the rescue, and on loading a slot that's still recovering.
 
+local Character = require("src.render.character")
 local Journal = require("src.sim.systems.journal")
+local Preview = require("src.render.wardrobe_preview")
+local Wardrobe = require("src.sim.systems.wardrobe")
+local WardrobeScene = require("src.scenes.wardrobe")
+local WardrobeText = require("src.ui.wardrobe_text")
 local Run = require("src.meta.run")
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
@@ -33,11 +38,40 @@ function Recovery:enter(slot, data)
   self.metaWorld = Run.metaWorld(self.app.ctx, data.meta)
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
   self.app.ctx.store:write(slot, data) -- recovering survives a quit
+  self.wardrobeCfg = self.app.ctx.tuning.ui.wardrobe
+  Preview.setup(self.wardrobeCfg)
+end
+
+function Recovery:exit()
+  Preview.clear()
 end
 
 function Recovery:resize(view)
+  self.view = view
   self.box = Panel.box(view, 460, view.h - 16)
+  Preview.clear()
   self:layout()
+end
+
+--- Change clothes: the Wardrobe over this scene, on the slot's meta. A Wear applies at once between runs (the
+--- wardrobe system's rule) and is saved here exactly as a Learn is; the next run starts wearing it.
+function Recovery:changeClothes()
+  WardrobeScene.open(self.app, {
+    variant = "recovery",
+    world = self.metaWorld,
+    onWorn = function()
+      self.app.ctx.store:write(self.slot, self.data)
+      self:layout()
+    end,
+  })
+end
+
+--- Paint the little figures the new-clothes row draws (here, outside drawing, as the Wardrobe does).
+function Recovery:update()
+  Preview.frame(self.wardrobeCfg.previewBuilds)
+  for _, outfit in ipairs(self.clothesOutfits or {}) do
+    Preview.figure(self.app.ctx.registry, outfit, true)
+  end
 end
 
 function Recovery:headOut()
@@ -62,7 +96,28 @@ function Recovery:layout()
     + Text.wrappedHeight(self.failure.hint, "small", self.causeW)
     + (self.firstChange and Text.wrappedHeight(self.firstChange, "small", self.causeW) + 2 or 0)
   self.tableH = TABLE_H + (#self.progress.rows - 2) * TABLE_ROW
-  self.shift = self.tableH + math.max(0, math.ceil(height) - 12) -- the block starts at +108 and the study label sits at +132, both below the progress table
+  -- The clothes earned this run get a row under the notes (D155); the blocks below move down by its height.
+  local wcfg = self.wardrobeCfg
+  self.clothes = Wardrobe.earnedThisRun(self.metaWorld)
+  self.clothesH = #self.clothes > 0 and wcfg.recoveryRowH or 0
+  self.clothesOutfits = {}
+  for n, id in ipairs(self.clothes) do
+    local def = ctx.registry:get("garments", id)
+    self.clothesOutfits[n] = WardrobeText.outfitWith(Wardrobe.committed(self.metaWorld), def.slot, id) -- what is worn, with this garment on
+  end
+  self.shift = self.tableH + self.clothesH + math.max(0, math.ceil(height) - 12) -- the block starts at +108 and the study label sits at +132, both below the progress table
+  local stacked = self.view.w < wcfg.recoveryStackWidth -- narrow views put Change clothes above Head out
+  self.footerW = b.w - 24 - 136 - (stacked and 0 or 124 + 8)
+  self.buttons:add({
+    x = b.x + b.w - 136 - (stacked and 0 or 124 + 8),
+    y = b.y + b.h - (stacked and 66 or 36),
+    w = 124,
+    h = 26,
+    label = wcfg.recoveryButton,
+    onPress = function()
+      self:changeClothes()
+    end,
+  })
   self.buttons:add({
     x = b.x + b.w - 136,
     y = b.y + b.h - 36,
@@ -185,7 +240,27 @@ function Recovery:draw()
     Text.draw("None this time.", b.x + 12, b.y + 68 + top, { size = "small", color = dim })
   end
 
-  local y = b.y + 92 + top
+  if #self.clothes > 0 then
+    local wcfg = self.wardrobeCfg
+    local cy = b.y + 90 + top
+    Text.draw(string.format(wcfg.recoveryRow, #self.clothes), b.x + 12, cy, { size = "small", color = dim })
+    local scale = wcfg.recoveryThumbScale
+    local step = Character.W * scale + wcfg.recoveryThumbGap
+    local fx = b.x + 12
+    love.graphics.setColor(1, 1, 1, 1)
+    for n = 1, #self.clothes do
+      if fx + Character.W * scale > b.x + b.w - 12 then
+        break
+      end
+      local img = Preview.figure(registry, self.clothesOutfits[n])
+      if img then
+        love.graphics.draw(img, fx, cy + 12, 0, scale, scale)
+      end
+      fx = fx + step
+    end
+  end
+
+  local y = b.y + 92 + top + self.clothesH
   if recovery.finishedStudy then
     Text.draw("Finished studying: " .. Journal.node(self.metaWorld, recovery.finishedStudy).name, b.x + 12, y, {
       size = "small",
@@ -194,9 +269,10 @@ function Recovery:draw()
   end
 
   local f = self.failure
-  Panel.icon(f.icon, b.x + 12, b.y + 108 + top)
-  Text.draw(f.line, b.x + 30, b.y + 108 + top, { size = "small", width = self.causeW })
-  local cy = b.y + 108 + top + Text.wrappedHeight(f.line, "small", self.causeW)
+  local below = top + self.clothesH
+  Panel.icon(f.icon, b.x + 12, b.y + 108 + below)
+  Text.draw(f.line, b.x + 30, b.y + 108 + below, { size = "small", width = self.causeW })
+  local cy = b.y + 108 + below + Text.wrappedHeight(f.line, "small", self.causeW)
   Text.draw(f.hint, b.x + 30, cy, { size = "small", width = self.causeW, color = dim })
   if self.firstChange then
     cy = cy + Text.wrappedHeight(f.hint, "small", self.causeW) + 2
@@ -225,7 +301,7 @@ function Recovery:draw()
 
   Text.draw("New land, same knowledge. Nothing else comes with you.", b.x + 12, b.y + b.h - 34, {
     size = "small",
-    width = b.w - 24 - 136, -- leave room for the Head out button
+    width = self.footerW, -- leave room for the Head out and Change clothes buttons
     color = dim,
   })
   self.buttons:draw()

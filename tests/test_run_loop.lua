@@ -10,6 +10,7 @@ local Journal = require("src.sim.systems.journal")
 local Fishing = require("src.sim.systems.fishing")
 local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
+local Wardrobe = require("src.sim.systems.wardrobe")
 
 local tun = tuningLoader.load()
 local reg = Registry.new():loadAll()
@@ -90,6 +91,112 @@ T.test("run loop: one free study, then new land with the same knowledge", functi
   T.eq(Ledger.get(world2, "money"), world2.tuning.run.startingResources.money)
   Fishing.land(world2, "sunfish", 12, "active")
   T.eq(reloaded.meta.journal.notes.first_catch.run, 2, "notes remember which run wrote them")
+end)
+
+-- Clothes between runs (D155): the Wardrobe opens over the recovery scene on the slot's meta.
+
+T.test("run loop: Wear in recovery applies now, survives a save, and the next run wears it", function()
+  local data = Save.newSlotData("Loop")
+  local world = newSession(data, 11).world
+  Wardrobe.grant(world, "straw_hat")
+  Wardrobe.grant(world, "wool_sweater")
+  T.truthy(starve(world))
+  Run.fail(data, world)
+  local metaWorld = Run.metaWorld(ctx, data.meta)
+  T.truthy(Wardrobe.appliesNow(metaWorld), "between runs a Wear is today's outfit at once")
+  local dressed
+  metaWorld.events:on("wardrobe.dressed", function(e)
+    dressed = e.dressed
+  end)
+  local ok, reason, autoWasOn = Wardrobe.wear(metaWorld, { head = "straw_hat", torso = "wool_sweater" })
+  T.truthy(ok, reason)
+  T.falsy(autoWasOn)
+  T.eq(dressed and dressed.head, "straw_hat", "the dressed event fired")
+  T.eq(Wardrobe.dressed(metaWorld).torso, "wool_sweater", "with no run, today's outfit is the chosen one")
+  -- The scene saves with store:write exactly as Learn does; a reload keeps the outfit.
+  local store = Save.new(Save.memoryBackend(), { slotCount = 1 })
+  store:write(1, data)
+  local reloaded = store:read(1)
+  T.eq(Wardrobe.committed(Run.metaWorld(ctx, reloaded.meta)).head, "straw_hat")
+  -- Head out: the new run's snapshot wears it from its first moment.
+  Run.startNext(reloaded)
+  local nextWorld = newSession(reloaded, 22).world
+  T.eq(Wardrobe.dressed(nextWorld).head, "straw_hat")
+  T.eq(Wardrobe.dressed(nextWorld).torso, "wool_sweater")
+  T.eq(Wardrobe.owned(nextWorld, "straw_hat"), true, "and the clothes are still owned")
+end)
+
+T.test("run loop: the recovery scene lists the run's new clothes and lays out at every view", function()
+  local Recovery = require("src.scenes.recovery")
+  local Text = require("src.ui.text")
+  -- The pixel font needs the image module, which a headless run does not load: a flat 9 px line stands in.
+  local wrappedHeight, measure = Text.wrappedHeight, Text.measure
+  Text.wrappedHeight = function()
+    return 9
+  end
+  Text.measure = function(s)
+    return #s * 6, 9
+  end
+  local data = Save.newSlotData("Loop")
+  local world = newSession(data, 11).world
+  Wardrobe.grant(world, "straw_hat")
+  Wardrobe.grant(world, "scarf")
+  T.truthy(starve(world))
+  Run.fail(data, world)
+  local store = Save.new(Save.memoryBackend(), { slotCount = 1 })
+  local views = { { 640, 360 }, { 390, 844 }, { 844, 390 } }
+  for _, v in ipairs(views) do
+    local w, h = v[1], v[2]
+    local scene = Recovery.new()
+    local pushed
+    scene.app = {
+      ctx = { tuning = tun, registry = reg, store = store },
+      view = { w = w, h = h, scale = 1 },
+      stack = {},
+      push = function(_, s)
+        pushed = s
+      end,
+    }
+    scene:enter(1, data)
+    scene:resize({ w = w, h = h, scale = 1 })
+    local where = "recovery " .. w .. "x" .. h
+    local listed = {}
+    for _, id in ipairs(scene.clothes) do
+      listed[id] = true
+    end
+    T.truthy(listed.straw_hat and listed.scarf, where .. ": the garments earned this run are listed")
+    T.truthy(listed.bandana, where .. ": and so is the one being rescued earned")
+    T.truthy(scene.clothesH > 0, where .. ": the row takes room")
+    local change, head
+    for _, b in ipairs(scene.buttons.list) do
+      if b.label == tun.ui.wardrobe.recoveryButton then
+        change = b
+      elseif b.label == "Head out" then
+        head = b
+      end
+      if b == change or b == head then
+        T.truthy(
+          b.x >= scene.box.x and b.x + b.w <= scene.box.x + scene.box.w and b.y + b.h <= scene.box.y + scene.box.h,
+          where .. ": " .. tostring(b.label) .. " inside the panel"
+        )
+      end
+    end
+    T.truthy(change and head, where .. ": both buttons exist")
+    local overlap = change.x < head.x + head.w
+      and head.x < change.x + change.w
+      and change.y < head.y + head.h
+      and head.y < change.y + change.h
+    T.falsy(overlap, where .. ": Change clothes and Head out do not overlap")
+    if w < tun.ui.wardrobe.recoveryStackWidth then
+      T.truthy(change.y + change.h <= head.y, where .. ": stacked above Head out")
+    else
+      T.eq(change.y, head.y, where .. ": beside Head out")
+    end
+    change.onPress()
+    T.eq(pushed and pushed.variant, "recovery", where .. ": Change clothes opens the recovery Wardrobe")
+    T.eq(pushed.world, scene.metaWorld)
+  end
+  Text.wrappedHeight, Text.measure = wrappedHeight, measure
 end)
 
 T.test("run loop: the rescuer remembers you", function()

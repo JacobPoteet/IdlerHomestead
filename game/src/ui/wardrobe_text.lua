@@ -106,6 +106,25 @@ function WardrobeText.detail(cfg, def, owned, hintText, have, need)
   return hintText or cfg.locked, second
 end
 
+--- The toast for garments just earned: the garment's name for one, a count for several that came on one dawn.
+--- `names` is the list of garment names (at least one).
+function WardrobeText.unlockToast(cfg, names)
+  if #names == 1 then
+    return string.format(cfg.toastUnlocked, names[1])
+  end
+  return string.format(cfg.toastUnlockedMany, #names)
+end
+
+--- `outfit` (`{ slot = id }`) as a fresh table with `id` worn in `slot`: a recovery-row thumbnail's figure.
+function WardrobeText.outfitWith(outfit, slot, id)
+  local out = {}
+  for k, v in pairs(outfit) do
+    out[k] = v
+  end
+  out[slot] = id
+  return out
+end
+
 --- A tile's name wrapped to `maxLines` lines of at most `maxW` pixels (`measure(str)` is a string's width): words
 --- stay whole, and what does not fit ends in the ellipsis.
 function WardrobeText.nameLines(name, measure, maxW, maxLines, ellipsis)
