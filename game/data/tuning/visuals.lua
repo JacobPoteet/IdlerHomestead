@@ -368,6 +368,12 @@ return {
       amount = 1.0,
       scale = 1,
     },
+    plate = { -- the frosted world behind HUD and panel plates (shaders/ui_plate.glsl, D142); cells are UI pixels, not art pixels
+      algorithm = "bayer4",
+      steps = 4, -- brightness levels the blurred world is cut into
+      amount = 1.0,
+      scale = 1,
+    },
     vignette = { -- the dark rim of the view (shaders/grade.glsl)
       algorithm = "bands",
       steps = 0, -- darkness levels (0 = smooth, the old look)

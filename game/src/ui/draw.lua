@@ -1,15 +1,16 @@
 -- Small shared drawing helpers for UI.
 
 local theme = require("src.ui.theme")
+local Plate = require("src.ui.plate")
 
 local Draw = {}
 
-function Draw.panel(x, y, w, h)
-  love.graphics.setColor(theme.colors.panel)
-  love.graphics.rectangle("fill", x, y, w, h, 4, 4)
-  love.graphics.setColor(theme.colors.panelBorder)
-  love.graphics.setLineWidth(1)
-  love.graphics.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 4, 4)
+--- A modal panel: a frosted plate lit like the world (src/ui/plate.lua), more solid than a HUD plate so
+--- its text reads over the land. opts as Plate.draw.
+function Draw.panel(x, y, w, h, opts)
+  opts = opts or {}
+  opts.kind = opts.kind or "panel"
+  Plate.draw(x, y, w, h, opts)
 end
 
 --- Dim everything beneath a modal.

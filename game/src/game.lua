@@ -16,6 +16,7 @@ local Buttons = require("src.ui.buttons")
 local Shaders = require("src.render.shaders")
 local ScrollList = require("src.ui.scroll_list")
 local Text = require("src.ui.text")
+local Plate = require("src.ui.plate")
 local theme = require("src.ui.theme")
 local TitleScene = require("src.scenes.title")
 
@@ -48,6 +49,7 @@ function Game.new(opts)
     backend = (opts and opts.audioBackend) or (not live and AudioBackend.null()) or nil,
     fs = opts and opts.audioFs,
   })
+  Plate.setup(tuning)
   Buttons.onActivate = function()
     ctx.audio:play("ui_tap")
   end
@@ -155,6 +157,7 @@ end
 function Game:draw()
   local started = Perf.enabled and Perf.now()
   love.graphics.clear(theme.colors.background)
+  Plate.beginFrame()
   self.app:draw()
   self.debug:draw()
   if started then

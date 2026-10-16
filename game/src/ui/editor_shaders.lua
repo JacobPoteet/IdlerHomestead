@@ -25,6 +25,12 @@ M.ENTRIES = {
   { id = "mist", title = "Morning mist", shader = "mist.glsl", hint = "Early on a calm morning, by the creek." },
   { id = "sunbeams", title = "Sunbeams", shader = "sunbeams.glsl", hint = "Slanted shafts at low sun on a clear day." },
   { id = "vignette", title = "Vignette", shader = "grade.glsl", hint = "The dark rim of the view; steps 0 is smooth." },
+  {
+    id = "plate",
+    title = "Frosted plates",
+    shader = "ui_plate.glsl",
+    hint = "The world seen through HUD and panel plates.",
+  },
 }
 
 --- The fields a control can change, in the order they are listed, with their limits.

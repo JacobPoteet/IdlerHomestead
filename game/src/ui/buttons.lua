@@ -6,6 +6,7 @@ local theme = require("src.ui.theme")
 local Text = require("src.ui.text")
 local HoldRepeat = require("src.ui.hold_repeat")
 local Assets = require("src.render.assets")
+local Plate = require("src.ui.plate")
 
 local Buttons = {}
 Buttons.__index = Buttons
@@ -133,27 +134,36 @@ function Buttons:draw()
     elseif self.hovered == b then
       fill = colors.buttonHover
     end
-    love.graphics.setColor(fill)
-    love.graphics.rectangle("fill", b.x, b.y, b.w, b.h, 3, 3)
-    local border = colors.panelBorder
+    local ink
     if b.style == "danger" then
-      border = colors.danger
+      ink = colors.danger
     elseif b.style == "accent" or b.selected then
-      border = colors.accent
+      ink = colors.accent
     end
-    love.graphics.setColor(border)
-    love.graphics.setLineWidth(1)
     if b.pulse then
-      -- A gentle, persistent attention pulse (never hover-only): the accent border breathes and thickens.
+      -- A gentle, persistent attention pulse (never hover-only): the outline breathes toward amber.
       local wave = 0.5 + 0.5 * math.sin(love.timer.getTime() * 2 * math.pi / Buttons.PULSE_PERIOD)
-      love.graphics.setColor(colors.accent[1], colors.accent[2], colors.accent[3], 0.35 + 0.65 * wave)
-      love.graphics.setLineWidth(2)
+      local dark, amber = colors.panelBorder, colors.accent
+      ink = {
+        dark[1] + (amber[1] - dark[1]) * wave,
+        dark[2] + (amber[2] - dark[2]) * wave,
+        dark[3] + (amber[3] - dark[3]) * wave,
+      }
     end
-    love.graphics.rectangle("line", b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1, 3, 3)
+    local pressed = self.pressed == b
+    Plate.draw(b.x, b.y, b.w, b.h, {
+      base = fill,
+      kind = "button",
+      ink = ink,
+      lit = pressed and 0 or nil, -- a pressed button loses its sunlit edge, as if pushed in
+      alpha = 1,
+      weather = false,
+    })
     if b.latched then
-      -- A held-on tool (the Plan latch, D94): a second, inner accent ring so it reads apart from a plain selection.
+      -- A held-on tool (the Plan latch, D94): a second, inner amber ring so it reads apart from a plain selection.
       love.graphics.setColor(colors.accent)
-      love.graphics.rectangle("line", b.x + 2.5, b.y + 2.5, b.w - 5, b.h - 5, 2, 2)
+      love.graphics.setLineWidth(1)
+      love.graphics.rectangle("line", b.x + 3.5, b.y + 3.5, b.w - 7, b.h - 7)
     end
     local tw, th = Text.measure(b.label, b.size or "body")
     local textX, textW = b.x, b.w

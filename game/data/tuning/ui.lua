@@ -383,5 +383,20 @@ return {
     resetWidth = 48, -- virtual pixels: the per-row Reset button
     buttonGap = 4, -- virtual pixels between a row's buttons
   },
+  plate = { -- frosted HUD and panel plates lit like the world (shaders/ui_plate.glsl, src/ui/plate.lua; GDD §9.4, D142)
+    see = 0.36, -- 0..1 how much of the blurred world shows through a panel plate (higher = more glass, less contrast for text)
+    panelSee = 0.2, -- 0..1 the same for modal panels (Draw.panel), whose text sits over a wide area of world
+    buttonSee = 0.16, -- 0..1 the same for buttons, which stay more solid so their label reads at a glance
+    blurDivisor = 6, -- the world is copied at 1/this of the screen size before blurring (bigger = softer and cheaper)
+    blurPasses = 2, -- horizontal plus vertical blur passes over that copy
+    gradeShare = 0.45, -- 0..1 share of the world's time-of-day and season tint the plates take (text and icons take none)
+    nightDim = 0.35, -- 0..1 how much darker a plate's own colour gets at full night (on top of the grade share)
+    alpha = 0.92, -- 0..1 opacity of a plate's body
+    litAmount = 0.16, -- 0..1 strength of the warm lit edge on the top and left (the world's sun side)
+    shadeAmount = 0.35, -- 0..1 strength of the cool shade edge on the bottom and right
+    cornerCut = 2, -- UI pixels cut from each corner in steps (0 = square corners)
+    frostReach = 7, -- UI pixels frost creeps in from each corner at full frost (winter, D142)
+    snowMinSize = 24, -- UI pixels: plates narrower or shorter than this get no snow along their top, so it never covers their icon
+  },
   startRoutineHint = "Starts the routine now. It waters, plants, harvests and chops for you; any tap ends it.", -- toast when the routine starts
 }
