@@ -129,7 +129,7 @@ return function(d)
   world.events:emit("power.full", { battery = array })
   scene.toast = nil
   scene.toastQueue = {}
-  d:press("Journal")
+  d:pick("Journal")
   d:frames(2)
   local journal = d:scene()
   journal:select("auto_harvester") -- opens the node's chapter and its card

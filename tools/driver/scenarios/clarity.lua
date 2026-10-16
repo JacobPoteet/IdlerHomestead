@@ -41,27 +41,26 @@ return function(d)
   d:key("escape")
   d:frames(3)
 
-  -- The palette (narrow views) and the tool caption.
-  if d:tryPress("Tools") then
-    d:frames(3)
-    d:shot("palette_tools")
-    d:key("escape")
-    d:tryPress("More")
-    d:frames(3)
-    d:shot("palette_more")
-    d:key("escape")
-  end
+  -- The tools tray and a book's tray (D137), then the tool caption.
+  d:press("Tools")
+  d:frames(3)
+  d:shot("palette_tools")
+  d:key("escape")
+  d:press("Notebook")
+  d:frames(3)
+  d:shot("palette_more")
+  d:key("escape")
   d:pick("Rod")
   d:frames(3)
   d:shot("rod_caption")
   d:pick("Plan field")
   d:frames(3)
   d:shot("plan_caption")
-  d:press("Hand")
+  d:pick("Hand")
   d:frames(3)
 
   -- Journal: a ??? idea says what to do, and so does a blank stamp.
-  d:press("Journal")
+  d:pick("Journal")
   d:frames(5)
   local journal = d:scene()
   journal:select("smoker")

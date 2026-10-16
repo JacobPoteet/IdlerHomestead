@@ -104,7 +104,7 @@ return function(d)
   world.events:emit("market.trip", {})
   world.events:emit("animals.milked", { count = 1 })
   scene.toast = nil
-  d:press("Journal")
+  d:pick("Journal")
   d:frames(2)
   local journal = d:scene()
   journal:select("goat_pen") -- opens the node's chapter and its card

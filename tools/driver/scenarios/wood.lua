@@ -47,16 +47,15 @@ return function(d)
   dismissFinds(d)
   scene.toast, scene.toastQueue = nil, {}
   d:shot("chip_autumn")
-  local hit = scene.readinessHit
-  assert(hit, "the readiness pill is up in late autumn")
-  d:click(hit.x + 20, hit.y + hit.h / 2)
+  assert(d:hudButton("readiness"), "the readiness stamp is up in late autumn")
+  d:pressHud("readiness")
   d:frames(3)
   d:shot("readiness_card")
   d:press("Got it")
   d:frames(3)
 
   -- 3. The Pantry: one wood row with its keep target, spare, and the nights left.
-  d:press("Pantry")
+  d:pick("Pantry")
   d:frames(3)
   d:shot("pantry_wood")
   d:key("escape")

@@ -19,7 +19,7 @@ return function(d)
   d:frames(5)
   d:shot("hud_warning") -- the red "-N" chip in the top bar: the chub rot tonight
 
-  d:press("Pantry")
+  d:pick("Pantry")
   d:frames(3)
   d:shot("pantry_rates")
   d:key("escape")
@@ -39,7 +39,7 @@ return function(d)
   d:shot("loss_summary_toast")
   -- A bigger harvest: the automatic pantry keeps only what is eaten in time, the rest is spare.
   Ledger.add(world, "radish", 25)
-  d:press("Pantry")
+  d:pick("Pantry")
   d:frames(3)
   d:shot("pantry_after_loss")
   d:key("escape")

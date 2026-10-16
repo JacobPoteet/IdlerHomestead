@@ -61,7 +61,7 @@ return function(d)
   midGame(d:world())
   d:frames(3)
 
-  d:press("Journal")
+  d:pick("Journal")
   d:frames(8)
   d:shot("overview")
 
@@ -106,7 +106,7 @@ return function(d)
   -- A grown journal: 108 chapters under 12 areas, scrolled by wheel and by drag.
   JournalScene.chapterSource = grown(12)
   local ok, err = pcall(function()
-    d:press("Journal")
+    d:pick("Journal")
     d:frames(8)
     d:shot("grown_top")
     local s = d:scene()

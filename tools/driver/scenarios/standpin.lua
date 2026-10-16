@@ -29,7 +29,7 @@ return function(d)
   Food.setKeep(world, "sunfish", 0)
   Food.setKeep(world, "radish", 0)
 
-  d:press("Pantry")
+  d:pick("Pantry")
   d:frames(3)
   d:shot("pantry_before")
 
@@ -56,7 +56,7 @@ return function(d)
   end
   assert(world.state.stand.last, "the stand never sold")
   assert(Ledger.get(world, "radish") == 8, "the pinned radishes were sold")
-  d:press("Pantry")
+  d:pick("Pantry")
   d:frames(3)
   d:shot("pantry_after")
 end

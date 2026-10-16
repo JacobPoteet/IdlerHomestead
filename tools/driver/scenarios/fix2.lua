@@ -19,10 +19,10 @@ return function(d)
 
   -- Plan: one tap is on, a second quick tap latches it.
   d:pick("Plan field")
-  d:press("Plan field")
+  d:pick("Plan field")
   assert(d:scene().planLatch, "the second quick tap should latch Plan")
   d:shot("plan-latched")
-  d:press("Plan field")
+  d:pick("Plan field")
   assert(d:scene().mode == "act" and not d:scene().planLatch, "a tap while latched turns Plan off")
 
   -- Routine list in a short window: it scrolls.

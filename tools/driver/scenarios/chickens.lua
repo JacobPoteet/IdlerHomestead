@@ -62,7 +62,7 @@ return function(d)
   world.events:emit("crop.harvested", { amount = 1 })
   world.events:emit("market.trip", {})
   scene.toast = nil
-  d:press("Journal")
+  d:pick("Journal")
   d:frames(3)
   d:shot("journal")
 end

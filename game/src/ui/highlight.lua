@@ -1,16 +1,28 @@
 -- Tip-card highlight (GDD D89, #171): a pulsing outline and arrow on the thing a first-time card talks
 -- about. Presentation only: it reads layout, never changes the sim. Targets are strings in the step's
 -- `highlight` field (data/content/ftue.lua):
---   "button:<id>"  a bottom-bar button (pantry, catalog, journal, place ...)
---   "seeds"        the first seed button, else the Tools button that opens the palette
---   "chip:<id>"    a top-bar stat chip (food, condition, ...)
+--   "button:<id>"  a HUD button (pantry, catalog, journal, place ...), on a plate or in an open tray
+--   "seeds"        the first seed button, else the tool badge that opens the tools tray
+--   "chip:<id>"    a vital (food, condition, ...)
 --   "tile:truck"   the truck's footprint in the world
 -- A target that is not on screen right now resolves to nil, and then nothing is drawn.
 
 local Highlight = {}
 
--- Where a button target falls back to when it is not itself on the bar (a narrow screen keeps tools in a palette).
-local FALLBACK = { place = "tools", plan = "tools", rod = "tools", untill = "tools" }
+-- Where a button target falls back to when it is not on screen itself (D137): the stamp or plate that leads
+-- to it, tried in order. Tools live in the tool badge's tray, books in the Notebook's and Ledger's trays, and
+-- a delivery waiting to be placed has its own stamp.
+local FALLBACK = {
+  place = { "delivery", "tools" },
+  plan = { "tools" },
+  rod = { "tools" },
+  untill = { "tools" },
+  journal = { "notebook" },
+  fish = { "notebook" },
+  pantry = { "ledger" },
+  catalog = { "ledger" },
+  routineList = { "ledger" },
+}
 
 --- Screen rectangle { x, y, w, h } for a target, or nil. `find` = { button = fn(id), chip = fn(id),
 --- tile = fn(name), seed = fn() } each returning a rect or nil.
@@ -26,7 +38,11 @@ function Highlight.resolve(target, find)
     return nil
   end
   if kind == "button" and find.button then
-    return find.button(id) or (FALLBACK[id] and find.button(FALLBACK[id])) or nil
+    local rect = find.button(id)
+    for _, other in ipairs(rect == nil and FALLBACK[id] or {}) do
+      rect = rect or find.button(other)
+    end
+    return rect
   elseif kind == "chip" and find.chip then
     return find.chip(id)
   elseif kind == "tile" and find.tile then

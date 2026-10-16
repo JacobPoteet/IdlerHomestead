@@ -1,3 +1,64 @@
+# UI redesign handoff (2026-10-16)
+
+Read this first; the older master-agent prompt below still holds for workflow, but where they differ this wins.
+
+## What the user asked for
+A ground-up interface rethink for the MVP (not a polish): fewer buttons, a distinct look that fits the art,
+room for the coming Power and Water views. Agreed design: GDD §9.4 and decisions D137-D142. Build plan,
+phases and the prototype's tuning notes: `docs/PLAN_UI.md`. Tracking issue #300; phases #291-#299
+(MVP milestone). The user chose: a quiet frosted HUD with paper books; a hold-to-open tool wheel with six
+fixed wedges (Hand, Hoe, Pail, Axe, Rod, Hammer), the Hand kept smart; no lens buttons and no second wheel;
+plans drawn in pencil; frost and snow on plates in winter.
+
+## Done (merged to main)
+| Phase | Issue | PR | Notes |
+|---|---|---|---|
+| Design doc, D137-D142, issues | #300 | #301 | GDD §9.4, PLAN_UI.md, `docs/screens/uxproto_*` |
+| 1 Pixel font, plates, icons | #291 | #302 | `src/ui/pixel_font.lua`, `text.lua`, `plate.lua`, `shaders/ui_plate.glsl`, `icons.lua`; driver `uikit` |
+| 2 Pencil plans | #292 | #303 | `src/render/sketch.lua`, `shaders/sketch.glsl`; driver `pencil` |
+| 3 Resting HUD | #293 | #304 | `src/ui/hud.lua` (pure layout + trays), homestead `layoutHud`/`draw*`; `tests/test_hud.lua` |
+
+Check #304 merged (it was green-pending at handoff); if not, wait for CI and merge it.
+
+## Next: phase 4, the tool wheel (#294)
+Work in progress is on the pushed branch `claude/ui-tool-wheel-wip` (based on #304): the wheel geometry
+module, tuning, tests, and patch scripts that wire it in. Read `tools/wip/tool_wheel/README.md` on that
+branch; apply the scripts, verify with the driver, delete the wip folder, open "UI redesign 4/9".
+Decision made during build: the keyboard key is **Q**, not Tab (Tab is reserved for text fields); the
+docs script updates the GDD.
+
+Then phases 5-9 in order (#295 hammer and crate, #296 Notebook and Ledger books, #297 Power and Water
+lenses, #298 dither transitions and signals, #299 Axe and Pail area drags). Interim states to replace:
+the book plates open trays of the old panels; the Power panel is reached from the power vital's card
+(`scene:openPower()`); Hammer takes the next delivery until the crate exists.
+
+## How this session worked (the user approved it)
+- Bypass permissions: the user said not to ask before running, pushing, opening PRs or merging green
+  PRs (memory `autonomy-bypass`). Branch per phase, PR, wait for CI (format, lint, tests), merge with a
+  descriptive `--merge` message, confirm the issue closed.
+- StyLua and luacheck are NOT installed locally. Keep code lines at 120 columns or less (trailing comments
+  are fine); avoid calls that pass a multi-line table before another argument (StyLua reflows them);
+  watch for shadowed locals (luacheck failed once on `status`).
+- Python works here (write files with `newline="
+"`, utf-8). Plain `open().write` on Windows wrote CRLF.
+- Verify every UI change with the driver at desktop, phone and landscape: `lovec tools/driver all
+  size=<desktop|phone|landscape> out=<dir>` takes about 12 minutes per size; run it in the background.
+  It stops at the first failing scenario. Do not edit game code while a sweep runs (modules load lazily).
+- Driver helpers added: `d:pick(label)` (looks in the Tools, Notebook and Ledger trays), `d:hudButton(id)`,
+  `d:pressHud(id)` (plates and stamps by id: clock, pause, play, fast, menu, badge, tools, notebook,
+  ledger, journal, readiness, storage, delivery).
+- Wiki: notes updated in the Obsidian vault (Interface/Interface Redesign, Theme and UI Kit, Screens,
+  Shaders, Decision Log); update the matching note for each phase and commit only those files.
+
+## Tuning notes still open (from the prototype and the builds)
+- Small and body text are the same pixel font size now; a few tight rows touch (the Pantry wood line).
+  The books phase relays those panels out. The Journal still has its own green tiles.
+- `ui.plate` see-through, grade share and night dim are first guesses; tune in the F8 editor (Frosted
+  plates entry) after the user sees them in play.
+- The idle countdown ring and the badge texts were tuned by eye on desktop only.
+
+---
+
 # Master agent handoff prompt
 
 Paste everything below the line into a new Claude Code session opened in `F:\GitHub\IdlerHomestead`.
