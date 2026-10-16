@@ -223,6 +223,11 @@ function Driver:pick(label)
   if self:tryPress(label) then
     return
   end
+  local scene = self:scene()
+  if scene.equipByLabel and scene:equipByLabel(label) then
+    self:frames(1)
+    return -- a tool: taken as the tool wheel would (D138)
+  end
   for _, opener in ipairs({ "Tools", "Notebook", "Ledger" }) do
     if self:tryPress(opener) then
       if self:tryPress(label) then

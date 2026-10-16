@@ -398,5 +398,5 @@ end)
 T.test("plan latch: the captions say how to keep it on", function()
   local c = tun.ui.captions
   T.truthy(c.planKept:find("kept on"))
-  T.truthy(c.planSeed:find("double%-tap"))
+  T.truthy(c.planSeed:find("again quickly"))
 end)

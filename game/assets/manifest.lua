@@ -112,6 +112,7 @@ return {
     icon_verb_pickup = { placeholder = "icon_verb_pickup", w = 12, h = 12 },
     icon_verb_demolish = { placeholder = "icon_verb_demolish", w = 12, h = 12 },
     icon_verb_untill = { placeholder = "icon_verb_untill", w = 12, h = 12 },
+    icon_verb_plan = { placeholder = "icon_verb_plan", w = 12, h = 12 },
     icon_signal_alert = { placeholder = "icon_signal_alert", w = 12, h = 12 },
     icon_signal_idea = { placeholder = "icon_signal_idea", w = 12, h = 12 },
     icon_book_notebook = { placeholder = "icon_book_notebook", w = 12, h = 12 },

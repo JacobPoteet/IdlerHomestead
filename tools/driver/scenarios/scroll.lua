@@ -52,8 +52,9 @@ return function(d)
   d:frames(3)
   d:scene():layout()
 
-  -- The Tools palette with many seeds: capped, scrollbar thumb, wheel and drag.
-  if d:tryPress("Tools") then
+  -- The tools tray with many seeds (the Hoe ring's More, D138): capped, scrollbar thumb, wheel and drag.
+  d:scene():equip("hoe", { kind = "more" })
+  do
     d:frames(3)
     d:shot("palette_seeds")
     local r = d:scene().paletteRect

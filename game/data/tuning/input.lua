@@ -13,8 +13,29 @@ return {
     pagedown = "pageDown", -- scroll the open panel list down one window
     home = "listHome", -- jump to the top of the open panel list
     ["end"] = "listEnd", -- jump to the bottom of the open panel list
+    q = "toolWheel", -- open the tool wheel at the middle of the view (D138; Tab is kept for text fields)
+    ["1"] = "tool1", -- equip the Hand (the tool wheel's wedges, in tuning.ui.wheel.wedges order)
+    ["2"] = "tool2", -- equip the Hoe
+    ["3"] = "tool3", -- equip the Pail
+    ["4"] = "tool4", -- equip the Axe
+    ["5"] = "tool5", -- equip the Rod
+    ["6"] = "tool6", -- equip the Hammer
   },
-  rebindable = { "speed", "routine", "pageUp", "pageDown", "listHome", "listEnd" }, -- action names the Controls screen lets the player rebind, in display order; each has exactly one default key above (cancel stays on Esc)
+  rebindable = { -- action names the Controls screen lets the player rebind, in display order
+    "speed",
+    "routine",
+    "toolWheel",
+    "tool1",
+    "tool2",
+    "tool3",
+    "tool4",
+    "tool5",
+    "tool6",
+    "pageUp",
+    "pageDown",
+    "listHome",
+    "listEnd",
+  }, -- each has exactly one default key above (cancel stays on Esc)
   reservedKeys = { -- LÖVE key names no action may be bound to: they carry fixed meanings in every scene
     "escape", -- cancel / back; also how a rebind is abandoned
     "f1",
