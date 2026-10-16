@@ -1,6 +1,6 @@
--- Destroy from the details card (D110, #255) and planning over growing crops (D110, #257): the crop card with
--- Destroy and its confirmation, the object card with Destroy and the confirmation that names lost stock, and the
--- plan preview marking the tiles whose crop will be replaced, then the replace confirmation.
+-- Destroy (D110, #255) through the Hammer's Demolish mode (D139) and planning over growing crops (D110, #257): a
+-- crop demolished and its confirmation, a full woodshed and the confirmation that names lost stock, and the plan
+-- preview marking the tiles whose crop will be replaced, then the replace confirmation.
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
 local Land = require("src.sim.systems.land")
@@ -39,12 +39,11 @@ return function(d)
   scene.camera:centerOn(cx, cy, view)
   d:frames(3)
 
-  -- Crop card: Destroy.
-  scene.selected = at(1, 0)
-  d.game:draw()
+  -- Demolish a crop.
+  d:pick("Demolish")
   d:frames(2)
-  d:shot("crop_card")
-  d:press("Destroy")
+  d:shot("demolish_mode")
+  d:clickTile(bx + 1, by)
   d:frames(2)
   d:shot("crop_confirm")
   d:press("Destroy")
@@ -52,12 +51,8 @@ return function(d)
   assert(not world.state.crops[at(1, 0)], "the crop was destroyed")
   assert(world.state.fields.tilled[at(1, 0)], "the soil stays tilled")
 
-  -- Object card: Destroy a full woodshed.
-  scene.selected = at(5, 4)
-  d.game:draw()
-  d:frames(2)
-  d:shot("object_card")
-  d:press("Destroy")
+  -- Demolish a full woodshed.
+  d:clickTile(bx + 5, by + 4)
   d:frames(2)
   d:shot("object_confirm")
   d:press("Destroy")

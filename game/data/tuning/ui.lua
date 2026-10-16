@@ -86,9 +86,13 @@ return {
     axe = "Axe",
     hammer = "Hammer",
     more = "More", -- the last item of a ring too long to show: opens the full tray
-    hammerEmpty = "Nothing in the crate to build: order buildings in the Catalog", -- the Hammer with an empty crate
+    hammerMove = "Move", -- the Hammer's ring and modes (D139): tap a building to move it
+    hammerPickUp = "Pick up", -- tap a building to put it back in the crate
+    hammerDemolish = "Demolish", -- tap a building or a crop to destroy it (asks first)
+    orderMore = "Order more", -- the Hammer's ring: opens the Catalog on its buildings
     journalStamp = "Pick an idea", -- decision stamp: the Journal has an idea to choose and nothing is queued
     deliveryStamp = "Delivered: %s", -- decision stamp: an item waits in the crate to be placed; %s is its name
+    crateStamp = "%d in the crate", -- the same stamp when more than one thing waits (D139); %d is the count
   },
   captions = { -- one line saying what the tool in hand does on the next tap (D72, #168); %s is the seed or object name
     rod = "Rod: tap the water to fish",
@@ -101,7 +105,10 @@ return {
     planClear = "Plan field: tap two corners to clear a plan (take Plan again quickly to keep it on)",
     planKept = "Plan kept on: tap two corners; take Plan again to stop", -- the Plan latch is on (D94, #205); the caption is the same for a seed or a clear
     place = "Placing %s: tap where it goes",
-    moving = "Moving %s: tap where it goes (tap Moving to cancel)", -- D98, #15
+    moving = "Moving %s: tap where it goes (Esc or another tool cancels)", -- D98, #15
+    move = "Move: tap a building to choose its new spot", -- the Hammer's modes (D139)
+    pickup = "Pick up: tap a building to put it back in the crate",
+    demolish = "Demolish: tap a building or crop to destroy it (asks first)",
   },
   failure = { -- rescue and recovery words for what ended a run (D99, #216, #173); %s is a shelter or object name, lower case
     bothRatio = 2, -- ratio: cold and hunger both count when neither damage is at least this many times the other
@@ -215,9 +222,12 @@ return {
     noUntill = "Only tilled soil can be untilled",
     noWater = "Nothing to water there", -- the Pail tapped where no crop is thirsty (D138)
     noClear = "Nothing to clear there", -- the Axe tapped where nothing can be cleared (D138)
+    noMove = "No building to move there", -- the Hammer's Move tapped off a building (D139)
+    noPickUp = "No building to pick up there", -- the Hammer's Pick up tapped off a building
+    noDemolish = "Nothing to demolish there", -- the Hammer's Demolish tapped off a building or crop
+    hammerHint = "Move, pick up or demolish it with the Hammer", -- object card line (D139: the card only informs)
     pullCrop = "Pulling the %s. Nothing is refunded", -- toast when Untill is aimed at a planted crop (%s: crop name, lower case, #254)
     pulledCrop = "Pulled the %s", -- toast when the homesteader finishes pulling it (#254)
-    destroy = "Destroy", -- card button for objects and crops (D110, #255); no refund, the card asks first
     destroyTitle = "Destroy the %s?", -- %s: object or crop name, lower case
     destroyNoRefund = "It is gone for good and nothing is refunded. Pick up instead to keep it.", -- objects
     destroyCrop = "The %s is lost: %s Nothing is refunded.", -- %s: crop name; %s: growth state
@@ -241,9 +251,7 @@ return {
     moveStart = "Tap where the %s should go. It stays put until then",
     moveOrdered = "Ordered: the homesteader clears the way, then the %s moves",
     moved = "Moved the %s",
-    pickedUp = "Picked up the %s: place it from the toolbar",
-    pickUp = "Pick up", -- object card buttons
-    move = "Move",
+    pickedUp = "Picked up the %s: it waits in the crate (the Hammer)", -- D139
     pickConfirmTitle = "Pick up the %s?",
     pickConfirmCharge = "Its %.1f kWh of stored charge is lost.",
     pickConfirmOutput = "The %d %s waiting in it are thrown away.",

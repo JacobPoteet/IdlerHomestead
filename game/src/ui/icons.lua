@@ -40,4 +40,22 @@ function Icons.draw(id, x, y, scale, alpha)
   return sp.w * scale, sp.h * scale
 end
 
+--- The scale that fits sprite `id` in a w x h box: the largest whole number up to `max`, or 1/2, 1/3 ... when
+--- even 1x is too big (a world sprite as a crate thumbnail, D139).
+function Icons.fitScale(id, w, h, max)
+  local sp = Assets.sprite(id)
+  local fit = math.min(w / sp.w, h / sp.h)
+  if fit >= 1 then
+    return math.min(max or 1, math.floor(fit))
+  end
+  return 1 / math.ceil(1 / fit)
+end
+
+--- Draw sprite `id` centred in the box (x, y, w, h) at Icons.fitScale.
+function Icons.drawFit(id, x, y, w, h, max)
+  local sp = Assets.sprite(id)
+  local scale = Icons.fitScale(id, w, h, max)
+  return Icons.draw(id, x + math.floor((w - sp.w * scale) / 2), y + math.floor((h - sp.h * scale) / 2), scale)
+end
+
 return Icons

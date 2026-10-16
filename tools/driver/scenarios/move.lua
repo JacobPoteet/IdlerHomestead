@@ -1,6 +1,6 @@
--- Picking up and moving placed objects (D98, #15): the object card with Pick up / Move, the move preview over a
--- tree (the object stays put until the way is clear), the finished move, a refusal (a coop with hens), and the
--- confirmation for a battery that holds charge.
+-- Picking up and moving placed objects (D98, #15) with the Hammer's modes (D139): the object card that points to
+-- the Hammer, the move preview over a tree (the object stays put until the way is clear), the finished move, a
+-- refusal (a coop with hens), and the confirmation for a battery that holds charge.
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
 local Land = require("src.sim.systems.land")
@@ -42,14 +42,19 @@ return function(d)
   scene.camera:centerOn(cx, cy, view)
   d:frames(3)
 
-  -- The object card of a smoker: Pick up and Move.
+  -- The object card of a smoker: it only informs, and points to the Hammer.
   scene.selected = at(0, 0)
   d:frames(2)
   d:shot("card")
 
-  -- Move: the ghost over the tree is amber, the smoker stays where it is.
-  d:press("Move")
+  -- Move: the Hammer's Move mode, a tap on the smoker, then the ghost over the tree is amber; the smoker stays.
+  scene.selected = nil
+  d:pick("Move")
   d:frames(2)
+  d:shot("move_mode")
+  d:clickTile(bx, by)
+  d:frames(2)
+  assert(scene.moving == at(0, 0), "a tap on the smoker starts its move")
   scene.hover = at(4, 3)
   d:frames(2)
   d:shot("move_preview")
@@ -71,20 +76,16 @@ return function(d)
   d:shot("moved")
 
   -- A coop with hens cannot be picked up.
-  scene.selected = at(0, 3)
-  d.game:draw() -- the card buttons are laid out while drawing
-  d:frames(2)
-  d:press("Pick up")
+  scene.selected = nil
+  d:pick("Pick up")
+  d:clickTile(bx, by + 3)
   d:frames(2)
   d:shot("refused")
   assert(world.state.grid.objects[at(0, 3)], "the coop stays")
 
   -- A battery holding charge asks first.
   scene.toast = nil
-  scene.selected = at(3, 0)
-  d.game:draw()
-  d:frames(2)
-  d:press("Pick up")
+  d:clickTile(bx + 3, by)
   d:frames(2)
   d:shot("battery_confirm")
   d:press("Pick up")
