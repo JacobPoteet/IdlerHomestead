@@ -35,6 +35,7 @@ return {
     untilHour = 20, -- hour of that day (0..24): before the first evening
   },
   presets = { "warm", "cold" }, -- saved outfit names: the weather each is for
+  autoColdNeed = 2, -- warmth (Weather.warmthNeed units; peak is needs.warmthPeak, 8) a coming night must need for the dawn auto-dress to wear the Cold preset: 25% of a full winter night, so autumn on is cold and the thaw and summer are warm
   unlocks = { -- threshold of each counting unlock, by garment id (a garment named here has a `%d` or a count in its hint)
     straw_hat = 2, -- kinds of crop harvested (the game has two crops today)
     tank_top = 3, -- summers lived through

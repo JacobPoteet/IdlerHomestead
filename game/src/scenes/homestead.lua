@@ -440,6 +440,10 @@ function Homestead:subscribe()
       "wardrobe.dressed",
       function(e) -- the outfit changed (a Wear that applies now, or a dawn): repaint the figure
         WardrobePreview.dressWorld(world.registry, e.dressed)
+        if e.reason == "auto" then -- Auto wore a saved outfit at dawn: say which night it dressed for
+          local cfg = self.app.ctx.tuning.ui.wardrobe
+          self:heldToast("wardrobe.auto", string.format(cfg.toastAuto, cfg.autoNights[e.night]))
+        end
       end
     ),
   }

@@ -146,7 +146,7 @@ T.test("wardrobe layout: a slot's garments fit without scrolling, a long list sc
     most = math.max(most, n)
   end
   for name, view in pairs(VIEWS) do
-    local L = WardrobeLayout.rects(cfg, bookCfg, view, MIN, most)
+    local L = WardrobeLayout.rects(cfg, bookCfg, view, MIN, most, { maxTiles = most, presets = true, save = true })
     local tiles, contentH, columns = WardrobeLayout.tiles(cfg, L.grid, most)
     T.truthy(contentH <= L.grid.h, name .. ": " .. most .. " tiles fit without scrolling")
     T.eq(#tiles, most)
@@ -159,6 +159,61 @@ T.test("wardrobe layout: a slot's garments fit without scrolling, a long list sc
     local _, longH = WardrobeLayout.tiles(cfg, long.grid, 40)
     T.truthy(longH > long.grid.h, name .. ": 40 tiles scroll")
   end
+end)
+
+T.test("wardrobe layout: the preset chips and Save have room, and the tag beside Wear keeps a line", function()
+  local names = tun.wardrobe.presets
+  T.eq(#names, 2)
+  for name, view in pairs(VIEWS) do
+    local L = WardrobeLayout.rects(cfg, bookCfg, view, MIN, 7, { maxTiles = 7, presets = true, save = true })
+    T.eq(#L.chips, #names + 1, name .. ": Warm, Cold and Auto")
+    for n, chip in ipairs(L.chips) do
+      inside(chip, L.presets, name .. " chip " .. n)
+      inside(chip, L.body, name .. " chip " .. n .. " in the body")
+      if n > 1 then
+        T.truthy(chip.x >= L.chips[n - 1].x + L.chips[n - 1].w, name .. " chips do not overlap")
+      end
+    end
+    T.falsy(overlap(L.save, L.reset) or overlap(L.save, L.wear), name .. ": Save is clear of Reset and Wear")
+    if L.wide then
+      T.truthy(L.tag.w >= 100, name .. ": the tag has " .. L.tag.w .. " px beside the three buttons")
+    end
+    T.falsy(overlap(L.presets, L.preview), name .. " chips clear of the figure")
+    T.falsy(overlap(L.presets, L.meters.heat), name .. " chips clear of the meters")
+    T.falsy(overlap(L.presets, L.grid), name .. " chips clear of the grid")
+  end
+end)
+
+T.test("wardrobe presets: every preset has a word, a stamp that exists, and every message fits a line", function()
+  local manifest = require("assets.manifest")
+  for _, name in ipairs(tun.wardrobe.presets) do
+    local word = cfg["preset" .. name:sub(1, 1):upper() .. name:sub(2)]
+    T.truthy(type(word) == "string" and word ~= "", name .. " has a word")
+    T.truthy(manifest.sprites[cfg.presetIcons[name]], name .. " has its stamp in the manifest")
+    T.truthy(cfg.autoNights[name], name .. " has a word for the Auto toast")
+  end
+  local L = WardrobeLayout.rects(cfg, bookCfg, VIEWS.phone, MIN, 7, { maxTiles = 7, presets = true, save = true })
+  local measure = function(label)
+    local w = 0
+    for ch in label:gmatch(".") do
+      w = w + #PixelFont.glyph(ch)[1] + 1
+    end
+    return w - 1
+  end
+  for _, key in ipairs({
+    "presetEmptyHint",
+    "presetPartial",
+    "saveArmed",
+    "autoOnHint",
+    "autoOffHint",
+    "autoEmptyHint",
+  }) do
+    T.truthy(measure(cfg[key]) <= L.detail.w, key .. " fits the detail line on a phone")
+  end
+  for _, key in ipairs({ "presetLoaded", "saved" }) do
+    T.truthy(measure(string.format(cfg[key], "Warm")) <= L.detail.w, key .. " fits")
+  end
+  T.truthy(measure(string.format(cfg.toastAuto, cfg.autoNights.cold)) > 0)
 end)
 
 T.test("wardrobe layout: focus on a tile in a long list reveals it", function()

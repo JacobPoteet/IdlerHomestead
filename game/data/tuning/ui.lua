@@ -504,7 +504,10 @@ return {
     meterStackRowH = 20, -- one meter's two lines on stacked views (label over bar)
     meterRowGap = 2, -- space between the two meters
     meterCostDither = 2, -- px period of the cost fill's checker (cost is shape as well as colour)
-    presetW = 56, -- a preset chip's width (the chips arrive with the presets)
+    presetW = 56, -- a preset chip's width (Warm, Cold and Auto)
+    chipIconGap = 3, -- space between a chip's stamp and its word
+    chipPad = 4, -- space inside a chip's left edge before its stamp (or the Auto pip)
+    autoPip = 4, -- the Auto chip's on/off pip edge (filled and amber when Auto is on, an outline when off)
     presetH = 24, -- a preset chip's height
     actionH = 26, -- the Reset and Wear buttons' height (raised to input.minTouchTarget)
     wearW = 72, -- Wear's width on wide views
@@ -542,6 +545,23 @@ return {
     toastDawn = "Laid out for dawn", -- toast after Wear when the change waits
     toastNow = "Changed clothes", -- toast after Wear when it applies at once
     toastAutoOff = "Auto is off: you chose an outfit", -- toast when Wear turns the dawn auto-dress off
+    toastAuto = "Auto: dressed for a %s night", -- world toast at dawn when Auto wore a preset; %s is a word of autoNights
+    autoNights = { warm = "warm", cold = "cold" }, -- the %s of toastAuto by the night the preset was for
+    presetWarm = "Warm", -- the chip for the outfit of mild nights (sun stamp)
+    presetCold = "Cold", -- the chip for the outfit of cold nights (snowflake stamp)
+    presetIcons = { warm = "icon_preset_warm", cold = "icon_preset_cold" }, -- the chips' stamps
+    presetEmpty = "Empty", -- a chip's word while nothing is saved in it
+    presetEmptyHint = "Save an outfit here first", -- detail line after tapping an empty chip
+    presetPartial = "Some pieces are not earned yet", -- detail line after loading a preset that holds a garment you do not own
+    presetLoaded = "%s outfit on show", -- detail line after loading a preset; %s is the chip's word
+    save = "Save", -- the action that stores the outfit on show in a preset
+    saveCancel = "Cancel", -- the same button while it waits for a chip
+    saveArmed = "Tap Warm or Cold to save this outfit", -- detail line while Save waits for a chip
+    saved = "Saved as %s", -- detail line after a save; %s is the chip's word
+    auto = "Auto", -- the toggle chip: wear Warm or Cold at dawn by the forecast
+    autoOnHint = "Auto: Warm or Cold at dawn, by the forecast", -- detail line after Auto goes on
+    autoOffHint = "Auto is off", -- detail line after Auto goes off
+    autoEmptyHint = "Auto needs a saved Warm and Cold outfit", -- detail line when Auto goes on with a chip still empty
     menuRow = "Wardrobe", -- the in-game menu's button
     toastUnlocked = "New clothes: %s", -- toast when one garment is earned
     toastUnlockedMany = "New clothes: %d garments", -- toast when several are earned on one dawn

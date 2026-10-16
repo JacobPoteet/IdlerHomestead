@@ -1,6 +1,6 @@
 # Plan: the homesteader's wardrobe
 
-Status: proposal, nothing built. Covers a redrawn character, clothes with a small day/night trade-off, how clothes are earned, and the menu that puts them on. On approval it becomes a GDD section plus decisions D149 onward (see "Docs to update").
+Status: implemented in #328 (the character and the plans), #329 (the sim: garments, weight classes, dawn snapshot, unlocks), #330 (the menu), #332 (earning surfaces and the recovery variant) and #334 (presets and Auto). Changed or dropped on the way: the Look / Appearance tab and hair and skin choices were dropped (customization only, see PLAN_WARDROBE_MENU §6.7); seven garments without an unlock in §4 got one, and the Scarf unlock is "live through a frost" because the game has no radio neighbour; the menu key is a rebindable `C` action; Auto reads `Weather.warmthNeed` against `tuning.wardrobe.autoColdNeed` and wears a saved preset at dawn, off by default. Covers a redrawn character, clothes with a small day/night trade-off, how clothes are earned, and the menu that puts them on.
 
 ## 1. What the system has to do
 

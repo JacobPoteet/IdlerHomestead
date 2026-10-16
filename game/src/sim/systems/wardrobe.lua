@@ -18,13 +18,15 @@
 --
 -- Accessors (the menu reads only these): slots, garments, owned, committed, dressed, dressedKey, appliesNow,
 -- effects, scale, isNew, newCount, stampDue, earnedThisRun, preset, autoOn, threshold, progress.
--- Writers: wear, markSeen, stampSeen, savePreset, setAuto, grant (and evaluate, the unlock check).
+-- Writers: wear, markSeen, stampSeen, savePreset, setAuto, grant (and evaluate, the unlock check). autoNight says which
+-- preset the dawn auto-dress would wear.
 -- Multipliers other systems use: insulation(world) and workBonus(world).
--- Emits "wardrobe.dressed" { dressed, reason } and "wardrobe.unlocked" { id, run }.
+-- Emits "wardrobe.dressed" { dressed, reason ("wear" | "dawn" | "auto"), night ("warm" | "cold", for "auto") } and "wardrobe.unlocked" { id, run }.
 
 local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
 local Sandbox = require("src.sim.systems.sandbox")
+local Weather = require("src.sim.systems.weather")
 
 local Wardrobe = {}
 
@@ -303,6 +305,11 @@ function Wardrobe.earnedThisRun(world, run)
   return out
 end
 
+--- The preset names in display order (`warm`, `cold`), from tuning.
+function Wardrobe.presets(world)
+  return cfg(world).presets
+end
+
 --- A saved outfit (`warm` or `cold`) as a fresh table, or nil when nothing was saved there.
 function Wardrobe.preset(world, name)
   local saved = store(world).presets[name]
@@ -323,13 +330,13 @@ end
 
 -- Writers --------------------------------------------------------------------------------------------------
 
-local function snapshot(world, reason)
+local function snapshot(world, reason, night)
   local slice = world.state.wardrobe
   local now = Wardrobe.committed(world)
   local changed = outfitKey(world, slice.dressed) ~= outfitKey(world, now)
   slice.dressed = now
   if changed then
-    world.events:emit("wardrobe.dressed", { dressed = copyOutfit(world, now), reason = reason })
+    world.events:emit("wardrobe.dressed", { dressed = copyOutfit(world, now), reason = reason, night = night })
   end
 end
 
@@ -418,9 +425,38 @@ function Wardrobe.savePreset(world, name, outfit)
   return true
 end
 
---- Switch the dawn auto-dress on or off (the switching itself is the menu's later step).
+--- Switch the dawn auto-dress on or off.
 function Wardrobe.setAuto(world, on)
   store(world).auto = on == true
+end
+
+--- Which saved outfit the dawn auto-dress would wear for the coming night: "cold" when tonight needs warmth of
+--- at least `tuning.wardrobe.autoColdNeed` (the weather system's own figure, the one the readiness forecast
+--- reads), else "warm".
+function Wardrobe.autoNight(world)
+  return Weather.warmthNeed(world) >= cfg(world).autoColdNeed and "cold" or "warm"
+end
+
+-- The auto-dress at a new day: with Auto on, the chosen outfit becomes the preset for the coming night, so
+-- the dawn snapshot dresses it. It only ever wears a saved preset: an empty one, or one holding a garment the
+-- slot does not own, changes nothing, and no preset is ever written. Returns "warm" | "cold" when it chose one.
+local function autoDress(world)
+  local w = store(world)
+  if not w.auto then
+    return nil
+  end
+  local night = Wardrobe.autoNight(world)
+  local outfit = Wardrobe.preset(world, night)
+  if not outfit then
+    return nil
+  end
+  for _, slot in ipairs(cfg(world).slots) do
+    if not Wardrobe.owned(world, outfit[slot]) then
+      return nil
+    end
+  end
+  w.worn = outfit
+  return night
 end
 
 -- Unlocks ----------------------------------------------------------------------------------------------------
@@ -556,7 +592,8 @@ function Wardrobe.init(world)
     if isFrozenSeason(world, Calendar.now(world).season) then
       counts.snowDays = counts.snowDays + 1
     end
-    snapshot(world, "dawn")
+    local night = autoDress(world)
+    snapshot(world, night and "auto" or "dawn", night)
     Wardrobe.evaluate(world)
   end)
   events:on("calendar.newSeason", function(e)
