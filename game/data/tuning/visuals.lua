@@ -303,18 +303,6 @@ return {
     sideGain = 1.6, -- how fast the sunward side's share grows as the sun moves off noon (1 at side 1/sideGain)
     inkLuma = 0.16, -- brightness below which a pixel is outline: the rim sits just inside it and the outline stays dark
   },
-  groundDetail = { -- variety painted once into the grass (src/render/ground_detail.lua): soft patches of lighter and darker grass
-    enabled = true,
-    block = 2, -- art pixels per patch cell (the patch edges step in blocks this size)
-    patchScale = 0.012, -- patch noise frequency, 1/art pixels (0.012 = patches about 5 tiles across)
-    lightCut = 0.62, -- noise level above which the grass is a step lighter
-    darkCut = 0.38, -- noise level below which it is a step darker
-    step = 0.08, -- noise past a cut where the second, stronger step starts
-    light1 = { 0.95, 1.00, 0.70, 0.10 }, -- lighter, warmer grass (rgba over the tile; alpha is the strength)
-    light2 = { 0.95, 1.00, 0.70, 0.18 },
-    dark1 = { 0.12, 0.30, 0.22, 0.12 }, -- darker, cooler grass
-    dark2 = { 0.12, 0.30, 0.22, 0.22 },
-  },
   forestFloor = { -- shade under a wood (drawn into the shadow mask as contact shade, so it takes shadows.color): every tree with enough trees round it pools a wide, low ellipse, and they merge into one shaded floor
     minNeighbours = 3, -- of the 8 tiles round a tree, how many must hold trees for it to shade the floor
     deepNeighbours = 6, -- from this many the floor under it is in deep shade

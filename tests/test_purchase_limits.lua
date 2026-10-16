@@ -53,7 +53,6 @@ end
 -- The classification table (D114): the single source the content must match.
 local UNIQUE = {
   "roadside_stand",
-  "woodshed",
   "wood_stove",
   "electric_heater",
   "chest_freezer",
@@ -70,6 +69,7 @@ local UNIQUE = {
   "stand_display",
 }
 local REPEATABLE = {
+  "woodshed",
   "chicken_coop",
   "goat_pen",
   "cistern",
@@ -113,7 +113,6 @@ end)
 
 T.test("purchase limits: a unique building is refused while ordered, delivered, or placed", function()
   for _, id in ipairs({
-    "woodshed",
     "wood_stove",
     "smoker",
     "roadside_stand",
@@ -145,19 +144,19 @@ end)
 
 T.test("purchase limits: a destroyed unique building can be bought again", function()
   local world = richWorld()
-  Market.order(world, "woodshed")
+  Market.order(world, "wood_stove")
   deliverAll(world)
   local spot
   for i = 1, #world.state.grid.terrain do
-    if Inventory.canPlace(world, "woodshed", i) then
+    if Inventory.canPlace(world, "wood_stove", i) then
       spot = i
       break
     end
   end
-  Inventory.place(world, "woodshed", spot)
-  T.eq(Market.cannotBuy(world, "woodshed", false), "owned")
+  Inventory.place(world, "wood_stove", spot)
+  T.eq(Market.cannotBuy(world, "wood_stove", false), "owned")
   T.truthy(Placement.destroy(world, spot))
-  T.eq(Market.cannotBuy(world, "woodshed", false), nil)
+  T.eq(Market.cannotBuy(world, "wood_stove", false), nil)
 end)
 
 T.test("purchase limits: repeatable items can be ordered again", function()

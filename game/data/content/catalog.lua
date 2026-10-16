@@ -118,7 +118,6 @@ return {
     needs = { "first_fire" },
     studyNights = 2,
     object = "woodshed",
-    unique = true,
   },
   {
     id = "wood_stove",
