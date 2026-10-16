@@ -5,7 +5,7 @@ for docs. It needs a window and a GPU context (it renders for real), so it is no
 `lovec tests`.
 
 ```
-lovec tools/driver <scenario|all> [size=desktop|phone|landscape|both] [out=dir] [seed=N]
+lovec tools/driver <scenario|all> [size=desktop|phone|landscape|both] [out=dir] [seed=N] [jobs=N]
 lovec tools/driver help=1            # lists scenarios
 ```
 
@@ -14,6 +14,12 @@ lovec tools/driver help=1            # lists scenarios
   overrides it for one game. Pick tiles with `d:freeTileNear(dx, dy)` or `d:nearestObject`, not
   fixed offsets from the homesteader, which may land on a building.
 
+- `jobs`: how many (scenario, size) runs go at once, each in its own `lovec` child process; the output
+  is printed in order and the exit code is still non-zero if any run failed. Default `min(4, CPUs)`;
+  `jobs=1` plays everything in this process (use it to debug a scenario). A full `all size=both` takes
+  about 3.5 minutes at the default, 9.5 on one process. `all` leaves out the frame-cost benchmarks
+  `perf` and `wall` (no screenshots; they time the frame, so they always run alone): name them to run them.
+  For a UI change, run the scenarios that touch it (`lovec tools/driver stand panels`), not `all`.
 - `size`: `desktop` is 1280x720, `phone` is 390x844, `landscape` is 844x390 (phone on its side).
   Default (`both`) runs all three, so every scenario is also a phone-size run.
 - `out`: output directory, which must already exist. Default `docs/screens`. Files are named
