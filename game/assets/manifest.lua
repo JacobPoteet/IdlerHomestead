@@ -69,7 +69,7 @@ return {
     potato = { placeholder = "potato", w = 16, h = 16, variants = 3 },
 
     -- Actors
-    homesteader = { placeholder = "homesteader", w = 16, h = 20 },
+    homesteader = { placeholder = "homesteader", w = 20, h = 22 },
     cat = { placeholder = "cat", w = 14, h = 10 },
     cat_nap = { placeholder = "cat_nap", w = 14, h = 10 },
     hen = { placeholder = "hen", w = 10, h = 9 },
