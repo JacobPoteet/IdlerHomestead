@@ -295,6 +295,16 @@ return {
     dark1 = { 0.12, 0.30, 0.22, 0.12 }, -- darker, cooler grass
     dark2 = { 0.12, 0.30, 0.22, 0.22 },
   },
+  forestFloor = { -- shade under a wood (drawn into the shadow mask as contact shade, so it takes shadows.color): every tree with enough trees round it pools a wide, low ellipse, and they merge into one shaded floor
+    minNeighbours = 3, -- of the 8 tiles round a tree, how many must hold trees for it to shade the floor
+    deepNeighbours = 6, -- from this many the floor under it is in deep shade
+    level = 0.35, -- 0..1 share of shadows.contactStrength under a tree at the edge of a wood
+    deepLevel = 0.6, -- the same in the thick of it
+    radiusX = 13, -- art pixels, half-width of the shade under one tree (wider than half a tile, so neighbours merge)
+    radiusY = 10, -- art pixels, half-height
+    drop = 2, -- art pixels the shade sits below the tile centre (toward the trunk)
+    segments = 16, -- polygon segments per ellipse
+  },
   sunlight = { -- sprites lit by the sun (shaders/rim.glsl and sway.glsl): a faint lit edge on the sun side every season, and a cool form shade one or two pixels deep on the side away from the light and along the bottom, so objects read as solid
     enabled = true,
     lit = 0.22, -- 0..1 brightness added on the sun-side edge in full direct sun (the autumn rim adds on top)

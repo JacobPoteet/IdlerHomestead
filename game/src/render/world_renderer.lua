@@ -602,6 +602,11 @@ function Renderer:draw(alpha, visible, daylight)
     end
   end
   local defs, registry = {}, world.registry -- id -> definition, looked up once per frame
+  local floor = self.floorList or {} -- x, y, tree neighbours for each tree that shades the forest floor
+  self.floorList = floor
+  for k = #floor, 1, -1 do
+    floor[k] = nil
+  end
   -- Upgrade looks (D116): sprites drawn over a building while the equipment that upgrades it is owned.
   local looks
   for k = 1, Inventory.fillEquipmentIds(world, equipmentScratch) do
@@ -628,6 +633,32 @@ function Renderer:draw(alpha, visible, daylight)
       local smoking = batch and world.registry:get("recipes", batch.recipe).fuel ~= nil
       if not def.flat then
         self:castShadow(shadows, sprite, (x - 1) * tile + sprite.w / 2, bottom, 1, true, def.dapple)
+      end
+      if def.kind == "tree" then
+        -- Forest floor: a tree with enough trees round it shades the ground under the wood.
+        local n = 0
+        for dy = -1, 1 do
+          for dx = -1, 1 do
+            local o = (dx ~= 0 or dy ~= 0)
+              and Grid.inBounds(grid, x + dx, y + dy)
+              and grid.objects[Grid.index(grid, x + dx, y + dy)]
+            if o then
+              local od = defs[o.id]
+              if not od then
+                od = registry:get("objects", o.id)
+                defs[o.id] = od
+              end
+              if od.kind == "tree" then
+                n = n + 1
+              end
+            end
+          end
+        end
+        if n >= v.forestFloor.minNeighbours then
+          floor[#floor + 1] = x
+          floor[#floor + 1] = y
+          floor[#floor + 1] = n
+        end
       end
       items[#items + 1] = {
         bottom,
@@ -762,7 +793,7 @@ function Renderer:draw(alpha, visible, daylight)
   table.sort(items, function(a, b)
     return a[1] < b[1]
   end)
-  self:drawShadows(shadows)
+  self:drawShadows(shadows, floor)
   love.graphics.setShader(rim)
   for _, item in ipairs(items) do
     item[2]()
@@ -1468,7 +1499,7 @@ end
 --- step on the art grid) and composited once, so overlapping shadows never double up. The sun's height
 --- sets the length, its place along the day sets the lean, cloud and low sun thin it out. Sun flecks
 --- show through a tree's shadow (leaf dapple). The contact shadow stays through the night.
-function Renderer:drawShadows(list)
+function Renderer:drawShadows(list, floor)
   local world = self.world
   local cfg = world.tuning.visuals.shadows
   local composite = Shaders.get("shadow_composite")
@@ -1524,6 +1555,21 @@ function Renderer:drawShadows(list)
   love.graphics.setColorMask(false, true, false, true)
   -- Overlapping occlusion keeps the darker value (lighten = max), so neighbours pool together instead of stacking.
   love.graphics.setBlendMode("lighten", "premultiplied")
+  -- The forest floor: a wide, low ellipse of shade under each tree in a stand, deeper where the wood is
+  -- thick. Neighbouring ellipses overlap and merge, so a wood reads as one shaded area.
+  local ff, tile = world.tuning.visuals.forestFloor, self.tile
+  for k = 1, floor and #floor or 0, 3 do
+    local level = floor[k + 2] >= ff.deepNeighbours and ff.deepLevel or ff.level
+    love.graphics.setColor(level, level, level, 1)
+    love.graphics.ellipse(
+      "fill",
+      (floor[k] - 0.5) * tile,
+      (floor[k + 1] - 0.5) * tile + ff.drop,
+      ff.radiusX,
+      ff.radiusY,
+      ff.segments
+    )
+  end
   local ao = cfg.ao
   for k = 1, list.n, SHADOW_STRIDE do
     local sprite = list[k]
