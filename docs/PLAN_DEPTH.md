@@ -475,6 +475,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - C5 (#359) Weather nights: cold front, windstorm, pipe freeze, power outage.
 - C6 (#360) Stove fire and soot (links to F2).
 - C7 (#361) Night gear: lantern, trip line, bell.
+- C8 (#362) Winter wood is a stockpile problem, not an on-demand chop (tracked with #65, #202, #251).
 
 **Phase D: Fields and soil**
 - D1 (#363) Crop schema and 8 new crops (content, journal pages, seed items).
