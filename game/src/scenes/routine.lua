@@ -18,6 +18,16 @@ local ROW_H = 26
 local HEADER_H = 40
 local EDITOR_H = 56
 
+--- Are conditions switched on (tuning.idle.routineConditions)? Off for the playtest: no "If" button, no editor.
+local function conditionsOn(world)
+  return world.tuning.idle.routineConditions
+end
+
+--- Height the condition editor strip takes (none while conditions are off).
+local function editorH(world)
+  return conditionsOn(world) and EDITOR_H or 0
+end
+
 function Routine.new(world)
   return setmetatable({ world = world, list = ScrollList.new() }, Routine)
 end
@@ -33,7 +43,7 @@ end
 
 function Routine:resize(view)
   local list = self.world.state.priorities
-  self.box = Panel.box(view, 380, HEADER_H + #list * ROW_H + EDITOR_H + 44)
+  self.box = Panel.box(view, 380, HEADER_H + #list * ROW_H + editorH(self.world) + 44)
   self:layout()
 end
 
@@ -49,7 +59,7 @@ function Routine:layout()
     x = b.x,
     y = b.y + HEADER_H,
     w = b.w,
-    h = b.h - HEADER_H - EDITOR_H - 44,
+    h = b.h - HEADER_H - editorH(world) - 44,
   }, count * ROW_H, ui.scrollHintHeight, ROW_H)
   local top = self.list:origin()
   for i, entry in ipairs(world.state.priorities) do
@@ -86,10 +96,17 @@ function Routine:layout()
       Tasks.movePriority(world, entry.category, -1)
       self:layout()
     end, { enabled = i > 1 })
-    add("If", function()
-      self.selected = entry.category
-      self:layout()
-    end, { selected = self.selected == entry.category })
+    if conditionsOn(world) then
+      add("If", function()
+        self.selected = entry.category
+        self:layout()
+      end, { selected = self.selected == entry.category })
+    end
+  end
+
+  if not conditionsOn(world) then
+    self:addDone(b)
+    return
   end
 
   -- Editor strip for the selected category.
@@ -130,6 +147,10 @@ function Routine:layout()
   right = right - 70
   stepper("-", -1)
 
+  self:addDone(b)
+end
+
+function Routine:addDone(b)
   self.buttons:add({
     x = b.x + (b.w - 80) / 2,
     y = b.y + b.h - 32,
@@ -185,13 +206,13 @@ function Routine:draw()
   for i, row in ipairs(self.rows) do
     local cat = row.entry.category
     local def = self.world.registry:get("task_categories", cat)
-    local met = Tasks.conditionMet(self.world, cat)
+    local met = Tasks.conditionMet(self.world, cat) -- always true while conditions are off
     local live = row.entry.enabled and met
     Text.draw(i .. ".  " .. def.name, b.x + 14, row.y + 6, {
       size = "body",
       color = live and theme.colors.text or theme.colors.textDim,
     })
-    if row.entry.cond then
+    if conditionsOn(self.world) and row.entry.cond then
       Text.draw((met and "" or "waiting: ") .. Rules.describe(self.world, row.entry.cond), b.x + 130, row.y + 8, {
         size = "small",
         color = met and theme.colors.text or theme.colors.textDim,
@@ -201,11 +222,13 @@ function Routine:draw()
   self.rowButtons:draw()
   self.list:finish()
   self.list:drawCue(self.app.ctx.tuning.ui)
-  local cat = self.selected
-  local def = self.world.registry:get("task_categories", cat)
-  local cond = Tasks.condition(self.world, cat)
-  Text.draw(def.name .. ": only when", b.x + 12, self.editorY, { size = "small", color = theme.colors.textDim })
-  Text.draw(self:valueText(cond), self.valueX + 2, self.editorY + 24, { size = "small" })
+  if conditionsOn(self.world) then
+    local cat = self.selected
+    local def = self.world.registry:get("task_categories", cat)
+    local cond = Tasks.condition(self.world, cat)
+    Text.draw(def.name .. ": only when", b.x + 12, self.editorY, { size = "small", color = theme.colors.textDim })
+    Text.draw(self:valueText(cond), self.valueX + 2, self.editorY + 24, { size = "small" })
+  end
   self.buttons:draw()
 end
 

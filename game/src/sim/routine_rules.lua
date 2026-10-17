@@ -28,8 +28,8 @@ end
 
 --- Is the condition met? nil (no condition) is always met.
 function Rules.met(world, cond)
-  if cond == nil then
-    return true
+  if cond == nil or not world.tuning.idle.routineConditions then
+    return true -- no condition, or conditions switched off in tuning.idle (playtest): the row always runs
   end
   local def = world.registry:get("routine_conditions", cond.kind)
   local now = measure(world, def)

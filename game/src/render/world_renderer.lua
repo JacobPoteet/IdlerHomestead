@@ -741,8 +741,9 @@ function Renderer:draw(alpha, visible, daylight)
           local tx, ty, sx = HeldTool.placement(world.tuning.visuals.heldTool, toolId, sprite.w, x0, y0, facing)
           love.graphics.draw(tool.image, tool.quad, tx, ty, 0, sx, 1)
         end
-        if actor.bucket and actor.bucket > 0 then
-          -- Tiny water gauge beside the homesteader while carrying water.
+        if actor.bucket and actor.bucket > 0 and held == "pail" then
+          -- Tiny water gauge beside the homesteader while a watering job runs. Leftover water stays in the
+          -- bucket between jobs (the axe never uses it), so the gauge hides then rather than sticking on.
           local frac = math.min(1, actor.bucket / Water.bucketCapacity(world))
           local gx, gy = math.floor(feetX + 6), math.floor(feetY - 12)
           love.graphics.setColor(0.1, 0.1, 0.1, 0.7)

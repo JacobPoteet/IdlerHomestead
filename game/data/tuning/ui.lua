@@ -663,10 +663,11 @@ return {
   },
   motion = { -- dissolves, calm signals and the night light pool (GDD §9.4, D142; src/ui/transition.lua, src/ui/signals.lua, src/ui/motion.lua)
     kinds = { -- one dissolve per kind of thing that opens and closes; seconds of real time, and the number of dither steps the dissolve moves in
-      wheel = { open = 0.12, close = 0.10, steps = 5 }, -- the tool wheel (quick: it opens under a held press)
-      book = { open = 0.22, close = 0.16, steps = 6 }, -- the Notebook and the Ledger
-      card = { open = 0.16, close = 0.12, steps = 5 }, -- the tile card and the tip card
-      lens = { open = 0.30, close = 0.24, steps = 8 }, -- the Power and Water lens over the world
+      -- Playtest: the dither reads as artifacting when it lingers, so every dissolve is a quick snap of a few steps.
+      wheel = { open = 0.08, close = 0.06, steps = 4 }, -- the tool wheel (quick: it opens under a held press)
+      book = { open = 0.10, close = 0.08, steps = 4 }, -- the Notebook, the Ledger and the truck
+      card = { open = 0.08, close = 0.06, steps = 4 }, -- the tile card and the tip card
+      lens = { open = 0.16, close = 0.12, steps = 5 }, -- the Power and Water lens over the world
     },
     amber = { -- attention: a quiet amber outline with one pixel of glint now and then, in place of a pulsing border
       steady = 0.35, -- 0..1 how far the outline sits toward amber all the time

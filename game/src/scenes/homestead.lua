@@ -2546,7 +2546,7 @@ function Homestead:action(name, data)
     end
   elseif name == "context" then
     if self:inWorldArea(data.x, data.y) then
-      self.selected = self:tileAt(data.x, data.y) -- inspect only
+      self.selected = nil -- a short right click puts the selection away; a tap selects (playtest)
     end
   elseif name == "speed" then
     self:cycleSpeed()

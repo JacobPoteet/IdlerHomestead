@@ -14,6 +14,7 @@ local Rules = require("src.sim.routine_rules")
 local Tasks = require("src.sim.systems.tasks")
 
 local tun = tuningLoader.load()
+tun.idle.routineConditions = true -- these tests are about the conditions themselves; the shipped tuning has them off (playtest)
 local reg = Registry.new():loadAll()
 local STEP = 1 / tun.time.tickRate
 local HOUR = tun.time.dayLength / 24
@@ -339,4 +340,15 @@ T.test("clear trees: the Wood below condition limits the routine's felling", fun
   end
   local order = Tasks.taskForTile(world, hs, tile, {})
   T.eq(order and order.id, "clear")
+end)
+
+T.test("routine rules: switched off in tuning, every row always runs", function()
+  local world = newWorld()
+  local cond = Rules.make(world, world.registry:all("routine_conditions")[1].id)
+  cond.value = -1 -- never met when on
+  tun.idle.routineConditions = false
+  local met = Rules.met(world, cond)
+  tun.idle.routineConditions = true
+  T.falsy(Rules.met(world, cond), "met nothing while on")
+  T.truthy(met, "ignored while off")
 end)
