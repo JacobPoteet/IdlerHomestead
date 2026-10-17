@@ -47,6 +47,16 @@ return {
     modifiers = { workSpeed = 0.5, fallChance = 3, carryCapacity = 0.8 },
   },
   {
+    id = "limp",
+    name = "Limping",
+    line = "Work 40% slower",
+    family = "limp",
+    severity = 1,
+    duration = 2, -- today and tomorrow (D169): the ignore outcome of the sprained ankle, free and with no way to get worse
+    clearedBy = "time",
+    modifiers = { workSpeed = 0.6 },
+  },
+  {
     id = "fever",
     name = "Fever",
     line = "Needs more warmth and water",

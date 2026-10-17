@@ -123,6 +123,25 @@ return {
     escalatesTo = "string?", -- id of the next severity of the family
     modifiers = "table", -- name -> multiplier (1 = none); conditionDrain is Condition lost a day
   },
+  events = { -- misfortune events (D169, #347); see the header of content/events.lua
+    title = "string", -- the card's title (<= ~3 words)
+    line = "string", -- what happens, one sentence
+    class = "string", -- "body" | "home" | "land" | "visitors": the standing-order class (B5)
+    when = "string", -- "night" | "morning" | "day": when it is offered
+    bad = "boolean", -- a misfortune: not drawn while Footing is slipped, Condition is low or the statuses are full
+    wake = "boolean?", -- may wake the homesteader (the card never freezes time)
+    seasons = "table?", -- season id -> weight multiplier; absent = every season at 1
+    minYear = "number?", -- earliest year it can come
+    conditions = "table?", -- all must hold: weather = { kinds }, frozen = bool, status = { ids or families }, noColdNight = true
+    terms = "table?", -- weight terms: { { weather | frozen | status, mult } }, each that holds multiplies the weight
+    weight = "number", -- relative weight among the events that can come now
+    exposure = "number?", -- 0..1: how much night exposure shapes this event's weight (0 = none, 1 = fully)
+    cooldown = "number?", -- days before it can come again
+    once = "boolean?", -- at most once a run
+    journalNote = "string?", -- note id written the first time it is offered (Journal.write)
+    options = "table", -- exactly two { label, cost?, effect, risk, careful?, bold? }
+    ignore = "table", -- { label, effect, risk }: applies when nobody answers in the window; free, safe, never escalates
+  },
   chapters = {
     name = "string", -- region title on the journal map
     pages = "table", -- node `page` values that belong to this chapter

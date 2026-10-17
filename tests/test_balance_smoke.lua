@@ -265,3 +265,47 @@ T.test("balance harness: an idle player with the starter field survives the firs
   local results = Balance.playSeed(ctx, "idle", 1, WEEK, 1)
   T.eq(results[1].alive, true, "the routine plans and works a starter field, so day 6 is survived")
 end)
+
+-- Event-choice policies (D169, #347): how the simulated player answers a card.
+T.test("balance harness: the event-choice policies answer from the card's flags", function()
+  local EventPolicy = require("event_policy")
+  local card = {
+    options = {
+      { index = 1, careful = true, bold = false, affordable = true },
+      { index = 2, careful = false, bold = true, affordable = true },
+    },
+  }
+  T.eq(EventPolicy.answer(EventPolicy.new("careful", 1), card), 1)
+  T.eq(EventPolicy.answer(EventPolicy.new("bold", 1), card), 2)
+  T.eq(EventPolicy.answer(EventPolicy.new("ignore", 1), card), nil, "ignore lets the window run out")
+  card.options[1].affordable = false
+  T.eq(
+    EventPolicy.answer(EventPolicy.new("careful", 1), card),
+    "ignore",
+    "an option it cannot pay for falls back to ignore"
+  )
+  T.eq(EventPolicy.new(nil, 1), nil)
+  T.eq(EventPolicy.new("off", 1), nil)
+  T.errors(function()
+    EventPolicy.configure("sideways")
+  end, "events=")
+  local random = EventPolicy.new("random", 3)
+  local seen = {}
+  for _ = 1, 40 do
+    seen[tostring(EventPolicy.answer(random, card))] = true
+  end
+  T.truthy(seen["nil"] and seen["2"], "random takes the options and lets some run out")
+end)
+
+T.test("balance harness: a run with an event policy plays, reports events and repeats", function()
+  local a = Balance.playSeed(ctx, "scripted", 1, 0.5, 1, nil, nil, "random")[1]
+  local b = Balance.playSeed(ctx, "scripted", 1, 0.5, 1, nil, nil, "random")[1]
+  T.truthy(a.events, "the run carries the events block")
+  T.eq(a.events.mode, "random")
+  T.eq(a.events.offered, b.events.offered, "repeats")
+  T.eq(a.final.money, b.final.money, "repeats")
+  T.truthy(a.events.chosen + a.events.ignored <= a.events.offered)
+  local summary = Balance.summarize(ctx, { a }, 0.5)
+  T.truthy(summary.events and summary.events.n == 1)
+  T.eq(Balance.playSeed(ctx, "scripted", 1, 0.25, 1)[1].events, nil, "no events block without a policy")
+end)

@@ -18,6 +18,7 @@ return {
   "shelter",
   "wardrobe",
   "status",
+  "events",
   "food",
   "fishing",
   "power",

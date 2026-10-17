@@ -40,6 +40,7 @@ return {
   "alerts", -- D70: reads needs; listens after everything has set up its state
   "nightly", -- D70: the morning report's ledger; closes after sleep has woken the homesteader
   "footing", -- D162: Footing, judged at dusk from the needs' figures; run state
+  "events", -- D169: misfortune events (the dusk draw, the offer, the ignore window, the mercy rules); reads status and footing, and any night threat (C1) claims the night slot before it
   "milestones", -- D163: the run's checklist, ticked by world events
   "readiness", -- D70: accessors only
   "goal", -- D163: the pressing goal and its figures, accessors only (reads footing, readiness, weather)

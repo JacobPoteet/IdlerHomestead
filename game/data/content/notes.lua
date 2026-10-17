@@ -296,4 +296,22 @@ return {
     icon = "icon_campfire",
     event = "footing.gained",
   },
+  -- Event notes (D169, #347): written by the events system through Journal.write the first time an event is offered
+  -- or an outcome says so, so the `event` below is never emitted. Nothing is learned from them yet (B10 adds first aid).
+  {
+    id = "ankle_sprain",
+    name = "Sprained ankle",
+    line = "Twisted my ankle on the wet rocks.",
+    hint = "Hurt your ankle in a slip",
+    icon = "icon_status_ankle",
+    event = "event.note",
+  },
+  {
+    id = "limped_on",
+    name = "Limped on",
+    line = "Walked it off. Slower, but no worse.",
+    hint = "Leave a sprain to heal on its own",
+    icon = "icon_status_ankle",
+    event = "event.note",
+  },
 }

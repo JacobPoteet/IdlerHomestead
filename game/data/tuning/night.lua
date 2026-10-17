@@ -13,6 +13,20 @@ return {
     slipFoodDays = 1, -- days of food below which held Footing slips (less than foodDays, for the same reason)
     regainNights = 2, -- good nights in a row that regain slipped Footing; a night that is not good starts the count again
   },
+  exposure = { -- how much the homestead gives a night to work with (PLAN_DEPTH 5.1, D169); shared by events and, later, night threats (C1)
+    min = 0, -- points: the lowest exposure
+    max = 10, -- points: the highest exposure; the total is clamped to min..max
+    neutral = 5, -- points: a homestead with no source or guard
+    chanceAtMin = 0.4, -- multiplier on a night's chance at min exposure
+    chanceAtMax = 1.8, -- multiplier on a night's chance at max exposure (linear between)
+    lowBelow = 3.5, -- points: below this the card says "low"
+    highFrom = 6.5, -- points: from this up the card says "high"
+    shelter = { truck = 2, camp = 0, shack = -2 }, -- points by the best shelter: the truck gives a night the most to work with, the shack the least
+    stores = { smoked_fish = 1, cheese = 1, chicken_feed = 0.5, hay = 0.5 }, -- points added while any is in stock: stores that attract animals
+    perAnimal = 0.25, -- points for each hen and goat kept
+    maxLivestock = 2, -- points: ceiling on what livestock add
+    guards = {}, -- points subtracted by an owned guard (cat, dog, fence, lantern, trip line): filled in by the guard slices (C7)
+  },
   fix = { -- the one-tap fix actions: ordinary orders, no new automation
     maxMarks = 6, -- most trees or logs one "Chop" tap marks; a larger gap marks this many and the card offers the rest next time
   },

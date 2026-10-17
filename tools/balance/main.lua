@@ -29,6 +29,9 @@ Idler Homestead balance harness. Usage:  lovec tools/balance [key=value ...]
                                         footingDay, footingSlips; json summary.footing and per-run footing.
                                         The report prints day of Footing (median/p10/p90), the share reaching it
                                         before the first winter and slips per run. Reporting only, no target.
+  events=off|ignore|careful|bold|random  the event-choice policy (D169): how the player answers misfortune
+                                        event cards; off (default) plays with events disabled, so the output
+                                        is what it was without them. Pair a run with the default for events on/off
   set=domain.key=value                  override a tuning number for what-if runs (repeatable),
                                         e.g. set=needs.coldDamage=15 set=needs.warmthPeak=3
   quiet=1                               no progress lines
@@ -60,6 +63,7 @@ function love.load(args)
     local Balance = require("balance")
     local Policies = require("policies")
     Balance.applyOverrides(opts.sets)
+    require("event_policy").configure(opts.events)
     local ctx = Balance.context()
 
     local names = Policies.list
@@ -125,6 +129,7 @@ function love.load(args)
         runs = runs,
         features = opts.features,
         outfit = outfit,
+        events = opts.events,
         sets = opts.sets,
         jobs = jobs,
         onProgress = function(done, total)
@@ -141,12 +146,12 @@ function love.load(args)
       if played then
         return played[name][seed]
       end
-      return Balance.playSeed(ctx, name, seed, years, runs, features, outfit)
+      return Balance.playSeed(ctx, name, seed, years, runs, features, outfit, opts.events)
     end
 
     local all, report =
       {}, {
-        config = { seeds = seeds, seed0 = seed0, years = years, runs = runs, overrides = opts.sets, features = Features.label(features), outfit = outfit },
+        config = { seeds = seeds, seed0 = seed0, years = years, runs = runs, overrides = opts.sets, features = Features.label(features), outfit = outfit, events = opts.events },
         policies = {},
       }
     for _, name in ipairs(names) do
