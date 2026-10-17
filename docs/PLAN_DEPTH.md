@@ -4,7 +4,9 @@ Status: approved; milestone and issues created (section 17). Nothing here is bui
 
 Why this exists: playtest feedback says the base systems are in but the loop is thin. Once the player has seeds they steamroll, there is little to manage, and the idle loop has nothing to do. A read of the design, content and balance notes agrees (section 1).
 
-Time facts used throughout (from `data/tuning/time.lua`, GAMEPLAY_LOOP.md): a day is 320 s, **a season is 7 days, a year is 28 days**, the first winter starts on day 22. Every rate below is per night or per day, so "about 0.3 a night" means about one event a week and about eight a year. All numbers are first guesses, they live in tuning (never in system code), and the balance harness (section 15) sets them.
+**Scope of balancing (decided after approval).** M8 only needs *playable* numbers: every rate below is a first guess, set once, commented in tuning, and listed in the PR under "Tuning guesses". The real balance pass is milestone **M9: Balance & pacing**, after the time model (slice T0) is decided and the M8 systems are in. The harness runs in M8 are smoke checks (it runs, it is deterministic, no new failure class), not target chases. The targets in section 15 are directional and are revised first in M9.
+
+Time facts used throughout (from `data/tuning/time.lua`, GAMEPLAY_LOOP.md; **slice T0 may change the real-time length of a day**, which changes how much work a day holds): a day is 320 s, **a season is 7 days, a year is 28 days**, the first winter starts on day 22. Every rate below is per night or per day, so "about 0.3 a night" means about one event a week and about eight a year. All numbers are first guesses, they live in tuning (never in system code), and the M9 balance pass tunes them.
 
 ---
 
@@ -414,7 +416,9 @@ Three loops this creates:
 - **Determinism:** every roll uses a named stream; the harness stays byte-identical across `jobs=` settings.
 - **UI:** panels follow the MVP interface rules (GDD §9.4); events and the Tonight card work on touch and keyboard, are not hover-only, and have a phone layout. Driver scenarios cover each new screen (`tools/driver`).
 
-## 15. Balance targets (to confirm with the harness)
+## 15. Balance targets (directional, pursued in M9)
+
+These are not acceptance gates for M8 slices. M8 uses the smoke harness only; these numbers guide the M9 pass and are revised first if play disagrees. The time model (T0) may move several of them.
 
 | Metric | Target |
 |---|---|
@@ -428,7 +432,7 @@ Three loops this creates:
 | Money unspent at day 28 (shows sinks work) | under 35 percent of the year's income |
 | Idle-routine run vs active, year-1 income | idle 40 to 60 percent of active |
 
-The harness gains policies that make event choices (careful, bold, random) and reports per event class. Targets move with real human play; the harness is an upper bound (BALANCE.md caveat).
+The harness gains policies that make event choices (careful, bold, random) and reports per event class (slice I1a, smoke testing only). Targets move with real human play; the harness is an upper bound (BALANCE.md caveat).
 
 ## 16. Risks and open questions
 
@@ -446,7 +450,10 @@ Risks: scope (this is a large milestone); event fatigue; compounding statuses. M
 
 ## 17. Milestone and slices (M8: Homestead depth)
 
-Issues are written to be done by an agent alone: each states its goal, design reference, scope, out of scope, likely files, acceptance, tests and docs. Labels: `enhancement` plus a topic label; `balance` where numbers move. Order: A, then B and C, then D and E in parallel, then F and G, then H, then I.
+Issues are written to be done by an agent alone: each states its goal, design reference, scope, out of scope, likely files, acceptance, tests and docs. Labels: `enhancement` plus a topic label; `balance` where numbers move. Order: T0 first, then A, then B and C, then D and E in parallel, then F and G, then H, then I.
+
+**Phase T: Time model (do first)**
+- T0 (#395) Decide the time model: real-time length of a day, whether task times scale with it, and the resulting season and year length. Owner's decision. Blocks B3, F1 and F3.
 
 **Phase A: Tonight and Footing**
 - A1 (#340) Dusk check: the Tonight card and a `Readiness.tonight` accessor.
@@ -514,7 +521,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - H5 (#388) Journal Techniques page.
 
 **Phase I: Integration**
-- I1 (#389) Harness policies for events and a full balance pass.
+- I1a (#389) Harness policies for events and the new systems (smoke testing only). The full balance pass is I1b (#396) in M9.
 - I2 (#390) FTUE and tip updates for each phase.
 - I3 (#391) Merge into GDD, wiki and decision log.
 - I4 (#392) Perf and save-size check.
@@ -527,10 +534,11 @@ Status: milestone **M8: Homestead depth** and issues #340 to #393 are created (o
 | Action | Issues |
 |---|---|
 | Closed as superseded | #235 (goal, answered by D117 and A3), #276 (into A3), #263 (into D1, E1, G3), #46 (into D1, D7, B3, B6 to B9), #145 (into F1) |
-| Moved into M8 | #65, #202, #251 (C8); #91, #211 (pipe freezing); #95 (drinking water, before A1); #109 (event engine reuse); #114 (C2); #124, #125, #106 (E1); #154 (D3 and C5); #156 (I2); #153, #280, #67 (I1); #213 (C5); #274 (C7); #7 (F3) |
+| Moved into M9 (Balance & pacing) | #124, #125, #202, #251, #280, #67, #150 (pure tuning, after T0 and the M8 systems) |
+| Moved into M8 | #65 (C8, mechanism only); #91, #211 (pipe freezing); #95 (drinking water, before A1); #109 (event engine reuse); #114 (C2); #106 (E1); #154 (D3 and C5); #156 (I2); #153 (I1a); #213 (C5); #274 (C7); #7 (F3) |
 | Commented as related | #126, #264, #148, #149, #150, #337, #338, #117, #118, #212, #215, #198, #44, #147, #99, #103, #6, #178, #169, #175, #273, #102, #121, #138, #131, #256 (sprinklers shipped; narrow or close) |
 
-Each phase ends with a harness run that checks the section 15 targets before the next phase starts.
+Each phase ends with a smoke harness run (it completes, deterministic, no new failure class). Target chasing waits for M9.
 
 ## 18. Proposed decisions (to number D158 onward when approved)
 
