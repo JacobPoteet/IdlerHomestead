@@ -32,12 +32,12 @@
 -- form; the combined warmth need is capped (Needs.warmthNeeded). The ignore outcome is judged by the worst chain it can
 -- reach, by Events.audit (run in the tests): free, no condition loss, nothing that can escalate, never worse than the worse option.
 --
--- STANDING ORDERS (B5, #349, D174, PLAN_DEPTH 6.4). With the "Rules of thumb" perk known, each event class (body, home, land,
+-- STANDING ORDERS (B5, #349, D176, PLAN_DEPTH 6.4). With the "Rules of thumb" perk known, each event class (body, home, land,
 -- visitors) can be set to Ask me (default: the card), Careful (the option flagged `careful`) or Bold (the one flagged `bold`).
 -- The setting is the player's own, kept in the slot's meta (it survives a failed run). An event of a class that has an order is
 -- answered the moment it is offered, so a player away or at 8x is not interrupted. Careful and Bold both fall back to the ignore
--- outcome when there is no such option, when the cost cannot be paid, or when paying would take a stock under its keep target
--- (Food.keeps, which holds the winter wood reserve too); an unaffordable or keep-blocked option adds a line to the morning
+-- outcome when there is no such option, when the cost cannot be paid, or when paying would take a stock under a keep target the
+-- player set, under the wood still needed to reach the end of winter, or under a day's drinking water (Events.orderFloor); an unaffordable or keep-blocked option adds a line to the morning
 -- report ("event.orderFallback"). Until the perk is known every order reads as Ask me, so nothing changes without it.
 --
 -- Event bus: "event.offered" { id, class, bad, wake, day }, "event.chosen" { id, option, label, class, bad, order? (true when a
@@ -132,7 +132,7 @@ end
 -- Presence ------------------------------------------------------------------------------------------
 
 --- Tell the engine whether the player is truly away (the app unfocused, or past the takeover delay with no input). Runtime
---- only, never saved: an away player's ignore window waits and no new event is offered. The scene calls this every frame.
+--- only, never saved: an away player's ignore window waits and nothing is offered but what a standing order answers. The scene calls this every frame.
 function Events.setAway(world, away)
   world.playerAway = away == true
 end
@@ -159,9 +159,8 @@ function Events.exposure(world)
   local x = world.tuning.night.exposure
   local points = x.neutral
   local shelter = Shelter.id(world)
-  if shelter and x.shelter[shelter] then
-    points = points + x.shelter[shelter]
-  end
+  local shelterPoints = shelter and rawget(x.shelter, shelter) or 0 -- a shelter the table does not list adds nothing
+  points = points + shelterPoints
   for _, id in ipairs(sortedKeys(x.stores)) do
     if Ledger.get(world, id) > 0 then
       points = points + x.stores[id]
@@ -673,6 +672,20 @@ function Events.setOrder(world, class, mode)
   orders[class] = mode ~= "ask" and mode or nil
 end
 
+--- The stock of `id` a standing order's Careful option must leave (B5, D176): the keep target the player set, for wood at
+--- least the wood still needed to reach the end of winter (not the automatic keep, which holds a second winter and so
+--- equals the woodpile all year), for drinking water at least the day's need. Every other automatic keep is not a floor.
+function Events.orderFloor(world, id)
+  local keeps, auto = Food.keeps(world)
+  local floor = auto[id] and 0 or (keeps[id] or 0)
+  if id == Needs.fuelId(world) then
+    floor = math.max(floor, Food.winterWoodNeed(world))
+  elseif id == Needs.WATER then
+    floor = math.max(floor, math.ceil(Needs.waterNeeded(world)))
+  end
+  return floor
+end
+
 --- What an order does with event `d`: the option index to take, or nil + why it fell back ("none": no such option, "short":
 --- cannot pay, "keep": paying would drop a stock under its keep target) + the resource that stopped it.
 local function orderChoice(world, d, mode)
@@ -691,15 +704,17 @@ local function orderChoice(world, d, mode)
   if missing then
     return nil, "short", missing
   end
-  if cost then
-    local keeps = Food.keeps(world)
-    for _, id in ipairs(sortedKeys(cost)) do
-      if Ledger.get(world, id) - cost[id] < (keeps[id] or 0) then
-        return nil, "keep", id
-      end
+  for _, id in ipairs(sortedKeys(cost or {})) do
+    if Ledger.get(world, id) - cost[id] < Events.orderFloor(world, id) then
+      return nil, "keep", id
     end
   end
   return index
+end
+
+--- Does a standing order apply to event `d` (the perk is known and its class is not Ask me)?
+function Events.orderApplies(world, d)
+  return Events.ordersUnlocked(world) and Events.orderMode(world, d.class) ~= "ask"
 end
 
 --- Answer the open card by the standing order for its class, if the perk is known and the class is not Ask me. Returns whether
@@ -707,7 +722,7 @@ end
 function Events.answerByOrder(world, d)
   local mode = Events.orderMode(world, d.class)
   local head = state(world).pending[1]
-  if mode == "ask" or not Events.ordersUnlocked(world) or not head or head.id ~= d.id then
+  if not Events.orderApplies(world, d) or not head or head.id ~= d.id then
     return false
   end
   local index, why, resource = orderChoice(world, d, mode)
@@ -812,6 +827,8 @@ end
 
 --- Run tonight's draw (the dusk tick calls this once a day; public for tests). Always takes the same two rolls from the
 --- "event" stream, so what the stream does never depends on what the homestead has. Returns the id scheduled, or nil.
+--- No draw is made (and the pity count does not move) while a card is pending or the player is away, so a long absence
+--- cannot pile up a queue that is later offered one a day.
 function Events.rollNight(world)
   local s, c = state(world), cfg(world)
   local now = Calendar.now(world)
@@ -823,6 +840,9 @@ function Events.rollNight(world)
   end
   if s.slot and s.slot.day == now.day then
     return nil -- a threat took the slot (and told the pity timer how it ended)
+  end
+  if #s.pending > 0 or Events.away(world) then
+    return nil -- no backlog while a card is open or the player is away (D175): the night passes undrawn, the pity timer waits
   end
   local chance = Events.chance(world)
   local quiet = s.quiet
@@ -841,15 +861,17 @@ function Events.rollNight(world)
   return id
 end
 
--- Is something to offer now? One per tick, in order, never behind an open card or while the player is away.
+-- Is something to offer now? One per tick, in order, never behind an open card. While the player is away only an event whose
+-- class has a standing order that applies is offered (the order answers it at once, PLAN_DEPTH 6.3); the rest wait.
 local function offerDue(world)
   local s = state(world)
-  if #s.pending > 0 or Events.away(world) then
+  if #s.pending > 0 then
     return
   end
+  local away = Events.away(world)
   local at = nowStamp(world)
   for i, item in ipairs(s.scheduled) do
-    if item.due <= at then
+    if item.due <= at and (not away or Events.orderApplies(world, def(world, item.id))) then
       if tryOffer(world, item) ~= "later" then
         table.remove(s.scheduled, i)
       end
@@ -861,7 +883,8 @@ end
 --- A content audit (run in the tests): the problems found in the events content, as a list of strings. Checks the shape,
 --- that every id named exists, that chains end, that `capital` and `damage` outcomes have a lesser form, and the ignore
 --- rules of PLAN_DEPTH 6.2 and 6.5: free, no condition loss, nothing that can escalate or roll later, and judged by its
---- worst reachable chain never worse than the worse option.
+--- worst reachable chain never worse than the worse option, and the status it applies, landing on every active status of
+--- its family at every severity, escalates or worsens none of them (Status.resolve).
 local EFFECT_KEYS = {
   status = true,
   gain = true,
@@ -1025,6 +1048,18 @@ function Events.audit(world)
           for _, sid in ipairs(statusIds(o.effect)) do
             if reg:has("statuses", sid) and reg:get("statuses", sid).escalatesTo then
               bad(id, "ignore applies " .. sid .. ", which can escalate")
+            end
+            -- Landing on top of any active status of its family, at every severity, it must change nothing (D175).
+            if reg:has("statuses", sid) then
+              local applied = reg:get("statuses", sid)
+              for _, active in ipairs(reg:all("statuses")) do
+                if active.family == applied.family then
+                  local held = Status.resolve(world, active.id, sid)
+                  if held ~= active.id then
+                    bad(id, "ignore applies " .. sid .. " on " .. active.id .. " and it becomes " .. held)
+                  end
+                end
+              end
             end
           end
           if r.severity > worst.severity or r.condition > worst.condition then

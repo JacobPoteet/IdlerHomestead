@@ -77,7 +77,9 @@ end)
 
 -- Key paths and value types of a table, sorted. Arrays collapse to "[]" (their first element stands
 -- for all). Depth-limited so ids used as keys (resources, cells) do not make the shape noisy.
-local MAX_DEPTH = 3
+-- Depth 5 reaches slot.run.nightly.open.* and slot.run.events.budget.* (four levels under the run); keys are sorted, so the
+-- fingerprint is deterministic.
+local MAX_DEPTH = 5
 local function paths(t, prefix, depth, out)
   local keys = {}
   for k in pairs(t) do
@@ -122,7 +124,7 @@ end
 -- When this fails: the saved state changed shape. If old saves can no longer be read correctly,
 -- bump Save.SAVE_COMPAT in game/src/core/save.lua (no migrations before launch, D74), then update
 -- EXPECTED below to the new stamp and fingerprint the failure prints.
-local EXPECTED = { compat = 20, fingerprint = "6109b7fe" }
+local EXPECTED = { compat = 21, fingerprint = "871ae1f9" }
 
 T.test("compat: the saved-state shape matches the SAVE_COMPAT it was stamped with", function()
   local list = newGameShape()

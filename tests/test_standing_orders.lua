@@ -1,4 +1,4 @@
--- Standing orders (B5, #349, D174, docs/PLAN_DEPTH.md 6.4): per event class Ask me / Careful / Bold, unlocked by the "Rules of
+-- Standing orders (B5, #349, D176, docs/PLAN_DEPTH.md 6.4): per event class Ask me / Careful / Bold, unlocked by the "Rules of
 -- thumb" journal perk. Careful respects keep targets and the winter wood reserve and falls back to ignoring (with a morning-report
 -- line) when it cannot pay or would eat a reserve; until the perk is known nothing changes.
 local T = require("harness")
@@ -9,6 +9,7 @@ local Events = require("src.sim.systems.events")
 local Food = require("src.sim.systems.food")
 local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
+local Needs = require("src.sim.systems.needs")
 local Status = require("src.sim.systems.status")
 local NightText = require("src.ui.night_text")
 
@@ -42,19 +43,22 @@ local function collect(world, name)
   return list
 end
 
--- Sets the wood stock. The automatic keep target holds a whole winter of wood from the first day, so a test that is not about
--- the reserve sets its own target at zero.
-local function setWood(world, n, keep)
+-- Sets the wood stock (storage is raised so a whole winter's wood fits).
+local function setWood(world, n)
+  Ledger.setCapacity(world, "wood", math.max(Ledger.capacity(world, "wood"), n))
   Ledger.remove(world, "wood", Ledger.get(world, "wood"))
   Ledger.add(world, "wood", n)
-  if keep then
-    Food.setKeep(world, "wood", keep)
-  end
+end
+
+-- The wood still needed to reach the end of winter on day `day` (the reserve Careful leaves), with the clock set there.
+local function reserveOn(world, day)
+  setTime(world, day, 13)
+  return Food.winterWoodNeed(world)
 end
 
 -- sprained_ankle: option 1 "Splint it" (2 wood, careful), option 2 "Power through" (free, bold), ignore "Limp on".
-local function sprain(world)
-  setTime(world, 5, 13)
+local function sprain(world, day)
+  setTime(world, day or 5, 13)
   T.truthy(Events.force(world, "sprained_ankle"))
 end
 
@@ -106,7 +110,7 @@ end)
 
 T.test("orders: Careful pays for the flagged option, at once, and says it was an order", function()
   local world = withRules(newWorld())
-  setWood(world, 10, 0)
+  setWood(world, reserveOn(world, 5) + 10) -- ten spare over the winter reserve
   Events.setOrder(world, "body", "careful")
   local chosen = collect(world, "event.chosen")
   local fallbacks = collect(world, "event.orderFallback")
@@ -116,7 +120,7 @@ T.test("orders: Careful pays for the flagged option, at once, and says it was an
   T.eq(chosen[1].option, 1)
   T.eq(chosen[1].order, true)
   T.eq(chosen[1].label, "Splint it")
-  T.eq(Ledger.get(world, "wood"), 8, "the cost was paid")
+  T.eq(Ledger.get(world, "wood"), Food.winterWoodNeed(world) + 8, "the cost was paid")
   T.eq(Status.has(world, "ankle_1"), true)
   T.eq(#fallbacks, 0)
   T.truthy(Journal.hasNote(world, "ankle_sprain"), "the Journal note is still written")
@@ -127,7 +131,7 @@ end)
 
 T.test("orders: Bold takes the free flagged option", function()
   local world = withRules(newWorld())
-  setWood(world, 10, 0)
+  setWood(world, 10)
   Events.setOrder(world, "body", "bold")
   local chosen = collect(world, "event.chosen")
   sprain(world)
@@ -141,7 +145,7 @@ end)
 
 T.test("orders: an unaffordable Careful option falls back to ignore and tells the morning report", function()
   local world = withRules(newWorld())
-  setWood(world, 1, 0)
+  setWood(world, 1)
   Events.setOrder(world, "body", "careful")
   local ignored = collect(world, "event.ignored")
   local chosen = collect(world, "event.chosen")
@@ -160,10 +164,11 @@ T.test("orders: an unaffordable Careful option falls back to ignore and tells th
   T.eq(morningLine(world, "ignored the sprained ankle"), "No wood to spare, ignored the sprained ankle.")
 end)
 
-T.test("orders: Careful will not eat a keep target, and says what it kept", function()
+T.test("orders: Careful will not eat a keep target the player set, and says what it kept", function()
   local world = withRules(newWorld())
-  setWood(world, 10)
-  Food.setKeep(world, "wood", 10) -- the player keeps all ten
+  local need = reserveOn(world, 5)
+  setWood(world, need + 21)
+  Food.setKeep(world, "wood", need + 20) -- the player keeps twenty more than the winter needs
   Events.setOrder(world, "body", "careful")
   local ignored = collect(world, "event.ignored")
   local fallbacks = collect(world, "event.orderFallback")
@@ -171,37 +176,97 @@ T.test("orders: Careful will not eat a keep target, and says what it kept", func
   T.eq(Events.pending(world), nil)
   T.eq(ignored[1].reason, "order")
   T.eq(fallbacks[1].why, "keep")
-  T.eq(Ledger.get(world, "wood"), 10, "the wood stays")
+  T.eq(Ledger.get(world, "wood"), need + 21, "the wood stays")
   T.eq(morningLine(world, "Kept the wood"), "Kept the wood, ignored the sprained ankle.")
-  -- With room to spare above the target, the same rule pays.
+  -- With room to spare above the target, the same rule pays, down to the target exactly.
   local again = withRules(newWorld())
-  setWood(again, 12)
-  Food.setKeep(again, "wood", 10)
+  setWood(again, need + 22)
+  Food.setKeep(again, "wood", need + 20)
   Events.setOrder(again, "body", "careful")
   sprain(again)
-  T.eq(Ledger.get(again, "wood"), 10, "two above the target: paid, down to the target exactly")
+  T.eq(Ledger.get(again, "wood"), need + 20)
   T.eq(Status.has(again, "ankle_1"), true)
 end)
 
-T.test("orders: Careful will not eat the winter wood reserve", function()
-  local world = withRules(newWorld())
-  setTime(world, 60, 13) -- late autumn: the winter ahead is counted
-  setWood(world, 100)
-  local keep = Food.keep(world, "wood")
-  T.eq(keep > 2, true, "a winter reserve is held for wood")
-  T.eq(select(2, Food.keep(world, "wood")), true, "and it is the automatic one, not the player's")
-  local stock = Ledger.get(world, "wood")
-  Events.setOrder(world, "body", "careful")
-  local fallbacks = collect(world, "event.orderFallback")
-  T.truthy(Events.force(world, "sprained_ankle"))
-  T.eq(Events.pending(world), nil)
+-- The reserve is the wood still needed to reach the end of winter, not the automatic keep (which holds a second winter and so
+-- is the whole woodpile all year): surplus is spent in any season, the reserve is not.
+T.test("orders: Careful spends wood above the winter reserve in every season and keeps the reserve", function()
+  for _, day in ipairs({ 5, 40, 80, 120, 160, 200, 250 }) do
+    local world = withRules(newWorld())
+    local need = reserveOn(world, day)
+    T.eq(need > 2, true, "a winter reserve is held for wood on day " .. day)
+    Events.setOrder(world, "body", "careful")
+    -- Exactly the cost above the reserve: paid.
+    setWood(world, need + 2)
+    sprain(world, day)
+    T.eq(Ledger.get(world, "wood"), need, "day " .. day .. ": two spare, paid")
+    T.eq(Status.has(world, "ankle_1"), true)
+    -- One short of it: the reserve stays.
+    local held = withRules(newWorld())
+    reserveOn(held, day)
+    Events.setOrder(held, "body", "careful")
+    setWood(held, need + 1)
+    local fallbacks = collect(held, "event.orderFallback")
+    sprain(held, day)
+    T.eq(fallbacks[1].why, "keep", "day " .. day)
+    T.eq(Ledger.get(held, "wood"), need + 1, "day " .. day .. ": the reserve stays")
+  end
+end)
+
+T.test("orders: Careful will not spend drinking water below the day's need", function()
+  local function cut(water)
+    local world = withRules(newWorld())
+    setTime(world, 5, 13)
+    Events.setOrder(world, "body", "careful")
+    Ledger.setCapacity(world, "water", 20) -- a cistern
+    Ledger.remove(world, "water", Ledger.get(world, "water"))
+    Ledger.add(world, "water", water)
+    local fallbacks = collect(world, "event.orderFallback")
+    T.truthy(Events.force(world, "festering_cut")) -- Clean and bandage costs 1 water
+    return world, fallbacks
+  end
+  local need = math.ceil(Needs.waterNeeded(newWorld()))
+  local dry, fallbacks = cut(need)
   T.eq(fallbacks[1].why, "keep")
-  T.eq(Ledger.get(world, "wood"), stock, "the reserve stays")
+  T.eq(fallbacks[1].resource, "water")
+  T.eq(Ledger.get(dry, "water"), need, "today's drink stays")
+  local wet = cut(need + 1)
+  T.eq(Ledger.get(wet, "water"), need, "water above the day's need is spent")
+end)
+
+T.test("orders: an away player's standing orders still answer, and the rest wait", function()
+  local world = withRules(newWorld())
+  setWood(world, reserveOn(world, 5) + 10)
+  Events.setOrder(world, "body", "careful")
+  local chosen = collect(world, "event.chosen")
+  local offered = collect(world, "event.offered")
+  Events.setAway(world, true)
+  setTime(world, 5, 12)
+  world.state.events.scheduled[1] = { id = "sprained_ankle", due = 5 * 24 + 12, depth = 0 }
+  for _ = 1, 3 do
+    world:tick(STEP)
+  end
+  T.eq(#chosen, 1, "answered while away")
+  T.eq(chosen[1].order, true)
+  T.eq(Events.waiting(world), 0)
+  -- A class set to Ask me is not offered to an away player: it waits for them.
+  Events.setOrder(world, "body", "ask")
+  Status.clear(world, "ankle_1")
+  world.state.events.budget.count = 0 -- a new day's budget
+  world.state.events.scheduled[1] = { id = "sprained_ankle", due = 5 * 24 + 12, depth = 0 }
+  for _ = 1, 3 do
+    world:tick(STEP)
+  end
+  T.eq(#offered, 1, "nothing new was offered")
+  T.eq(#world.state.events.scheduled, 1)
+  Events.setAway(world, false)
+  world:tick(STEP)
+  T.eq(Events.pending(world).id, "sprained_ankle", "back, the card comes")
 end)
 
 T.test("orders: a rule applies to its own class only", function()
   local world = withRules(newWorld())
-  setWood(world, 10, 0)
+  setWood(world, 10)
   Events.setOrder(world, "home", "bold")
   Events.setOrder(world, "land", "careful")
   sprain(world) -- a body event
@@ -210,7 +275,7 @@ end)
 
 T.test("orders: a standing order answers a scheduled event the same way", function()
   local world = withRules(newWorld())
-  setWood(world, 10, 0)
+  setWood(world, 10)
   Events.setOrder(world, "body", "bold")
   local chosen = collect(world, "event.chosen")
   setTime(world, 5, 12)

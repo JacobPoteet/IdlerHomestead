@@ -154,6 +154,15 @@ function Food.keeps(world)
   return keep, auto
 end
 
+--- Wood still needed to reach the end of winter (the winter now on, or the one coming): the reserve a standing order's Careful
+--- option must leave (B5, D176). Smaller than the automatic keep, which also holds the winter after (tuning.food.keepWinters).
+function Food.winterWoodNeed(world)
+  local fuelId = Needs.fuelId(world)
+  local res = world.registry:get("resources", fuelId)
+  local efficiency = Needs.heatEfficiency(world)
+  return math.ceil(Readiness.warmthAhead(world, 1) / (res.heat * (efficiency > 0 and efficiency or 1)) - 1e-9)
+end
+
 --- The keep target of one good (units) and whether it is automatic.
 function Food.keep(world, id)
   local keep, auto = Food.keeps(world)

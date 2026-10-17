@@ -230,3 +230,31 @@ T.test(
     T.truthy(worst <= cap, string.format("three autumn nights (%d wood at most) fit the base cap of %d", worst, cap))
   end
 )
+
+T.test("felling: the Tonight fix does not count the wood of marked trees the allowance refuses", function()
+  local world = newWorld()
+  setDay(world, winterDay(), 18)
+  local trees = things(world, "tree")
+  -- Mark every tree: while there is allowance their wood covers the gap, so the marks are enough.
+  Marks.add(world, "clear", trees)
+  Ledger.remove(world, "wood", Ledger.get(world, "wood"))
+  local function warmthFix()
+    for _, fix in ipairs(Dusk.fixes(world)) do
+      if fix.gap == "warmth" then
+        return fix
+      end
+    end
+  end
+  local open = warmthFix()
+  T.truthy(open and open.id == "chop" and open.queued, "marked trees with allowance left cover the gap")
+  -- Use the allowance up on other trees; the marked ones left standing are refused for the season.
+  local first = table.remove(trees, 1)
+  while not Felling.limited(world, treeDef()) do
+    fell(world, table.remove(trees, 1))
+  end
+  T.truthy(first ~= nil)
+  T.truthy(Marks.count(world, "clear") > 0, "marks are still standing")
+  Ledger.remove(world, "wood", Ledger.get(world, "wood"))
+  local limited = warmthFix()
+  T.truthy(limited and not limited.queued, "the refused trees no longer claim to cover the gap")
+end)

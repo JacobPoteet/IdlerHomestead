@@ -8,8 +8,8 @@
 --   Earned:   `footing.streakNights` good nights in a row (any night that is not good resets the count).
 --   Slipped:  while held, reserves under `footing.slipFuelNights` of fuel or `footing.slipFoodDays` of food.
 --   Regained: `footing.regainNights` good nights in a row while slipped (a night that is not good resets it).
--- While slipped the Tonight card leads again (Readiness.tonightDue) and the longer goals pause: Footing.paused is the
--- accessor later slices read so no long-term timer runs out meanwhile (nothing is lost).
+-- While slipped the Tonight card leads again (Readiness.tonightDue) and Footing.paused is true: the accessor that gates
+-- new offers (bad events, contracts, charter drafts) and softens outcomes. It pauses no timer (D168): clocks keep running.
 --
 -- State: world.state.footing = { held, slipped, streak (good nights toward earning), good (good nights toward
 --   regaining), last (the day last evaluated), gainedDay?, cardDue (the one-time card has not been shown) }

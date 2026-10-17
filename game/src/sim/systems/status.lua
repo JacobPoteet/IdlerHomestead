@@ -1,11 +1,13 @@
 -- Statuses (D166, #345, docs/PLAN_DEPTH.md §7): short lists of modifiers on the homesteader. A status is content
--- (data/content/statuses.lua); this system holds which are active and combines their modifiers. Nothing applies
--- one yet: events and items call Status.apply and Status.clearBy in later slices.
+-- (data/content/statuses.lua); this system holds which are active and combines their modifiers. Events (the body pack)
+-- call Status.apply; items call Status.clearBy in a later slice.
 --
 -- Rules:
---   * Families escalate, they never stack. Applying a status of a family that is already active raises it to the
---     next severity (its `escalatesTo`; at the cap its time is renewed), or takes the higher severity when the
---     applied one is worse than the active one.
+--   * Families escalate, they never stack. Applying a status of a family that is already active raises the active
+--     one to its next severity (its `escalatesTo`; at the cap its time is renewed), but only when the applied status
+--     itself carries an `escalatesTo` (it is a stage of a chain: a second event of the same illness). One that does
+--     not (a one-off such as the chill, an ignore outcome) never escalates the active status, it only renews its time
+--     (D175). A worse applied status than the active one is taken as it is.
 --   * Different families coexist up to tuning.status.maxActiveStatuses. Past it a new family does not stack: it
 --     replaces the active status with the least time left only if it will last longer, and is dropped otherwise.
 --   * Modifiers are multipliers (1 = no effect) and multiply across the active statuses; `conditionDrain` is a
@@ -165,6 +167,21 @@ local function emitApplied(world, id, kind, from)
   world.events:emit("status.applied", { id = d.id, family = d.family, severity = d.severity, kind = kind, from = from })
 end
 
+--- Which status of a family results when `appliedId` lands on the active `currentId`: the id of the one that holds.
+--- Pure (reads definitions only); Events.audit uses it to prove an ignore outcome never escalates or worsens anything.
+function Status.resolve(world, currentId, appliedId)
+  local current, d = def(world, currentId), def(world, appliedId)
+  if d.severity <= current.severity then
+    -- A second event of the illness (the applied status is a stage of the chain): one step up, or the cap. A one-off
+    -- status without `escalatesTo` leaves the active one as it is.
+    if d.escalatesTo and current.escalatesTo then
+      return current.escalatesTo
+    end
+    return current.id
+  end
+  return d.id
+end
+
 --- Apply the status `id`. Returns what happened: "new" (it joined), "escalated" (its family rose a severity or took a
 --- worse one), "renewed" (at the cap of its family; the time is renewed) or "dropped" (the list is full of statuses
 --- that last longer, so nothing changed), then the view of the status now active (nil when dropped).
@@ -175,11 +192,7 @@ function Status.apply(world, id)
   if slot then
     local entry = st.active[slot]
     local current = def(world, entry.id)
-    local target = d
-    if d.severity <= current.severity then
-      -- A second event of the family: one step up, or the cap (where only the time is renewed).
-      target = current.escalatesTo and def(world, current.escalatesTo) or current
-    end
+    local target = def(world, Status.resolve(world, entry.id, id))
     local kind = target.id == current.id and "renewed" or "escalated"
     local left = target.duration
     if kind == "renewed" and left and entry.left then
@@ -191,14 +204,15 @@ function Status.apply(world, id)
     return kind, view(world, entry)
   end
   if #st.active >= cfg(world).maxActiveStatuses then
-    -- Full: the new status replaces the one with the least time left, only if it lasts longer; ties keep the old.
+    -- Full: the new status replaces the one with the least time left, only if it lasts longer; ties (two
+    -- until-cleared statuses too) keep the old.
     local worst
     for i, entry in ipairs(st.active) do
       if worst == nil or remaining(entry) < remaining(st.active[worst]) then
         worst = i
       end
     end
-    if not (d.duration == nil or d.duration > remaining(st.active[worst])) then
+    if (d.duration or math.huge) <= remaining(st.active[worst]) then
       return "dropped", nil
     end
     local gone = table.remove(st.active, worst)

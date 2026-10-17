@@ -1,4 +1,4 @@
--- Standing orders (B5, #349, D174): the Routine screen before the "Rules of thumb" perk is known (no block, the perk is never
+-- Standing orders (B5, #349, D176): the Routine screen before the "Rules of thumb" perk is known (no block, the perk is never
 -- named), then with it: Ask me everywhere, a tap on Careful for Body, Bold for Land, and the keyboard (Tab to a button, Enter).
 local Events = require("src.sim.systems.events")
 
