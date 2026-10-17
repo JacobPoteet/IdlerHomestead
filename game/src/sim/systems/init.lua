@@ -30,6 +30,7 @@ return {
   "threats",
   "shelter", -- D82: accessors only (insulation, heater slot, best bed); read by power, needs, sleep
   "needs",
+  "status", -- D166: injury and condition statuses; after needs so a duration counts down once the night's draw is done (read through Stats.factor)
   "wardrobe", -- D149: today's outfit, dressed at each new day after needs has settled the night; read by needs, power, readiness and actors
   "sleep",
   "actors",

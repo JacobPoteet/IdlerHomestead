@@ -54,4 +54,12 @@ function Stats.timeFactor(world, name)
   return 1 / (1 + Stats.modifier(world, name))
 end
 
+--- The statuses' combined effect on a stat (D166, #345): a multiplier (1 = no effect) for workSpeed, fallChance,
+--- carryCapacity, conditionRecovery, studySpeed, warmthNeed and waterNeed, a flat sum for conditionDrain (0 = none).
+--- The companion of `modifier` for things that slow or worsen, not equipment bonuses; the two compose by product
+--- (the wardrobe's work bonus and this one multiply). See Status.modifier.
+function Stats.factor(world, name)
+  return require("src.sim.systems.status").modifier(world, name)
+end
+
 return Stats

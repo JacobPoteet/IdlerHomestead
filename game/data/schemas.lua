@@ -113,6 +113,16 @@ return {
     match = "table?", -- event field -> value, a list of values (any one), or { min = n } / { max = n }
     count = "number?", -- matching events needed (default 1)
   },
+  statuses = { -- injury and condition statuses (D166, #345); see the header of content/statuses.lua
+    name = "string", -- the chip's title
+    line = "string", -- the one effect that matters (<= ~8 words)
+    family = "string", -- statuses of one family escalate, they never stack
+    severity = "number", -- 1.. within the family
+    duration = "number?", -- days it lasts, counted after each night's draw; absent = until cleared
+    clearedBy = "string", -- "time" | "rest" | "item"
+    escalatesTo = "string?", -- id of the next severity of the family
+    modifiers = "table", -- name -> multiplier (1 = none); conditionDrain is Condition lost a day
+  },
   chapters = {
     name = "string", -- region title on the journal map
     pages = "table", -- node `page` values that belong to this chapter

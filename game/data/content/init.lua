@@ -18,4 +18,5 @@ return {
   "chips",
   "garments",
   "milestones",
+  "statuses",
 }

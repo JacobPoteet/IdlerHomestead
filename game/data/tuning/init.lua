@@ -17,6 +17,7 @@ return {
   "sandbox",
   "shelter",
   "wardrobe",
+  "status",
   "food",
   "fishing",
   "power",
