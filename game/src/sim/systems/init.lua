@@ -38,6 +38,7 @@ return {
   "ftue",
   "alerts", -- D70: reads needs; listens after everything has set up its state
   "nightly", -- D70: the morning report's ledger; closes after sleep has woken the homesteader
+  "footing", -- D162: Footing, judged at dusk from the needs' figures; run state
   "readiness", -- D70: accessors only
   "dusk", -- D161: the Tonight card's one-tap fixes; issues orders through marks, tasks and actors, no state of its own
 }
