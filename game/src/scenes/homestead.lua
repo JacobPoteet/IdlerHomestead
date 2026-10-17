@@ -384,10 +384,16 @@ function Homestead:subscribe()
       self:record(d.title .. ": " .. d.line)
     end),
     events:on("event.chosen", function(e)
-      self:newsToast(e.label)
+      self:newsToast(e.order and string.format(EventText.orderToast, e.label) or e.label)
     end),
     events:on("event.ignored", function(e)
-      self:newsToast(e.reason == "expired" and string.format(EventText.ignoredToast, e.label) or e.label)
+      local text = e.label
+      if e.reason == "expired" then
+        text = string.format(EventText.ignoredToast, e.label)
+      elseif e.reason == "order" then
+        text = string.format(EventText.orderToast, e.label)
+      end
+      self:newsToast(text)
     end),
     events:on("journal.idea", function(e)
       self:newsToast("New idea: " .. Journal.node(world, e.item).name .. " · see the Journal")

@@ -2,7 +2,10 @@
 -- Reorder categories, switch them on or off, and give a category a condition ("If" button): the
 -- routine skips it while the condition is not met. The "If" button picks a row; the strip under the
 -- list edits that row's condition kind and value with big stepper buttons. Changes apply at once.
+-- Once the "Rules of thumb" perk is known, a block under the list sets a standing order per event class (Ask me,
+-- Careful, Bold; B5, #349, docs/PLAN_DEPTH.md 6.4). Before that the block is not shown, so the perk is never named.
 
+local Events = require("src.sim.systems.events")
 local Tasks = require("src.sim.systems.tasks")
 local Rules = require("src.sim.routine_rules")
 local ScrollList = require("src.ui.scroll_list")
@@ -17,6 +20,10 @@ Routine.__index = Routine
 local ROW_H = 26
 local HEADER_H = 40
 local EDITOR_H = 56
+local ORDERS_HEAD_H = 36 -- the standing orders block's heading and its one-line help
+local CLASS_NAMES = { body = "Body", home = "Home", land = "Land", visitors = "Visitors" }
+local MODE_NAMES = { ask = "Ask me", careful = "Careful", bold = "Bold" }
+local MODE_W = 62
 
 --- Are conditions switched on (tuning.idle.routineConditions)? Off for the playtest: no "If" button, no editor.
 local function conditionsOn(world)
@@ -26,6 +33,11 @@ end
 --- Height the condition editor strip takes (none while conditions are off).
 local function editorH(world)
   return conditionsOn(world) and EDITOR_H or 0
+end
+
+--- Height the standing orders block takes (none until the perk is known).
+local function ordersH(world)
+  return Events.ordersUnlocked(world) and (ORDERS_HEAD_H + #Events.CLASSES * ROW_H) or 0
 end
 
 function Routine.new(world)
@@ -43,7 +55,7 @@ end
 
 function Routine:resize(view)
   local list = self.world.state.priorities
-  self.box = Panel.box(view, 380, HEADER_H + #list * ROW_H + editorH(self.world) + 44)
+  self.box = Panel.box(view, 380, HEADER_H + #list * ROW_H + editorH(self.world) + ordersH(self.world) + 44)
   self:layout()
 end
 
@@ -59,7 +71,7 @@ function Routine:layout()
     x = b.x,
     y = b.y + HEADER_H,
     w = b.w,
-    h = b.h - HEADER_H - editorH(world) - 44,
+    h = b.h - HEADER_H - editorH(world) - ordersH(world) - 44,
   }, count * ROW_H, ui.scrollHintHeight, ROW_H)
   local top = self.list:origin()
   for i, entry in ipairs(world.state.priorities) do
@@ -101,6 +113,33 @@ function Routine:layout()
         self.selected = entry.category
         self:layout()
       end, { selected = self.selected == entry.category })
+    end
+  end
+
+  -- Standing orders: one row per event class, three buttons each, under the list (it scrolls, this does not).
+  self.ordersY = nil
+  if Events.ordersUnlocked(world) then
+    self.ordersY = b.y + b.h - 44 - editorH(world) - ordersH(world)
+    for n, class in ipairs(Events.CLASSES) do
+      local y = self.ordersY + ORDERS_HEAD_H + (n - 1) * ROW_H
+      local right = b.x + b.w - 12
+      for m = #Events.MODES, 1, -1 do
+        local mode = Events.MODES[m]
+        right = right - MODE_W
+        self.buttons:add({
+          x = right,
+          y = y,
+          w = MODE_W,
+          h = 24,
+          label = MODE_NAMES[mode],
+          selected = Events.orderMode(world, class) == mode,
+          onPress = function()
+            Events.setOrder(world, class, mode)
+            self:layout()
+          end,
+        })
+        right = right - 4
+      end
     end
   end
 
@@ -221,6 +260,18 @@ function Routine:draw()
   end
   self.rowButtons:draw()
   self.list:finish()
+  if self.ordersY then
+    Text.draw("When trouble comes", b.x + 14, self.ordersY + 2, { size = "body" })
+    Text.draw(
+      "Careful pays only what you can spare. Bold costs nothing.",
+      b.x + 14,
+      self.ordersY + 18,
+      { size = "small", color = theme.colors.textDim }
+    )
+    for n, class in ipairs(Events.CLASSES) do
+      Text.draw(CLASS_NAMES[class], b.x + 14, self.ordersY + ORDERS_HEAD_H + (n - 1) * ROW_H + 6, { size = "body" })
+    end
+  end
   self.list:drawCue(self.app.ctx.tuning.ui)
   if conditionsOn(self.world) then
     local cat = self.selected

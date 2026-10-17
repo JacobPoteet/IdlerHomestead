@@ -172,6 +172,7 @@ end
 -- Drinking water (D160) ---------------------------------------------------------------------------
 
 local WATER = "water" -- the ledger stock the cistern fills (the same pool as irrigation)
+Needs.WATER = WATER
 
 --- Water units the homesteader drinks each day: the figure the Tonight card, the Footing "water source"
 --- test and readiness read, like `warmthNeeded`.

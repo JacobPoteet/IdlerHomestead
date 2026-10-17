@@ -66,11 +66,14 @@ end
 --- turns the woodpile into surplus. Cautious where the forecast is silent: an unrevealed severity counts
 --- as the highest that year can roll, and an unrevealed cold snap as the longest one. 0 when winters
 --- never freeze.
-function Readiness.warmthAhead(world)
+---
+--- `winters` overrides how many winters are counted (1 = to the end of the winter now on or coming, the wood still needed
+--- "to reach the end of winter"); omitted, the automatic keep's horizon above.
+function Readiness.warmthAhead(world, winters)
   local time, cfg = world.tuning.time, world.tuning.weather
   local now = Calendar.now(world)
   local forecast = Weather.forecast(world)
-  local winters = world.tuning.food.keepWinters + (Weather.isFrozen(world) and 1 or 0)
+  winters = winters or (world.tuning.food.keepWinters + (Weather.isFrozen(world) and 1 or 0))
   local idx, day, year = now.seasonIndex, now.dayOfSeason, now.year
   local total, inWinter, done = 0, false, 0
   for _ = 1, (winters + 1) * #time.seasons + 1 do

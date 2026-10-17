@@ -11,7 +11,7 @@
 --   open  = { ate = { [food id] = n }, burned = { [fuel id] = n }, calories, hungry (shortfall sum 0..),
 --             thirsty (shortfall sum), thirstLost (condition lost to thirst), drank (water units),
 --             cold (shortfall sum), warmthNeeded, electric, raided = { [id] = n }, caught (mice the cat
---             caught), killed (hens lost to a fox), killedGoats (goats lost to one), stopped (fox raids turned back), spoil = { lost, total }?,
+--             caught), killed (hens lost to a fox), killedGoats (goats lost to one), stopped (fox raids turned back), orders ({ id, why, resource } standing orders that fell back to ignore), spoil = { lost, total }?,
 --             learned = { ids }, slept (game seconds), sleepAt (game seconds, set while in bed),
 --             study = { id, name, from, total }?, condition0? }
 --   ready = the closed ledger plus { day, hours, study = { id, name, from, to, total, learned }?,
@@ -42,6 +42,7 @@ local function blank()
     killed = 0,
     killedGoats = 0,
     stopped = 0,
+    orders = {},
     learned = {},
     slept = 0,
   }
@@ -163,6 +164,12 @@ function Nightly.init(world)
       local field = e.kind == "goats" and "killedGoats" or "killed"
       acc[field] = acc[field] + e.killed
     end
+  end)
+  -- A standing order that fell back to ignoring because of the cost (B5, #349): the report says what was kept.
+  ev:on("event.orderFallback", function(e)
+    local acc = open(world)
+    acc.orders = acc.orders or {}
+    acc.orders[#acc.orders + 1] = { id = e.id, why = e.why, resource = e.resource }
   end)
   ev:on("journal.learned", function(e)
     local acc = open(world)

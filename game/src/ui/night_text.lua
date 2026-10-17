@@ -116,6 +116,17 @@ function NightText.morning(world, report)
     add("A fox tried the animals in the night. The fence held.")
   end
 
+  -- Standing orders that fell back to ignoring because of the cost (B5, #349): "Kept the wood, ignored the sprained ankle."
+  for _, order in ipairs(report.orders or {}) do
+    local title = world.registry:get("events", order.id).title:lower()
+    local stock = world.registry:get("resources", order.resource).name:lower()
+    if order.why == "keep" then
+      add(string.format("Kept the %s, ignored the %s.", stock, title))
+    else
+      add(string.format("No %s to spare, ignored the %s.", stock, title))
+    end
+  end
+
   local from, to = math.floor(report.conditionFrom + 0.5), math.floor(report.conditionTo + 0.5)
   if from ~= to then
     add(string.format("Condition %d to %d.", from, to), to < from and theme.colors.danger or nil)

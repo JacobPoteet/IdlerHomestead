@@ -87,6 +87,16 @@ return {
     modifiers = { idleEfficiency = 0.1 },
   },
   {
+    id = "rules_of_thumb",
+    name = "Rules of thumb",
+    page = "habits",
+    icon = "icon_heart",
+    line = "Set a rule for each kind of trouble.",
+    needs = { "found_footing", "ankle_sprain" },
+    studyNights = 3,
+    -- Unlocks the standing orders on the Routine screen (B5, #349): Ask me, Careful or Bold per event class.
+  },
+  {
     id = "weather_sense",
     name = "Weather sense",
     page = "weather",
