@@ -36,18 +36,18 @@ end)
 T.test("status ui: every status that takes hold is counted once per hit, in the order first seen", function()
   local world = newWorld(2)
   Status.apply(world, "ankle_1") -- new
-  Status.apply(world, "fever") -- new
+  Status.apply(world, "back") -- new
   Status.apply(world, "ankle_1") -- escalates to ankle_2
-  Status.apply(world, "fever") -- the cap: renewed
+  Status.apply(world, "back") -- the cap: renewed
   local h = Status.history(world)
   T.eq(#h, 3)
   T.eq(h[1].id, "ankle_1")
   T.eq(h[1].count, 1)
-  T.eq(h[2].id, "fever")
+  T.eq(h[2].id, "back")
   T.eq(h[2].count, 2, "a renewal is another hit")
   T.eq(h[3].id, "ankle_2")
   -- Clearing does not erase what happened.
-  Status.clear(world, "fever")
+  Status.clear(world, "back")
   T.eq(#Status.history(world), 3)
 end)
 
@@ -81,7 +81,7 @@ T.test("status ui: a chip says the main effect and the days left, or the name wh
   Status.apply(world, "ankle_1")
   local st = Status.get(world, "ankle_1")
   local text = StatusText.chip(cfg, st, 400, width)
-  T.eq(text, "Work 20% slower · 1d")
+  T.eq(text, "Work 50% slower today · 1d")
   local short = StatusText.chip(cfg, st, 60, width)
   T.eq(short, "Hobbling 1d", "the name stands in when the effect does not fit")
   Status.apply(world, "tired") -- no end date
@@ -108,12 +108,11 @@ T.test("status ui: the card tells the time left, how it ends and what happens if
   Status.apply(world, "ankle_2")
   local d = StatusText.detail(cfg, reg, Status.get(world, "ankle_2"), Status.count(world), Status.maxActive(world))
   T.eq(d.title, "Strained ankle")
-  T.eq(d.time, "Ends in 3 days")
+  T.eq(d.time, "Ends tomorrow morning")
   T.eq(d.how, cfg.clearedBy.time)
   T.truthy(d.worse:find("torn ankle"), "names the next step")
   T.eq(d.footer, "1 of 3 statuses at once")
-  T.eq(d.effects[1], "Work 30% slower")
-  T.eq(d.effects[2], "Falls 100% more likely")
+  T.eq(d.effects[1], "Falls 100% more likely")
   Status.apply(world, "ankle_2")
   Status.apply(world, "ankle_3")
   local top = StatusText.detail(cfg, reg, Status.get(world, "ankle_3"), 1, 3)

@@ -249,6 +249,18 @@ function Wardrobe.effects(world, outfit)
   return { work = work, cold = cold }
 end
 
+--- The weight class ("light" | "mid" | "heavy") of the garment worn in `slot` today. The body events read it (boots lower or
+--- raise a sprain's weight, PLAN_DEPTH 7).
+function Wardrobe.classOf(world, slot)
+  return garmentIn(world, slot, today(world)[slot]).class
+end
+
+--- Which way today's whole outfit leans: "light" (it needs more heat at night), "heavy" (less) or "mid" (the baseline).
+function Wardrobe.outfitLean(world)
+  local _, cold = sums(world, today(world))
+  return cold > 0 and "light" or (cold < 0 and "heavy" or "mid")
+end
+
 --- The largest magnitude an outfit can reach on each axis: `{ work, cold }`, the full half of a meter.
 function Wardrobe.scale(world)
   local scale = cfg(world).scale

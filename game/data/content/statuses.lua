@@ -1,5 +1,9 @@
--- Statuses (D166, #345, docs/PLAN_DEPTH.md §7): short lists of modifiers on the homesteader. Nothing applies one yet
--- (events and items do, phase B3 on); src/sim/systems/status.lua holds the rules.
+-- Statuses (D166, #345, docs/PLAN_DEPTH.md §7): short lists of modifiers on the homesteader. Events apply them (the body pack,
+-- B6, D173); items follow; src/sim/systems/status.lua holds the rules.
+-- A family is also the chip's icon (icon_status_<family>), so the one-off statuses share the family of the injury they belong to
+-- and the lost-time ones (rest, tending, break, a collapse, sluggish) share "rest".
+-- A few are stand-ins for lost hours (tending, break): a status lasts whole days, so an hour of work is a day of slightly
+-- slower work (a share of the ~12 working hours), and a day of rest is the work-speed floor.
 --   name       the chip's title
 --   line       the one effect that matters, for the chip (<= ~8 words)
 --   family     statuses of one family escalate (apply a second one and the severity rises), they never stack
@@ -14,16 +18,17 @@
 --              conditionRecovery (the dailyRecovery of a fed, warm day), conditionDrain, studySpeed,
 --              warmthNeed (the night's warmth), waterNeed (the day's drink)
 return {
+  -- The ankle (sprained ankle and its escalation, PLAN_DEPTH 6.2)
   {
     id = "ankle_1",
     name = "Hobbling",
-    line = "Work 20% slower",
+    line = "Work 50% slower today",
     family = "ankle",
     severity = 1,
     duration = 1,
     clearedBy = "time",
     escalatesTo = "ankle_2",
-    modifiers = { workSpeed = 0.8, fallChance = 1.5 },
+    modifiers = { workSpeed = 0.5 },
   },
   {
     id = "ankle_2",
@@ -31,20 +36,30 @@ return {
     line = "Falls twice as likely",
     family = "ankle",
     severity = 2,
-    duration = 3,
+    duration = 1,
     clearedBy = "time",
     escalatesTo = "ankle_3",
-    modifiers = { workSpeed = 0.7, fallChance = 2 },
+    modifiers = { fallChance = 2 },
   },
   {
     id = "ankle_3",
     name = "Torn ankle",
-    line = "Work 50% slower",
+    line = "Work 60% slower",
     family = "ankle",
     severity = 3,
-    duration = 6,
+    duration = 3,
     clearedBy = "rest",
-    modifiers = { workSpeed = 0.5, fallChance = 3, carryCapacity = 0.8 },
+    modifiers = { workSpeed = 0.4, fallChance = 3 },
+  },
+  {
+    id = "ankle_3b",
+    name = "Splinted ankle",
+    line = "Work 60% slower, mends sooner",
+    family = "ankle",
+    severity = 3,
+    duration = 2, -- the torn ankle, splinted: two days instead of three
+    clearedBy = "rest",
+    modifiers = { workSpeed = 0.4, fallChance = 3 },
   },
   {
     id = "limp",
@@ -56,35 +71,183 @@ return {
     clearedBy = "time",
     modifiers = { workSpeed = 0.6 },
   },
+  -- Fever, infection and flu (one family: a second one raises the severity)
   {
     id = "fever",
     name = "Fever",
-    line = "Needs more warmth and water",
+    line = "Work 40% slower, needs more warmth",
     family = "fever",
     severity = 1,
     duration = 3,
     clearedBy = "rest",
-    modifiers = { workSpeed = 0.8, warmthNeed = 1.15, waterNeed = 1.5, conditionRecovery = 0.5 },
+    escalatesTo = "flu",
+    modifiers = { workSpeed = 0.6, warmthNeed = 1.15, waterNeed = 1.5, conditionRecovery = 0.5 },
   },
   {
-    id = "back",
-    name = "Sore back",
-    line = "Carries a lot less",
-    family = "back",
+    id = "infection",
+    name = "Infected cut",
+    line = "Work 25% slower, needs more water",
+    family = "fever",
     severity = 1,
     duration = 4,
     clearedBy = "time",
-    modifiers = { workSpeed = 0.85, carryCapacity = 0.6 },
+    escalatesTo = "flu",
+    modifiers = { workSpeed = 0.75, waterNeed = 1.25 },
   },
+  {
+    id = "flu",
+    name = "Flu",
+    line = "Work 50% slower, needs more warmth",
+    family = "fever",
+    severity = 2,
+    duration = 4,
+    clearedBy = "rest",
+    modifiers = { workSpeed = 0.5, warmthNeed = 1.2, waterNeed = 1.5, conditionRecovery = 0.5, conditionDrain = 1 },
+  },
+  {
+    id = "chill",
+    name = "Chill",
+    line = "Work 20% slower",
+    family = "fever",
+    severity = 1,
+    duration = 3, -- the ignore outcome of the fever: free, and it cannot become a flu
+    clearedBy = "time",
+    modifiers = { workSpeed = 0.8 },
+  },
+  {
+    id = "rested",
+    name = "Resting",
+    line = "No real work, heals twice as fast",
+    family = "rest",
+    severity = 1,
+    duration = 1, -- a day in bed: the work-speed floor (tuning.status.minWorkSpeed) for today
+    clearedBy = "time",
+    modifiers = { workSpeed = 0.35, conditionRecovery = 2 },
+  },
+  -- Back
+  {
+    id = "back",
+    name = "Sore back",
+    line = "Carries half as much",
+    family = "back",
+    severity = 1,
+    duration = 2,
+    clearedBy = "time",
+    modifiers = { carryCapacity = 0.5 },
+  },
+  {
+    id = "stiff",
+    name = "Stiff back",
+    line = "Carries a little less",
+    family = "back",
+    severity = 1,
+    duration = 2, -- the ignore outcome of back strain
+    clearedBy = "time",
+    modifiers = { carryCapacity = 0.85 },
+  },
+  -- Burns and cuts
   {
     id = "burn",
     name = "Burn",
-    line = "Loses Condition each day",
+    line = "Work 20% slower",
     family = "burn",
     severity = 1,
-    duration = 3,
+    duration = 2,
     clearedBy = "item",
-    modifiers = { workSpeed = 0.9, conditionDrain = 1 },
+    modifiers = { workSpeed = 0.8 },
+  },
+  {
+    id = "sting",
+    name = "Stinging hand",
+    line = "Work 10% slower",
+    family = "burn",
+    severity = 1,
+    duration = 1, -- the ignore outcome of a burn
+    clearedBy = "time",
+    modifiers = { workSpeed = 0.9 },
+  },
+  {
+    id = "rinse",
+    name = "Sore cut",
+    line = "Work 10% slower",
+    family = "wound",
+    severity = 1,
+    duration = 2, -- the ignore outcome of a festering cut: a rinse, and no infection roll
+    clearedBy = "time",
+    modifiers = { workSpeed = 0.9 },
+  },
+  -- Lost hours (the careful side of an injury: time instead of a risk)
+  {
+    id = "tending",
+    name = "Tending",
+    line = "An hour of work lost",
+    family = "rest",
+    severity = 1,
+    duration = 1, -- one hour of about twelve working hours
+    clearedBy = "time",
+    modifiers = { workSpeed = 0.92 },
+  },
+  {
+    id = "break",
+    name = "Taking a break",
+    line = "A few hours of work lost",
+    family = "rest",
+    severity = 1,
+    duration = 1, -- three hours of about twelve working hours
+    clearedBy = "time",
+    modifiers = { workSpeed = 0.75 },
+  },
+  -- Heat
+  {
+    id = "heat",
+    name = "Overheated",
+    line = "Needs 50% more water",
+    family = "heat",
+    severity = 1,
+    duration = 1,
+    clearedBy = "time",
+    modifiers = { waterNeed = 1.5 },
+  },
+  {
+    id = "collapsed",
+    name = "Collapsed",
+    line = "Work 50% slower",
+    family = "rest",
+    severity = 1,
+    duration = 1,
+    clearedBy = "time",
+    modifiers = { workSpeed = 0.5 },
+  },
+  {
+    id = "sluggish",
+    name = "Sluggish",
+    line = "Work 30% slower",
+    family = "rest",
+    severity = 1,
+    duration = 1, -- the ignore outcome of heat exhaustion
+    clearedBy = "time",
+    modifiers = { workSpeed = 0.7 },
+  },
+  -- Teeth
+  {
+    id = "toothache",
+    name = "Toothache",
+    line = "Studies 30% slower",
+    family = "tooth",
+    severity = 1,
+    duration = 3,
+    clearedBy = "time",
+    modifiers = { studySpeed = 0.7 },
+  },
+  {
+    id = "tooth_nag",
+    name = "Sore tooth",
+    line = "Studies 10% slower",
+    family = "tooth",
+    severity = 1,
+    duration = 2, -- the ignore outcome of a bad tooth
+    clearedBy = "time",
+    modifiers = { studySpeed = 0.9 },
   },
   {
     id = "tired",

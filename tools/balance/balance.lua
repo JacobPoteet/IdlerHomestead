@@ -198,6 +198,7 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
           minCondition = 100,
           statusDays = 0,
           maxStatuses = 0,
+          statusHist = {}, -- statuses active at a dawn -> days (the median of the days, B6 #350)
         }
       or nil,
     -- Footing (D165, #344): the day it was first earned (nil if never), slips and regains, the dusk nights judged
@@ -342,6 +343,7 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
         x.minCondition = math.min(x.minCondition, result.snaps[e.day].condition)
         x.statusDays = x.statusDays + (active > 0 and 1 or 0)
         x.maxStatuses = math.max(x.maxStatuses, active)
+        x.statusHist[active] = (x.statusHist[active] or 0) + 1
       end
       result.snaps[e.day].truckEarned = result.counters.earned
       result.snaps[e.day].standEarned = Stand.total(world).earned
@@ -602,6 +604,7 @@ function Balance.eventsSummary(results)
     statusDays = 0,
     maxStatuses = 0,
     minCondition = 100,
+    statusHist = {},
   }
   for _, r in ipairs(results) do
     local x = r.events
@@ -609,6 +612,9 @@ function Balance.eventsSummary(results)
     out.statusDays = out.statusDays + x.statusDays
     out.maxStatuses = math.max(out.maxStatuses, x.maxStatuses)
     out.minCondition = math.min(out.minCondition, x.minCondition)
+    for count, days in pairs(x.statusHist) do
+      out.statusHist[count] = (out.statusHist[count] or 0) + days
+    end
     for id, by in pairs(x.by) do
       local sum = out.by[id] or { offered = 0, chosen = 0, ignored = 0 }
       out.by[id] = sum
@@ -616,6 +622,21 @@ function Balance.eventsSummary(results)
     end
   end
   out.offeredPerRun, out.statusDaysPerRun = out.offered / out.n, out.statusDays / out.n
+  -- The median number of statuses active at a dawn, over every day of every run: 0 means most days are clear.
+  local days = 0
+  for _, n in pairs(out.statusHist) do
+    days = days + n
+  end
+  local seen, median = 0, 0
+  for count = 0, out.maxStatuses do
+    seen = seen + (out.statusHist[count] or 0)
+    if seen * 2 >= days then
+      median = count
+      break
+    end
+  end
+  out.medianStatuses = median
+  out.shareWithStatus = days > 0 and out.statusDays / days or 0
   return out
 end
 
@@ -845,12 +866,14 @@ function Balance.printEvents(e)
   line("")
   line(
     string.format(
-      "Events (%s): %.1f offered per run (all runs: chosen %d, ignored %d); days with a status per run %.1f; most statuses at once %d; lowest Condition %.0f",
+      "Events (%s): %.1f offered per run (all runs: chosen %d, ignored %d); days with a status per run %.1f (%.0f%% of days); median statuses active %d; most statuses at once %d; lowest Condition %.0f",
       e.mode,
       e.offeredPerRun,
       e.chosen,
       e.ignored,
       e.statusDaysPerRun,
+      e.shareWithStatus * 100,
+      e.medianStatuses,
       e.maxStatuses,
       e.minCondition
     )

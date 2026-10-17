@@ -381,12 +381,16 @@ T.test("events: choosing pays the cost, applies the effect and reports it", func
   T.eq(Status.has(world, "ankle_1"), true)
   T.eq(chosen[1].option, 1)
   T.eq(Events.pending(world), nil)
-  -- Power through: no cost, the worse ankle.
+  -- Power through: no cost, no slowdown today, and the strained ankle tomorrow morning.
+  Status.clear(world, "ankle_1")
   setTime(world, 12, 13)
   world.state.events.budget.day = 0
   Events.force(world, "sprained_ankle")
   T.truthy(Events.choose(world, 2))
-  T.eq(Status.get(world, "ankle_2").severity, 2, "a second sprain of the family rises a step")
+  T.eq(Status.count(world), 0, "fine today")
+  setTime(world, 13, 8)
+  tick(world)
+  T.eq(Status.get(world, "ankle_2").severity, 2, "strained tomorrow")
   T.eq(Events.force(world, "sprained_ankle"), true)
   T.eq(Events.force(world, "sprained_ankle"), false, "one card at a time")
 end)
