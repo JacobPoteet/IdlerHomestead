@@ -293,6 +293,29 @@ return {
     drift = 2.5, -- art pixels per second the banks drift downwind at wind strength 1
     direction = { 1.0, 0.25 }, -- drift direction (x east, y south)
   },
+  heldTool = { -- the tool in the homesteader's hand while a job runs (src/render/held_tool.lua); a static sprite, the swing is a later animation pass (#335)
+    tasks = { -- task id -> tool id (see Icons.tool); a task not listed holds nothing
+      till = "hoe",
+      untill = "hoe",
+      plant = "hoe",
+      water_crop = "pail",
+      water_marked = "pail",
+      fetch_water = "pail",
+      fetch_marked = "pail",
+      clear = "axe",
+      clear_marked = "axe",
+      fell = "axe",
+    },
+    hand = { 14, 16 }, -- art pixels { x, y } in the homesteader sprite where the right hand grips, facing right (a figure facing left mirrors it)
+    grips = { -- tool sprite id -> art pixels { x, y } in that sprite which sit in the hand (the handle, or the pail's rim)
+      icon_tool_hoe = { 1, 8 },
+      icon_tool_hatchet = { 2, 9 },
+      icon_tool_axe = { 1, 7 },
+      icon_tool_pail = { 3, 4 },
+      icon_tool_pail_big = { 3, 4 },
+    },
+    turnEpsilon = 0.01, -- tiles: the least sideways step or distance to the target that turns the figure round
+  },
   shadows = { -- sun shadows (shaders/shadow.glsl): each sprite's silhouette is flipped onto the ground and sheared away from the sun, plus a small contact shadow underneath
     enabled = true,
     color = { 0.40, 0.45, 0.82 }, -- colour multiplier at full shade: the shadow multiplies the ground, so a cool blue-violet keeps grass green but deep and cool
