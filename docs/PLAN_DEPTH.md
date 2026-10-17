@@ -418,7 +418,7 @@ Three loops this creates:
 
 ## 15. Balance targets (directional, pursued in M9)
 
-These are not acceptance gates for M8 slices. M8 uses the smoke harness only; these numbers guide the M9 pass and are revised first if play disagrees. The time model (T0) may move several of them.
+These are not acceptance gates for M8 slices. M8 uses the smoke harness only; these numbers guide the M9 pass and are revised first if play disagrees. The time model (T0) kept the 320 s day (D159), so none moved.
 
 | Metric | Target |
 |---|---|
@@ -453,10 +453,7 @@ Risks: scope (this is a large milestone); event fatigue; compounding statuses. M
 Issues are written to be done by an agent alone: each states its goal, design reference, scope, out of scope, likely files, acceptance, tests and docs. Labels: `enhancement` plus a topic label; `balance` where numbers move. Order: T0 first, then A, then B and C, then D and E in parallel, then F and G, then H, then I.
 
 **Phase T: Time model (do first)**
-- T0 (#395) Decide the time model: real-time length of a day, whether task times scale with it, and the resulting season and year length. Owner's decision. Blocks B3, F1 and F3.
-
-**Phase T: Time model**
-- T0 (#395) Time model. Done (D159): the 320 s day stays, no tuning moved; if the day is ever lengthened, task and walk times scale with it.
+- T0 (#395) Decide the time model: real-time length of a day, whether task times scale with it, and the resulting season and year length. Owner's decision. Blocks B3, F1 and F3. **Done (D159):** the 320 s day stays, no tuning moved; if the day is ever lengthened, task and walk times scale with it.
 
 **Phase A: Tonight and Footing**
 - A1 (#340) Dusk check: the Tonight card and a `Readiness.tonight` accessor.
