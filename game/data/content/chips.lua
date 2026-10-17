@@ -57,6 +57,29 @@ return {
     panelLabel = "Open Pantry",
   },
   {
+    id = "drink",
+    name = "Drinking water",
+    -- States by alert level (ok, low, bad), or "thirst" once a day has gone without enough water.
+    status = {
+      ok = "Water to drink",
+      low = "Drinking water is low",
+      bad = "Almost out of water",
+      thirst = "You are thirsty",
+    },
+    rows = {
+      { key = "days", label = "Lasts", fmt = "%.1f days" },
+      { key = "perDay", label = "Drunk each day", fmt = "%.1f units" },
+      { key = "canteen", label = "Canteen", fmt = "%.1f of %d" },
+      { key = "cistern", label = "Cistern", fmt = "%.1f units" },
+      { key = "thirst", label = "Dry days in a row", fmt = "%d" },
+    },
+    why = {
+      low = "Fill the canteen at the creek or a well. A cistern covers it.",
+      bad = "Fill the canteen at the creek or a well. In winter melt snow by a fire.",
+      thirst = "Thirst hurts a little more each dry day. Fill the canteen now.",
+    },
+  },
+  {
     id = "condition",
     name = "Health",
     status = { ok = "Healthy", low = "Health is falling", bad = "Health is dangerously low" },

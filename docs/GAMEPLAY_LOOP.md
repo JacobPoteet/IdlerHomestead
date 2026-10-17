@@ -174,7 +174,7 @@ Open items for the implementer: the three Journal steps assume the first-run pla
 4. **GDD 6.2, "defaults are sensible, so a new player never has to touch this":** the 3-day pantry default makes beginners lose perishables (F5).
 5. **GDD 8.1 and 8.3 note example "Fish spoil in two days":** the note exists, but the spoilage itself has no player-visible rule or rate (F1).
 6. **GDD 5.2, "Pending decisions show as gentle notifications":** built only for the study choice (Journal button accent) and the find modal. There is no notification for a truck that can drive, for crops ripe, for winter prep, or for an idle food stock.
-7. **GDD 4.2, drinking water, and 5.3, root cellar and cooler rungs:** not built (D38 shortcut: spoilage is aggregate; potatoes stand in for a cellar).
+7. **GDD 4.2, drinking water (built since: D160), and 5.3, root cellar and cooler rungs:** not built (D38 shortcut: spoilage is aggregate; potatoes stand in for a cellar).
 8. **GDD 9.3, "winter readiness" in the widget and HUD:** not shown anywhere.
 9. **GDD 4.1 and 11, pacing:** about 80 minutes to the first winter, not 45 to 60 (D56, #121); a season is 26 minutes.
 10. **GDD 3 pillar 2 and 11, "first run meant to fail around the first winter":** an engaged player is not gated (BALANCE), an unattended one dies in week one (before D61) or in winter (#138); the beginner's real failure is food in the first days.

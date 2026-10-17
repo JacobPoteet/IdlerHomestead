@@ -9,6 +9,7 @@
 --
 -- State: world.state.nightly = { open = { ... }, ready = { ... }? }
 --   open  = { ate = { [food id] = n }, burned = { [fuel id] = n }, calories, hungry (shortfall sum 0..),
+--             thirsty (shortfall sum), thirstLost (condition lost to thirst), drank (water units),
 --             cold (shortfall sum), warmthNeeded, electric, raided = { [id] = n }, caught (mice the cat
 --             caught), killed (hens lost to a fox), killedGoats (goats lost to one), stopped (fox raids turned back), spoil = { lost, total }?,
 --             learned = { ids }, slept (game seconds), sleepAt (game seconds, set while in bed),
@@ -30,6 +31,9 @@ local function blank()
     burned = {},
     calories = 0,
     hungry = 0,
+    thirsty = 0,
+    thirstLost = 0,
+    drank = 0,
     cold = 0,
     warmthNeeded = 0,
     electric = 0,
@@ -125,6 +129,12 @@ function Nightly.init(world)
     local acc = open(world)
     acc.calories = acc.calories + e.calories
     acc.hungry = acc.hungry + e.shortfall
+  end)
+  ev:on("needs.drank", function(e)
+    local acc = open(world)
+    acc.drank = acc.drank + e.water
+    acc.thirsty = acc.thirsty + e.shortfall
+    acc.thirstLost = acc.thirstLost + e.damage
   end)
   ev:on("needs.warmed", function(e)
     local acc = open(world)

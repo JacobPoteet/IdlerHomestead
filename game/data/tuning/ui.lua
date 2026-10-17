@@ -113,6 +113,8 @@ return {
     bothIn = "Cold and hunger got you in the %s.",
     coldNext = "The Shelter page of the Journal has a warmer bed: the %s.",
     coldTop = "More wood or a heater keeps the shack warm. The Shelter page of the Journal has more.",
+    thirst = "You ran out of water.",
+    thirstHint = "Keep the canteen full: the creek, a well or a cistern all give drinking water, and snow melts by a fire.",
     hunger = "You ran out of food.",
     hungerHint = "Plant early and watch the food chip; it counts the days left.",
     unknown = "Your strength gave out.",
@@ -120,6 +122,7 @@ return {
     firstChange = "First change for next time:", -- label above the suggestion on the first recovery (once per slot, D99)
     firstColdNext = "Learn the %s early, from the Shelter page of the Journal.",
     firstColdTop = "Stock wood before the first freeze.",
+    firstThirst = "Keep a few days of drinking water: fill the canteen, and put a cistern or a well in.",
     firstHunger = "Plant a field in the first days and keep a few days of food.",
     firstUnknown = "Spend the free study below, then plan the first week.",
   },
@@ -414,6 +417,7 @@ return {
     trendMinKw = 0.05, -- kW: a battery charging or draining slower than this shows no trend arrow (flat)
     foodFullDays = 7, -- days of food that fill the food bar (a week in the larder reads as full)
     woodFullNights = 10, -- nights of wood that fill the wood bar once a fire is needed (before that the bar is the share of the store)
+    drinkFullDays = 4, -- days of drinking water that fill the drink chip bar (a full canteen is three)
     waterAmber = 0.25, -- cistern fill (0..1) under which the water chip turns amber
     waterRed = 0.10, -- cistern fill (0..1) under which the water chip turns red
     stormThreat = 2, -- weather kinds whose threat multiplier (tuning.weather.kinds) is at least this show the weather chip amber (storms)

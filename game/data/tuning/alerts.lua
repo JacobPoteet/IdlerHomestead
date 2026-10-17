@@ -11,5 +11,7 @@ return {
   conditionFallDrop = 10, -- condition points lost since the dawn before the last midnight at which the heart chip turns amber (and "Health is falling" shows once) even while condition is still above conditionAmber; raise it to warn later
   animalsAmberDays = 3, -- days of feed (hay or chicken feed, manger plus stock) under which the animal chip turns amber and a warning toast shows
   animalsRedDays = 1.5, -- days of feed under which the animal chip turns red (the animals will go hungry soon)
+  drinkAmberDays = 1.5, -- days of drinking water (cistern plus canteen) under which the drink chip turns amber and a warning toast shows
+  drinkRedDays = 1, -- days of drinking water under which the drink chip turns red (the next midnight leaves a dry day)
   readinessLeadDays = 7, -- days before the first frozen season from which the winter-readiness pill shows (7 = from autumn on; raise it to show it in late summer)
 }

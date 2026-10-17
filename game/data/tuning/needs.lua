@@ -22,4 +22,16 @@ return {
     { 1.00, 0.20 }, -- the thaw
   },
   coldDamage = 20, -- condition lost on a night with no warmth at all (scaled by the shortfall)
+  -- D160: the daily drinking-water need (GDD §4.2). It is drawn from the ledger "water" stock (the cistern,
+  -- the same pool as irrigation) first, then from the canteen the homesteader fills by hand. A dry day
+  -- builds Thirst slowly (like hunger and cold, never instant death): the damage grows with each dry day in a row.
+  dailyWater = 1, -- water units the homesteader drinks each day (one unit = one crop watering, so a day's drink is a small share of a cistern)
+  thirstDamage = 15, -- condition lost on the first day with no water at all (scaled by the shortfall; hunger 25, cold 20: thirst starts gentler and builds)
+  thirstBuild = 0.5, -- extra share of thirstDamage added for each dry day already in a row (0.5: day 2 hurts 1.5x, day 3 2x)
+  thirstBuildDays = 3, -- dry days in a row after which the damage stops growing (the multiplier is 1 + thirstBuild x this at most)
+  canteenCapacity = 3, -- water units the canteen holds (three days of drinking); a new run starts with it full
+  drinkRefillDays = 2, -- days of drinking water on hand (cistern plus canteen) below which the homesteader goes to fill the canteen
+  meltYield = 3, -- water units one melt of snow makes (fills a canteen; winter fallback beside the fire, costs meltWood)
+  meltWood = 1, -- wood burned to melt one batch of snow (the fallback is never free: it competes with the night's warmth)
+  meltTime = 4, -- seconds of work to gather and melt one batch of snow at a fire
 }

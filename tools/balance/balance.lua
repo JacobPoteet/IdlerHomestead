@@ -177,8 +177,8 @@ local function playRun(ctx, session, policyName, seed, years, features)
     features = Features.label(features or {}),
   }
   local hourSeconds = tuning.time.dayLength / 24
-  local damage = { hunger = 0, cold = 0 } -- Condition lost since the last day with no damage
-  local last = { hunger = 0, cold = 0 }
+  local damage = { hunger = 0, cold = 0, thirst = 0 } -- Condition lost since the last day with no damage
+  local last = { hunger = 0, cold = 0, thirst = 0 }
   local failed = false
 
   local events = world.events
@@ -187,6 +187,9 @@ local function playRun(ctx, session, policyName, seed, years, features)
   end)
   events:on("needs.warmed", function(e)
     last.cold = e.shortfall
+  end)
+  events:on("needs.drank", function(e)
+    last.thirst = e.damage -- already Condition (it builds over a run of dry days), not a share
   end)
   events:on("needs.depleted", function()
     failed = true
@@ -260,11 +263,11 @@ local function playRun(ctx, session, policyName, seed, years, features)
   -- Registered after the sim's own handlers, so it sees the state after the night's food and warmth.
   events:on("calendar.newDay", function(e)
     local needs = tuning.needs
-    local hunger, cold = last.hunger * needs.hungerDamage, last.cold * needs.coldDamage
-    if hunger + cold > 0 then
-      damage.hunger, damage.cold = damage.hunger + hunger, damage.cold + cold
+    local hunger, cold, thirst = last.hunger * needs.hungerDamage, last.cold * needs.coldDamage, last.thirst
+    if hunger + cold + thirst > 0 then
+      damage.hunger, damage.cold, damage.thirst = damage.hunger + hunger, damage.cold + cold, damage.thirst + thirst
     else
-      damage.hunger, damage.cold = 0, 0
+      damage.hunger, damage.cold, damage.thirst = 0, 0, 0
     end
     if not failed then
       result.snaps[e.day] = snapshot(world)
@@ -324,11 +327,13 @@ local function playRun(ctx, session, policyName, seed, years, features)
     result.failDay = now.day
     result.failSeason = now.season
     result.failYear = now.year
-    local total = damage.hunger + damage.cold
+    local total = damage.hunger + damage.cold + damage.thirst
     if damage.cold >= total * 0.65 then
       result.cause = "cold"
     elseif damage.hunger >= total * 0.65 then
       result.cause = "hunger"
+    elseif damage.thirst >= total * 0.65 then
+      result.cause = "thirst"
     else
       result.cause = "both"
     end
@@ -713,7 +718,7 @@ function Balance.printSummary(ctx, policyName, runIndex, summary, years)
     end
     line("Failures by season: " .. table.concat(parts, "   "))
     local causes = {}
-    for _, c in ipairs({ "cold", "hunger", "both" }) do
+    for _, c in ipairs({ "cold", "hunger", "thirst", "both" }) do
       if summary.causes[c] then
         causes[#causes + 1] = string.format("%s: %d", c, summary.causes[c])
       end

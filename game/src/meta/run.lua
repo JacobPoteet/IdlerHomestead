@@ -70,14 +70,19 @@ function Run.summary(world)
 end
 
 --- What finished the run (D99): `depleted` is the needs.depleted payload { hunger, cold, shelter } (the
---- last day's shortfalls, 0..1, and the shelter id of the night). Returns { kind, shelter } where kind is
---- "cold", "hunger", "both" (neither damage at least twice the other) or "unknown" (no payload).
+--- last day's shortfalls, 0..1, `thirst` in units of thirstDamage, and the shelter id of the night). Returns
+--- { kind, shelter } where kind is "thirst" (water was the biggest cause), "cold", "hunger", "both" (neither
+--- damage at least twice the other) or "unknown" (no payload).
 function Run.cause(tuning, depleted)
   if not depleted or depleted.hunger == nil then
     return { kind = "unknown" }
   end
   local hunger = tuning.needs.hungerDamage * (depleted.hunger or 0)
   local cold = tuning.needs.coldDamage * (depleted.cold or 0)
+  local thirst = tuning.needs.thirstDamage * (depleted.thirst or 0)
+  if thirst > hunger and thirst > cold then
+    return { kind = "thirst", shelter = depleted.shelter or nil }
+  end
   local both = tuning.ui.failure.bothRatio
   local kind = "unknown"
   if hunger > 0 and cold > 0 and hunger < cold * both and cold < hunger * both then
@@ -115,6 +120,8 @@ function Run.failureText(registry, tuning, cause)
       or (cause.kind == "both" and t.both or t.cold)
     local hint = next and string.format(t.coldNext, next.name:lower()) or t.coldTop
     return { icon = "icon_cold", line = line, hint = hint, page = "shelter" }
+  elseif cause.kind == "thirst" then
+    return { icon = "icon_water", line = t.thirst, hint = t.thirstHint }
   elseif cause.kind == "hunger" then
     return { icon = "icon_food", line = t.hunger, hint = t.hungerHint }
   end
@@ -127,6 +134,8 @@ function Run.firstChange(registry, tuning, cause)
   if cause.kind == "cold" or cause.kind == "both" then
     local next = Run.nextRung(registry, cause.shelter)
     return next and string.format(t.firstColdNext, next.name:lower()) or t.firstColdTop
+  elseif cause.kind == "thirst" then
+    return t.firstThirst
   elseif cause.kind == "hunger" then
     return t.firstHunger
   end

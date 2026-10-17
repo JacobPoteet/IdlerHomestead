@@ -13,8 +13,9 @@
 -- Condition also counts as amber while it is tuning.alerts.conditionFallDrop below its level at the dawn
 -- before the last midnight (D90, #176): a full heart losing 20 a night warns before it is low. It rides
 -- the same level and once-per-day rule as every other alert, so it adds no toasts of its own.
--- "animals" (D71) is the days of hay or chicken feed the animals have left.
--- Emits "alert.raised" { kind = "food" | "fuel" | "condition" | "animals", level, value, noFire? }.
+-- "animals" (D71) is the days of hay or chicken feed the animals have left; "drink" (D160) the days of drinking
+-- water (cistern plus canteen).
+-- Emits "alert.raised" { kind = "food" | "fuel" | "condition" | "animals" | "drink", level, value, noFire? }.
 
 local Calendar = require("src.sim.systems.calendar")
 local Animals = require("src.sim.systems.animals")
@@ -22,7 +23,7 @@ local Needs = require("src.sim.systems.needs")
 
 local Alerts = {}
 
-Alerts.KINDS = { "food", "fuel", "condition", "animals" }
+Alerts.KINDS = { "food", "fuel", "condition", "animals", "drink" }
 
 --- The value a kind is judged on: days of food, nights of fuel, or condition.
 function Alerts.value(world, kind)
@@ -32,6 +33,8 @@ function Alerts.value(world, kind)
     return Needs.fuelNights(world)
   elseif kind == "animals" then
     return Animals.feedDaysLeft(world) -- D71: math.huge when no animals are kept
+  elseif kind == "drink" then
+    return Needs.waterDays(world)
   end
   return Needs.condition(world)
 end
@@ -66,6 +69,8 @@ function Alerts.level(world, kind)
     amber, red = cfg.fuelAmberNights, cfg.fuelRedNights
   elseif kind == "animals" then
     amber, red = cfg.animalsAmberDays, cfg.animalsRedDays
+  elseif kind == "drink" then
+    amber, red = cfg.drinkAmberDays, cfg.drinkRedDays
   else
     amber, red = cfg.conditionAmber, cfg.conditionRed
   end

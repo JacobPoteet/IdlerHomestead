@@ -633,6 +633,28 @@ function Active:choose(world, actor)
   if fuelUrgent(world) and self:fuel(world, actor) then
     return true
   end
+  -- Drink (D160): fill the canteen when the water on hand runs low, as a player does from the drink chip. The
+  -- tap on a creek bank or a well is the canteen's while it wants filling.
+  local drink = Needs.waterOutlook(world)
+  if drink.days < world.tuning.needs.drinkRefillDays and drink.room >= 1 then
+    self.water = self.water or waterTiles(world, false)
+    local sources = {}
+    for _, i in ipairs(self.water) do
+      if Weather.waterTarget(world, i) then
+        sources[#sources + 1] = i
+      end
+    end
+    for _, anchor in
+      ipairs(objectAnchors(world, function(def)
+        return def.waterSource ~= nil and not def.waterSource.stored
+      end))
+    do
+      sources[#sources + 1] = anchor
+    end
+    if tryOrder(self, world, actor, sources) then
+      return true
+    end
+  end
   -- Water: fill the bucket when empty, else water the nearest dry crop.
   local dry = cropTiles(world, Crops.needsWater)
   -- With the weather feature the player lets the rain do the watering.

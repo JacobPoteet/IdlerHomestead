@@ -6,6 +6,8 @@ return {
     plant = true, -- seeds sown
     fishing = true, -- bait used
     eat = true, -- the daily meal
+    drink = true, -- the daily drink from the cistern stock
+    melt = true, -- wood burned to melt snow for the canteen
     burn = true, -- wood burned for the night's warmth
     feeder = true, -- hen feed
     manger = true, -- goat hay

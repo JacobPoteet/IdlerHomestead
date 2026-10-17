@@ -13,6 +13,11 @@
 --   spending `tuning.water.dripUnitsPerWatering` from the stock, so the routine never has to haul.
 --   With the stock empty the zone is dry: crops thirst as before and the actor hauls by hand.
 --
+-- Drinking (D160): the daily drink comes from this stock first (see needs.lua). When the stock cannot cover
+--   it, the homesteader fills the canteen by hand: "fetch_drinking" at the creek (through the ice in winter) or
+--   a dug well, and in winter "melt_snow" beside a fire (costs wood). Both are standing orders of the water
+--   category (D92), so the drink is looked after in any control mode while the category is on.
+--
 -- Rain (D51) also fills the cistern, for free, while it rains and a cistern exists (see tickRain).
 --
 -- Systems talk through the ledger (the "water" stock), the task board (fetch_water) and events.
@@ -20,6 +25,7 @@
 --   true while announced dry }, hand, drip, sprinkler (absent until the first one waters), pumped =
 --   totals of waterings by hand / by drip lines / by sprinklers / units pumped, pumpedDay = last day "water.pumped" was announced }
 -- Emits "water.drawn" { source, tile } when the bucket is filled somewhere other than the creek,
+-- "water.canteen" { source, amount } when the canteen is filled by hand ("creek", a well's id or "snow"),
 -- "water.pumped" { amount } at most once a day while pumps run, "water.dripped" { tile, drip, kind },
 -- "water.dry" { drip, kind } when a drip line or sprinkler has a thirsty crop and no water, and
 -- "water.restored" { drip, kind } (`drip` is the anchor in all three; `kind` is "drip" or "sprinkler").
@@ -28,6 +34,7 @@ local Calendar = require("src.sim.systems.calendar")
 local Crops = require("src.sim.systems.crops")
 local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
+local Needs = require("src.sim.systems.needs")
 local Power = require("src.sim.systems.power")
 local Stats = require("src.sim.stats")
 local Tasks = require("src.sim.systems.tasks")
@@ -292,6 +299,22 @@ local function canFill(world, i)
   return Grid.terrain(world, i).water == true
 end
 
+-- Does the canteen want filling (the days of drinking water on hand are under tuning.needs.drinkRefillDays and it has
+-- room for a unit at least)?
+local function wantsDrink(world)
+  local o = Needs.waterOutlook(world)
+  return o.days < world.tuning.needs.drinkRefillDays and o.room >= 1
+end
+
+-- Can the canteen be filled at tile i: the creek, or a well (a cistern is the stock itself, drunk from directly)?
+local function canDrinkAt(world, i)
+  local def = fillObject(world, i)
+  if def then
+    return not def.waterSource.stored
+  end
+  return Grid.terrain(world, i).water == true
+end
+
 function Water.init(world)
   local s = world.state.water or {}
   world.state.water = s
@@ -370,6 +393,87 @@ function Water.init(world)
         actor.bucket = Water.bucketCapacity(w)
       end
       w.events:emit("water.drawn", { source = def.id, tile = i })
+    end,
+  })
+
+  -- Fill the canteen (D160): the same creek bank and wells as the bucket, but only while the drinking water
+  -- on hand is low, and standing, so thirst never waits on the crops or the routine's priority list.
+  Tasks.register(world, {
+    id = "fetch_drinking",
+    category = "water",
+    verb = "Fill canteen",
+    clickOrder = 59, -- before the bucket: a tap on the creek or a well drinks first while the canteen is running low
+    standing = true,
+    candidates = function(w, _, add)
+      if not wantsDrink(w) then
+        return
+      end
+      for _, terrainId in ipairs({ "water", "ford" }) do
+        for _, i in ipairs(Grid.bankTiles(w, terrainId)) do
+          if Weather.waterTarget(w, i) then
+            add(i)
+          end
+        end
+      end
+      for _, anchor in ipairs(anchorsWith(w, "waterSource")) do
+        add(anchor)
+      end
+    end,
+    canDo = function(w, _, i)
+      return wantsDrink(w) and canDrinkAt(w, i)
+    end,
+    workTime = function(w, _, i)
+      local def = fillObject(w, i)
+      if def then
+        return def.waterSource.fillTime
+      end
+      return w.tuning.farming.fetchWaterTime + Weather.iceWork(w, i)
+    end,
+    complete = function(w, _, i)
+      local def = fillObject(w, i)
+      if not def then
+        Weather.openHole(w, i)
+      end
+      local added = Needs.fillCanteen(w, w.tuning.needs.canteenCapacity)
+      w.events:emit("water.canteen", { source = def and def.id or "creek", amount = added })
+    end,
+  })
+
+  -- Melt snow (D160), the winter fallback: no walk to the ice, but it burns wood at a fire.
+  local function canMelt(w, i)
+    return Weather.isFrozen(w)
+      and Needs.waterOutlook(w).room >= 1
+      and Ledger.get(w, Needs.fuelId(w)) >= w.tuning.needs.meltWood
+      and Grid.object(w, i) ~= nil
+      and Grid.object(w, i).heatSource ~= nil
+  end
+  Tasks.register(world, {
+    id = "melt_snow",
+    category = "water",
+    verb = "Melt snow",
+    clickOrder = 62,
+    standing = true,
+    candidates = function(w, _, add)
+      if not (Weather.isFrozen(w) and wantsDrink(w)) then
+        return
+      end
+      for _, anchor in ipairs(anchorsWith(w, "heatSource")) do
+        add(anchor)
+      end
+    end,
+    canDo = function(w, _, i)
+      return canMelt(w, i)
+    end,
+    workTime = function(w)
+      return w.tuning.needs.meltTime
+    end,
+    complete = function(w)
+      local cfg = w.tuning.needs
+      if not Ledger.remove(w, Needs.fuelId(w), cfg.meltWood, "melt") then
+        return
+      end
+      local added = Needs.fillCanteen(w, cfg.meltYield)
+      w.events:emit("water.canteen", { source = "snow", amount = added })
     end,
   })
 end
