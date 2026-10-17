@@ -6,7 +6,9 @@ Why this exists: playtest feedback says the base systems are in but the loop is 
 
 **Scope of balancing (decided after approval).** M8 only needs *playable* numbers: every rate below is a first guess, set once, commented in tuning, and listed in the PR under "Tuning guesses". The real balance pass is milestone **M9: Balance & pacing**, after the time model (slice T0) is decided and the M8 systems are in. The harness runs in M8 are smoke checks (it runs, it is deterministic, no new failure class), not target chases. The targets in section 15 are directional and are revised first in M9.
 
-Time facts used throughout (from `data/tuning/time.lua`, GAMEPLAY_LOOP.md; **slice T0 may change the real-time length of a day**, which changes how much work a day holds): a day is 320 s, **a season is 7 days, a year is 28 days**, the first winter starts on day 22. Every rate below is per night or per day, so "about 0.3 a night" means about one event a week and about eight a year. All numbers are first guesses, they live in tuning (never in system code), and the M9 balance pass tunes them.
+**Design review (D168).** A game-design review amended this plan (GDD decision D168). A Footing slip forgives instead of freezing (3.2); the levy and the bailiff are bounded (11.3); wake events never freeze time and ignore is always safe (6.2 to 6.5); mercy rules key on Footing state and reserves (6.5); there is one tiredness mechanism (5.2, 7, 10.4); guards cover only some threats (6.1, 10.3); every cadence is in days (3, 8.5); Careful respects keep targets (6.4); phone UI has an attention budget (4, 14); and section 17 is re-sequenced. Eight questions the review raised are left open (section 16, Q8 to Q15).
+
+Time facts used throughout (from `data/tuning/time.lua`, GAMEPLAY_LOOP.md; **slice T0 may change the real-time length of a day**, which changes how much work a day holds): a day is 320 s, **a season is 7 days, a year is 28 days**, the first winter starts on day 22. Every rate below is per night or per day, so "about 0.3 a night" means about one event every three nights (two a season) and about eight a year. Every cadence in this plan is stated in days. All numbers are first guesses, they live in tuning (never in system code), and the M9 balance pass tunes them.
 
 ---
 
@@ -41,13 +43,14 @@ Non-goals: no offline progress (GDD §7.1), no multiplayer, no combat, no new gr
 
 | Horizon | Pressing goal | Leads |
 |---|---|---|
-| **Tonight** | Reach dusk with warmth, food and water for the night | From run start until Footing |
-| **This week** | Grow the woodpile and larder faster than you burn them | Early and mid game |
-| **This season** | Season targets: stock the cellar, finish a contract, pay the levy | After Footing |
+| **Tonight** | Reach dusk with warmth, food and water for the night, and grow the woodpile and larder faster than you burn them | From run start until Footing, and again while slipped |
+| **This season** (7 days, ending on market day) | Season targets: stock the cellar, finish a contract, pay the levy | After Footing |
 | **This year** | The winter reserve target (forecast severity times nights ahead) | After Footing |
 | **Run** | The year charter, land, contracts and the Great Winter | After Footing |
 
 Survival is the base layer. The longer goals sit on top of it and cannot be reached by neglecting it.
+
+**One rung, not two (D168).** At 7 days a season, a "This week" rung and a "This season" rung are the same span, so they are merged: the early woodpile-and-larder goal is the reserves half of the Tonight rung (nights of fuel and days of food, the same figures as the Footing tests), and the season rung ends on market day (9.4). No rung is defined in weeks.
 
 ### 3.1 Dusk check
 
@@ -57,9 +60,10 @@ About `tuning.night.duskLeadHours` before sunset a **Tonight card** shows: the w
 
 **Footing** is a state, not an unlock. (Not "Established": that stays the Great Winter milestone, GDD §4.4.)
 
-- **Earned** when all hold at dusk: a shelter with a heat source (a camp with a campfire counts), a water source, at least `tuning.night.footing.fuelNights` nights of fuel and `foodDays` days of food in reserve, for `streakNights` nights in a row. First guess: 3, 3, 5.
+- **Earned** when all hold at dusk: a shelter with a heat source (a camp with a campfire counts), a water source, at least `tuning.night.footing.fuelNights` nights of fuel and `foodDays` days of food in reserve, for `streakNights` nights in a row. First guess: 3, 3, 5. The food test counts the hired hand's meals (they eat from the ledger, 10.3) and excludes goods promised to an open contract (9.2), so filling a contract cannot cause a slip.
 - **On gaining it:** a one-time card; the contracts board, land purchases, the year charter draft, tiered upgrades and the levy clock open (sections 9 to 11); the pressing goal becomes the winter reserve target.
-- **Slipping:** if reserves fall below one night of fuel or one day of food, Footing is marked **slipped**. The Tonight card returns as the lead goal and the longer goals pause (nothing is lost, no timers run out while paused). Regaining the reserves for two nights clears it.
+- **Slipping forgives, it does not freeze (D168):** if reserves fall below one night of fuel or one day of food, Footing is marked **slipped**. The Tonight card returns as the lead goal. The longer goals are eased, and their clocks keep running: the levy stays calendar-fixed and is reduced (not paused) while slipped (11.3); contract deadlines keep running, but a miss while slipped costs no reputation, and no new contracts are offered while slipped (9.2); no charter draft is offered (12.2); no new bad events are drawn and threats are weaker (6.5). Regaining the reserves for two nights clears it.
+- **The accessor:** `Footing.paused` (A2) keeps its name and means "slipped". It gates **offers** (contracts, charter drafts, new bad events), not timers; nothing in the sim stops a clock because of it.
 - **Gating:** gated things are shown but locked ("opens at Footing"), so the player can see what they are working toward. A content flag `requiresFooting` marks them; there is no per-feature code.
 - **Per slot:** Footing is run state, not meta. A new run starts without it.
 
@@ -69,17 +73,18 @@ Pacing target (harness): median time to Footing about day 12 of year 1, at least
 
 1. **Choices over chores.** A new system must add a decision the routine cannot make for you, or a cost the player can see and trade off.
 2. **Never a dead end.** Every bad outcome has a cheaper way out and a path to recover. Events can hurt, never end a run by themselves (section 6.5).
-3. **Idle is steady, not stupid.** The routine handles chores. When it meets a decision it stops and asks; if the player is away, a defined **ignore** outcome applies (a bit worse than the careful option, never catastrophic).
+3. **Idle is steady, not stupid.** The routine handles chores. When it meets a decision it stops and asks; if the player is away, a defined **ignore** outcome applies: the cheap, safe, non-escalating option, a little worse in time or speed than the careful one, never a path to a worse status later (6.2, 6.5).
 4. **Information first.** Risk is shown in words and icons before the choice ("a fall is twice as likely tomorrow"), and every first occurrence writes a Field Journal note.
 5. **Knowledge opens options.** Journal learning gives a third option, a cheaper option, or an earlier warning, not just items.
 6. **Data, not code.** Events, threats, crops, contracts, charters and statuses are content tables with tuning knobs. System code reads them.
 7. **Existing rules hold.** Sim in `src/sim` with no `love.graphics`; systems talk through the ledger, task board and event bus; all randomness through named seeded RNG streams (new streams: `night`, `event`, `soil`, `market`, `charter`); sim state is plain serializable tables; input goes through actions.
+8. **Attention budget (D168).** Phone first. Notices share one ranked queue (Tonight, then events, then contract and levy notices); at most one card is open at a time and the rest wait in the queue, and a card never opens over another. Wear, saturation and workload detail show only where the player can act on them (the pump panel, the truck screen), never as always-on chips. A new system says where its notice sits in the rank.
 
 ---
 
 ## 5. The night
 
-The night stops being a skip. Every night from the third can bring one **night threat** (section 6.1) or one **misfortune event** (section 6.2), never both interrupting.
+The night stops being a skip. Every night from the third can bring one **night threat** (section 6.1) or one **misfortune event** (section 6.2), never both interrupting. **The night slot (D168):** there is one slot a night, shared by threats and events (designed together with the event engine, B3 and C1). A threat that is turned away still uses the slot, so no event is drawn on top of it; it counts as an event for the pity timer (6.5) and never starts the post-bad-event cooldown, which only a landed outcome does.
 
 ### 5.1 Exposure
 
@@ -91,11 +96,11 @@ Danger on a night is `base chance x season x weather x exposure`, where **exposu
 - guards: cat, dog, fence, lantern, trip line;
 - how much the player pushed: sleeping late, starting the night short of warmth.
 
-Exposure is a single readable number on the Tonight card ("Exposure: high - smoker and 8 hens, no dog"). Clear nights are colder (the existing weather model), storms raise wind and fall risks.
+Exposure is a single readable number on the Tonight card ("Exposure: high - smoker and 8 hens, no dog"). **Units (D168):** exposure points, 0 to 10, 5 neutral (`tuning.night.exposure`); each source adds points, each guard subtracts, and the total is clamped to 0..10. The chance multiplier runs linearly from about 0.4 at 0 to about 1.8 at 10 (first guesses). The card shows the word (low, medium, high) and the points. Clear nights are colder (the existing weather model), storms raise wind and fall risks.
 
 ### 5.2 Waking
 
-Most threats resolve while the homesteader sleeps and appear in the **morning report** (`nightly.lua` already collects this). A few **wake** the homesteader with a choice (section 6.3). A wake costs sleep: the rest of the night's study and Condition recovery are cut by `tuning.night.wakePenalty`, and a **Tired** status (section 7) can follow. At most one wake per night, none in the first three nights, and none when Condition is low (the mercy rule, section 6.5).
+Most threats resolve while the homesteader sleeps and appear in the **morning report** (`nightly.lua` already collects this). A few **wake** the homesteader with a choice (section 6.3). **One tiredness mechanism (D168).** A wake costs only that night's lost study and Condition recovery (cut by `tuning.night.wakePenalty`). **Tired** (the B1 status, section 7) is the carry-over, and the sleep debt of 10.4 *is* Tired, not a second counter: a wake or a late night applies or raises Tired, and nothing else tracks it. At most one wake per night, none in the first three nights, and none under the mercy rules of 6.5 (low Condition, Footing slipped, low reserves).
 
 ### 5.3 Light and watch
 
@@ -124,7 +129,9 @@ A **night threat** is a content entry: `id`, `seasons`, `minDay`, `minYear`, `ex
 | **Power outage** | winter, storms | a small battery bank | heater and lights down for the night | bigger bank, generator |
 | **Stove fire** | winter | a sooty stove run hot, wood piled close | scare (Fire event, 6.2) or the stove lost | sweep the flue (upkeep, section 10), water bucket by the door |
 
-Rules: one threat per night at most; the dusk sign is shown when any threat is active that the player could still act on; a threat the player already countered (guard high enough) is reported as "turned away" so the work is visible.
+Rules: one threat per night at most; the dusk sign is shown when any threat is active that the player could still act on; a threat the player already countered (guard high enough) is reported as "turned away" so the work is visible (it uses the night slot, 5).
+
+**Guards cover only some threats (D168).** Each guard lists the threats it covers (`covers`, content) and carries its own upkeep or wear, so no single item answers everything. First guesses: the **dog** (feed every day, 10.3) covers raccoon, skunk, deer and rabbits, fox, and partly bear and wolves, not weather or fire; the **cat** covers mice and partly the fox; the **fence** covers deer and rabbits, fox and partly raccoon, and takes wear from raids (10.1); the **lantern** covers fox and raccoon and partly bear, and burns fuel each night; the **trip line and bell** only move the dusk sign earlier. A few threats need their own counter: the **bear box** for a bear's store raid, a **strong pen** for wolves. Weather and fire threats are answered by shelter, insulation and upkeep, not guards.
 
 ### 6.2 Misfortune events: the two-option choice
 
@@ -140,7 +147,9 @@ options = {
 ignore = { ... }     -- applies if nobody chooses within the window
 ```
 
-Rules for every event: the card states each option's cost and effect in plain terms and the qualitative risk (never hidden odds on a coin flip); an option that costs a resource is disabled with a reason if the player lacks it; the **ignore** outcome is shown too.
+Rules for every event: the card states each option's cost and effect in plain terms and the qualitative risk (never hidden odds on a coin flip); an option that costs a resource is disabled with a reason if the player lacks it; the **ignore** outcome is shown too. **The ignore outcome (D168)** is content, never derived from an option: it costs no resource, applies no status that can escalate or carries a delayed roll, and is a little worse in time or speed than the careful option. A gamble (Leave it, Push on, Power through) is something the player picks, never what ignore does. A content test walks the worst reachable chain of every ignore outcome (6.5).
+
+**Direction of modifiers (D168).** Insulation modifiers (tarp halved, leak x0.7, torn canvas) multiply the *shelter's insulation value*, so a lower figure is a colder night and the warmth need rises through the existing formula. A status `warmthNeed` modifier multiplies the *warmth need itself* (x1.2 is 20 percent more). Both feed the capped product of 6.5.
 
 **Example, in full (the one requested).**
 
@@ -148,7 +157,7 @@ Rules for every event: the card states each option's cost and effect in plain te
 >
 > - **Splint it** (cost: 2 wood). Status **Hobbling** for the rest of today: work speed x0.5 and no fall risk change. Gone tomorrow morning.
 > - **Power through.** No slowdown today. Status **Strained** tomorrow: fall chance x2. If a fall happens while Strained, the next result is **Torn** (below) and not a fresh sprain.
-> - *Ignore (no choice made in 2 game hours):* treated as Power through, and the journal notes you "limped on."
+> - *Ignore (no choice made in the window, 6.3):* **Limped on**: work speed x0.6 for today and tomorrow, free, no Strained and no escalation; the journal notes you "limped on." (Under the first draft ignore meant Power through, which could escalate to Torn later; mercy rule 3 forbids that, D168.)
 > - **Torn** (escalation): work speed x0.4 for 3 days, Condition -15 once, and the splint option now costs 3 wood and 1 canned food (broth) and shortens it to 2 days.
 
 Full catalog (all two-option; a cost on one side is a risk on the other):
@@ -158,8 +167,8 @@ Full catalog (all two-option; a cost on one side is a risk on the other):
 | Event | Option A | Option B | Notes |
 |---|---|---|---|
 | **Sprained ankle** | Splint (2 wood): Hobbling today | Power through: Strained, fall x2 tomorrow | above |
-| **Cut that festers** | Clean and bandage (1 water, 1 bandage or an hour of work): no effect | Ignore it: 40 percent Infection in 2 days (Fever) | bandage from the first-aid kit |
-| **Fever after a cold night** | Rest a day: no work, double recovery, food and fuel still burn | Work through: speed x0.6 for 3 days, 30 percent it becomes Flu (Condition -20) | triggered by a night with a warmth shortfall |
+| **Cut that festers** | Clean and bandage (1 water, 1 bandage or an hour of work): no effect | Leave it: 40 percent Infection in 2 days (Fever) | bandage from the first-aid kit; the ignore outcome is a rinse: free, work speed x0.9 for 2 days, no infection roll |
+| **Fever after a cold night** | Rest a day: no work, double recovery, food and fuel still burn | Work through: speed x0.6 for 3 days, 30 percent it becomes Flu (Condition -20) | triggered by a night with a warmth shortfall; never fires on a night that already cost cold damage (6.5) |
 | **Back strain** | Rest 3 hours: lose that work | Keep hauling: carry capacity x0.5 for 2 days | triggered by a heavy carry streak |
 | **Burn from the stove** | Cold water compress (1 water): none | Shrug it off: hands slow, tool work x0.8 for 2 days | stove use |
 | **Heat exhaustion** | Rest in the shade through noon (lose 3 work hours) | Push on: needs +50 percent water, 35 percent collapse (lose the afternoon, Condition -10) | summer, sun, dehydration |
@@ -201,21 +210,26 @@ About 24 entries at first; each in its own content table so more can be added by
 
 ### 6.3 Which events wake you, and the cadence
 
-- **Cadence:** base `tuning.events.chancePerNight` about 0.3 (a few a season at most), shaped by the exposure terms; day and morning events draw from the same budget (`tuning.events.perDayBudget`) so a week is never a pile-up.
-- **Wake events:** the hiker, the stove-smoke event, bear and wolf threats (when active and not countered), the power surge. A wake needs a choice before the night continues; the ignore window is `tuning.events.ignoreHours`.
-- **Quiet start:** no events and no wake events before day 3; a gentler weight curve in year 1.
+- **Cadence:** base `tuning.events.chancePerNight` about 0.3 (about one event every 3 nights, two a season, about eight a year), shaped by the exposure terms; day and morning events draw from the same budget (`tuning.events.perDayBudget`, a count per day) so a season is never a pile-up.
+- **Wake events:** the hiker, the stove-smoke event, bear and wolf threats (when active and not countered), the power surge. A wake event offers its card and **time keeps running (D168)**: nothing pauses the sim and the night does not wait on the card. If no choice is made, the ignore outcome applies (6.2).
+- **The ignore window:** `tuning.events.ignoreHours` of game time *and* never less than `tuning.events.ignoreMinSeconds` of real time (first guess 45 s), so 8x speed cannot skip a card unseen. It counts down only while the player is present. While the player is truly away (the app unfocused, or past the takeover delay with no input) it waits: the card stays in the queue (principle 8) and no new event is offered behind it. Standing orders (6.4) answer for an away player who set them.
+- **Quiet start:** no events and no wake events before day 3 (Q10 asks whether a grace after Footing is also needed); a gentler weight curve in year 1.
 
 ### 6.4 Standing orders (for idle play)
 
-The Routine screen gets one setting per event class (body, home, land, visitors): **Ask me** (default), **Careful** (always the safe-cost option when it is affordable), or **Bold** (always the no-cost option). Careful and Bold are chosen by the content's `careful` and `bold` flags, so a designer decides which option each means. The setting is unlocked by a journal perk ("Rules of thumb"); until then the ignore outcome applies. This keeps GDD §5.2's rule that decisions are never automated unless the player has chosen the rule.
+The Routine screen gets one setting per event class (body, home, land, visitors): **Ask me** (default), **Careful** (the safe-cost option when it is affordable), or **Bold** (the no-cost option). Careful and Bold are chosen by the content's `careful` and `bold` flags, so a designer decides which option each means. **Careful respects keep targets (D168):** if paying the option's cost would drop a stock below its keep target (or the winter reserve target), Careful falls back to the ignore outcome and adds a line to the morning report ("kept the wood, ignored the splint"). Bold costs nothing, so it needs no check. The setting is unlocked by a journal perk ("Rules of thumb"); until then the ignore outcome applies. This keeps GDD §5.2's rule that decisions are never automated unless the player has chosen the rule.
 
 ### 6.5 Mercy rules (so events never snowball)
 
+The rules key on Footing state and reserves, not only Condition (D168).
+
 1. An event can reduce Condition but never below `tuning.events.conditionFloor` (never the killing blow).
 2. No event fires when Condition is under `lowCondition`, and at most `maxActiveStatuses` statuses are active; a new injury is replaced by a longer old one instead of stacking a third.
-3. The ignore outcome is never worse than the worse of the two options.
-4. A pity timer: after `pityNights` nights without any event, the next night's chance rises; after a bad event, a cooldown holds the next.
-5. Death still comes only from the existing needs model (hunger, cold). Injuries make survival harder, they do not kill.
+3. **While Footing is slipped:** no new bad events are drawn (luck and visitors that cost nothing can still come), threat strength is scaled down (`tuning.events.slippedThreatScale`), and no outcome may destroy capital (the stove, devices, livestock); such an outcome is swapped for its lesser form (a spoiled store, a damage flag).
+4. **Lasting damage is capped:** `maxOpenDamage` limits open damage flags (torn canvas, wrecked fence, clogged flue) at once; at the cap, a new damaging outcome is replaced by a cheaper one. **Warmth need has a ceiling:** the combined multiplier (severity x snap x cold front x insulation loss x clothing x status) is clamped to `maxWarmthMultiplier` (first guess 2.0), so stacked bad luck cannot make a night unsurvivable. Fever never fires on a night that already cost cold damage.
+5. **Ignore is judged by its worst reachable chain** (6.2): it is never worse than the worse of the two options, counting every later escalation it could lead to, not only the immediate result.
+6. A pity timer: after `pityNights` nights without any event (a turned-away threat counts as an event, 5), the next night's chance rises; after a bad event, a cooldown holds the next.
+7. Death still comes only from the existing needs model (hunger, cold). Injuries make survival harder, they do not kill.
 
 ---
 
@@ -230,12 +244,13 @@ duration (days or "until"), modifiers = { workSpeed, fallChance, carryCapacity,
 escalatesTo, clearedBy (rest | item | time)
 ```
 
+- **One tiredness mechanism (D168).** Tired is the single status that carries lost sleep over; sleep debt (10.4) is Tired, and wakes and late nights raise it.
 - **Families escalate, not stack.** Hobbling, Strained and Torn are one ankle family at three severities. A second event of a family raises severity (to a cap); different families can coexist up to `maxActiveStatuses`.
 - **Modifier floors:** work speed never goes under `minWorkSpeed` (about 0.35), so the game is slow, not stuck.
-- **Integration:** work speed joins `Stats.modifier` and the actor's job multiplier (as the wardrobe's light-clothes bonus does); warmth need joins the same product as insulation and clothing; carry and fall modifiers are read by the actor system; Condition recovery joins `Needs.daily`.
-- **Recovery:** time, rest (a day in the shelter), food, and warmth speed it; a first-aid kit (consumable) is the third option on body events and cheapens them; journal notes ("Bandaging", "Splinting") unlock better options or lower costs.
+- **Integration:** work speed joins `Stats.modifier` and the actor's job multiplier (as the wardrobe's light-clothes bonus does); warmth need joins the same product as insulation and clothing, clamped by `maxWarmthMultiplier` (6.5), with the direction rule of 6.2; carry and fall modifiers are read by the actor system; Condition recovery joins `Needs.daily`.
+- **Recovery:** time, rest (a day in the shelter), food, and warmth speed it; a first-aid kit (consumable) is the third option on body events and cheapens them; journal notes ("Bandaging", "Splinting") unlock better options or lower costs. The notes can also come from buying the first-aid kit or turning away a threat, not only from being injured (the #126 pattern, D168).
 - **Wardrobe link:** heavy boots lower fall chance; light clothes raise heat-exhaustion weight; the garments already exist (GDD §7.8).
-- **UI:** status chips under the Condition meter with the single most important effect and days left; tap for detail; the weekly progress card lists what injured you. Colour is never the only signal (icon and text).
+- **UI:** status chips under the Condition meter with the single most important effect and days left; tap for detail; the season progress card lists what injured you. Chips follow the attention budget (principle 8). Colour is never the only signal (icon and text).
 
 ---
 
@@ -260,6 +275,8 @@ Crops widen from 2 to about 12, each with a different shape, so planting is a de
 | Berries (perennial) | long-run income | see 8.5 |
 | Orchard trees (perennial) | long-run income | see 8.5 |
 
+**Water priority (D168):** crop water appetite and drinking water draw on the same `water` stock. Drinking is served first (D160); irrigation takes what is left, and the water panel shows the split.
+
 Seed return and heirloom lines (seed saving) are a later add (8.7).
 
 ### 8.2 Soil fertility
@@ -281,7 +298,7 @@ A **compost bin** takes crop residue, spoiled food and manure and returns compos
 
 ### 8.5 Perennials
 
-Berries and orchard trees cost a lot to start, yield nothing for 1 to 3 years, then pay for years. They are the long-term idle investment. They need pruning and frost care (upkeep, section 10), and are vulnerable to deer. A young orchard is a bear and deer target.
+Berries and orchard trees cost a lot to start. In days (D168): planted in one season, they give a first, small yield in the *next* season and a full yield once they have come through one winter; then they pay for years. They are the long-term idle investment. They need pruning and frost care (upkeep, section 10), and are vulnerable to deer. A young orchard is a bear and deer target.
 
 ### 8.6 Quality
 
@@ -302,8 +319,9 @@ Each good has a **saturation** per channel. Every unit sold lowers its price by 
 ### 9.2 Reputation and the contracts board (opens at Footing)
 
 - **Reputation** with the town, levels 0 to 5, earned by finished contracts and visitors' help.
-- **Board:** three offers a week, each: item, amount, quality tier, deadline (3 to 10 days), reward (money, reputation, sometimes an item). Reward and tier rise with reputation. Visible and never forced.
-- **Standing orders:** a repeating weekly contract (eggs, firewood) is the idle-friendly income. Missing one costs a small reputation and is explained; it is never a trap.
+- **Board:** three offers every 7 days, each: item, amount, quality tier, deadline (3 to 10 days), reward (money, reputation, sometimes an item). Reward and tier rise with reputation. Visible and never forced.
+- **Standing orders:** a repeating contract every 7 days (eggs, firewood) is the idle-friendly income. Missing one costs a small reputation and is explained; it is never a trap.
+- **While Footing is slipped (D168):** no new contracts are offered; deadlines of open ones keep running, but a miss costs no reputation. Goods promised to an open contract are excluded from the Footing food test (3.2), so filling a contract cannot cause the slip. Auto-load and a shared town demand are open (Q8).
 - Reputation unlocks bigger cargo offers, better special prices, rare catalog items and higher board tiers.
 
 ### 9.3 Processing chains
@@ -328,14 +346,14 @@ A **workload meter** compares work waiting (task board, scored in seconds) with 
 
 ### 10.3 Helpers
 
-- **Farm dog:** guard bonus (many night threats, section 6.1) and a stray-dog event; feed cost.
+- **Farm dog:** covers some night threats, not all (6.1, D168); a stray-dog event; daily feed cost is its upkeep. Other guards have their own: fence wear from raids, lantern fuel.
 - **Mule or donkey:** carry capacity and a haul chore.
-- **Hired hand** (seasonal, costs money per day and food): an actor with its own priority list and a zone, using the existing actor framework; a limited number.
+- **Hired hand** (seasonal, costs money per day and food): an actor with its own priority list and a zone, using the existing actor framework; a limited number. **Eats from the ledger and counts in the Footing food days (D168)**, so hiring one cannot hide a food shortfall. Whether the hand is capped, unavailable while slipped, or the paid way out of a slip is open (Q11).
 - The mini-tractor and auto-harvester (GDD §5.3) fit the same actor model.
 
 ### 10.4 Sleep debt
 
-Waking and "stay up" leave a Tired status (work speed down a little, study slower). It is the soft cost of the wake events and late nights.
+Sleep debt **is** the Tired status (D168), not a separate counter: waking and "stay up" apply or raise it (work speed down a little, study slower). It is the carry-over cost of wake events and late nights; the wake itself costs only that night's study and recovery (5.2).
 
 ---
 
@@ -351,7 +369,12 @@ The generated map is larger than the starting area. The homesteader begins with 
 
 ### 11.3 Land levy
 
-At the end of each autumn (before winter) a **levy** is due, scaling with owned land and buildings. Not paying it is soft: the bailiff sells goods at a poor rate to cover it, never a run end. Year 1 is exempt (the grace is announced). The levy is the year-end crunch the economy lacks.
+At the end of each autumn (before winter) a **levy** is due. It is announced at the start of autumn with its amount, so it is never a surprise. It scales with owned land, and with buildings only by footprint or tier, never with machines (D168), so adding panels, pumps or devices never raises it. Year 1 is exempt (the grace is announced). The levy is the year-end crunch the economy lacks.
+
+- **Order of a season-end day (D168):** market day, then the levy, then the season change. The levy therefore never lands on the day winter starts; the market's income comes first.
+- **Calendar-fixed, reduced while slipped:** the due day does not move. While Footing is slipped the amount is reduced (`tuning.land.slippedLevyScale`), never paused (3.2).
+- **The bailiff takes nothing the run needs:** he never takes anything below a keep target or the winter reserve target. He sells only goods above them, at a poor rate.
+- **An unpaid levy is a penalty, never a run end:** the shortfall becomes one of debt carried into spring, a lien on a land chunk (locked until the debt is paid), or a reputation hit. The player is offered the options that apply; the default is debt.
 
 ### 11.4 Recurring costs
 
@@ -367,7 +390,7 @@ At each new run, three plots are offered with visible traits (soil, water, wood,
 
 ### 12.2 Year charters (opens at Footing)
 
-At the start of each spring after Footing the player drafts one of three **charters**, each a trade-off for the year, for example:
+At the start of each spring after Footing the player drafts one of three **charters**, each a trade-off for the year. The draft is an offer, so it is not made while Footing is slipped (3.2); the year then runs with no charter until Footing is regained. For example:
 
 | Charter | Plus | Minus |
 |---|---|---|
@@ -414,7 +437,7 @@ Three loops this creates:
 - **Event bus names:** `footing.gained`, `footing.slipped`, `event.offered`, `event.chosen`, `event.ignored`, `status.applied`, `status.cleared`, `threat.landed`, `threat.turned`, `contract.done`, `levy.paid`.
 - **Save:** several slices change run or meta state, so each bumps `Save.SAVE_COMPAT` once (one bump per PR, fingerprint in `tests/test_save_compat.lua`). No migrations (GDD D74).
 - **Determinism:** every roll uses a named stream; the harness stays byte-identical across `jobs=` settings.
-- **UI:** panels follow the MVP interface rules (GDD §9.4); events and the Tonight card work on touch and keyboard, are not hover-only, and have a phone layout. Driver scenarios cover each new screen (`tools/driver`).
+- **UI:** panels follow the MVP interface rules (GDD §9.4); events and the Tonight card work on touch and keyboard, are not hover-only, and have a phone layout. They follow the attention budget (principle 8): one ranked notice queue, at most one card at a time. Driver scenarios cover each new screen (`tools/driver`).
 
 ## 15. Balance targets (directional, pursued in M9)
 
@@ -432,25 +455,40 @@ These are not acceptance gates for M8 slices. M8 uses the smoke harness only; th
 | Money unspent at day 28 (shows sinks work) | under 35 percent of the year's income |
 | Idle-routine run vs active, year-1 income | idle 40 to 60 percent of active |
 
-The harness gains policies that make event choices (careful, bold, random) and reports per event class (slice I1a, smoke testing only). Targets move with real human play; the harness is an upper bound (BALANCE.md caveat).
+**Restated against the review (D168).** These targets are directional and are measured *against* the harness's own bias: the harness is an upper bound (BALANCE.md caveat), so the numbers above are read together with a degraded policy and paired runs, not alone.
+
+- **Spiral metrics** (reported, with no gate in M8): nights slipped per run, the share of slips that end in death (slip-to-death), lasting damage flags open at death, and money in hand on levy day.
+- **A degraded `human` policy** (slower reaction, skips some chores, ignores some cards) beside `active`, `scripted` and `idle`, because a perfect policy hides the failures a person has.
+- **Paired seeds, events on vs off:** the same seeds run with events disabled and enabled. The share of runs that fail with events on and survive with them off is the measure of event-caused failure; the target for it is directional (near zero for `active`, a small share for `human`), and replaces the unmeasurable "event alone forces a failure".
+- **Event-choice policies** (careful, bold, ignore, random) land with B3 and B5, not I1a, so every smoke run exercises more than ignore, and they report per event class.
+
+Targets move with real human play.
 
 ## 16. Risks and open questions
 
 | # | Question | Default if not decided |
 |---|---|---|
-| Q1 | Is a 28-day year too short for rotation and perennials to feel real? | Keep; perennials take 1 to 2 years |
-| Q2 | Do wake events annoy players who sleep at 8x speed? | At most one per 3 nights, skippable via standing orders |
+| Q1 | ~~Is a 28-day year too short for rotation and perennials to feel real?~~ | **Settled (D168):** keep the 28-day year; perennials are stated in days: a first yield the next season, a full yield after one winter (8.5) |
+| Q2 | Do wake events annoy players who sleep at 8x speed? | At most one per 3 nights; time never freezes, ignore is safe, the window has a real-seconds floor (6.3); skippable via standing orders |
 | Q3 | Should the levy exist at all, or is the land goal enough? | Include; soft failure only |
 | Q4 | Should Footing be shown as a number to the player? | Yes, a clear checklist, not hidden |
-| Q5 | Do hired hands break the "sparse characters" pillar (GDD §7.8)? | Keep them unnamed and unseen-in-dialogue, an actor type |
+| Q5 | Do hired hands break the "sparse characters" pillar (GDD §7.8)? | Keep them unnamed and unseen-in-dialogue, an actor type (see also Q11) |
 | Q6 | Are events too many for phone play? | Cap the daily budget; Careful standing orders |
 | Q7 | Content volume | Ship packs; each pack is data only |
+| Q8 | Auto-load against market saturation: does the routine's auto-load dump goods into a saturated price, and should the stand and the truck share one town demand, so selling through both does not double the room? | Not decided. Until then: one curve per channel (9.1) and auto-load follows keep targets only |
+| Q9 | Charter minuses that are free picks: if the player owns nothing a minus touches (no helpers, no stand), it costs nothing. Should the minus depend on what is owned? | Not decided |
+| Q10 | A post-Footing grace of N nights before events start: events begin on day 3, Footing comes about day 7 to 10, so the first events land on a fragile run. | Not decided. Until then: quiet start before day 3 (6.3) and the slipped rules (6.5) |
+| Q11 | The hired hand: capped, unavailable while slipped, or the paid way out of a slip? | Not decided. It eats from the ledger and counts in the food days either way (10.3) |
+| Q12 | Does the land mask (G1) let players chop, clear or fish unowned tiles? It is the best lever for winter wood and early money, and without it owned land alone gates the winter. | Not decided |
+| Q13 | Which meta state survives a rescue (reputation, land, contracts, charter progress, Techniques, loadouts), and how early may Footing come by run 5? | Not decided |
+| Q14 | Plot preview (12.1) on run 1: a first strategic choice before the player knows what a trait means? | Not decided |
+| Q15 | Loadouts, Techniques and Rules of thumb together may trivialise the early game. Do they need a combined budget? | Not decided; watch it in the M9 pass |
 
 Risks: scope (this is a large milestone); event fatigue; compounding statuses. Mitigations: slice order (section 17), the mercy rules, the budget, and harness gates before each phase merges.
 
 ## 17. Milestone and slices (M8: Homestead depth)
 
-Issues are written to be done by an agent alone: each states its goal, design reference, scope, out of scope, likely files, acceptance, tests and docs. Labels: `enhancement` plus a topic label; `balance` where numbers move. Order: T0 first, then A, then B and C, then D and E in parallel, then F and G, then H, then I.
+Issues are written to be done by an agent alone: each states its goal, design reference, scope, out of scope, likely files, acceptance, tests and docs. Labels: `enhancement` plus a topic label; `balance` where numbers move. Order (re-sequenced, D168): T0 first, then A. Then **B3, B4 and B6 ship together with a small first events pack** (B6, trimmed to events that need no later system). **C1 is designed together with B3** (shared exposure, nightly budget and slot rules, 5), and **C8 (#362) comes right after B3** (winter wood as a stockpile problem). Each later pack lands after the systems it uses: home events (B7) after F1 wear and G3 tiers; land events (B8) after D and possibly G1; C6 stove fire after F1; H2 charters after E, F and G. D and E can run in parallel, then F and G, then H, then I. The event-choice harness policies (careful, bold, ignore, random) move out of I1a into B3 and B5, with the spiral metrics, a degraded `human` policy and paired events-on/off seeds (15).
 
 **Phase T: Time model (do first)**
 - T0 (#395) Decide the time model: real-time length of a day, whether task times scale with it, and the resulting season and year length. Owner's decision. Blocks B3, F1 and F3. **Done (D159):** the 320 s day stays, no tuning moved; if the day is ever lengthened, task and walk times scale with it.
@@ -465,24 +503,24 @@ Issues are written to be done by an agent alone: each states its goal, design re
 **Phase B: Status and events**
 - B1 (#345) Status system (sim) and stat-modifier integration.
 - B2 (#346) Status chips and detail UI.
-- B3 (#347) Event engine: content schema, scheduler, exposure, mercy rules, pending queue, ignore window, `event` RNG stream, journal note on first.
-- B4 (#348) Event card UI: two options, costs, risks, ignore line, touch and keyboard, phone layout.
-- B5 (#349) Standing orders (Ask, Careful, Bold) and the "Rules of thumb" perk.
-- B6 (#350) Body events pack.
-- B7 (#351) Home events pack.
-- B8 (#352) Land events pack.
+- B3 (#347) Event engine: content schema, scheduler, exposure, mercy rules, pending queue, ignore window, `event` RNG stream, journal note on first. **Amended (D168):** designed with C1 (one exposure, one nightly slot, 5); mercy rules key on Footing and reserves (6.5); ignore window has a real-seconds floor and time never freezes (6.3); ships with the event-choice harness policies (careful, bold, ignore, random), the spiral metrics, a `human` policy and paired events-on/off seeds; C8 follows it.
+- B4 (#348) Event card UI: two options, costs, risks, ignore line, touch and keyboard, phone layout. **Amended (D168):** ships with B3 and B6; one card at a time in the ranked notice queue (principle 8).
+- B5 (#349) Standing orders (Ask, Careful, Bold) and the "Rules of thumb" perk. **Amended (D168):** Careful respects keep targets and falls back to ignore with a morning-report line (6.4); carries the careful/bold/random harness policies.
+- B6 (#350) Body events pack. **Amended (D168):** the first events pack, shipped with B3 and B4; ignore outcomes are safe and non-escalating (6.2); Fever never fires on a night that already cost cold damage.
+- B7 (#351) Home events pack. **Amended (D168):** lands after F1 wear and G3 tiers.
+- B8 (#352) Land events pack. **Amended (D168):** lands after D, and possibly G1.
 - B9 (#353) Visitors and luck events pack.
 - B10 (#354) First-aid kit and Techniques notes for body events.
 
 **Phase C: Night threats**
-- C1 (#355) Night threat framework; move mice and fox into it; dusk signs; wake hook.
+- C1 (#355) Night threat framework; move mice and fox into it; dusk signs; wake hook. **Amended (D168):** designed with B3 (shared exposure units 0 to 10, nightly slot, turned-away threats use the slot and the pity timer); per-guard `covers` and upkeep.
 - C2 (#356) Raccoon, skunk, deer and rabbits.
 - C3 (#357) Black bear and the bear box.
 - C4 (#358) Wolves and coyotes; the dog companion.
 - C5 (#359) Weather nights: cold front, windstorm, pipe freeze, power outage.
-- C6 (#360) Stove fire and soot (links to F2).
+- C6 (#360) Stove fire and soot (links to F2). **Amended (D168):** lands after F1 wear; no stove loss while slipped.
 - C7 (#361) Night gear: lantern, trip line, bell.
-- C8 (#362) Winter wood is a stockpile problem, not an on-demand chop (tracked with #65, #202, #251).
+- C8 (#362) Winter wood is a stockpile problem, not an on-demand chop (tracked with #65, #202, #251). **Amended (D168):** pulled forward to right after B3. Whether unowned tiles can be chopped is open (Q12).
 
 **Phase D: Fields and soil**
 - D1 (#363) Crop schema and 8 new crops (content, journal pages, seed items).
@@ -515,13 +553,13 @@ Issues are written to be done by an agent alone: each states its goal, design re
 
 **Phase H: Run variety**
 - H1 (#384) Plot preview.
-- H2 (#385) Year charters.
+- H2 (#385) Year charters. **Amended (D168):** lands after E, F and G; no draft while slipped.
 - H3 (#386) Starting loadouts.
 - H4 (#387) Ascension mutators.
 - H5 (#388) Journal Techniques page.
 
 **Phase I: Integration**
-- I1a (#389) Harness policies for events and the new systems (smoke testing only). The full balance pass is I1b (#396) in M9.
+- I1a (#389) Harness policies for the new systems (smoke testing only). **Amended (D168):** the event-choice policies moved to B3 and B5. The full balance pass is I1b (#396) in M9.
 - I2 (#390) FTUE and tip updates for each phase.
 - I3 (#391) Merge into GDD, wiki and decision log.
 - I4 (#392) Perf and save-size check.
@@ -551,3 +589,4 @@ Each phase ends with a smoke harness run (it completes, deterministic, no new fa
 7. Wear, workload and helpers (10).
 8. Tiers, owned land and the levy (11).
 9. Plot preview, charters, loadouts and ascension (12).
+10. Design review amendments (D168): a slip forgives, wake events never freeze time, ignore is safe, mercy rules key on Footing, one tiredness mechanism, cadences in days, a re-sequenced section 17.
