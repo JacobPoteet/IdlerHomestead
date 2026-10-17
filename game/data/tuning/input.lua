@@ -15,6 +15,7 @@ return {
     ["end"] = "listEnd", -- jump to the bottom of the open panel list
     q = "toolWheel", -- open the tool wheel at the middle of the view (D138; Tab is kept for text fields)
     c = "wardrobe", -- open (or close) the Wardrobe, the homesteader's clothes (D154)
+    t = "tonight", -- open (or close) the Tonight card, the dusk check (D161)
     ["1"] = "tool1", -- equip the Hand (the tool wheel's wedges, in tuning.ui.wheel.wedges order)
     ["2"] = "tool2", -- equip the Hoe
     ["3"] = "tool3", -- equip the Pail
@@ -27,6 +28,7 @@ return {
     "routine",
     "toolWheel",
     "wardrobe",
+    "tonight",
     "tool1",
     "tool2",
     "tool3",

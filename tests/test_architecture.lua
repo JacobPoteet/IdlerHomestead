@@ -22,6 +22,8 @@ local function simFiles()
     "game/src/sim/routine_rules.lua",
     "game/src/sim/minigames/fishing_model.lua",
     "game/src/meta/run.lua",
+    "game/src/ui/tonight.lua", -- the Tonight card's state and place (D161): pure, no drawing
+    "game/src/ui/tonight_text.lua", -- and its words
   }
   for _, name in ipairs(require("src.sim.systems.init")) do
     files[#files + 1] = "game/src/sim/systems/" .. name .. ".lua"

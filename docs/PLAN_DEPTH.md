@@ -456,7 +456,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - T0 (#395) Decide the time model: real-time length of a day, whether task times scale with it, and the resulting season and year length. Owner's decision. Blocks B3, F1 and F3. **Done (D159):** the 320 s day stays, no tuning moved; if the day is ever lengthened, task and walk times scale with it.
 
 **Phase A: Tonight and Footing**
-- A1 (#340) Dusk check: the Tonight card and a `Readiness.tonight` accessor.
+- A1 (#340) Dusk check: the Tonight card and a `Readiness.tonight` accessor. **Done (D161).**
 - A2 (#341) Footing state machine (earned, slipped, regained), events, save.
 - A3 (#342) Goal ladder in the HUD and Progress panel: the pressing goal line, locked gates.
 - A4 (#343) Gate framework: a `requiresFooting` flag in content, read by Catalog, Contracts, Land, Charters.
