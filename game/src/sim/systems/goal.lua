@@ -128,21 +128,18 @@ function Goal.current(world, look)
 end
 
 --- The gates that open at Footing, for the Progress panel: { open (Footing is held), items = { { id, name } } }.
---- Anything in the catalog or the objects carrying the content flag `requiresFooting` (the gate framework, A4, #343);
---- until content carries it, the short list in tuning.progress.gates stands in.
+--- Every catalog definition carrying the content flag `requiresFooting` (the gate framework, D164, #343), then the
+--- surfaces named in tuning.progress.surfaces: gated things that have no content definition yet (the contracts board,
+--- land, charters, tiers). A slice that builds one of those flags its content and deletes its name from that list.
 function Goal.gates(world)
   local items = {}
-  for _, kind in ipairs({ "catalog", "objects" }) do
-    for _, def in ipairs(world.registry:all(kind)) do
-      if rawget(def, "requiresFooting") then
-        items[#items + 1] = { id = def.id, name = def.name }
-      end
+  for _, def in ipairs(world.registry:all("catalog")) do
+    if Footing.gated(def) then
+      items[#items + 1] = { id = def.id, name = def.name }
     end
   end
-  if #items == 0 then
-    for i, name in ipairs(world.tuning.progress.gates) do
-      items[i] = { id = "gate" .. i, name = name }
-    end
+  for i, name in ipairs(world.tuning.progress.surfaces) do
+    items[#items + 1] = { id = "surface" .. i, name = name }
   end
   return { open = Footing.held(world), items = items }
 end

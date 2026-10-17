@@ -138,6 +138,7 @@ return {
     modifiers = "table?", -- stat -> additive bonus (see src/sim/stats.lua)
     pickupOnly = "boolean?", -- only available on a truck trip
     requires = "string?", -- catalog id of equipment that must be owned first (goats need the trailer, D71)
+    requiresFooting = "boolean?", -- the gate flag (D164, #343): shown but locked ("opens at Footing") until Footing is held; read by Footing.isOpen, never hard-coded per feature
   },
   perks = {
     name = "string", -- journal map label (<= ~3 words)

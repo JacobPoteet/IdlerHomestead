@@ -338,15 +338,14 @@ T.test("goal text: once Footing is held the gates read as open", function()
   T.truthy(sections[3].rows[1].text:find("Held since day 12", 1, true))
 end)
 
-T.test("goal: a content flag `requiresFooting` lists a gate in place of the stand-in names", function()
+T.test("goal: a content flag `requiresFooting` lists a gate ahead of the named surfaces", function()
   local world = newWorld(12)
-  T.eq(#Goal.gates(world).items, #tun.progress.gates, "the stand-in list until content carries the flag")
-  local catalog = world.registry:all("catalog")
-  local def = catalog[1]
-  rawset(def, "requiresFooting", true) -- (definitions are strict; A4, #343, adds the field to the schemas)
+  T.eq(#Goal.gates(world).items, #tun.progress.surfaces, "no content carries the flag yet: only the named surfaces")
+  local def = world.registry:all("catalog")[1]
+  rawset(def, "requiresFooting", true) -- (a test-only flag; no shipped item carries it, D164)
   local gates = Goal.gates(world)
   rawset(def, "requiresFooting", nil)
-  T.eq(#gates.items, 1)
+  T.eq(#gates.items, #tun.progress.surfaces + 1)
   T.eq(gates.items[1].id, def.id)
 end)
 

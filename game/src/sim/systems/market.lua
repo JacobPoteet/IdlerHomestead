@@ -24,6 +24,7 @@
 local Calendar = require("src.sim.systems.calendar")
 local Ledger = require("src.sim.systems.ledger")
 local Food = require("src.sim.systems.food")
+local Footing = require("src.sim.systems.footing")
 local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
 local Land = require("src.sim.systems.land")
@@ -164,6 +165,10 @@ function Market.cannotBuy(world, id, pickup)
   end
   if item.pickupOnly and not pickup then
     return "pickup only"
+  end
+  -- A gated item is listed but cannot be bought until Footing is held (D164); cheat mode ignores the gate.
+  if not cheat and not Footing.isOpen(world, item) then
+    return "needs Footing"
   end
   -- Purchase limits (D114): equipment and `unique` items are one per run. Owned counts the inventory, the
   -- land and the orders still on their way; a better tier already owned (or on its way) makes the lower one
