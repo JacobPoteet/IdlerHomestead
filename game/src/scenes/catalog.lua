@@ -152,8 +152,9 @@ function Catalog:layout()
       y = y,
       w = 74,
       h = ROW_H - 2,
-      label = REASONS[reason]
-        or (Market.cheatOn(world) and ui.catalogCheat.row or ("Order $" .. (Market.itemPrice(world, item.id) + fee))),
+      label = (reason == "needs Footing" and world.tuning.progress.gate.short) or REASONS[reason] or (Market.cheatOn(
+        world
+      ) and ui.catalogCheat.row or ("Order $" .. (Market.itemPrice(world, item.id) + fee))),
       enabled = reason == nil,
       style = world.state.market.specials[item.id] and "accent" or nil,
       onPress = function()
@@ -299,9 +300,14 @@ function Catalog:draw()
     if not Market.cheatOn(world) and world.state.market.specials[item.id] then
       label = label .. "  sale!"
     end
+    local locked = Market.cannotBuy(world, item.id, false) == "needs Footing"
+    if locked then -- shown but locked, with the reason in the price's place (D164)
+      label = world.tuning.progress.gate.reason
+    end
     Text.draw(label, b.x + 170, row.y + 6, {
       size = "small",
-      color = world.state.market.specials[item.id] and theme.colors.accent or theme.colors.textDim,
+      width = b.w - 170 - 94,
+      color = (world.state.market.specials[item.id] and not locked) and theme.colors.accent or theme.colors.textDim,
     })
   end
   self.rowButtons:draw()

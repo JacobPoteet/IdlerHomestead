@@ -226,6 +226,7 @@ function Truck:layout()
       w = 60,
       h = ROW_H - 2,
       label = (reason == "owned" or reason == "replaced") and "Owned"
+        or reason == "needs Footing" and world.tuning.progress.gate.short
         or reason == "no room" and "No room"
         or reason == "too big for storage" and "Too big"
         or ("$" .. Market.itemPrice(world, item.id)),

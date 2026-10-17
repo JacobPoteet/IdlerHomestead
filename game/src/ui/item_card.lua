@@ -70,6 +70,7 @@ function ItemCard:layout(view)
     w = half,
     h = BUTTON_H,
     label = info.owned and t.owned
+      or (info.locked and self.world.tuning.progress.gate.short)
       or (info.cheat and t.cheatGet)
       or string.format(pickup and t.buy or t.order, info.cost),
     enabled = info.reason == nil,

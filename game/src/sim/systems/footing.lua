@@ -30,6 +30,27 @@ function Footing.held(world)
   return state(world).held
 end
 
+--- Is the gate open (the gate framework, D164, #343, PLAN_DEPTH §3.2)? One accessor for everything that opens at
+--- Footing: a catalog item, a contract, a land chunk, a charter, a tier. `gate` is any content definition carrying
+--- the flag `requiresFooting`, or a bare gate `{ footing = true }` (or `true`) for a surface that has no definition;
+--- nil, false or a definition without the flag is always open. Open is Footing held, slipped or not (a slip pauses
+--- the longer goals, D162, it does not close what was opened). Callers ask this, never `Footing.held` directly, so no
+--- feature hard-codes the rule.
+function Footing.isOpen(world, gate)
+  if not gate then
+    return true
+  end
+  if gate == true or rawget(gate, "requiresFooting") or rawget(gate, "footing") then
+    return state(world).held
+  end
+  return true
+end
+
+--- Does the definition carry the gate (whether or not it is open now)?
+function Footing.gated(def)
+  return rawget(def, "requiresFooting") == true
+end
+
 --- Is it held but slipped, with reserves to rebuild?
 function Footing.slipped(world)
   return state(world).slipped

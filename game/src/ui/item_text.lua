@@ -28,7 +28,7 @@ local function givesText(world, gives)
 end
 
 --- The card for catalog item `id`. pickup = bought in town (no delivery fee).
---- Returns { title, price, desc, lines = { { label, text, tone } }, reason, cost } where tone is "text", "dim" or "warn",
+--- Returns { title, price, desc, lines = { { label, text, tone } }, reason, locked (opens at Footing, D164), cost } where tone is "text", "dim" or "warn",
 --- reason is Market.cannotBuy's answer (nil when it can be bought) and cost is what the button charges.
 function ItemText.build(world, id, pickup)
   local t = world.tuning.ui.itemCard
@@ -109,7 +109,10 @@ function ItemText.build(world, id, pickup)
     end
   end
 
-  if reason and reason ~= "unknown" then
+  local locked = reason == "needs Footing"
+  if locked then
+    add(t.now, world.tuning.progress.gate.reason, "warn") -- the gate's own words (D164), not a second copy
+  elseif reason and reason ~= "unknown" then
     add(t.now, rawget(t.reasons, reason) or reason, "warn")
   elseif cheat then
     add(t.now, Sandbox.on(world) and world.tuning.ui.sandbox.nowFree or t.nowCheat, "dim")
@@ -121,6 +124,7 @@ function ItemText.build(world, id, pickup)
     lines = lines,
     reason = reason,
     owned = owned,
+    locked = locked,
     cost = cheat and 0 or price + fee,
     cheat = cheat,
   }

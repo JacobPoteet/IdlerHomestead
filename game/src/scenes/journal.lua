@@ -9,6 +9,7 @@
 --   ui/journal_layout.lua (pure geometry)   ui/journal_nav.lua (state and input)
 --   ui/journal_overview.lua, ui/journal_focus.lua (drawing).   This scene glues them together.
 
+local Footing = require("src.sim.systems.footing")
 local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
@@ -384,7 +385,9 @@ function JournalScene:layoutButtons()
     end
   elseif status == "known" and kind == "catalog" then
     local reason = Market.cannotBuy(world, id, false)
-    btn.label = ORDER_REASONS[reason] or ("Order $" .. (Market.itemPrice(world, id) + world.tuning.economy.deliveryFee))
+    btn.label = (reason == "needs Footing" and world.tuning.progress.gate.short)
+      or ORDER_REASONS[reason]
+      or ("Order $" .. (Market.itemPrice(world, id) + world.tuning.economy.deliveryFee))
     btn.enabled = reason == nil
     btn.style = Market.itemPrice(world, id) < def.price and "accent" or nil
     btn.onPress = function()
@@ -917,7 +920,9 @@ function JournalScene:drawCard()
       parts[#parts + 1] = progress > 0 and string.format("%.1f/%s", progress, nights(def.studyNights))
         or nights(def.studyNights)
     end
-    if kind == "catalog" then
+    if kind == "catalog" and Footing.gated(def) and not Footing.isOpen(world, def) then
+      parts[#parts + 1] = world.tuning.progress.gate.reason -- shown but locked, with the reason (D164)
+    elseif kind == "catalog" then
       parts[#parts + 1] = "$" .. (status == "known" and Market.itemPrice(world, id) or def.price)
     else
       parts[#parts + 1] = "perk"
