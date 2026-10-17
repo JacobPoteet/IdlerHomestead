@@ -512,7 +512,7 @@ local function assign(world, hs, order, check)
     return true
   end
   local clear = Tasks.get(world, "clear")
-  local full
+  local full, limited
   for _, target in ipairs(check.clear) do
     if clear.canDo(world, hs, target.anchor) then
       local job = Tasks.jobFor(world, hs, "clear", target.anchor)
@@ -524,9 +524,14 @@ local function assign(world, hs, order, check)
       end
     elseif not full then
       full = clear.blocked(world, hs, target.anchor)
+      limited = limited or clear.limit(world, hs, target.anchor)
     end
   end
-  setWhy(world, order, full and { kind = "full", resource = full } or { kind = "unreachable" })
+  if full then
+    setWhy(world, order, { kind = "full", resource = full })
+  else
+    setWhy(world, order, { kind = limited and "limit" or "unreachable" }) -- "limit": the winter's allowance of wood from trees is used up (#362)
+  end
   return false
 end
 

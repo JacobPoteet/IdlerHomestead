@@ -33,7 +33,7 @@ Also `drinking` (D160: the drink chip on the bar full, low, thirsty and refilled
 
 Also `tonight` (D161: the dusk check: the Tonight stamp by day, the card opening by itself before sunset, a tap on the ground reaching the world around it, the Chop and Fill fixes issuing orders, the Tab focus ring, Close and the stamp bringing it back, Esc and T, and the all-ready card; a side card on desktop and landscape, a bottom sheet on phone).
 
-Also `footing` (D162: five good dusks earn Footing, the one-time panel in the Tonight card's place with a tap outside it reaching the ground and Tab then Enter on Close, no Tonight card at the next dusk, then a slip bringing it back; a side card on desktop, a bottom sheet on phone).
+Also `felling` (#362, D171: the limit on wood from trees: the readiness card's autumn warning, the Tonight card's allowance line before and after it is used up, and a tap on a tree refused with a toast while brush still clears; desktop, phone and landscape), `footing` (D162: five good dusks earn Footing, the one-time panel in the Tonight card's place with a tap outside it reaching the ground and Tab then Enter on Close, no Tonight card at the next dusk, then a slip bringing it back; a side card on desktop, a bottom sheet on phone).
 
 Also `goal` (D163: the pressing-goal line under the top bar at the start, with Tonight short, with Footing's checklist and with the winter and the reserve target, and slipped; a tap on it opening the Progress panel, its milestones ticking and its gates locked then open, P and Esc closing it; desktop, phone and landscape).
 

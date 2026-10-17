@@ -20,6 +20,7 @@ return {
   "status",
   "events",
   "food",
+  "wood",
   "fishing",
   "power",
   "machines",

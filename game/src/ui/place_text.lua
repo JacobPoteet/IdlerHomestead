@@ -205,6 +205,8 @@ function PlaceText.order(world, order, colors)
       text = string.format(p.orderFull, world.registry:get("resources", why.resource).name:lower())
     elseif why.kind == "blocked" then
       text = p.orderBlocked
+    elseif why.kind == "limit" then
+      text = p.orderLimit
     else
       text = p.orderUnreachable
     end

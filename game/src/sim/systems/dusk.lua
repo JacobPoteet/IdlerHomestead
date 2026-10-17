@@ -13,6 +13,7 @@
 -- marks, priorities and the homesteader's order live with their systems.
 
 local Actors = require("src.sim.systems.actors")
+local Felling = require("src.sim.systems.felling")
 local Fishing = require("src.sim.systems.fishing")
 local Grid = require("src.sim.grid")
 local Marks = require("src.sim.systems.marks")
@@ -58,6 +59,7 @@ local function chopTargets(world, wanted)
     if
       def.chop
       and woodOf(def) > 0
+      and not Felling.limited(world, def) -- the season's allowance of wood from trees is used up (#362): only logs are offered
       and not Marks.has(world, "clear", anchor)
       and Marks.target(world, "clear", anchor)
     then

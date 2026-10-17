@@ -520,7 +520,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - C5 (#359) Weather nights: cold front, windstorm, pipe freeze, power outage.
 - C6 (#360) Stove fire and soot (links to F2). **Amended (D168):** lands after F1 wear; no stove loss while slipped.
 - C7 (#361) Night gear: lantern, trip line, bell.
-- C8 (#362) Winter wood is a stockpile problem, not an on-demand chop (tracked with #65, #202, #251). **Amended (D168):** pulled forward to right after B3. Whether unowned tiles can be chopped is open (Q12).
+- C8 (#362) **Done (D171).** Winter wood is a stockpile problem, not an on-demand chop (tracked with #65, #202, #251). **Amended (D168):** pulled forward to right after B3. Unowned tiles can be chopped (Q12, D170). Built as a per-season allowance on wood from trees (`tuning.wood.fellAllowance`, winter 24, first guess), shown on the Tonight and readiness cards; the keep logic and the balance numbers of #202 and #251 are unchanged (M9).
 
 **Phase D: Fields and soil**
 - D1 (#363) Crop schema and 8 new crops (content, journal pages, seed items).

@@ -11,6 +11,10 @@
 --   blocked(world, actor, i, order)      optional: the id of a full resource when the task would apply
 --                                        to tile i but for lack of storage room, else nil. Only the
 --                                        player's taps use it, to say why they were refused (#74).
+--   limit(world, actor, i, order)        optional: a reason id (a string) when the task would apply to tile i but a
+--                                        limit refuses it (the winter allowance of wood from trees, #362), else nil.
+--                                        Only the player's taps use it, to say why they were refused; canDo is
+--                                        false for the same case.
 --   canDoCandidate(world, actor, i)      optional: canDo(world, actor, i, nil) for a tile that
 --                                        `candidates` just offered, minus the checks `candidates`
 --                                        already made once for every tile (e.g. owning a rod);
@@ -214,7 +218,8 @@ end
 --- The task the player means by tapping tile i, or nil.
 --- A task type that would apply to the tile but for a full store stops the search: the tap is
 --- refused (nil) and the second return is the id of the resource that is full (#74), rather than
---- quietly falling through to some lesser task. `order.categories` (a set of task category ids), when
+--- quietly falling through to some lesser task. A task type that a `limit` refuses does the same, and the third return is
+--- its reason id (#362). `order.categories` (a set of task category ids), when
 --- given, limits the tap to those categories: the tool in hand does only its own work (D138).
 function Tasks.taskForTile(world, actor, i, order)
   local only = order and order.categories
@@ -223,6 +228,10 @@ function Tasks.taskForTile(world, actor, i, order)
       local full = t.blocked and t.blocked(world, actor, i, order)
       if full then
         return nil, full
+      end
+      local limited = t.limit and t.limit(world, actor, i, order)
+      if limited then
+        return nil, nil, limited
       end
       if t.canDo(world, actor, i, order) then
         return t
@@ -233,12 +242,13 @@ function Tasks.taskForTile(world, actor, i, order)
 end
 
 --- Build a job for a player order on tile i. Returns the job, or nil if nothing applies or
---- the tile can't be reached; when a full store refused the order, also the full resource's id.
+--- the tile can't be reached; when a full store refused the order, also the full resource's id, and when a limit did,
+--- the third return is its reason id.
 function Tasks.jobForOrder(world, actor, i, order)
   order = order or {}
-  local taskType, full = Tasks.taskForTile(world, actor, i, order)
+  local taskType, full, limited = Tasks.taskForTile(world, actor, i, order)
   if not taskType then
-    return nil, full
+    return nil, full, limited
   end
   local path = pathFor(world, actor, taskType, i)
   if not path then

@@ -9,6 +9,7 @@
 -- by the harvest.
 
 local Calendar = require("src.sim.systems.calendar")
+local Felling = require("src.sim.systems.felling")
 local Footing = require("src.sim.systems.footing")
 local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
@@ -127,7 +128,8 @@ end
 ---   { frozen, daysAway (days to the freeze, 0 once frozen), verdict = "ready" | "fuel" | "food" | "both",
 ---     exact (the whole forecast is known), noFire,
 ---     fuel = { have (warmth in stock), need (warmth through winter's end that fuel must make, after electric), covered (nights), nights, ok,
----              wood (in stock), perNight (wood an average winter night burns), woodNeed (wood to winter's end) },
+---              wood (in stock), perNight (wood an average winter night burns), woodNeed (wood to winter's end),
+---              felling (Felling.outlook: the limit on wood from trees, #362; nil when no season is limited) },
 ---     electric = { total (warmth the heaters should make to winter's end), perNight (a winter night) },
 ---     food = { days (in stock), need (winter nights still to come), ok } }
 function Readiness.winter(world)
@@ -183,6 +185,7 @@ function Readiness.winter(world)
       wood = Ledger.get(world, Needs.fuelId(world)), -- wood in stock (D104)
       perNight = perWood > 0 and winterNights > 0 and math.ceil(winterNeed / winterNights / perWood - 1e-9) or 0, -- wood an average winter night burns at the forecast severity
       woodNeed = perWood > 0 and math.ceil(total / perWood - 1e-9) or 0, -- wood the nights ahead burn in all
+      felling = Felling.outlook(world), -- the winter's allowance of wood from trees (#362): the rest of the fuel must already be stored
     },
     food = { days = foodDays, need = winterNights, ok = foodOk },
   }
@@ -247,6 +250,7 @@ end
 ---   { hour, sunset (hour), due (the card opens by itself: from `tuning.night.duskLeadHours` before sunset to bedtime),
 ---     leads (see Readiness.tonightDue),
 ---     warmth = { need (Needs.warmthNeeded), electric (made by heaters), fireNeed (left for the fire), wood (stock),
+---                felling (Felling.outlook, #362: the season's allowance of wood from trees; nil when none),
 ---                perNight (wood tonight's fire burns), nights (wood stock / that need; math.huge when none is
 ---                needed), noFire (a fire is needed but none is placed), level (0 fine, 1 amber, 2 red, as the chip) },
 ---     food = { days (Needs.foodDays), calories, need (a day's), level },
@@ -273,6 +277,7 @@ function Readiness.tonight(world)
     nights = outlook.nights,
     noFire = outlook.noFire,
     level = (Alerts.level(world, "fuel")),
+    felling = Felling.outlook(world), -- the limit on wood from trees (#362): nil when no season is limited
   }
   local food = {
     days = Needs.foodDays(world),
