@@ -75,6 +75,10 @@ function NightText.morning(world, report)
     )
   end
 
+  if (report.thirsty or 0) > 0 then
+    add(string.format("Went thirsty: -%d condition.", math.floor(report.thirstLost + 0.5)), theme.colors.danger)
+  end
+
   local burned = counts(world, report.burned)
   if burned ~= "" then
     local text = "Burned " .. burned .. " for warmth"

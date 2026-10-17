@@ -29,6 +29,17 @@ function values.food(world)
   return { days = { Needs.foodDays(world) }, perDay = { world.tuning.needs.dailyCalories } }
 end
 
+function values.drink(world)
+  local o = Needs.waterOutlook(world)
+  return {
+    days = { o.days },
+    perDay = { o.perDay },
+    canteen = { o.canteen, world.tuning.needs.canteenCapacity },
+    cistern = o.cistern > 0 and { o.cistern } or nil,
+    thirst = o.thirstDays > 0 and { o.thirstDays } or nil,
+  }
+end
+
 function values.condition(world)
   return { hp = { math.floor(Needs.condition(world) + 0.5), world.tuning.needs.conditionMax } }
 end

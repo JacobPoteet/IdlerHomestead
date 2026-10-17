@@ -75,6 +75,7 @@ return function(d)
     "weather",
     "money",
     "food",
+    "drink",
     "condition",
     "battery",
     "surplus",

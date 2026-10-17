@@ -1,12 +1,15 @@
--- Survival needs (GDD §4.2, D104). Each day the homesteader eats (the food that would spoil first, D94; food
--- that never spoils last) and, on cold nights (none in summer, partial in spring and autumn, the most in
+-- Survival needs (GDD §4.2, D104, D160). Each day the homesteader eats (the food that would spoil first, D94; food
+-- that never spoils last), drinks (the cistern stock first, then the canteen) and, on cold nights (none in summer, partial in spring and autumn, the most in
 -- winter: Weather.baseWarmth), burns wood in the best placed heat source to stay warm through the night.
 -- Shortfalls cost Condition; a fed, warm day restores some.
 --
--- State: world.state.needs = { condition }
--- Emits "needs.ate" { calories, shortfall }, "needs.warmed" { warmth, electric, needed, burned, shortfall,
--- shelter } and "needs.depleted" { hunger, cold, shelter } when Condition hits 0 (the day's shortfalls
--- and the shelter, so the rescue can say what failed).
+-- State: world.state.needs = { condition, canteen?, thirstDays? }. `canteen` (water units in hand) is absent
+-- until it first changes and then counts as full; `thirstDays` (dry days in a row) is absent while 0, so a
+-- fresh game's saved shape does not change.
+-- Emits "needs.ate" { calories, shortfall }, "needs.drank" { water, shortfall, damage, thirstDays },
+-- "needs.warmed" { warmth, electric, needed, burned, shortfall, shelter } and "needs.depleted" { hunger,
+-- thirst, cold, shelter } when Condition hits 0 (the day's shortfalls, `thirst` already scaled by the
+-- build-up of a run of dry days, and the shelter, so the rescue can say what failed).
 
 local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
@@ -140,6 +143,62 @@ function Needs.fuelNights(world)
   return Needs.woodOutlook(world).nights
 end
 
+-- Drinking water (D160) ---------------------------------------------------------------------------
+
+local WATER = "water" -- the ledger stock the cistern fills (the same pool as irrigation)
+
+--- Water units the homesteader drinks each day: the figure the Tonight card, the Footing "water source"
+--- test and readiness read, like `warmthNeeded`.
+function Needs.waterNeeded(world)
+  return world.tuning.needs.dailyWater
+end
+
+--- Water units in the canteen (a new run starts with it full).
+function Needs.canteen(world)
+  local held = world.state.needs.canteen
+  if held == nil then
+    return world.tuning.needs.canteenCapacity
+  end
+  return held
+end
+
+--- Dry days in a row (0 when the last day's drink was met).
+function Needs.thirstDays(world)
+  return world.state.needs.thirstDays or 0
+end
+
+--- The drinking-water outlook, the one accessor behind the drink chip, alerts and readiness:
+---   { perDay (units drunk each day), cistern (units in the ledger stock), canteen (units in hand),
+---     stock (both), days (stock / perDay), thirstDays (dry days in a row), room (canteen room left) }
+function Needs.waterOutlook(world)
+  local perDay = Needs.waterNeeded(world)
+  local cistern, canteen = Ledger.get(world, WATER), Needs.canteen(world)
+  local stock = cistern + canteen
+  return {
+    perDay = perDay,
+    cistern = cistern,
+    canteen = canteen,
+    stock = stock,
+    days = perDay > 0 and stock / perDay or math.huge,
+    thirstDays = Needs.thirstDays(world),
+    room = math.max(0, world.tuning.needs.canteenCapacity - canteen),
+  }
+end
+
+--- Days of drinking water in stock at the daily need.
+function Needs.waterDays(world)
+  return Needs.waterOutlook(world).days
+end
+
+--- Pour up to `units` into the canteen (what a creek, well or melted snow gives). Returns what fit.
+function Needs.fillCanteen(world, units)
+  local added = math.min(units, Needs.waterOutlook(world).room)
+  if added > 0 then
+    world.state.needs.canteen = Needs.canteen(world) + added
+  end
+  return added
+end
+
 --- Debug and editor tool: while on, hunger and cold cannot lower Condition. A runtime flag on the world,
 --- not in the state, so it is never saved (like Market.setCheat, D126).
 function Needs.setInvincible(world, on)
@@ -173,6 +232,40 @@ function Needs.eat(world)
   return shortfall
 end
 
+--- Drink the day's water: the cistern stock first (the pool irrigation uses), then the canteen. A dry day
+--- adds to the run of thirsty days and hurts more each time (never all at once). Returns the shortfall (0..1).
+function Needs.drink(world)
+  local cfg, state = world.tuning.needs, world.state.needs
+  local need = Needs.waterNeeded(world)
+  local drunk = 0
+  local fromStock = math.min(need, Ledger.get(world, WATER))
+  if fromStock > 0 and Ledger.remove(world, WATER, fromStock, "drink") then
+    drunk = fromStock
+  end
+  local fromCanteen = math.min(need - drunk, Needs.canteen(world))
+  if fromCanteen > 0 then
+    state.canteen = Needs.canteen(world) - fromCanteen
+    drunk = drunk + fromCanteen
+  end
+  local shortfall = need > 0 and math.max(0, need - drunk) / need or 0
+  local damage = 0
+  if shortfall > 0 then
+    local run = math.min(Needs.thirstDays(world), cfg.thirstBuildDays)
+    damage = cfg.thirstDamage * shortfall * (1 + cfg.thirstBuild * run)
+    state.thirstDays = Needs.thirstDays(world) + 1
+    hurt(world, damage)
+  else
+    state.thirstDays = nil
+  end
+  world.events:emit("needs.drank", {
+    water = drunk,
+    shortfall = shortfall,
+    damage = damage,
+    thirstDays = Needs.thirstDays(world),
+  })
+  return shortfall, damage
+end
+
 --- Burn wood for the night's warmth. Returns the shortfall (0..1).
 function Needs.warm(world)
   local cfg = world.tuning.needs
@@ -201,16 +294,24 @@ function Needs.warm(world)
   return shortfall
 end
 
---- The daily draw: food and warmth. A day with neither short restores some Condition.
+--- The daily draw: food, water and warmth. A day with none short restores some Condition.
 function Needs.daily(world)
   local hungry = Needs.eat(world)
+  local thirsty, thirstDamage = Needs.drink(world)
   local cold = Needs.warm(world)
   local cfg, state = world.tuning.needs, world.state.needs
-  if hungry == 0 and cold == 0 then
+  if hungry == 0 and thirsty == 0 and cold == 0 then
     state.condition = math.min(cfg.conditionMax, state.condition + cfg.dailyRecovery * Shelter.recovery(world))
   end
   if state.condition <= 0 then
-    world.events:emit("needs.depleted", { hunger = hungry, cold = cold, shelter = Shelter.id(world) }) -- what the last day lacked (0..1 shortfalls) and where the night was spent (D99)
+    -- What the last day lacked (0..1 shortfalls; thirst as its damage in units of thirstDamage, so a run of dry
+    -- days counts for more) and where the night was spent (D99).
+    world.events:emit("needs.depleted", {
+      hunger = hungry,
+      thirst = thirstDamage / cfg.thirstDamage,
+      cold = cold,
+      shelter = Shelter.id(world),
+    })
   end
 end
 

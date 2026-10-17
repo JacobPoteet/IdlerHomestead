@@ -45,6 +45,11 @@ function AlertText.toast(e)
       return string.format("Not enough wood for tonight (%.1f nights). Fell trees or buy wood", e.value)
     end
     return string.format("Wood is low: %.1f nights left. Fell trees or buy wood", e.value)
+  elseif e.kind == "drink" then
+    if e.value < 0.05 then
+      return "Out of drinking water. Fill the canteen at the creek or a well, or melt snow"
+    end
+    return string.format("Drinking water is low: %.1f days left. Fill the canteen at the creek or a well", e.value)
   elseif e.kind == "animals" then
     if e.value < 0.05 then
       return "The animals are out of feed. Buy chicken feed or hay"

@@ -79,6 +79,8 @@ function ChipStrip.entries(world)
 
   add(chip(world, "money", "icon_money", "$" .. count(Ledger.get(world, "money"))))
   add(chip(world, "food", "icon_food", string.format("%.1fd", Needs.foodDays(world))))
+  -- Drinking water (D160): days of water on hand (cistern plus canteen) at the daily drink.
+  add(chip(world, "drink", "icon_water", string.format("%.1fd", math.min(Needs.waterDays(world), 99))))
   add(chip(world, "condition", "icon_heart", tostring(math.floor(Needs.condition(world) + 0.5))))
   -- The truck chip says "ready" once a trip is possible (D72, #162), in the accent colour.
   local battery = string.format("%d%%", math.floor(Power.charge(world, truck) / Power.capacity(world, truck) * 100))

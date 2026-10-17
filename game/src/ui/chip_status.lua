@@ -64,6 +64,17 @@ function status.food(world)
   return { level = level, state = levelState(level), frac = clamp01(Needs.foodDays(world) / cfg.foodFullDays) }
 end
 
+function status.drink(world)
+  local cfg = world.tuning.ui.topChips
+  local o = Needs.waterOutlook(world)
+  local level = Alerts.level(world, "drink")
+  local state = levelState(level)
+  if o.thirstDays > 0 then
+    level, state = 2, "thirst"
+  end
+  return { level = level, state = state, frac = clamp01(o.days / cfg.drinkFullDays) }
+end
+
 function status.condition(world)
   local level = Alerts.level(world, "condition")
   return {
