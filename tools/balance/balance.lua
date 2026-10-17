@@ -5,6 +5,8 @@
 -- (seed, policy, tuning): all randomness is the sim's seeded streams plus a seeded policy stream.
 
 local Calendar = require("src.sim.systems.calendar")
+local EventPolicy = require("event_policy")
+local Events = require("src.sim.systems.events")
 local Features = require("features")
 local Finds = require("src.sim.systems.finds")
 local Footing = require("src.sim.systems.footing")
@@ -20,6 +22,7 @@ local Policies = require("policies")
 local Registry = require("src.core.registry")
 local Run = require("src.meta.run")
 local Save = require("src.core.save")
+local Status = require("src.sim.systems.status")
 local Session = require("src.session")
 local Weather = require("src.sim.systems.weather")
 
@@ -132,7 +135,7 @@ end
 --- Simulate one run to its end or `years` years. Returns a result table:
 ---   alive, failDay, failSeason, failYear, cause, snaps[day], counters, winters[year].
 --- `session` carries the slot data (a fresh Session per run).
-local function playRun(ctx, session, policyName, seed, years, features)
+local function playRun(ctx, session, policyName, seed, years, features, eventMode)
   local world = session.world
   local tuning = ctx.tuning
   local tickRate = tuning.time.tickRate
@@ -183,6 +186,20 @@ local function playRun(ctx, session, policyName, seed, years, features)
     soldBy = {}, -- resource id -> units sold by the truck and the stand (D75)
     daysTotal = daysTotal,
     features = Features.label(features or {}),
+    -- Events (D169, #347): only when an event-choice policy is chosen. What came, how it was answered, and the spiral
+    -- measures: the lowest Condition, the days spent with a status, the most statuses at once.
+    events = eventMode
+        and {
+          mode = eventMode,
+          offered = 0,
+          chosen = 0,
+          ignored = 0,
+          by = {}, -- event id -> { offered, chosen, ignored }
+          minCondition = 100,
+          statusDays = 0,
+          maxStatuses = 0,
+        }
+      or nil,
     -- Footing (D165, #344): the day it was first earned (nil if never), slips and regains, the dusk nights judged
     -- before it was earned, how many of them failed each of the four tests, and the first frozen season's first day.
     footing = {
@@ -286,6 +303,23 @@ local function playRun(ctx, session, policyName, seed, years, features)
   events:on("footing.regained", function()
     result.footing.regains = result.footing.regains + 1
   end)
+  if result.events then
+    local function tally(id, field)
+      local by = result.events.by
+      by[id] = by[id] or { offered = 0, chosen = 0, ignored = 0 }
+      by[id][field] = by[id][field] + 1
+      result.events[field] = result.events[field] + 1
+    end
+    events:on("event.offered", function(e)
+      tally(e.id, "offered")
+    end)
+    events:on("event.chosen", function(e)
+      tally(e.id, "chosen")
+    end)
+    events:on("event.ignored", function(e)
+      tally(e.id, "ignored")
+    end)
+  end
   events:on("power.brownout", function()
     result.counters.brownouts = result.counters.brownouts + 1
   end)
@@ -303,6 +337,12 @@ local function playRun(ctx, session, policyName, seed, years, features)
     end
     if not failed then
       result.snaps[e.day] = snapshot(world)
+      if result.events then
+        local x, active = result.events, Status.count(world)
+        x.minCondition = math.min(x.minCondition, result.snaps[e.day].condition)
+        x.statusDays = x.statusDays + (active > 0 and 1 or 0)
+        x.maxStatuses = math.max(x.maxStatuses, active)
+      end
       result.snaps[e.day].truckEarned = result.counters.earned
       result.snaps[e.day].standEarned = Stand.total(world).earned
       local kind = Weather.kind(world)
@@ -332,6 +372,7 @@ local function playRun(ctx, session, policyName, seed, years, features)
     end
   end)
 
+  local eventPolicy = EventPolicy.new(eventMode, seed)
   local ticksRun = 0
   local lastJudged = world.state.footing.last
   while ticksRun < capTicks and not failed do
@@ -340,6 +381,18 @@ local function playRun(ctx, session, policyName, seed, years, features)
     if offer then
       Finds.choose(world, policy:chooseFind(world, offer))
     end
+    -- An event card is answered by the event-choice policy; its real-time floor runs at the sim's own pace (1x).
+    local card = eventPolicy and Events.pending(world)
+    if card and eventPolicy.answered ~= result.events.offered then
+      eventPolicy.answered = result.events.offered -- one answer per card; a card left to run out is not asked again
+      local answer = EventPolicy.answer(eventPolicy, card)
+      if answer == "ignore" then
+        Events.ignore(world)
+      elseif answer then
+        Events.choose(world, answer)
+      end
+    end
+    Events.advanceReal(world, step)
     if ticksRun % decisionTicks == 0 then
       policy:step(world)
     end
@@ -462,7 +515,7 @@ end
 --- ends the career there. `outfit` ("light", "mid" or "heavy", optional) dresses the homesteader in the first
 --- garment of that weight class in every slot at the start of each run (Balance.dress). Returns a list of run
 --- results.
-function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit)
+function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode)
   local data = Save.newSlotData("balance")
   local store = Save.new(Save.memoryBackend(), { slotCount = 1 })
   local results = {}
@@ -479,7 +532,7 @@ function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit)
     if outfit then
       Balance.dress(session.world, outfit)
     end
-    local result = playRun(ctx, session, policyName, runSeed, years, features)
+    local result = playRun(ctx, session, policyName, runSeed, years, features, eventMode)
     result.run = r
     result.baseSeed = seed
     result.notesThisRun = 0
@@ -530,6 +583,40 @@ local function quantiles(values)
     p75 = Balance.percentile(values, 0.75),
     p90 = Balance.percentile(values, 0.90),
   }
+end
+
+--- Events across runs (D169, #347), only when an event-choice policy was used (nil otherwise, so the default report is
+--- unchanged): totals per run, the spiral measures and the share of runs that failed with an event answered in their last
+--- week (a first look for "an event kills a run"; the plan's gate is the cause split in the failure report).
+function Balance.eventsSummary(results)
+  if not (results[1] and results[1].events) then
+    return nil
+  end
+  local out = {
+    mode = results[1].events.mode,
+    n = #results,
+    offered = 0,
+    chosen = 0,
+    ignored = 0,
+    by = {},
+    statusDays = 0,
+    maxStatuses = 0,
+    minCondition = 100,
+  }
+  for _, r in ipairs(results) do
+    local x = r.events
+    out.offered, out.chosen, out.ignored = out.offered + x.offered, out.chosen + x.chosen, out.ignored + x.ignored
+    out.statusDays = out.statusDays + x.statusDays
+    out.maxStatuses = math.max(out.maxStatuses, x.maxStatuses)
+    out.minCondition = math.min(out.minCondition, x.minCondition)
+    for id, by in pairs(x.by) do
+      local sum = out.by[id] or { offered = 0, chosen = 0, ignored = 0 }
+      out.by[id] = sum
+      sum.offered, sum.chosen, sum.ignored = sum.offered + by.offered, sum.chosen + by.chosen, sum.ignored + by.ignored
+    end
+  end
+  out.offeredPerRun, out.statusDaysPerRun = out.offered / out.n, out.statusDays / out.n
+  return out
 end
 
 --- Footing across runs (D165, #344), every run counted: how many earned it, the day (median, p10, p90 of those that
@@ -706,6 +793,7 @@ function Balance.summarize(ctx, results, years)
   end
   summary.features = results[1] and results[1].features or "none"
   summary.footing = Balance.footingSummary(results)
+  summary.events = Balance.eventsSummary(results)
   return summary
 end
 
@@ -748,6 +836,35 @@ local METRIC_NAMES = {
   known = "journal nodes learned",
   ideas = "ideas waiting",
 }
+
+--- The events block of a summary (nothing when events were off).
+function Balance.printEvents(e)
+  if not e then
+    return
+  end
+  line("")
+  line(
+    string.format(
+      "Events (%s): %.1f offered per run (all runs: chosen %d, ignored %d); days with a status per run %.1f; most statuses at once %d; lowest Condition %.0f",
+      e.mode,
+      e.offeredPerRun,
+      e.chosen,
+      e.ignored,
+      e.statusDaysPerRun,
+      e.maxStatuses,
+      e.minCondition
+    )
+  )
+  local ids = {}
+  for id in pairs(e.by) do
+    ids[#ids + 1] = id
+  end
+  table.sort(ids)
+  for _, id in ipairs(ids) do
+    local by = e.by[id]
+    line(string.format("  %-20s offered %d  chosen %d  ignored %d", id, by.offered, by.chosen, by.ignored))
+  end
+end
 
 --- The Footing block of a summary (D165, #344): reporting only, no target.
 function Balance.printFooting(ctx, f)
@@ -877,6 +994,7 @@ function Balance.printSummary(ctx, policyName, runIndex, summary, years)
   end
 
   Balance.printFooting(ctx, summary.footing)
+  Balance.printEvents(summary.events)
 
   -- Curves: median [p25-p75] among seeds alive at each point.
   for _, m in ipairs(METRICS) do
@@ -1184,6 +1302,7 @@ function Balance.runRecord(r)
     final = r.final,
     counters = r.counters,
     footing = r.footing,
+    events = r.events,
   }
 end
 

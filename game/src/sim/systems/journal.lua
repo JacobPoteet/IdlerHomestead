@@ -14,6 +14,7 @@
 --     queue = { itemId, ... },                       -- study order; [1] is being studied
 --     progress = { [itemId] = nights },              -- kept if unqueued: nothing is spent
 --   }
+-- Run state: world.state.journal = { once = { [key] = true } }? (Journal.once, absent until used).
 -- Emits "journal.note" { note }, "journal.idea" { item }, "journal.learned" { item }.
 
 local Calendar = require("src.sim.systems.calendar")
@@ -350,6 +351,30 @@ local function writeNote(world, def)
       world.events:emit("journal.idea", { item = entry.id })
     end
   end
+end
+
+--- Write a note by hand (D169, #109): an event outcome, a find or any system that knows a note's moment without a
+--- world event naming it. Does nothing if the note is already written. Returns true when it was newly written.
+function Journal.write(world, id)
+  local def = world.registry:get("notes", id)
+  if journal(world).notes[id] then
+    return false
+  end
+  writeNote(world, def)
+  return true
+end
+
+--- A once-per-run flag (D169, #109): true the first time `key` is asked in this run, false after. Run state
+--- (world.state.journal = { once }, absent until used), so a new run asks again and a failed run's flags go with it.
+function Journal.once(world, key)
+  local st = world.state.journal or {}
+  world.state.journal = st
+  st.once = st.once or {}
+  if st.once[key] then
+    return false
+  end
+  st.once[key] = true
+  return true
 end
 
 local function listen(world)

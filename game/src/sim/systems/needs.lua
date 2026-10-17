@@ -120,7 +120,30 @@ end
 --- Warmth needed tonight: the season's base, scaled by the winter's severity and any cold snap, then
 --- by the best shelter's insulation (D82), today's clothes (D149) and the statuses (D166: a fever needs more).
 function Needs.warmthNeeded(world)
-  return Weather.warmthNeed(world) * Shelter.nightInsulation(world) * Stats.factor(world, "warmthNeed")
+  local natural = Weather.warmthNeed(world) * Shelter.nightInsulation(world)
+  local need = natural * Stats.factor(world, "warmthNeed")
+  if need > natural then
+    -- The ceiling on bad luck (D169, PLAN_DEPTH 6.5): what statuses (and later events) add never lifts the night past
+    -- `maxWarmthMultiplier` times the season's base need, nor past what the weather and shelter alone already ask.
+    local now = Calendar.now(world)
+    local ceiling = Weather.baseWarmth(world, now.season, now.dayOfSeason)
+      * world.tuning.events.mercy.maxWarmthMultiplier
+    need = math.min(need, math.max(natural, ceiling))
+  end
+  return need
+end
+
+--- Take Condition off as an event outcome (D169): at most `amount`, never under `floor` (the mercy rule that an event is
+--- never the killing blow, PLAN_DEPTH 6.5). Honours the editor's invincibility and a sandbox slot's floor. Returns the
+--- Condition actually lost.
+function Needs.injure(world, amount, floor)
+  local state = world.state.needs
+  local before = state.condition
+  local lost = math.max(0, math.min(amount, before - (floor or 0)))
+  if lost > 0 then
+    hurt(world, lost)
+  end
+  return before - state.condition
 end
 
 --- The wood outlook (D104), the one accessor behind the HUD wood chip, the Pantry row and the alerts:

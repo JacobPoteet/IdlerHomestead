@@ -117,6 +117,7 @@ return {
     icon_signal_idea = { placeholder = "icon_signal_idea", w = 12, h = 12 },
     icon_status = { placeholder = "icon_status", w = 12, h = 12 },
     icon_status_ankle = { placeholder = "icon_status_ankle", w = 12, h = 12 },
+    icon_status_limp = { placeholder = "icon_status_limp", w = 12, h = 12 },
     icon_status_fever = { placeholder = "icon_status_fever", w = 12, h = 12 },
     icon_status_back = { placeholder = "icon_status_back", w = 12, h = 12 },
     icon_status_burn = { placeholder = "icon_status_burn", w = 12, h = 12 },

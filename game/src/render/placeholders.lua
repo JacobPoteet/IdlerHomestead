@@ -1819,6 +1819,18 @@ P.icon_status_ankle = rows({
   "..oooooooo..",
 })
 
+P.icon_status_limp = rows({
+  "...oooo.....",
+  "...oppo.....",
+  "...oPPo.....",
+  "...oppo.....",
+  "..oPPPo.....",
+  "..oppoooo...",
+  ".oGgrrggo...",
+  ".oGgggggo...",
+  ".ooooooooo..",
+})
+
 P.icon_status_fever = rows({
   ".....oo.....",
   "....opPo....",

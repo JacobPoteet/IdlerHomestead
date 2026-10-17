@@ -77,7 +77,7 @@ end
 local WORKER_PATH = "tools/balance/worker.lua"
 
 --- Play every (policy, seed) unit on `jobs` worker threads.
---- spec: { names = {...}, seeds = N, seed0 = N, years = N, runs = N, features = string|nil, outfit = string|nil,
+--- spec: { names = {...}, seeds = N, seed0 = N, years = N, runs = N, features = string|nil, outfit = string|nil, events = string|nil,
 ---         sets = { "domain.key=value", ... }, jobs = N, onProgress = function(done, total) }
 --- Returns results[policy][seed] = the list Balance.playSeed returns for that seed.
 function Parallel.play(spec)
@@ -106,6 +106,7 @@ function Parallel.play(spec)
     runs = spec.runs,
     features = spec.features or false,
     outfit = spec.outfit or false,
+    events = spec.events or false,
     sets = spec.sets or {},
   })
   local threads = {}

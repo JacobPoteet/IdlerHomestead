@@ -20,6 +20,7 @@ local Crops = require("src.sim.systems.crops")
 local Needs = require("src.sim.systems.needs")
 local Food = require("src.sim.systems.food")
 local Established = require("src.sim.systems.established")
+local Events = require("src.sim.systems.events")
 local Footing = require("src.sim.systems.footing")
 local FootingText = require("src.ui.footing_text")
 local Goal = require("src.sim.systems.goal")
@@ -369,6 +370,18 @@ function Homestead:subscribe()
     events:on("journal.note", function(e)
       self:newsToast("New note: " .. world.registry:get("notes", e.note).line)
     end),
+    -- Events (D169, #347): the card is not built yet (B4), so the toasts say what came and how it ended; with nobody
+    -- answering, the window runs out into the free ignore outcome.
+    events:on("event.offered", function(e)
+      local d = world.registry:get("events", e.id)
+      self:newsToast(d.title .. ": " .. d.line)
+    end),
+    events:on("event.chosen", function(e)
+      self:newsToast(e.label)
+    end),
+    events:on("event.ignored", function(e)
+      self:newsToast(e.label)
+    end),
     events:on("journal.idea", function(e)
       self:newsToast("New idea: " .. Journal.node(world, e.item).name .. " · see the Journal")
     end),
@@ -490,6 +503,7 @@ function Homestead:saveNow()
 end
 
 function Homestead:focus(hasFocus)
+  self.unfocused = not hasFocus -- an unfocused window is an away player: an event card's ignore window waits (D169)
   if not hasFocus then
     self:saveNow()
   end
@@ -2173,6 +2187,10 @@ end
 
 function Homestead:update(dt)
   local ctx = self.app.ctx
+  -- An event card's ignore window runs only while the player is present (D169, PLAN_DEPTH 6.3): its real-seconds floor
+  -- is fed the real frame time, and it waits while the app is unfocused or no input has come past the takeover delay.
+  Events.setAway(self.world, self.unfocused == true or ctx.input:idleSeconds() >= self:takeoverDelay())
+  Events.advanceReal(self.world, dt)
   -- A first-time tip card on screen holds game time and the takeover countdown while it is read (D92, #230).
   self.session:setTipUp(self.cardKind == "tip" and self.card ~= nil)
   self.session:update(dt) -- (also ends a hand-started routine at bedtime)

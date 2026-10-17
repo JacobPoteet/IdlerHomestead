@@ -19,4 +19,5 @@ return {
   "garments",
   "milestones",
   "statuses",
+  "events",
 }
