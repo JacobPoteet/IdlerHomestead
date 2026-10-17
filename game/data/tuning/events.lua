@@ -31,6 +31,7 @@ return {
     coldNightNeed = 4, -- warmth units (needs.warmthPeak is 8): a coming night that asks at least this much is cold enough to bring a fever, half a deep-winter night
     thirstyDays = 2, -- days of drinking water in hand under which the homesteader counts as dry, which doubles the weight of heat exhaustion
   },
+  ordersPerk = "rules_of_thumb", -- journal perk id: standing orders (Careful, Bold) apply only once it is known; until then every class reads as Ask me (PLAN_DEPTH 6.4, B5)
   historyLimit = 20, -- events remembered in the run state's history (older ones are dropped)
   mercy = { -- the rules that keep events from snowballing (PLAN_DEPTH 6.5)
     conditionFloor = 15, -- Condition points: an event outcome never takes Condition under this (never the killing blow)

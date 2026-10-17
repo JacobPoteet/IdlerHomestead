@@ -32,9 +32,18 @@
 -- form; the combined warmth need is capped (Needs.warmthNeeded). The ignore outcome is judged by the worst chain it can
 -- reach, by Events.audit (run in the tests): free, no condition loss, nothing that can escalate, never worse than the worse option.
 --
--- Event bus: "event.offered" { id, class, bad, wake, day }, "event.chosen" { id, option, label, class, bad },
--- "event.ignored" { id, reason ("expired" | "ignored"), label, class, bad }, "event.later" { id, hit } (a delayed outcome
--- came due: it landed, or the chance missed).
+-- STANDING ORDERS (B5, #349, D174, PLAN_DEPTH 6.4). With the "Rules of thumb" perk known, each event class (body, home, land,
+-- visitors) can be set to Ask me (default: the card), Careful (the option flagged `careful`) or Bold (the one flagged `bold`).
+-- The setting is the player's own, kept in the slot's meta (it survives a failed run). An event of a class that has an order is
+-- answered the moment it is offered, so a player away or at 8x is not interrupted. Careful and Bold both fall back to the ignore
+-- outcome when there is no such option, when the cost cannot be paid, or when paying would take a stock under its keep target
+-- (Food.keeps, which holds the winter wood reserve too); an unaffordable or keep-blocked option adds a line to the morning
+-- report ("event.orderFallback"). Until the perk is known every order reads as Ask me, so nothing changes without it.
+--
+-- Event bus: "event.offered" { id, class, bad, wake, day }, "event.chosen" { id, option, label, class, bad, order? (true when a
+-- standing order chose it) }, "event.ignored" { id, reason ("expired" | "ignored" | "order"), label, class, bad },
+-- "event.orderFallback" { id, class, mode, why ("keep" | "short"), resource } (an order fell back to ignoring because of the cost),
+-- "event.later" { id, hit } (a delayed outcome came due: it landed, or the chance missed).
 --
 -- State: world.state.events = {
 --   rollDay    the day of the last dusk draw
@@ -52,11 +61,13 @@
 --              effects that land later (a `later` outcome): an infection two mornings on, a collapse that afternoon
 --   coldDay    the day the last cold-damage night was paid (Fever never follows one)
 --   wakeNight  the night of the last wake event
---   history    { { day, id, how ("chosen" | "ignored" | "dropped"), option?, reason? } } }
+--   history    { { day, id, how ("chosen" | "ignored" | "dropped"), option?, reason? ("order" when a standing order answered) } } }
+-- The orders themselves are world.meta.standingOrders = { [class] = "careful" | "bold" } (absent = Ask me).
 
 local Animals = require("src.sim.systems.animals")
 local Calendar = require("src.sim.systems.calendar")
 local Crops = require("src.sim.systems.crops")
+local Food = require("src.sim.systems.food")
 local Footing = require("src.sim.systems.footing")
 local Grid = require("src.sim.grid")
 local Journal = require("src.sim.systems.journal")
@@ -499,6 +510,8 @@ schedule = function(world, id, day, depth)
   s.scheduled[#s.scheduled + 1] = { id = id, due = dueOn(world, def(world, id), day), depth = depth or 0 }
 end
 
+local resolve -- (below) apply an outcome
+
 local function offer(world, d, depth)
   local s, c = state(world), cfg(world)
   local now = Calendar.now(world)
@@ -517,6 +530,7 @@ local function offer(world, d, depth)
     Journal.write(world, d.journalNote) -- the first time it is offered; later calls do nothing
   end
   world.events:emit("event.offered", { id = d.id, class = d.class, bad = d.bad, wake = d.wake == true, day = now.day })
+  Events.answerByOrder(world, d)
 end
 
 -- Offer a scheduled event if it may come now: "offered", "dropped" (the mercy rules or its conditions no longer allow it)
@@ -544,7 +558,7 @@ local function tryOffer(world, item)
   return "offered"
 end
 
-local function resolve(world, option, reason)
+resolve = function(world, option, reason)
   local s, c = state(world), cfg(world)
   local entry = table.remove(s.pending, 1)
   local d = def(world, entry.id)
@@ -557,6 +571,7 @@ local function resolve(world, option, reason)
   local payload = { id = d.id, label = outcome.label, class = d.class, bad = d.bad }
   if option then
     payload.option = option
+    payload.order = reason == "order" or nil
     world.events:emit("event.chosen", payload)
   else
     payload.reason = reason
@@ -626,6 +641,89 @@ function Events.queue(world)
     out[i] = view(world, entry)
   end
   return out
+end
+
+-- Standing orders ---------------------------------------------------------------------------------------
+
+--- The event classes a standing order can be set for, and the modes, in the order the Routine screen lists them.
+Events.CLASSES = { "body", "home", "land", "visitors" }
+Events.MODES = { "ask", "careful", "bold" }
+
+--- Is the "Rules of thumb" perk known, so the orders apply (and the Routine screen shows them)?
+function Events.ordersUnlocked(world)
+  return Journal.isKnown(world, cfg(world).ordersPerk)
+end
+
+--- The mode set for an event class: "ask" (default), "careful" or "bold". What the player chose, whether or not the perk is
+--- known yet; Events.ordersUnlocked says whether it applies.
+function Events.orderMode(world, class)
+  return (world.meta.standingOrders or {})[class] or "ask"
+end
+
+--- Set the mode for an event class. Errors on an unknown class or mode.
+function Events.setOrder(world, class, mode)
+  if not contains(Events.CLASSES, class) then
+    error("Unknown event class '" .. tostring(class) .. "'", 2)
+  end
+  if not contains(Events.MODES, mode) then
+    error("Unknown standing order '" .. tostring(mode) .. "'", 2)
+  end
+  local orders = world.meta.standingOrders or {}
+  world.meta.standingOrders = orders
+  orders[class] = mode ~= "ask" and mode or nil
+end
+
+--- What an order does with event `d`: the option index to take, or nil + why it fell back ("none": no such option, "short":
+--- cannot pay, "keep": paying would drop a stock under its keep target) + the resource that stopped it.
+local function orderChoice(world, d, mode)
+  local index
+  for i, o in ipairs(d.options) do
+    if o[mode] == true then
+      index = i
+      break
+    end
+  end
+  if not index then
+    return nil, "none"
+  end
+  local cost = d.options[index].cost
+  local missing = lacking(world, cost)
+  if missing then
+    return nil, "short", missing
+  end
+  if cost then
+    local keeps = Food.keeps(world)
+    for _, id in ipairs(sortedKeys(cost)) do
+      if Ledger.get(world, id) - cost[id] < (keeps[id] or 0) then
+        return nil, "keep", id
+      end
+    end
+  end
+  return index
+end
+
+--- Answer the open card by the standing order for its class, if the perk is known and the class is not Ask me. Returns whether
+--- it did. Called when an event is offered (and public for tests).
+function Events.answerByOrder(world, d)
+  local mode = Events.orderMode(world, d.class)
+  local head = state(world).pending[1]
+  if mode == "ask" or not Events.ordersUnlocked(world) or not head or head.id ~= d.id then
+    return false
+  end
+  local index, why, resource = orderChoice(world, d, mode)
+  if index then
+    local cost = d.options[index].cost
+    if cost then
+      Ledger.spend(world, cost, "event")
+    end
+  elseif why ~= "none" then
+    world.events:emit(
+      "event.orderFallback",
+      { id = d.id, class = d.class, mode = mode, why = why, resource = resource }
+    )
+  end
+  resolve(world, index, "order")
+  return true
 end
 
 --- Answer the open card with option 1 or 2. Returns true, or false + the reason ("no event", "no such option",

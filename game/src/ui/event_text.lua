@@ -16,6 +16,7 @@ EventText.minutesLeft = "Settles itself in %d:%02d"
 EventText.wake = "This one woke you."
 EventText.stamp = "Event"
 EventText.ignoredToast = "Time ran out: %s"
+EventText.orderToast = "Your rule: %s"
 EventText.busy = "Answer the event first."
 EventText.lacks = "Needs %s: you have %d"
 
