@@ -13,7 +13,9 @@
 --                    weather = { kinds }, frozen = bool, status = { ids or families }, noColdNight = true
 --   terms            weight terms: { weather | frozen | status, mult }, each that holds multiplies the weight
 --   journalNote      note id (data/content/notes.lua) written the first time the event is offered
---   options          exactly two: { label, cost = { resource = n }?, effect, risk (qualitative words, never odds),
+--   options          exactly two: { label, cost = { resource = n }?, effect, risk (qualitative words, never odds; the card
+--                    (B4, D172) says the cost and the effect in plain words itself from `cost` and `effect`, so `risk` is
+--                    only how safe the choice is, e.g. "Safe. It passes by tomorrow."),
 --                    careful = true? (what Careful standing orders pick, B5), bold = true? (what Bold picks) }
 --   ignore           { label, effect, risk }: applies when nobody answers in the window (tuning.events.ignoreHours,
 --                    never under ignoreMinSeconds of real time). Free, safe and non-escalating (6.2): no cost, no condition
@@ -54,20 +56,20 @@ return {
         label = "Splint it",
         cost = { wood = 2 },
         effect = { status = "ankle_1" },
-        risk = "Two wood. Slower today, gone tomorrow.",
+        risk = "Safe. It passes by tomorrow.",
         careful = true,
       },
       {
         label = "Power through",
         effect = { status = "ankle_2" },
-        risk = "Free. Falls twice as likely for days, and it can get worse.",
+        risk = "Risky. A fall is likelier for days, and it can get worse.",
         bold = true,
       },
     },
     ignore = {
       label = "Limp on",
       effect = { status = "limp", note = "limped_on" },
-      risk = "Free. Work 40% slower today and tomorrow, and no worse.",
+      risk = "Safe. It never gets worse than this.",
     },
   },
 }

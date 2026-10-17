@@ -21,6 +21,9 @@ local Needs = require("src.sim.systems.needs")
 local Food = require("src.sim.systems.food")
 local Established = require("src.sim.systems.established")
 local Events = require("src.sim.systems.events")
+local EventCard = require("src.ui.event_card")
+local EventText = require("src.ui.event_text")
+local Notices = require("src.ui.notices")
 local Footing = require("src.sim.systems.footing")
 local FellingText = require("src.ui.felling_text")
 local FootingText = require("src.ui.footing_text")
@@ -135,6 +138,9 @@ function Homestead:enter(slot, data)
   self.tonightCard = TonightCard.new(ctx)
   self.tonightAge = 0
   self:lookTonight()
+  self.eventCard = EventCard.new(ctx) -- the misfortune event's card (D172): shares the free band with Tonight, one at a time
+  self.eventFade = Motion.transition("card")
+  self.noticeCurrent, self.noticeOwner = nil, nil
   -- Dissolves (D142): the wheel, the tip card, the tile card and the lens come in and go out through the dither.
   self.wheelFade = Motion.transition("wheel")
   self.cardFade = Motion.transition("card")
@@ -371,17 +377,17 @@ function Homestead:subscribe()
     events:on("journal.note", function(e)
       self:newsToast("New note: " .. world.registry:get("notes", e.note).line)
     end),
-    -- Events (D169, #347): the card is not built yet (B4), so the toasts say what came and how it ended; with nobody
-    -- answering, the window runs out into the free ignore outcome.
+    -- Events (D169, #347; the card is D172, #348): the card is the way in, so an offer only writes the log line (a card
+    -- missed behind another is still on record); how it ended gets a toast, and a card that ran out says so.
     events:on("event.offered", function(e)
       local d = world.registry:get("events", e.id)
-      self:newsToast(d.title .. ": " .. d.line)
+      self:record(d.title .. ": " .. d.line)
     end),
     events:on("event.chosen", function(e)
       self:newsToast(e.label)
     end),
     events:on("event.ignored", function(e)
-      self:newsToast(e.label)
+      self:newsToast(e.reason == "expired" and string.format(EventText.ignoredToast, e.label) or e.label)
     end),
     events:on("journal.idea", function(e)
       self:newsToast("New idea: " .. Journal.node(world, e.item).name .. " · see the Journal")
@@ -879,6 +885,18 @@ function Homestead:stampList()
       color = worst >= 2 and colors.danger or worst == 1 and colors.accent or colors.text,
       onPress = function()
         self:toggleTonight()
+      end,
+    }
+  end
+  if Events.waiting(world) > 0 and self.noticeOwner ~= "event" then
+    -- An event card is waiting behind another card or a panel (its window waits too): the stamp brings it forward.
+    list[#list + 1] = {
+      id = "event",
+      icon = "icon_signal_alert",
+      label = EventText.stamp,
+      color = colors.accent,
+      onPress = function()
+        self.noticeCurrent = "event"
       end,
     }
   end
@@ -2029,6 +2047,104 @@ function Homestead:openReadiness()
   }))
 end
 
+-- The notice queue and the event card (D168, D172, #348; docs/PLAN_DEPTH.md §4, §6.2, §6.3) --------------------
+
+--- Decide which notice card is up (tuning.ui.notices.rank): the Tonight card and an event card never share the screen.
+--- Cards the player opens (a panel, a book, a status card), the tip and report cards and a lens cover the world and every
+--- notice waits behind them, so a notice never opens over another card. Once a frame, before the cards are laid out.
+function Homestead:updateNotices()
+  local waiting = { tonight = self:tonightFits(), event = Events.waiting(self.world) > 0 }
+  local rank = self.app.ctx.tuning.ui.notices.rank
+  self.noticeCurrent = Notices.pick(rank, waiting, self.noticeCurrent)
+  local covered = self.app:top() ~= self or self.card ~= nil or self.lens:active()
+  self.noticeOwner = not covered and self.noticeCurrent or nil
+  if self.noticeOwner == "event" and self.noticeOwnerPrev ~= "event" then
+    self.eventCard.focusShown = false
+    self.eventKey = nil
+  end
+  self.noticeOwnerPrev = self.noticeOwner
+end
+
+--- Is the event card up?
+function Homestead:eventShown()
+  return self.noticeOwner == "event" and self.eventRect ~= nil
+end
+
+--- Is the point on the event card (when it is up)?
+function Homestead:overEvent(x, y)
+  return self:eventShown() and self.eventCard:contains(x, y)
+end
+
+--- What EventText.build needs from the world.
+function Homestead:eventEnv()
+  local world, ev = self.world, self.app.ctx.tuning.events
+  return {
+    name = function(id)
+      return world.registry:get("resources", id).name
+    end,
+    have = function(id)
+      return Ledger.get(world, id)
+    end,
+    status = function(id)
+      return world.registry:get("statuses", id)
+    end,
+    away = self.eventAway == true,
+    speed = self.session:effectiveSpeed(),
+    hourSeconds = Calendar.hourLength(world),
+    ignoreHours = ev.ignoreHours,
+    ignoreMinSeconds = ev.ignoreMinSeconds,
+  }
+end
+
+--- Once a frame: the open event, in words, and where it goes; set up again only when its words or place change.
+function Homestead:layoutEvent(dt)
+  Motion.step(self.eventFade, self.noticeOwner == "event", dt)
+  local ev = Events.pending(self.world)
+  if self.noticeOwner ~= "event" or not ev then
+    if not self.eventFade:shown() then
+      self.eventRect, self.eventKey = nil, nil
+    end
+    return
+  end
+  local view, cfg = self.app.view, self.app.ctx.tuning.ui.eventCard
+  local touch = self.app.ctx.tuning.input.minTouchTarget
+  local model = EventText.build(ev, self:eventEnv())
+  local card = self.eventCard
+  local bounds = { top = math.max(self.topH, self.statusBottom or 0), bottom = view.h - self.bottomH }
+  local first = Tonight.place(cfg, view, bounds, 0, touch)
+  local contentH = card:measure(model, first.rect.w - 2 * cfg.pad) + card:timerHeight() + 4
+  local spec = Tonight.place(cfg, view, bounds, contentH, touch)
+  local r = spec.rect
+  self.eventRect, self.eventLayout = r, spec.layout
+  local parts = { ev.id, r.x, r.y, r.w, r.h }
+  for _, o in ipairs(model.options) do
+    parts[#parts + 1] = tostring(o.enabled) .. (o.reason or "")
+  end
+  local key = table.concat(parts, ":")
+  if key ~= self.eventKey then
+    self.eventKey = key
+    card:setup(model, r, function(index)
+      self:answerEvent(index)
+    end, function()
+      self:answerEvent(nil)
+    end)
+  else
+    card.model.timer = model.timer -- the words that change every frame, without laying the blocks out again
+  end
+end
+
+--- An option (1 or 2) or the ignore block (nil) was pressed.
+function Homestead:answerEvent(index)
+  if index then
+    Events.choose(self.world, index)
+  else
+    Events.ignore(self.world, "ignored")
+  end
+  self.noticeCurrent = nil
+  self.eventKey = nil
+  self:layout() -- the stamp goes
+end
+
 -- The Tonight card (D161, #340, docs/PLAN_DEPTH.md §3.1) --------------------------------------------------
 
 --- Look at the figures again: the card and the stamp read this one cached look, refreshed `ui.tonight.refresh` real
@@ -2048,6 +2164,11 @@ end
 --- Can the card be drawn now? It is open, and not under a lens (which takes the side of the view) or, on a tall view
 --- where it is a sheet, in the way of a tip or report card.
 function Homestead:tonightShown()
+  return self:tonightFits() and self.noticeOwner ~= "event"
+end
+
+--- Could the Tonight card be drawn, were no other notice up? (The notice queue decides who is up; see updateNotices.)
+function Homestead:tonightFits()
   if not self.tonight.open or self.lens:active() then
     return false
   end
@@ -2057,6 +2178,10 @@ end
 
 --- The stamp or the T key: bring the card up, or put it away.
 function Homestead:toggleTonight()
+  if self.noticeOwner == "event" then
+    self:showToast(EventText.busy) -- an event card is up: one card at a time, answer it first
+    return
+  end
   if self.tonight.open then
     self.footingCard = false -- closing the Footing card; the next opening is the Tonight card
   end
@@ -2157,6 +2282,17 @@ end
 
 --- Keys the card answers while it is up: Tab moves the focus ring along its buttons, Enter presses the focused one.
 function Homestead:keypressed(key)
+  if self:eventShown() then
+    if key == "tab" then
+      local back = love.keyboard and love.keyboard.isDown("lshift", "rshift")
+      self.eventCard:moveFocus(back and -1 or 1)
+    elseif key == "return" or key == "kpenter" then
+      if self.eventCard.focusShown then
+        self.eventCard:activate()
+      end
+    end
+    return
+  end
   if not (self.tonightRect and self:tonightShown()) then
     return
   end
@@ -2190,7 +2326,12 @@ function Homestead:update(dt)
   local ctx = self.app.ctx
   -- An event card's ignore window runs only while the player is present (D169, PLAN_DEPTH 6.3): its real-seconds floor
   -- is fed the real frame time, and it waits while the app is unfocused or no input has come past the takeover delay.
-  Events.setAway(self.world, self.unfocused == true or ctx.input:idleSeconds() >= self:takeoverDelay())
+  -- It also waits while the card is not on screen (behind another card or a panel, the notice queue): an event must not run
+  -- out unseen, but game time never waits for it (D168).
+  self:updateNotices()
+  local away = self.unfocused == true or ctx.input:idleSeconds() >= self:takeoverDelay()
+  self.eventAway = away
+  Events.setAway(self.world, away or (Events.waiting(self.world) > 0 and self.noticeOwner ~= "event"))
   Events.advanceReal(self.world, dt)
   -- A first-time tip card on screen holds game time and the takeover countdown while it is read (D92, #230).
   self.session:setTipUp(self.cardKind == "tip" and self.card ~= nil)
@@ -2224,6 +2365,7 @@ function Homestead:update(dt)
     self.lensCard:update(dt)
   end
   self:updateTonight(dt)
+  self:layoutEvent(dt)
   -- A find waits for a free screen (not behind the fishing mini-game or a panel), also after a load.
   if Finds.pending(self.world) and self.app:top() == self then
     self.app:push(require("src.scenes.finds").new(self.world))
@@ -2707,6 +2849,10 @@ function Homestead:action(name, data)
     self.pointerDown = false
   end
   if self.lens:active() and self.lensCard:action(name, data) then
+    return true
+  end
+  -- The event card likewise (D172): it answers only inside its own rectangle.
+  if self:eventShown() and self.eventCard:action(name, data) then
     return true
   end
   -- The Tonight card answers only inside its own rectangle (D161): the world stays tappable around it.
@@ -3888,7 +4034,7 @@ function Homestead:inWorldArea(x, y)
   if self.lens:active() and self.lensCard:contains(x, y) then
     return false
   end
-  if self:overTonight(x, y) then
+  if self:overTonight(x, y) or self:overEvent(x, y) then
     return false
   end
   for _, b in ipairs(self.buttons.list) do
@@ -4359,6 +4505,9 @@ function Homestead:drawInfo(view)
     if self.tonightRect and self.tonightLayout == "sheet" then
       base = math.min(base, self.tonightRect.y) -- and above the Tonight sheet on a tall view
     end
+    if self:eventShown() and self.eventLayout == "sheet" then
+      base = math.min(base, self.eventRect.y) -- and the event sheet
+    end
     local y = base - h - 4 -- above the tip card (or the tool caption) when one is up
     local w = 132
     for _, line in ipairs(lines) do
@@ -4427,6 +4576,9 @@ function Homestead:drawInfo(view)
     end
     if self.tonightRect and self.tonightLayout == "sheet" then
       y = math.min(y, self.tonightRect.y - 4 - h) -- and above the Tonight sheet
+    end
+    if self:eventShown() and self.eventLayout == "sheet" then
+      y = math.min(y, self.eventRect.y - 4 - h) -- and the event sheet
     end
     if info and x < info.x + info.w and y + h > info.y then
       y = info.y - 4 - h -- a wide toast on a narrow view rides above the tile card instead of covering it
@@ -4563,6 +4715,10 @@ function Homestead:draw()
   self:drawCard()
   if self.tonightRect and self:tonightShown() then
     self.tonightCard:draw(view)
+  end
+  if self.eventRect and Dissolve.begin(self.eventFade:coverage()) then
+    self.eventCard:draw(view)
+    Dissolve.finish()
   end
   if self.lens:active() and Dissolve.begin(self.lensFade:coverage()) then
     self.lensCard:draw(view)
