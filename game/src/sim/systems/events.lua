@@ -33,7 +33,8 @@
 -- reach, by Events.audit (run in the tests): free, no condition loss, nothing that can escalate, never worse than the worse option.
 --
 -- Event bus: "event.offered" { id, class, bad, wake, day }, "event.chosen" { id, option, label, class, bad },
--- "event.ignored" { id, reason ("expired" | "ignored"), label, class, bad }.
+-- "event.ignored" { id, reason ("expired" | "ignored"), label, class, bad }, "event.later" { id, hit } (a delayed outcome
+-- came due: it landed, or the chance missed).
 --
 -- State: world.state.events = {
 --   rollDay    the day of the last dusk draw
@@ -47,6 +48,8 @@
 --   flags      name -> true (until cleared) | the first day it no longer holds
 --   damage     name -> true: the open lasting damage flags
 --   locks      tile -> the first day it is free again
+--   delayed    { { due (day * 24 + hour), from (the event id), chance (a tuning.events.chances key, or nil = certain), effect } }
+--              effects that land later (a `later` outcome): an infection two mornings on, a collapse that afternoon
 --   coldDay    the day the last cold-damage night was paid (Fever never follows one)
 --   wakeNight  the night of the last wake event
 --   history    { { day, id, how ("chosen" | "ignored" | "dropped"), option?, reason? } } }
@@ -55,12 +58,15 @@ local Animals = require("src.sim.systems.animals")
 local Calendar = require("src.sim.systems.calendar")
 local Crops = require("src.sim.systems.crops")
 local Footing = require("src.sim.systems.footing")
+local Grid = require("src.sim.grid")
 local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
 local Shelter = require("src.sim.systems.shelter")
 local Sleep = require("src.sim.systems.sleep")
+local Stats = require("src.sim.stats")
 local Status = require("src.sim.systems.status")
+local Wardrobe = require("src.sim.systems.wardrobe")
 local Weather = require("src.sim.systems.weather")
 
 local Events = {}
@@ -218,6 +224,17 @@ local function anyStatus(world, list)
   return false
 end
 
+-- Is an object with one of these ids placed (the wood stove)? Only the heat sources are looked at, from the cached index.
+local function placedAny(world, ids)
+  local objects = world.state.grid.objects
+  for _, anchor in ipairs(Grid.anchorsWith(world, "heatSource")) do
+    if contains(ids, objects[anchor].id) then
+      return true
+    end
+  end
+  return false
+end
+
 -- Do these conditions hold now? (`mult` and other keys of a weight term are not conditions.)
 local function holds(world, cond)
   if not cond then
@@ -233,6 +250,24 @@ local function holds(world, cond)
     return false
   end
   if cond.noColdNight and state(world).coldDay == Calendar.now(world).day then
+    return false
+  end
+  if cond.noStatus and anyStatus(world, cond.noStatus) then
+    return false
+  end
+  if cond.coldNight ~= nil and (Needs.warmthNeeded(world) >= cfg(world).body.coldNightNeed) ~= cond.coldNight then
+    return false
+  end
+  if cond.thirsty ~= nil and (Needs.waterOutlook(world).days < cfg(world).body.thirstyDays) ~= cond.thirsty then
+    return false
+  end
+  if cond.placed and not placedAny(world, cond.placed) then
+    return false
+  end
+  if cond.feet and Wardrobe.classOf(world, "feet") ~= cond.feet then
+    return false
+  end
+  if cond.outfit and Wardrobe.outfitLean(world) ~= cond.outfit then
     return false
   end
   return true
@@ -275,8 +310,16 @@ function Events.weight(world, id)
   if d.seasons then
     weight = weight * (d.seasons[now.season] or 0)
   end
-  if weight <= 0 or not holds(world, d.conditions) or Events.blocked(world, d) then
+  if
+    weight <= 0
+    or not holds(world, d.conditions)
+    or not holds(world, d.drawConditions)
+    or Events.blocked(world, d)
+  then
     return 0
+  end
+  if d.fall then
+    weight = weight * Stats.factor(world, "fallChance") -- a fall is likelier with a bad ankle (PLAN_DEPTH 6.2)
   end
   for _, term in ipairs(d.terms or {}) do
     if holds(world, term) then
@@ -360,10 +403,11 @@ local function pickTiles(world, count)
   return picked
 end
 
-local function applyEffect(world, effect, depth)
+local function applyEffect(world, effect, depth, from)
   local s, c = state(world), cfg(world)
   effect = Events.effective(world, effect)
-  local day = Calendar.now(world).day
+  local now = Calendar.now(world)
+  local day = now.day
   local status = effect.status
   if status then
     for _, id in ipairs(type(status) == "table" and status or { status }) do
@@ -408,6 +452,33 @@ local function applyEffect(world, effect, depth)
   end
   if effect.chain and depth < c.maxChainDepth then
     schedule(world, effect.chain.id, day + effect.chain.afterDays, depth + 1)
+  end
+  local later = effect.later
+  if later then
+    -- A delayed outcome (an infection two mornings on): `hours` from now, or `days` on at `hour` (default the same hour).
+    local due = later.hours and stamp(day, now.hour) + later.hours or stamp(day + later.days, later.hour or now.hour)
+    s.delayed[#s.delayed + 1] = { due = due, from = from, chance = later.chance, effect = later.effect }
+  end
+end
+
+-- Land the delayed outcomes that are due. A chance is a tuning.events.chances key, rolled on its own stream so that what
+-- the player chose never moves the dusk draw. The effect is the outcome's own, with no `later` of its own.
+local function landDelayed(world)
+  local s, c = state(world), cfg(world)
+  local at = nowStamp(world)
+  local i = 1
+  while i <= #s.delayed do
+    local item = s.delayed[i]
+    if item.due <= at then
+      table.remove(s.delayed, i)
+      local hit = item.chance == nil or world:rng("eventLater"):float() < c.chances[item.chance]
+      if hit then
+        applyEffect(world, item.effect, c.maxChainDepth, item.from)
+      end
+      world.events:emit("event.later", { id = item.from, hit = hit })
+    else
+      i = i + 1
+    end
   end
 end
 
@@ -478,7 +549,7 @@ local function resolve(world, option, reason)
   local entry = table.remove(s.pending, 1)
   local d = def(world, entry.id)
   local outcome = option and d.options[option] or d.ignore
-  applyEffect(world, outcome.effect, entry.depth)
+  applyEffect(world, outcome.effect, entry.depth, d.id)
   if d.bad then
     s.coolUntil = Calendar.now(world).day + c.badCooldownNights
   end
@@ -704,6 +775,7 @@ local EFFECT_KEYS = {
   damageTiles = true,
   note = true,
   chain = true,
+  later = true,
   capital = true,
   lesser = true,
 }
@@ -729,6 +801,11 @@ function Events.audit(world)
       end
     end
     out.condition = effect.condition and -effect.condition or 0
+    if effect.later then
+      local r = reach(effect.later.effect, seen) -- what could land later counts, whatever its chance
+      out.severity = math.max(out.severity, r.severity)
+      out.condition = math.max(out.condition, r.condition)
+    end
     if effect.chain and not seen[effect.chain.id] then
       seen[effect.chain.id] = true
       local follow = reg:get("events", effect.chain.id)
@@ -802,6 +879,29 @@ function Events.audit(world)
             bad(id, where .. " chains itself")
           end
         end
+        local later = o.effect.later
+        if later then
+          if type(later.effect) ~= "table" or not (later.hours or later.days) then
+            bad(id, where .. ": later needs an effect and hours or days")
+          else
+            if later.chance and cfg(world).chances[later.chance] == nil then
+              bad(id, where .. ": later names the unknown chance " .. tostring(later.chance))
+            end
+            for _, sid in ipairs(statusIds(later.effect)) do
+              if not reg:has("statuses", sid) then
+                bad(id, where .. ": later names the unknown status " .. sid)
+              end
+            end
+            for key in pairs(later.effect) do
+              if not EFFECT_KEYS[key] or key == "later" or key == "chain" or key == "capital" or key == "damage" then
+                bad(id, where .. ": a later effect cannot use '" .. key .. "'")
+              end
+            end
+            if later.effect.condition and later.effect.condition >= 0 then
+              bad(id, where .. ": a later condition is a loss, so negative")
+            end
+          end
+        end
         local r = reach(o.effect, { [id] = true })
         if n < 3 then
           worst.severity = math.max(worst.severity, r.severity)
@@ -810,7 +910,16 @@ function Events.audit(world)
           if o.cost then
             bad(id, "ignore must be free")
           end
-          for _, forbidden in ipairs({ "condition", "chain", "damage", "capital", "lockTiles", "damageTiles", "lose" }) do
+          for _, forbidden in ipairs({
+            "condition",
+            "chain",
+            "later",
+            "damage",
+            "capital",
+            "lockTiles",
+            "damageTiles",
+            "lose",
+          }) do
             if o.effect[forbidden] then
               bad(id, "ignore must not use " .. forbidden .. " (free, safe, non-escalating)")
             end
@@ -846,6 +955,7 @@ function Events.init(world)
   s.flags = s.flags or {}
   s.damage = s.damage or {}
   s.locks = s.locks or {}
+  s.delayed = s.delayed or {}
   s.history = s.history or {}
   -- A loaded save may name an event the content no longer has: drop it rather than fail.
   for _, list in ipairs({ s.scheduled, s.pending }) do
@@ -888,6 +998,9 @@ function Events.tick(world, dt)
     if head.hoursLeft <= 0 and head.realLeft <= 0 then
       resolve(world, nil, "expired")
     end
+  end
+  if #s.delayed > 0 then
+    landDelayed(world)
   end
   local now = Calendar.now(world)
   if s.rollDay ~= now.day then

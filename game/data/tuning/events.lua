@@ -22,6 +22,15 @@ return {
     day = 13, -- a day event: the middle of the working day
     night = 1, -- a night event: hours after the homesteader's bedtime begins
   },
+  chances = { -- chance (0..1) of a delayed outcome landing (an event's `later.chance` names one); the card says "may" and never the odds (PLAN_DEPTH 6.2)
+    festerInfection = 0.4, -- a cut left alone turns infected two mornings on (PLAN_DEPTH 6.2: 40 percent)
+    feverFlu = 0.3, -- a fever worked through turns into flu two mornings on (30 percent)
+    heatCollapse = 0.35, -- pushing on in the heat ends in a collapse that afternoon (35 percent)
+  },
+  body = { -- the triggers of the body events (PLAN_DEPTH 6.2, 7)
+    coldNightNeed = 4, -- warmth units (needs.warmthPeak is 8): a coming night that asks at least this much is cold enough to bring a fever, half a deep-winter night
+    thirstyDays = 2, -- days of drinking water in hand under which the homesteader counts as dry, which doubles the weight of heat exhaustion
+  },
   historyLimit = 20, -- events remembered in the run state's history (older ones are dropped)
   mercy = { -- the rules that keep events from snowballing (PLAN_DEPTH 6.5)
     conditionFloor = 15, -- Condition points: an event outcome never takes Condition under this (never the killing blow)

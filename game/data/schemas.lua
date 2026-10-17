@@ -132,8 +132,10 @@ return {
     wake = "boolean?", -- may wake the homesteader (the card never freezes time)
     seasons = "table?", -- season id -> weight multiplier; absent = every season at 1
     minYear = "number?", -- earliest year it can come
-    conditions = "table?", -- all must hold: weather = { kinds }, frozen = bool, status = { ids or families }, noColdNight = true
-    terms = "table?", -- weight terms: { { weather | frozen | status, mult } }, each that holds multiplies the weight
+    conditions = "table?", -- all must hold (when drawn and when offered): weather, frozen, status, noStatus, noColdNight, placed, coldNight, thirsty, feet, outfit; see the header of content/events.lua
+    drawConditions = "table?", -- the same keys, checked only when the dusk draw picks the event
+    fall = "boolean?", -- the weight is multiplied by the statuses' fall chance
+    terms = "table?", -- weight terms: { { <a condition key>, mult } }, each that holds multiplies the weight
     weight = "number", -- relative weight among the events that can come now
     exposure = "number?", -- 0..1: how much night exposure shapes this event's weight (0 = none, 1 = fully)
     cooldown = "number?", -- days before it can come again

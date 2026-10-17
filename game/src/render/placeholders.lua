@@ -1879,6 +1879,50 @@ P.icon_status_tired = rows({
   "........o...",
 })
 
+P.icon_status_wound = rows({
+  "",
+  "...oooooo...",
+  "..oppppppo..",
+  "..oprrrrpo..",
+  "..oprrrrpo..",
+  "..oppppppo..",
+  "...oooooo...",
+})
+
+P.icon_status_rest = rows({
+  ".oooooo.....",
+  ".oPPPPo.....",
+  "....oPo.....",
+  "...oPo......",
+  "..oPPPPo....",
+  "..oooooo.oo.",
+  "........oPPo",
+  "..........oo",
+})
+
+P.icon_status_heat = rows({
+  "....o..o....",
+  "..o..oo..o..",
+  "...oaaaao...",
+  ".ooaaaaaaoo.",
+  "..oaaaaaao..",
+  ".ooaaaaaaoo.",
+  "...oaaaao...",
+  "..o..oo..o..",
+  "....o..o....",
+})
+
+P.icon_status_tooth = rows({
+  "...oooooo...",
+  "..oppppppo..",
+  "..oppppppo..",
+  "..opppppPo..",
+  "...oppPPo...",
+  "...opoopo...",
+  "...opo.opo..",
+  "...ooo.ooo..",
+})
+
 -- The Wardrobe (D154): the decision stamp (a shirt on an amber round), the five slot tabs and the two presets.
 P.icon_signal_clothes = rows({
   "...oooooo...",

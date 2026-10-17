@@ -68,6 +68,11 @@ function EventText.effectWords(effect, env)
       out[#out + 1] = statusWords(env.status(id))
     end
   end
+  if effect.later then
+    -- An outcome that lands later says "may" when it is a chance, and never the odds (PLAN_DEPTH 6.2).
+    local later = EventText.effectWords(effect.later.effect, env)
+    out[#out + 1] = (effect.later.chance and "Later, it may: " or "Later: ") .. table.concat(later, "; ")
+  end
   if effect.gain then
     out[#out + 1] = "Gain " .. amounts(effect.gain, env.name)
   end

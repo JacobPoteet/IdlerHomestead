@@ -208,11 +208,10 @@ end)
 
 T.test("status: work speed never goes under the floor", function()
   local world = newWorld()
-  Status.apply(world, "ankle_3") -- 0.5
+  Status.apply(world, "ankle_1") -- 0.5
   Status.apply(world, "tired") -- 0.9
-  Status.apply(world, "fever") -- 0.8
-  T.truthy(0.5 * 0.9 * 0.8 > cfg.minWorkSpeed)
-  T.near(Status.modifier(world, "workSpeed"), 0.5 * 0.9 * 0.8, 1e-9)
+  T.truthy(0.5 * 0.9 > cfg.minWorkSpeed)
+  T.near(Status.modifier(world, "workSpeed"), 0.5 * 0.9, 1e-9)
   -- Squeeze it under the floor with a content table of heavy modifiers.
   local floorWorld = newWorld()
   local mods = reg:get("statuses", "ankle_3").modifiers
@@ -241,12 +240,15 @@ end)
 T.test("status: the drain never takes Condition under its floor", function()
   local world = newWorld()
   world.state.needs.condition = 3
+  local mods = reg:get("statuses", "burn").modifiers
+  mods.conditionDrain = 1 -- a drain of 1 a day, whatever the content says
   Status.apply(world, "burn")
   Needs.daily(world)
   T.truthy(Needs.condition(world) >= cfg.drainFloor, "the drain stopped at the floor")
   world.state.needs.condition = cfg.drainFloor
   Needs.daily(world)
   T.truthy(Needs.condition(world) >= cfg.drainFloor)
+  mods.conditionDrain = nil
 end)
 
 -- Expiry and clearing ---------------------------------------------------------------------------------
@@ -316,12 +318,16 @@ end)
 
 T.test("status: modifiers multiply across families, conditionDrain adds", function()
   local world = newWorld()
-  Status.apply(world, "fever")
-  Status.apply(world, "back")
-  T.near(Status.modifier(world, "workSpeed"), 0.8 * 0.85, 1e-9)
-  T.near(Stats.factor(world, "workSpeed"), 0.8 * 0.85, 1e-9)
+  Status.apply(world, "fever") -- 0.6
+  Status.apply(world, "back") -- carry only
+  T.near(Status.modifier(world, "workSpeed"), 0.6, 1e-9)
+  T.near(Stats.factor(world, "workSpeed"), 0.6, 1e-9)
   T.eq(Status.modifier(world, "fallChance"), 1, "a modifier no status names is 1")
-  Status.apply(world, "burn")
+  Status.apply(world, "burn") -- 0.8
+  T.near(Status.modifier(world, "workSpeed"), 0.6 * 0.8, 1e-9)
+  T.eq(Status.modifier(world, "conditionDrain"), 0)
+  Status.apply(world, "fever") -- a second one of the family: the flu, 0.5 and a point of Condition a day
+  T.near(Status.modifier(world, "workSpeed"), 0.5 * 0.8, 1e-9)
   T.eq(Status.modifier(world, "conditionDrain"), 1)
   T.truthy(pcall(Status.modifier, world, "nonsense") == false)
 end)
@@ -336,7 +342,7 @@ T.test("status hook: work speed slows the homesteader and composes with the ward
       T.truthy(Wardrobe.wear(world, outfit))
     end
     if withStatus then
-      Status.apply(world, "fever") -- workSpeed 0.8
+      Status.apply(world, "fever") -- workSpeed 0.6
     end
     local hs = Actors.homesteader(world)
     hs.job = { task = "till", target = world.state.land.spawn, path = {}, progress = 0, ordered = true }
@@ -354,19 +360,19 @@ T.test("status hook: work speed slows the homesteader and composes with the ward
   end
   local plain = remaining(false)
   local slow = remaining(true)
-  T.near(slow, plain / 0.8, 1e-9, "the status alone")
+  T.near(slow, plain / 0.6, 1e-9, "the status alone")
   local lightOnly, bonus = remaining(false, light)
   T.truthy(bonus > 1)
   T.near(lightOnly, plain / bonus, 1e-9, "the wardrobe alone")
   local both = remaining(true, light)
-  T.near(both, plain / (bonus * 0.8), 1e-9, "both multiply")
+  T.near(both, plain / (bonus * 0.6), 1e-9, "both multiply")
 end)
 
 T.test("status hook: carry capacity scales the bucket and keeps at least one watering", function()
   local world = newWorld()
   local base = Water.bucketCapacity(world)
-  Status.apply(world, "back") -- 0.6
-  T.eq(Water.bucketCapacity(world), math.max(1, math.floor(base * 0.6 + 0.5)))
+  Status.apply(world, "back") -- 0.5
+  T.eq(Water.bucketCapacity(world), math.max(1, math.floor(base * 0.5 + 0.5)))
   T.truthy(Water.bucketCapacity(world) < base)
   local tiny = newWorld()
   tiny.tuning = setmetatable(
@@ -427,7 +433,7 @@ T.test("status hook: condition recovery scales a fed, warm day; drain costs Cond
   local gain = base - 10
   T.truthy(gain > 0, "a good day restores some")
   T.near(fever - 10, gain * 0.5, 1e-6)
-  T.near(after("burn"), base - 1, 1e-6, "the burn drains a point a day")
+  T.near(after("flu"), 10 + gain * 0.5 - 1, 1e-6, "the flu halves the recovery and drains a point a day")
 end)
 
 T.test("status hook: study speed scales the night's progress", function()
@@ -453,13 +459,13 @@ end)
 
 T.test("status: the state is plain and survives a save round trip", function()
   local world = newWorld()
-  Status.apply(world, "ankle_2")
+  Status.apply(world, "ankle_3")
   Status.apply(world, "tired")
   acrossMidnight(world)
   local copy = serialize.decode(serialize.encode(world.state))
   local again = World.new({ registry = reg, tuning = tun }, copy)
   T.eq(ids(again), ids(world))
-  T.eq(Status.get(again, "ankle_2").left, Status.get(world, "ankle_2").left)
+  T.eq(Status.get(again, "ankle_3").left, Status.get(world, "ankle_3").left)
   T.near(Status.modifier(again, "workSpeed"), Status.modifier(world, "workSpeed"), 1e-12)
 end)
 
