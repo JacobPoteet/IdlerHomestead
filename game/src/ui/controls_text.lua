@@ -19,6 +19,7 @@ M.actions = { -- action name (tuning.input.rebindable) -> { name, what it does }
   toolWheel = { "Tool wheel", "Open the tool wheel" },
   wardrobe = { "Wardrobe", "Open the wardrobe" },
   tonight = { "Tonight", "Open the Tonight card" },
+  progress = { "Progress", "Open the Progress panel" },
   tool1 = { "Hand", "Take the Hand" },
   tool2 = { "Hoe", "Take the Hoe" },
   tool3 = { "Pail", "Take the Pail" },

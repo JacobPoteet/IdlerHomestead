@@ -15,10 +15,11 @@ end
 ---   vitals = { { id, w } }, vitalH,                    each vital's content width; the plate height
 ---   stamps = { { id, w, iconW } },                     a stamp's full width (icon and words) and icon-only width
 ---   badge = { w, compactW, h }, tool = { w, compactW, h }, books = { { id, w, compactW } },
----   caption = { w, h } or nil }
+---   caption = { w, h } or nil,
+---   goal = { w, h } or nil }                           the pressing-goal line: a line of its own under the top plates
 --- cfg = { pad, gap, vitalGap, vitalPad } (UI pixels); view = { w, h }.
 --- Returns { clock, speed, segments = { rect }, menu, vitals = { { x, y, w, h, items = { { id, x, w } } } },
----   topH (y under the top plates), stamps = { { id, x, y, w, h, compact } }, badge, tool, books = { rect },
+---   topH (y under the top plates), goal = rect or nil (the pressing-goal line), stamps = { { id, x, y, w, h, compact } }, badge, tool, books = { rect },
 ---   compact (the bottom plates are icon-only), caption, bottomTop (y over the bottom plates and caption) }.
 function Hud.arrange(spec, view, cfg)
   local pad, gap = cfg.pad, cfg.gap
@@ -133,6 +134,12 @@ function Hud.arrange(spec, view, cfg)
   -- Decision stamps down the left edge, under the top plates; words beside the icon while they fit.
   out.stamps = {}
   local sy = out.topH
+  -- The pressing-goal line (D163, #342) is its own line first under the top plates, above the stamps; the top plates
+  -- are not widened for it.
+  if spec.goal and sy + spec.goal.h <= out.bottomTop then
+    out.goal = rect(pad, sy, math.min(spec.goal.w, view.w - 2 * pad), spec.goal.h)
+    sy = sy + spec.goal.h + gap
+  end
   for _, s in ipairs(spec.stamps) do
     local small = s.w > view.w - 2 * pad or compact
     local h = s.h or s.iconW

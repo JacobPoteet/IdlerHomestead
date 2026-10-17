@@ -25,6 +25,7 @@ local function simFiles()
     "game/src/ui/tonight.lua", -- the Tonight card's state and place (D161): pure, no drawing
     "game/src/ui/tonight_text.lua", -- and its words
     "game/src/ui/footing_text.lua", -- the Footing card's words (D162): pure, no drawing
+    "game/src/ui/goal_text.lua", -- the goal line's and the Progress panel's words (D163): pure, no drawing
   }
   for _, name in ipairs(require("src.sim.systems.init")) do
     files[#files + 1] = "game/src/sim/systems/" .. name .. ".lua"
@@ -68,6 +69,7 @@ local STATE_OWNERS = {
   ledger = "ledger",
   market = "market",
   marks = "marks",
+  milestones = "milestones",
   needs = "needs",
   perks = "perks",
   perksApplied = "perks",

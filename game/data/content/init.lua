@@ -17,4 +17,5 @@ return {
   "ftue",
   "chips",
   "garments",
+  "milestones",
 }

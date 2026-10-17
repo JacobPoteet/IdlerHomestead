@@ -22,6 +22,8 @@ local Food = require("src.sim.systems.food")
 local Established = require("src.sim.systems.established")
 local Footing = require("src.sim.systems.footing")
 local FootingText = require("src.ui.footing_text")
+local Goal = require("src.sim.systems.goal")
+local GoalText = require("src.ui.goal_text")
 local Ftue = require("src.sim.systems.ftue")
 local Marks = require("src.sim.systems.marks")
 local Placement = require("src.sim.systems.placement")
@@ -776,6 +778,22 @@ function Homestead:dateText()
   return string.format("Day %d · %s", now.dayOfSeason, (now.season:gsub("^%l", string.upper)))
 end
 
+--- The pressing-goal line's words, fitted to the view, and its level (0 fine, 1 amber, 2 red; D163, #342).
+function Homestead:goalLine(view)
+  local ui = self.app.ctx.tuning.ui
+  local H = ui.hud
+  local maxW = math.min(ui.goal.lineMaxWidth, view.w - 2 * H.pad) - H.stampSize - H.textPad
+  local text = GoalText.line(self.goal, maxW, function(s)
+    return (Text.measure(s, "small"))
+  end)
+  return text, GoalText.level(self.goal)
+end
+
+--- Open the Progress panel: the goal ladder, Footing, the run's milestones and the gates (D163, #342).
+function Homestead:openProgress()
+  self.app:push(require("src.scenes.progress").new(self.world))
+end
+
 --- The decision stamps due now, in order (D137): { id, icon, label, color, onPress }. Each is something
 --- that waits on the player: an idea to pick, a winter that is not covered, a store holding things back, a
 --- delivery waiting in the crate.
@@ -897,6 +915,7 @@ function Homestead:hudKey()
   for _, s in ipairs(self:stampList()) do
     parts[#parts + 1] = s.id .. ":" .. s.label
   end
+  parts[#parts + 1] = "goal:" .. (self:goalLine(self.app.view))
   return table.concat(parts, "|")
 end
 
@@ -1059,6 +1078,9 @@ function Homestead:layoutHud(view)
   for _, e in ipairs(vitals) do
     spec.vitals[#spec.vitals + 1] = { id = e.id, w = ChipStrip.width(world, e) }
   end
+  -- The pressing-goal line (D163, #342): its own line under the top plates, wide as its words up to a cap.
+  local goalText, goalLevel = self:goalLine(view)
+  spec.goal = { w = H.stampSize + Text.measure(goalText, "small") + H.textPad, h = ui.goal.lineH }
   local stamps = self:stampList()
   for _, s in ipairs(stamps) do
     spec.stamps[#spec.stamps + 1] = {
@@ -1162,6 +1184,24 @@ function Homestead:layoutHud(view)
       self:drawIconPlate(b, "icon_menu")
     end,
   })
+  if out.goal then
+    local colors = theme.colors
+    local stamp = {
+      icon = goalLevel > 0 and "icon_signal_alert" or "icon_signal_idea",
+      label = goalText,
+      color = goalLevel >= 2 and colors.danger or goalLevel == 1 and colors.accent or colors.text,
+    }
+    add(out.goal, {
+      id = "goal",
+      label = goalText,
+      onPress = function()
+        self:openProgress()
+      end,
+      draw = function(b)
+        self:drawStamp(b, stamp, false)
+      end,
+    })
+  end
   for n, r in ipairs(out.stamps) do
     local s = stamps[n]
     add(r, {
@@ -1926,6 +1966,7 @@ end
 --- seconds apart (the figures walk the stock, the power network and the objects; the stamp is asked every frame).
 function Homestead:lookTonight()
   self.tonightLook = Readiness.tonight(self.world)
+  self.goal = Goal.current(self.world, self.tonightLook) -- the pressing-goal line reads the same look (D163)
   self.tonightModel = nil -- built again when the card is up
   self.tonightRev = (self.tonightRev or 0) + 1
   self.tonightAge = self.app.ctx.tuning.ui.tonight.refresh
@@ -2598,6 +2639,10 @@ function Homestead:action(name, data)
   end
   if name == "tonight" then
     self:toggleTonight() -- T: open or close the dusk check at any hour
+    return true
+  end
+  if name == "progress" then
+    self:openProgress() -- P: the Progress panel (it closes on P again, D163)
     return true
   end
   -- The tool wheel (D138): held by a right press or long-press, or open after a tap on the tool badge.
