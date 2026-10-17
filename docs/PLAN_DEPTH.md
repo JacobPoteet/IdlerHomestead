@@ -1,6 +1,6 @@
 # Plan: homestead depth (the core loop)
 
-Status: proposed, not approved. Nothing here is built. When approved it becomes milestone **M8: Homestead depth** (section 17), and the GDD (§4, §5, §6, §7, §8, §9, §11) and the decision log take the parts that are built, one slice at a time.
+Status: approved; milestone and issues created (section 17). Nothing here is built. When approved it becomes milestone **M8: Homestead depth** (section 17), and the GDD (§4, §5, §6, §7, §8, §9, §11) and the decision log take the parts that are built, one slice at a time.
 
 Why this exists: playtest feedback says the base systems are in but the loop is thin. Once the player has seeds they steamroll, there is little to manage, and the idle loop has nothing to do. A read of the design, content and balance notes agrees (section 1).
 
@@ -449,75 +449,85 @@ Risks: scope (this is a large milestone); event fatigue; compounding statuses. M
 Issues are written to be done by an agent alone: each states its goal, design reference, scope, out of scope, likely files, acceptance, tests and docs. Labels: `enhancement` plus a topic label; `balance` where numbers move. Order: A, then B and C, then D and E in parallel, then F and G, then H, then I.
 
 **Phase A: Tonight and Footing**
-- A1 Dusk check: the Tonight card and a `Readiness.tonight` accessor.
-- A2 Footing state machine (earned, slipped, regained), events, save.
-- A3 Goal ladder in the HUD and Progress panel: the pressing goal line, locked gates.
-- A4 Gate framework: a `requiresFooting` flag in content, read by Catalog, Contracts, Land, Charters.
-- A5 Harness: Footing metrics and an early-game pacing report.
+- A1 (#340) Dusk check: the Tonight card and a `Readiness.tonight` accessor.
+- A2 (#341) Footing state machine (earned, slipped, regained), events, save.
+- A3 (#342) Goal ladder in the HUD and Progress panel: the pressing goal line, locked gates.
+- A4 (#343) Gate framework: a `requiresFooting` flag in content, read by Catalog, Contracts, Land, Charters.
+- A5 (#344) Harness: Footing metrics and an early-game pacing report.
 
 **Phase B: Status and events**
-- B1 Status system (sim) and stat-modifier integration.
-- B2 Status chips and detail UI.
-- B3 Event engine: content schema, scheduler, exposure, mercy rules, pending queue, ignore window, `event` RNG stream, journal note on first.
-- B4 Event card UI: two options, costs, risks, ignore line, touch and keyboard, phone layout.
-- B5 Standing orders (Ask, Careful, Bold) and the "Rules of thumb" perk.
-- B6 Body events pack.
-- B7 Home events pack.
-- B8 Land events pack.
-- B9 Visitors and luck events pack.
-- B10 First-aid kit and Techniques notes for body events.
+- B1 (#345) Status system (sim) and stat-modifier integration.
+- B2 (#346) Status chips and detail UI.
+- B3 (#347) Event engine: content schema, scheduler, exposure, mercy rules, pending queue, ignore window, `event` RNG stream, journal note on first.
+- B4 (#348) Event card UI: two options, costs, risks, ignore line, touch and keyboard, phone layout.
+- B5 (#349) Standing orders (Ask, Careful, Bold) and the "Rules of thumb" perk.
+- B6 (#350) Body events pack.
+- B7 (#351) Home events pack.
+- B8 (#352) Land events pack.
+- B9 (#353) Visitors and luck events pack.
+- B10 (#354) First-aid kit and Techniques notes for body events.
 
 **Phase C: Night threats**
-- C1 Night threat framework; move mice and fox into it; dusk signs; wake hook.
-- C2 Raccoon, skunk, deer and rabbits.
-- C3 Black bear and the bear box.
-- C4 Wolves and coyotes; the dog companion.
-- C5 Weather nights: cold front, windstorm, pipe freeze, power outage.
-- C6 Stove fire and soot (links to F2).
-- C7 Night gear: lantern, trip line, bell.
+- C1 (#355) Night threat framework; move mice and fox into it; dusk signs; wake hook.
+- C2 (#356) Raccoon, skunk, deer and rabbits.
+- C3 (#357) Black bear and the bear box.
+- C4 (#358) Wolves and coyotes; the dog companion.
+- C5 (#359) Weather nights: cold front, windstorm, pipe freeze, power outage.
+- C6 (#360) Stove fire and soot (links to F2).
+- C7 (#361) Night gear: lantern, trip line, bell.
 
 **Phase D: Fields and soil**
-- D1 Crop schema and 8 new crops (content, journal pages, seed items).
-- D2 Soil fertility and the overlay.
-- D3 Rotation families and pest pressure.
-- D4 Weeds, weeding task, mulch.
-- D5 Compost bin and manure loop.
-- D6 Quality tiers and tended marks.
-- D7 Perennials: berries and orchard.
-- D8 Routine categories and conditions for the new tasks.
+- D1 (#363) Crop schema and 8 new crops (content, journal pages, seed items).
+- D2 (#364) Soil fertility and the overlay.
+- D3 (#365) Rotation families and pest pressure.
+- D4 (#366) Weeds, weeding task, mulch.
+- D5 (#367) Compost bin and manure loop.
+- D6 (#368) Quality tiers and tended marks.
+- D7 (#369) Perennials: berries and orchard.
+- D8 (#370) Routine categories and conditions for the new tasks.
 
 **Phase E: Market**
-- E1 Saturation model for truck and stand.
-- E2 Reputation and the contracts board; standing orders.
-- E3 Processing recipes and stations.
-- E4 Market day and the peddler.
+- E1 (#371) Saturation model for truck and stand.
+- E2 (#372) Reputation and the contracts board; standing orders.
+- E3 (#373) Processing recipes and stations.
+- E4 (#374) Market day and the peddler.
 
 **Phase F: Labour and upkeep**
-- F1 Wear system and the maintenance task category.
-- F2 Maintenance items: dust, filters, fences, tools, truck.
-- F3 Workload meter and bottleneck line.
-- F4 Hired hand actor.
-- F5 Mule and sleep debt.
+- F1 (#375) Wear system and the maintenance task category.
+- F2 (#376) Maintenance items: dust, filters, fences, tools, truck.
+- F3 (#377) Workload meter and bottleneck line.
+- F4 (#378) Hired hand actor.
+- F5 (#379) Mule and sleep debt.
 
 **Phase G: Money and land**
-- G1 Owned-area mask and land purchase.
-- G2 Land levy with soft failure.
-- G3 Tiered upgrade framework; convert existing items.
-- G4 Recurring costs and the upkeep ledger.
+- G1 (#380) Owned-area mask and land purchase.
+- G2 (#381) Land levy with soft failure.
+- G3 (#382) Tiered upgrade framework; convert existing items.
+- G4 (#383) Recurring costs and the upkeep ledger.
 
 **Phase H: Run variety**
-- H1 Plot preview.
-- H2 Year charters.
-- H3 Starting loadouts.
-- H4 Ascension mutators.
-- H5 Journal Techniques page.
+- H1 (#384) Plot preview.
+- H2 (#385) Year charters.
+- H3 (#386) Starting loadouts.
+- H4 (#387) Ascension mutators.
+- H5 (#388) Journal Techniques page.
 
 **Phase I: Integration**
-- I1 Harness policies for events and a full balance pass.
-- I2 FTUE and tip updates for each phase.
-- I3 Merge into GDD, wiki and decision log.
-- I4 Perf and save-size check.
-- I5 Driver scenarios and screenshots.
+- I1 (#389) Harness policies for events and a full balance pass.
+- I2 (#390) FTUE and tip updates for each phase.
+- I3 (#391) Merge into GDD, wiki and decision log.
+- I4 (#392) Perf and save-size check.
+- I5 (#393) Driver scenarios and screenshots.
+
+Status: milestone **M8: Homestead depth** and issues #340 to #393 are created (one per slice, titled `[M8 <id>]`). Slice C8 (winter wood as a stockpile problem) was added during the issue review and is tracked by #65 with #202 and #251.
+
+**Existing issues folded in** (review of the open backlog):
+
+| Action | Issues |
+|---|---|
+| Closed as superseded | #235 (goal, answered by D117 and A3), #276 (into A3), #263 (into D1, E1, G3), #46 (into D1, D7, B3, B6 to B9), #145 (into F1) |
+| Moved into M8 | #65, #202, #251 (C8); #91, #211 (pipe freezing); #95 (drinking water, before A1); #109 (event engine reuse); #114 (C2); #124, #125, #106 (E1); #154 (D3 and C5); #156 (I2); #153, #280, #67 (I1); #213 (C5); #274 (C7); #7 (F3) |
+| Commented as related | #126, #264, #148, #149, #150, #337, #338, #117, #118, #212, #215, #198, #44, #147, #99, #103, #6, #178, #169, #175, #273, #102, #121, #138, #131, #256 (sprinklers shipped; narrow or close) |
 
 Each phase ends with a harness run that checks the section 15 targets before the next phase starts.
 
