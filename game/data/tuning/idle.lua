@@ -9,5 +9,6 @@ return {
   browsePanels = { "catalog", "journal", "pantry", "power", "guide", "truck", "routine", "tips", "wardrobe" }, -- scene names; panel input is ignored by the takeover timer
   hintAfter = 45, -- game seconds (about 1/7 of a day; deliberately real-time feel, D56) idle with the routine off before the "press R" hint
   nothingAfter = 30, -- game seconds the routine may find no job before the "Nothing to do" nudge (D93); short, since a routine with work finds some within a few rechecks
+  routineConditions = false, -- true: a routine row can carry an "only when" condition (D66); false (playtest): the editor is hidden and every row always runs. Saved conditions are kept but ignored
   hintInterval = 120, -- game seconds between idle hints, so it nags at most about twice a day
 }

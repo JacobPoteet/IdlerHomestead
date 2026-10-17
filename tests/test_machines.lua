@@ -482,6 +482,7 @@ end)
 
 T.test("harvester: ignores the routine's thresholds (they only steer the idle homesteader)", function()
   local world, _, tiles = harvestWorld(3, 4)
+  world.tuning.idle.routineConditions = true -- conditions are off in the shipped tuning (playtest)
   for _, e in ipairs(world.state.priorities) do
     if e.category == "harvest" then
       e.cond = { kind = "hour_after", value = 23 } -- not before 23:00
