@@ -17,6 +17,7 @@ return {
     c = "wardrobe", -- open (or close) the Wardrobe, the homesteader's clothes (D154)
     t = "tonight", -- open (or close) the Tonight card, the dusk check (D161)
     p = "progress", -- open (or close) the Progress panel, the goal ladder and the run's milestones (D163)
+    h = "status", -- open (or close) the first status's detail card, the injuries and conditions (D167)
     ["1"] = "tool1", -- equip the Hand (the tool wheel's wedges, in tuning.ui.wheel.wedges order)
     ["2"] = "tool2", -- equip the Hoe
     ["3"] = "tool3", -- equip the Pail
@@ -31,6 +32,7 @@ return {
     "wardrobe",
     "tonight",
     "progress",
+    "status",
     "tool1",
     "tool2",
     "tool3",

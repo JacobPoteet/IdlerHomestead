@@ -18,8 +18,10 @@
 -- season-long readiness forecast ignores a passing status), "waterNeed" in Needs.waterNeeded, "studySpeed" in the journal's study rate, and "conditionRecovery" and
 -- "conditionDrain" in Needs.daily.
 --
--- State: world.state.status = { active = { { id, left? } } } in the order applied; `left` is the days remaining
--- (absent = until cleared).
+-- State: world.state.status = { active = { { id, left? } }, history? } in the order applied; `left` is the days
+-- remaining (absent = until cleared). `history` (D167) is { { id, count } }: every status that took hold this run, in the
+-- order first seen, for the recovery scene's "hurt this run" line; it appears with the first status, so a run that
+-- was never hurt saves no more than before.
 -- Emits "status.applied" { id, family, severity, kind ("new" | "escalated" | "renewed"), from? (the id it rose from) }
 -- and "status.cleared" { id, family, severity, reason ("expired" | "rest" | "item" | "replaced" | <the caller's>) }.
 
@@ -79,6 +81,17 @@ function Status.active(world)
   return out
 end
 
+--- What took hold this run, as { { id, count } } in the order first seen (a plain copy). Empty when nothing did.
+--- Reads a world whose run has no status state as empty, so a summary of any run can ask.
+function Status.history(world)
+  local st = world.state.status
+  local out = {}
+  for i, h in ipairs(st and st.history or {}) do
+    out[i] = { id = h.id, count = h.count }
+  end
+  return out
+end
+
 --- How many statuses are active.
 function Status.count(world)
   return #state(world).active
@@ -133,8 +146,22 @@ local function emitCleared(world, entry, reason)
   world.events:emit("status.cleared", { id = d.id, family = d.family, severity = d.severity, reason = reason })
 end
 
+-- Note that the status `id` took hold (new, escalated to or renewed): the run's list of what hurt the homesteader.
+local function record(world, id)
+  local st = state(world)
+  st.history = st.history or {}
+  for _, h in ipairs(st.history) do
+    if h.id == id then
+      h.count = h.count + 1
+      return
+    end
+  end
+  st.history[#st.history + 1] = { id = id, count = 1 }
+end
+
 local function emitApplied(world, id, kind, from)
   local d = def(world, id)
+  record(world, id)
   world.events:emit("status.applied", { id = d.id, family = d.family, severity = d.severity, kind = kind, from = from })
 end
 

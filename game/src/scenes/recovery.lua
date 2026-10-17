@@ -8,6 +8,7 @@ local Wardrobe = require("src.sim.systems.wardrobe")
 local WardrobeScene = require("src.scenes.wardrobe")
 local WardrobeText = require("src.ui.wardrobe_text")
 local Run = require("src.meta.run")
+local StatusText = require("src.ui.status_text")
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
 local NodeView = require("src.ui.node_view")
@@ -91,10 +92,13 @@ function Recovery:layout()
       and (ctx.tuning.ui.failure.firstChange .. " " .. Run.firstChange(ctx.registry, ctx.tuning, cause))
     or nil
   self.causeW = b.w - 24 - 18
+  -- What injured the homesteader this run (D167, #346), under the cause; none when nothing did.
+  self.hurt = StatusText.hurtLine(ctx.tuning.ui.status, ctx.registry, recovery.summary.hurt)
   self.progress = Run.progressTable(ctx.tuning, self.data.meta.career, recovery.summary)
   local height = Text.wrappedHeight(self.failure.line, "small", self.causeW)
     + Text.wrappedHeight(self.failure.hint, "small", self.causeW)
     + (self.firstChange and Text.wrappedHeight(self.firstChange, "small", self.causeW) + 2 or 0)
+    + (self.hurt and Text.wrappedHeight(self.hurt, "small", self.causeW) + 2 or 0)
   self.tableH = TABLE_H + (#self.progress.rows - 2) * TABLE_ROW
   -- The clothes earned this run get a row under the notes (D155); the blocks below move down by its height.
   local wcfg = self.wardrobeCfg
@@ -274,9 +278,14 @@ function Recovery:draw()
   Text.draw(f.line, b.x + 30, b.y + 108 + below, { size = "small", width = self.causeW })
   local cy = b.y + 108 + below + Text.wrappedHeight(f.line, "small", self.causeW)
   Text.draw(f.hint, b.x + 30, cy, { size = "small", width = self.causeW, color = dim })
+  cy = cy + Text.wrappedHeight(f.hint, "small", self.causeW)
   if self.firstChange then
-    cy = cy + Text.wrappedHeight(f.hint, "small", self.causeW) + 2
+    cy = cy + 2
     Text.draw(self.firstChange, b.x + 30, cy, { size = "small", width = self.causeW, color = theme.colors.accent })
+    cy = cy + Text.wrappedHeight(self.firstChange, "small", self.causeW)
+  end
+  if self.hurt then
+    Text.draw(self.hurt, b.x + 30, cy + 2, { size = "small", width = self.causeW, color = theme.colors.text })
   end
 
   Text.draw("One free study while you recover", b.x + 12, b.y + 132 + self.shift, { size = "small", color = dim })

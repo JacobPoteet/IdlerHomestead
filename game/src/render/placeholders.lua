@@ -1794,6 +1794,79 @@ P.icon_tab_truck = rows({
   "..kk...kk...",
 })
 
+-- Status icons (D167, #346): one per family of docs/PLAN_DEPTH.md §7, plus the plain one a new family falls back to.
+P.icon_status = rows({
+  "",
+  "....oooo....",
+  "....orro....",
+  "..ooorrooo..",
+  "..orrrrrro..",
+  "..orrrrrro..",
+  "..ooorrooo..",
+  "....orro....",
+  "....oooo....",
+})
+
+P.icon_status_ankle = rows({
+  "...oooo.....",
+  "...oppo.....",
+  "...oPPo.....",
+  "...oppo.....",
+  "...oPPo.....",
+  "...oppoooo..",
+  "..oGgrrggo..",
+  "..oGgggggo..",
+  "..oooooooo..",
+})
+
+P.icon_status_fever = rows({
+  ".....oo.....",
+  "....opPo....",
+  "....opro....",
+  "....opro....",
+  "....opro....",
+  "....opro....",
+  "...oprrro...",
+  "...orrrro...",
+  "....oooo....",
+})
+
+P.icon_status_back = rows({
+  "...oo.......",
+  "..oWWo......",
+  "...oWWo.....",
+  "....oWWo....",
+  "....oWWo..a.",
+  "...oWWo..aaa",
+  "..oWWo....a.",
+  "..oWWo......",
+  "...oo.......",
+})
+
+P.icon_status_burn = rows({
+  ".....o......",
+  "....oao.....",
+  "...oaao.o...",
+  "...oaroao...",
+  "..oaarraao..",
+  "..oarrrrao..",
+  "..oarrrrao..",
+  "...oaaaao...",
+  "....oooo....",
+})
+
+P.icon_status_tired = rows({
+  ".ooooooo....",
+  ".opppppo....",
+  "....oPo.....",
+  "...oPo......",
+  "..oPo.......",
+  ".oppppppo...",
+  ".ooooooo.oo.",
+  ".......opo..",
+  "........o...",
+})
+
 -- The Wardrobe (D154): the decision stamp (a shirt on an amber round), the five slot tabs and the two presets.
 P.icon_signal_clothes = rows({
   "...oooooo...",

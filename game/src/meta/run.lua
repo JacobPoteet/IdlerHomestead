@@ -16,6 +16,8 @@
 -- the second run on, newBest = { years = bool, yearIncome = bool } (strictly beat the slot's earlier best).
 -- A summary also carries greatWinter (bool, D117): the run lived through the Great Winter to the thaw; the
 -- slot's best keeps it as career.best.greatWinter (true once any run did).
+-- A summary also carries hurt (optional, D167): the statuses that took hold this run, { { id, count } }, for the
+-- recovery scene.
 -- meta.recovery = { summary, finishedStudy = itemId?, freeStudyUsed = bool } while recovering.
 
 local Calendar = require("src.sim.systems.calendar")
@@ -24,6 +26,7 @@ local Events = require("src.core.events")
 local Ftue = require("src.sim.systems.ftue")
 local Income = require("src.sim.systems.income")
 local Journal = require("src.sim.systems.journal")
+local Status = require("src.sim.systems.status")
 local Wardrobe = require("src.sim.systems.wardrobe")
 
 local Run = {}
@@ -56,6 +59,7 @@ function Run.summary(world)
       notes[#notes + 1] = def.id
     end
   end
+  local hurt = Status.history(world)
   return {
     run = run,
     days = now.day,
@@ -66,6 +70,7 @@ function Run.summary(world)
     bestYearIncome = (Income.best(world)),
     greatWinter = Established.survived(world.tuning, now.year), -- lived through the Great Winter (D117, #277)
     notes = notes,
+    hurt = #hurt > 0 and hurt or nil, -- what injured the homesteader this run: { { id, count } } (D167, #346)
   }
 end
 

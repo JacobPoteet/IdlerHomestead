@@ -16,10 +16,13 @@ end
 ---   stamps = { { id, w, iconW } },                     a stamp's full width (icon and words) and icon-only width
 ---   badge = { w, compactW, h }, tool = { w, compactW, h }, books = { { id, w, compactW } },
 ---   caption = { w, h } or nil,
----   goal = { w, h } or nil }                           the pressing-goal line: a line of its own under the top plates
+---   goal = { w, h } or nil,                            the pressing-goal line: a line of its own under the top plates
+---   statuses = { { id, w, h } } or nil,                the status chips (D167, #346), one line each, at most a few
+---   statusAnchor = id or nil }                         the vital the chips sit under (the Condition meter)
 --- cfg = { pad, gap, vitalGap, vitalPad } (UI pixels); view = { w, h }.
 --- Returns { clock, speed, segments = { rect }, menu, vitals = { { x, y, w, h, items = { { id, x, w } } } },
----   topH (y under the top plates), goal = rect or nil (the pressing-goal line), stamps = { { id, x, y, w, h, compact } }, badge, tool, books = { rect },
+---   topH (y under the top plates), goal = rect or nil (the pressing-goal line), statuses = { { id, x, y, w, h } },
+---   statusBottom (y under a right-hand column of status chips, or nil), stamps = { { id, x, y, w, h, compact } }, badge, tool, books = { rect },
 ---   compact (the bottom plates are icon-only), caption, bottomTop (y over the bottom plates and caption) }.
 function Hud.arrange(spec, view, cfg)
   local pad, gap = cfg.pad, cfg.gap
@@ -59,6 +62,7 @@ function Hud.arrange(spec, view, cfg)
   end
   out.vitals = {}
   local leftEnd = out.speed.x + out.speed.w + gap
+  local inline = false -- the vitals sit in one plate beside the clock, so the right-hand side under it is free
   local bottom = topRowBottom
   if #spec.vitals > 0 then
     local whole = widthOf(spec.vitals)
@@ -66,6 +70,7 @@ function Hud.arrange(spec, view, cfg)
       local row = place(spec.vitals, out.menu.x - gap - whole, pad)
       row.y = pad + math.floor((math.max(spec.clock.h, spec.menu.h) - spec.vitalH) / 2)
       out.vitals[1] = row
+      inline = true
     else
       local avail = view.w - 2 * pad
       local y = topRowBottom + gap
@@ -134,6 +139,40 @@ function Hud.arrange(spec, view, cfg)
   -- Decision stamps down the left edge, under the top plates; words beside the icon while they fit.
   out.stamps = {}
   local sy = out.topH
+  -- The status chips (D167, #346) hang under the Condition meter: a column right-aligned to it when the vitals share a
+  -- plate with the clock, else the first lines of the left-hand stack (the vitals wrapped over the whole width).
+  out.statuses = {}
+  local chips = spec.statuses or {}
+  if inline and #chips > 0 then
+    local anchor = out.vitals[1].x + out.vitals[1].w
+    for _, it in ipairs(out.vitals[1].items) do
+      if it.id == spec.statusAnchor then
+        anchor = it.x
+      end
+    end
+    local widest = 0
+    for _, c in ipairs(chips) do
+      widest = math.max(widest, math.min(c.w, view.w - 2 * pad))
+    end
+    local colX = math.max(pad, math.min(anchor, view.w - pad - widest)) -- one left edge, so the chips read as a column
+    local cy = out.topH
+    for _, c in ipairs(chips) do
+      if cy + c.h > out.bottomTop then
+        break
+      end
+      out.statuses[#out.statuses + 1] = { id = c.id, x = colX, y = cy, w = math.min(c.w, view.w - 2 * pad), h = c.h }
+      cy = cy + c.h + gap
+    end
+    out.statusBottom = cy
+  elseif #chips > 0 then
+    for _, c in ipairs(chips) do
+      if sy + c.h > out.bottomTop then
+        break
+      end
+      out.statuses[#out.statuses + 1] = { id = c.id, x = pad, y = sy, w = math.min(c.w, view.w - 2 * pad), h = c.h }
+      sy = sy + c.h + gap
+    end
+  end
   -- The pressing-goal line (D163, #342) is its own line first under the top plates, above the stamps; the top plates
   -- are not widened for it.
   if spec.goal and sy + spec.goal.h <= out.bottomTop then
