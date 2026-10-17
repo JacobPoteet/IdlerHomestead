@@ -3,6 +3,8 @@
 -- winter: Weather.baseWarmth), burns wood in the best placed heat source to stay warm through the night.
 -- Shortfalls cost Condition; a fed, warm day restores some.
 --
+-- Statuses (D166) scale the warmth and water needs and the daily recovery, and drain Condition (status.lua).
+--
 -- State: world.state.needs = { condition, canteen?, thirstDays? }. `canteen` (water units in hand) is absent
 -- until it first changes and then counts as full; `thirstDays` (dry days in a row) is absent while 0, so a
 -- fresh game's saved shape does not change.
@@ -18,6 +20,7 @@ local Power = require("src.sim.systems.power")
 local Sandbox = require("src.sim.systems.sandbox")
 local Shelter = require("src.sim.systems.shelter")
 local Spoilage = require("src.sim.systems.spoilage")
+local Stats = require("src.sim.stats")
 local Weather = require("src.sim.systems.weather")
 
 local Needs = {}
@@ -115,9 +118,9 @@ function Needs.warmthInStock(world)
 end
 
 --- Warmth needed tonight: the season's base, scaled by the winter's severity and any cold snap, then
---- by the best shelter's insulation (D82) and today's clothes (D149).
+--- by the best shelter's insulation (D82), today's clothes (D149) and the statuses (D166: a fever needs more).
 function Needs.warmthNeeded(world)
-  return Weather.warmthNeed(world) * Shelter.nightInsulation(world)
+  return Weather.warmthNeed(world) * Shelter.nightInsulation(world) * Stats.factor(world, "warmthNeed")
 end
 
 --- The wood outlook (D104), the one accessor behind the HUD wood chip, the Pantry row and the alerts:
@@ -150,7 +153,7 @@ local WATER = "water" -- the ledger stock the cistern fills (the same pool as ir
 --- Water units the homesteader drinks each day: the figure the Tonight card, the Footing "water source"
 --- test and readiness read, like `warmthNeeded`.
 function Needs.waterNeeded(world)
-  return world.tuning.needs.dailyWater
+  return world.tuning.needs.dailyWater * Stats.factor(world, "waterNeed") -- D166: a fever drinks more
 end
 
 --- Water units in the canteen (a new run starts with it full).
@@ -301,7 +304,19 @@ function Needs.daily(world)
   local cold = Needs.warm(world)
   local cfg, state = world.tuning.needs, world.state.needs
   if hungry == 0 and thirsty == 0 and cold == 0 then
-    state.condition = math.min(cfg.conditionMax, state.condition + cfg.dailyRecovery * Shelter.recovery(world))
+    state.condition = math.min(
+      cfg.conditionMax,
+      state.condition + cfg.dailyRecovery * Shelter.recovery(world) * Stats.factor(world, "conditionRecovery")
+    )
+  end
+  -- A status's drain (D166): Condition lost each day, but never under the drain floor (an injury cannot kill; PLAN_DEPTH
+  -- §6.5) and never while the editor's invincibility is on or under a sandbox slot's floor.
+  local drain = Stats.factor(world, "conditionDrain")
+  if drain > 0 and not world.debugInvincible then
+    local floor = math.max(world.tuning.status.drainFloor, Sandbox.conditionFloor(world))
+    if state.condition > floor then
+      state.condition = math.max(floor, state.condition - drain)
+    end
   end
   if state.condition <= 0 then
     -- What the last day lacked (0..1 shortfalls; thirst as its damage in units of thirstDamage, so a run of dry

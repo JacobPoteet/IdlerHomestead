@@ -48,9 +48,15 @@ local function state(world)
   return world.state.water
 end
 
---- Waterings a full bucket holds (base + equipment such as the big bucket).
+--- Waterings a full bucket holds (base + equipment such as the big bucket), scaled by the statuses' carry capacity
+--- (D166: a sore back carries less; never under 1 watering).
 function Water.bucketCapacity(world)
-  return world.tuning.actors.bucketCapacity + Stats.modifier(world, "bucketCapacity")
+  local base = world.tuning.actors.bucketCapacity + Stats.modifier(world, "bucketCapacity")
+  local carry = Stats.factor(world, "carryCapacity")
+  if carry == 1 then
+    return base
+  end
+  return math.max(1, math.floor(base * carry + 0.5))
 end
 
 -- Objects ---------------------------------------------------------------------------------------

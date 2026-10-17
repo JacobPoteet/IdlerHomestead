@@ -81,6 +81,7 @@ local STATE_OWNERS = {
   processing = "processing",
   spoilage = "spoilage",
   stand = "stand",
+  status = "status",
   startingKitGiven = "land",
   threats = "threats",
   water = "water",

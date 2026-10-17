@@ -121,7 +121,15 @@ local function workRate(world, job)
   local idle = world.tuning.idle
   local rate = job.ordered and idle.activeWorkMultiplier
     or idle.idleWorkMultiplier + Stats.modifier(world, "idleEfficiency")
-  return rate * Wardrobe.workBonus(world) -- today's clothes (D149): exactly 1 in the starter outfit
+  -- Today's clothes (D149: exactly 1 in the starter outfit) and the statuses (D166: exactly 1 with none, never under
+  -- tuning.status.minWorkSpeed) multiply.
+  return rate * Wardrobe.workBonus(world) * Stats.factor(world, "workSpeed")
+end
+
+--- Multiplier on the chance the homesteader falls, from the statuses (1 with none). The base chance and the roll
+--- belong to the events that make a fall (phase B); they multiply their chance by this.
+function Actors.fallFactor(world)
+  return Stats.factor(world, "fallChance")
 end
 
 --- Progress of the actor's current timed action, for the UI (GDD D44), or nil when there is none:
