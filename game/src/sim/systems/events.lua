@@ -148,9 +148,8 @@ function Events.exposure(world)
   local x = world.tuning.night.exposure
   local points = x.neutral
   local shelter = Shelter.id(world)
-  if shelter and x.shelter[shelter] then
-    points = points + x.shelter[shelter]
-  end
+  local shelterPoints = shelter and rawget(x.shelter, shelter) or 0 -- a shelter the table does not list adds nothing
+  points = points + shelterPoints
   for _, id in ipairs(sortedKeys(x.stores)) do
     if Ledger.get(world, id) > 0 then
       points = points + x.stores[id]
@@ -714,6 +713,8 @@ end
 
 --- Run tonight's draw (the dusk tick calls this once a day; public for tests). Always takes the same two rolls from the
 --- "event" stream, so what the stream does never depends on what the homestead has. Returns the id scheduled, or nil.
+--- No draw is made (and the pity count does not move) while a card is pending or the player is away, so a long absence
+--- cannot pile up a queue that is later offered one a day.
 function Events.rollNight(world)
   local s, c = state(world), cfg(world)
   local now = Calendar.now(world)
@@ -725,6 +726,9 @@ function Events.rollNight(world)
   end
   if s.slot and s.slot.day == now.day then
     return nil -- a threat took the slot (and told the pity timer how it ended)
+  end
+  if #s.pending > 0 or Events.away(world) then
+    return nil -- no backlog while a card is open or the player is away (D175): the night passes undrawn, the pity timer waits
   end
   local chance = Events.chance(world)
   local quiet = s.quiet
@@ -763,7 +767,8 @@ end
 --- A content audit (run in the tests): the problems found in the events content, as a list of strings. Checks the shape,
 --- that every id named exists, that chains end, that `capital` and `damage` outcomes have a lesser form, and the ignore
 --- rules of PLAN_DEPTH 6.2 and 6.5: free, no condition loss, nothing that can escalate or roll later, and judged by its
---- worst reachable chain never worse than the worse option.
+--- worst reachable chain never worse than the worse option, and the status it applies, landing on every active status of
+--- its family at every severity, escalates or worsens none of them (Status.resolve).
 local EFFECT_KEYS = {
   status = true,
   gain = true,
@@ -927,6 +932,18 @@ function Events.audit(world)
           for _, sid in ipairs(statusIds(o.effect)) do
             if reg:has("statuses", sid) and reg:get("statuses", sid).escalatesTo then
               bad(id, "ignore applies " .. sid .. ", which can escalate")
+            end
+            -- Landing on top of any active status of its family, at every severity, it must change nothing (D175).
+            if reg:has("statuses", sid) then
+              local applied = reg:get("statuses", sid)
+              for _, active in ipairs(reg:all("statuses")) do
+                if active.family == applied.family then
+                  local held = Status.resolve(world, active.id, sid)
+                  if held ~= active.id then
+                    bad(id, "ignore applies " .. sid .. " on " .. active.id .. " and it becomes " .. held)
+                  end
+                end
+              end
             end
           end
           if r.severity > worst.severity or r.condition > worst.condition then

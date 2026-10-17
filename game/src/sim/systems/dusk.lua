@@ -31,13 +31,17 @@ local function woodOf(def)
   return y or 0
 end
 
--- Wood the Axe marks already standing will bring in.
+-- Wood the Axe marks already standing will bring in (not from trees the season's allowance refuses).
 local function pendingWood(world)
   local total = 0
   for _, anchor in ipairs(Marks.list(world, "clear")) do
     local obj = world.state.grid.objects[anchor]
     if obj then
-      total = total + woodOf(world.registry:get("objects", obj.id))
+      local def = world.registry:get("objects", obj.id)
+      -- A marked tree the season's allowance refuses (#362) will not be felled: its wood does not cover the gap.
+      if not Felling.limited(world, def) then
+        total = total + woodOf(def)
+      end
     end
   end
   return total
