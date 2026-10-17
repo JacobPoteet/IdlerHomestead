@@ -29,6 +29,7 @@ return {
   "study",
   "weather",
   "threats",
+  "night",
   "progress",
   "ftue",
   "alerts",

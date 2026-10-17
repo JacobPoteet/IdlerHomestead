@@ -39,4 +39,5 @@ return {
   "alerts", -- D70: reads needs; listens after everything has set up its state
   "nightly", -- D70: the morning report's ledger; closes after sleep has woken the homesteader
   "readiness", -- D70: accessors only
+  "dusk", -- D161: the Tonight card's one-tap fixes; issues orders through marks, tasks and actors, no state of its own
 }

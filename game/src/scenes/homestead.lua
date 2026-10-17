@@ -33,6 +33,11 @@ local Nightly = require("src.sim.systems.nightly")
 local AlertText = require("src.ui.alert_text")
 local Forecast = require("src.ui.forecast")
 local NightText = require("src.ui.night_text")
+local Dusk = require("src.sim.systems.dusk")
+local Readiness = require("src.sim.systems.readiness")
+local Tonight = require("src.ui.tonight")
+local TonightCard = require("src.ui.tonight_card")
+local TonightText = require("src.ui.tonight_text")
 local SpoilText = require("src.ui.spoil_text")
 local Run = require("src.meta.run")
 local Stats = require("src.sim.stats")
@@ -118,6 +123,10 @@ function Homestead:enter(slot, data)
   self.lens = LensState.new(tuning.ui.lens) -- the Power and Water lenses (D141, D145)
   self.lensView = LensRenderer.new(self.world)
   self.lensCard = LensCard.new(ctx, self.world)
+  self.tonight = Tonight.new() -- the dusk check's card (D161): opens at dusk, dismissible, re-opened from its stamp or T
+  self.tonightCard = TonightCard.new(ctx)
+  self.tonightAge = 0
+  self:lookTonight()
   -- Dissolves (D142): the wheel, the tip card, the tile card and the lens come in and go out through the dither.
   self.wheelFade = Motion.transition("wheel")
   self.cardFade = Motion.transition("card")
@@ -785,6 +794,20 @@ function Homestead:stampList()
       color = readyColor,
       onPress = function()
         self:openReadiness()
+      end,
+    }
+  end
+  local look = self.tonightLook
+  if look and self.tonight:stampDue(look.due, look.leads, look.gaps) then
+    -- The Tonight card is closed and there is something to see (the evening, or a gap): the stamp brings it back (D161).
+    local worst = math.max(look.warmth.level, look.food.level, look.water.level)
+    list[#list + 1] = {
+      id = "tonight",
+      icon = "icon_signal_alert",
+      label = look.gaps > 0 and string.format("%s: %d to fix", TonightText.stamp, look.gaps) or TonightText.stamp,
+      color = worst >= 2 and colors.danger or worst == 1 and colors.accent or colors.text,
+      onPress = function()
+        self:toggleTonight()
       end,
     }
   end
@@ -1604,13 +1627,18 @@ end
 
 --- Taps on the card read it rather than direct the homesteader, so they do not reset the takeover timer.
 function Homestead:ignoresActivityAt(x, y)
-  return self:overCard(x, y) or self:chipAt(x, y) ~= nil or self:overToast(x, y) -- a chip's explanation is not directing the homesteader either (D72)
+  return self:overCard(x, y) or self:overTonight(x, y) or self:chipAt(x, y) ~= nil or self:overToast(x, y) -- a chip's explanation is not directing the homesteader either (D72)
 end
 
 --- Is the point on the toast? (Its rectangle is the one drawn last, grown to the touch size.)
 function Homestead:overToast(x, y)
   local r = self.toast and self.toastHit
   return r ~= nil and x ~= nil and x >= r.x and x < r.x + r.w and y >= r.y and y < r.y + r.h
+end
+
+--- Is the point on the Tonight card (when it is up)?
+function Homestead:overTonight(x, y)
+  return self.tonightRect ~= nil and self:tonightShown() and self.tonightCard:contains(x, y)
 end
 
 function Homestead:overCard(x, y)
@@ -1883,6 +1911,127 @@ function Homestead:openReadiness()
   }))
 end
 
+-- The Tonight card (D161, #340, docs/PLAN_DEPTH.md §3.1) --------------------------------------------------
+
+--- Look at the figures again: the card and the stamp read this one cached look, refreshed `ui.tonight.refresh` real
+--- seconds apart (the figures walk the stock, the power network and the objects; the stamp is asked every frame).
+function Homestead:lookTonight()
+  self.tonightLook = Readiness.tonight(self.world)
+  self.tonightModel = nil -- built again when the card is up
+  self.tonightRev = (self.tonightRev or 0) + 1
+  self.tonightAge = self.app.ctx.tuning.ui.tonight.refresh
+end
+
+function Homestead:tonightDay()
+  return Calendar.now(self.world).day
+end
+
+--- Can the card be drawn now? It is open, and not under a lens (which takes the side of the view) or, on a tall view
+--- where it is a sheet, in the way of a tip or report card.
+function Homestead:tonightShown()
+  if not self.tonight.open or self.lens:active() then
+    return false
+  end
+  local view = self.app.view
+  return view.w > view.h or self.card == nil
+end
+
+--- The stamp or the T key: bring the card up, or put it away.
+function Homestead:toggleTonight()
+  self.tonight:toggle(self:tonightDay(), self.tonightLook.due)
+  self:lookTonight()
+  self.tonightKey = nil
+  self.tonightCard.focusShown = false
+  self:layout() -- the stamp comes or goes
+end
+
+--- The card's Close (and Esc): put it away; in the evening it stays away until tomorrow's.
+function Homestead:dismissTonight()
+  self.tonight:dismiss(self:tonightDay(), self.tonightLook.due)
+  self.tonightKey = nil
+  self.tonightRect = nil
+  self:layout()
+end
+
+--- A fix button: an order through Dusk, or a book opened.
+function Homestead:tonightFix(fix)
+  if fix.kind == "open" then
+    self:openPanel(fix.book)
+    return
+  end
+  local ok, result = Dusk.apply(self.world, fix.id)
+  if ok and fix.id == "fill" then
+    self.session:cancelRoutine() -- any order hands control back (D43)
+  elseif ok and fix.id == "fish" then
+    local running = self.world.control == "idle"
+    self:startRoutine() -- the Fish category now leads; the routine says so itself when it starts
+    if not running then
+      fix = nil
+    end
+  end
+  local text = fix and TonightText.fixToast(fix, ok, result)
+  if text then
+    self:showToast(text)
+  end
+  self:lookTonight()
+end
+
+--- Once a frame: keep the card in step with the evening and with its figures, and set it where it goes.
+function Homestead:updateTonight(dt)
+  self.tonightAge = self.tonightAge - dt
+  if self.tonightAge <= 0 then
+    self:lookTonight()
+  end
+  local due, leads = Readiness.tonightDue(self.world)
+  self.tonight:sync(due, leads, self:tonightDay(), Actors.homesteader(self.world).asleep == true)
+  self:layoutTonight()
+end
+
+--- Where the card is and what it shows; set up again only when the figures or the place change.
+function Homestead:layoutTonight()
+  if not self:tonightShown() then
+    self.tonightRect, self.tonightKey = nil, nil
+    return
+  end
+  local view, cfg = self.app.view, self.app.ctx.tuning.ui.tonight
+  local touch = self.app.ctx.tuning.input.minTouchTarget
+  local look = self.tonightLook
+  if not self.tonightModel then
+    self.tonightModel = TonightText.build(look, Dusk.fixes(self.world, look))
+  end
+  local model = self.tonightModel
+  local bounds = { top = self.topH, bottom = view.h - self.bottomH }
+  local first = Tonight.place(cfg, view, bounds, 0, touch)
+  local contentH = self.tonightCard:measure(model, first.rect.w - 2 * cfg.pad)
+  local spec = Tonight.place(cfg, view, bounds, contentH, touch)
+  local r = spec.rect
+  self.tonightRect, self.tonightLayout = r, spec.layout
+  local key = table.concat({ r.x, r.y, r.w, r.h, self.tonightRev }, ":")
+  if key ~= self.tonightKey then
+    self.tonightKey = key
+    self.tonightCard:setup(model, r, function()
+      self:dismissTonight()
+    end, function(fix)
+      self:tonightFix(fix)
+    end)
+  end
+end
+
+--- Keys the card answers while it is up: Tab moves the focus ring along its buttons, Enter presses the focused one.
+function Homestead:keypressed(key)
+  if not (self.tonightRect and self:tonightShown()) then
+    return
+  end
+  if key == "tab" then
+    local back = love.keyboard and love.keyboard.isDown("lshift", "rshift")
+    self.tonightCard:moveFocus(back and -1 or 1)
+  elseif key == "return" or key == "kpenter" then
+    if self.tonightCard.focusShown then
+      self.tonightCard:activate()
+    end
+  end
+end
+
 function Homestead:openMenu()
   self.app:push(require("src.scenes.menu").new(function()
     self.app:switch(require("src.scenes.slots").new())
@@ -1932,6 +2081,7 @@ function Homestead:update(dt)
     self:layoutLensCard()
     self.lensCard:update(dt)
   end
+  self:updateTonight(dt)
   -- A find waits for a free screen (not behind the fishing mini-game or a panel), also after a load.
   if Finds.pending(self.world) and self.app:top() == self then
     self.app:push(require("src.scenes.finds").new(self.world))
@@ -2414,6 +2564,14 @@ function Homestead:action(name, data)
   if self.lens:active() and self.lensCard:action(name, data) then
     return true
   end
+  -- The Tonight card answers only inside its own rectangle (D161): the world stays tappable around it.
+  if self.tonightRect and self:tonightShown() and self.tonightCard:action(name, data) then
+    return true
+  end
+  if name == "tonight" then
+    self:toggleTonight() -- T: open or close the dusk check at any hour
+    return true
+  end
   -- The tool wheel (D138): held by a right press or long-press, or open after a tap on the tool badge.
   if self:wheelAction(name, data) then
     return true
@@ -2563,6 +2721,8 @@ function Homestead:action(name, data)
       self.areaDrag = nil
     elseif self.planStart then
       self.planStart = nil
+    elseif self.tonightRect and self:tonightShown() then
+      self:dismissTonight() -- Esc puts the Tonight card away before it opens the menu
     elseif self.mode ~= "act" then
       self:setHand(self.seed, nil)
     else
@@ -3570,6 +3730,9 @@ function Homestead:inWorldArea(x, y)
   if self.lens:active() and self.lensCard:contains(x, y) then
     return false
   end
+  if self:overTonight(x, y) then
+    return false
+  end
   for _, b in ipairs(self.buttons.list) do
     if x >= b.x and x < b.x + b.w and y >= b.y and y < b.y + b.h then
       return false
@@ -4034,7 +4197,11 @@ function Homestead:drawInfo(view)
     local rows = (anchor and 1 or 0) + (mark and 1 or 0)
     local btnH = rows * (minSize + 4) -- room for the buttons under the lines
     local h = #lines * 11 + 8 + btnH
-    local y = (self.card and self.card.y or view.h - self.bottomH) - h - 4 -- above the tip card (or the tool caption) when one is up
+    local base = self.card and self.card.y or view.h - self.bottomH
+    if self.tonightRect and self.tonightLayout == "sheet" then
+      base = math.min(base, self.tonightRect.y) -- and above the Tonight sheet on a tall view
+    end
+    local y = base - h - 4 -- above the tip card (or the tool caption) when one is up
     local w = 132
     for _, line in ipairs(lines) do
       w = math.max(w, Text.measure(line, "small") + 14) -- a long line widens the card rather than spilling out
@@ -4099,6 +4266,9 @@ function Homestead:drawInfo(view)
     local x, y = (view.w - w) / 2, view.h - self.bottomH - h -- just above the bottom plates and the caption
     if self.lens:active() and self.lensLayout == "sheet" and self.lensRect then
       y = math.min(y, self.lensRect.y - 4 - h) -- a toast rides above the lens sheet on a tall view
+    end
+    if self.tonightRect and self.tonightLayout == "sheet" then
+      y = math.min(y, self.tonightRect.y - 4 - h) -- and above the Tonight sheet
     end
     if info and x < info.x + info.w and y + h > info.y then
       y = info.y - 4 - h -- a wide toast on a narrow view rides above the tile card instead of covering it
@@ -4233,6 +4403,9 @@ function Homestead:draw()
   end
   self.buttons:draw()
   self:drawCard()
+  if self.tonightRect and self:tonightShown() then
+    self.tonightCard:draw(view)
+  end
   if self.lens:active() and Dissolve.begin(self.lensFade:coverage()) then
     self.lensCard:draw(view)
     Dissolve.finish()

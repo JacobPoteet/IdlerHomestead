@@ -13,6 +13,7 @@ local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
 local Power = require("src.sim.systems.power")
 local Shelter = require("src.sim.systems.shelter")
+local Sleep = require("src.sim.systems.sleep")
 local Weather = require("src.sim.systems.weather")
 
 local Readiness = {}
@@ -183,6 +184,133 @@ function Readiness.winter(world)
       woodNeed = perWood > 0 and math.ceil(total / perWood - 1e-9) or 0, -- wood the nights ahead burn in all
     },
     food = { days = foodDays, need = winterNights, ok = foodOk },
+  }
+end
+
+-- Tonight (D161, #340): the dusk check ------------------------------------------------------------------------------
+
+-- Where a shelter sits on the exposure ladder (PLAN_DEPTH §5.1: the truck gives the night the most to work with,
+-- the shack the least): "high" at the lowest shelterRank, "low" at the highest, "medium" between. A stub until
+-- the exposure model (C1) supplies the real figure; nil with no shelter placed.
+local function shelterExposure(world, id)
+  if not id then
+    return nil
+  end
+  local lowest, highest = math.huge, -math.huge
+  for _, def in ipairs(world.registry:all("objects")) do
+    if def.shelter then
+      lowest, highest = math.min(lowest, def.shelterRank or 0), math.max(highest, def.shelterRank or 0)
+    end
+  end
+  local rank = world.registry:get("objects", id).shelterRank or 0
+  if rank <= lowest then
+    return "high"
+  elseif rank >= highest then
+    return "low"
+  end
+  return "medium"
+end
+
+-- The risks the night ahead carries that the player has been told about: { { id = "snap", days }, { id = "storm", kind } }.
+local function tonightRisks(world)
+  local risks = {}
+  if Weather.isFrozen(world) then
+    if Weather.isColdSnap(world) then
+      risks[#risks + 1] = { id = "snap", days = 0 }
+    else
+      local f = Weather.forecast(world)
+      local ahead = f.snapStart and f.snapDays and f.snapStart - Calendar.now(world).dayOfSeason
+      if ahead and ahead >= 1 and ahead <= world.tuning.night.snapLookDays then
+        risks[#risks + 1] = { id = "snap", days = ahead }
+      end
+    end
+  end
+  if Weather.threat(world) > 1 then -- 1 is an ordinary night; storms and wind raise it
+    risks[#risks + 1] = { id = "storm", kind = Weather.kind(world) }
+  end
+  return risks
+end
+
+--- Should the Tonight card open by itself now? Two answers: `due` (it is the evening: from `tuning.night.duskLeadHours`
+--- before sunset until bedtime) and `leads` (tonight is the pressing goal; always, until the Footing state of #341
+--- can turn it off once it is held and has not slipped). Cheap, so the scene can ask every frame.
+function Readiness.tonightDue(world)
+  local sunrise, sunset = Calendar.daylight(world)
+  local hour = Calendar.now(world).hour
+  local due = hour >= math.max(sunrise, sunset - world.tuning.night.duskLeadHours) and not Sleep.isBedtime(world)
+  return due, true
+end
+
+--- The dusk check (D161, #340), the one accessor behind the Tonight card: what tonight needs and what the
+--- homestead has, with the same figures the HUD chips, the alerts and the winter readiness read. Pure reads.
+---   { hour, sunset (hour), due (the card opens by itself: from `tuning.night.duskLeadHours` before sunset to bedtime),
+---     leads (see Readiness.tonightDue),
+---     warmth = { need (Needs.warmthNeeded), electric (made by heaters), fireNeed (left for the fire), wood (stock),
+---                perNight (wood tonight's fire burns), nights (wood stock / that need; math.huge when none is
+---                needed), noFire (a fire is needed but none is placed), level (0 fine, 1 amber, 2 red, as the chip) },
+---     food = { days (Needs.foodDays), calories, need (a day's), level },
+---     water = { perDay, days, stock, cistern, canteen, thirstDays, level },
+---     shelter = { id, name, insulation, heat (a heat source is placed) } (id nil with no shelter placed),
+---     exposure = { stub = true, level = "high" | "medium" | "low" | nil, shelter = id },
+---     risks = { { id = "snap", days } | { id = "storm", kind } }, gaps (rows at amber or worse) }
+function Readiness.tonight(world)
+  local Alerts = require("src.sim.systems.alerts") -- here, not at load: Alerts reaches Food, which requires this file
+  local now = Calendar.now(world)
+  local _, sunset = Calendar.daylight(world)
+  local due, leads = Readiness.tonightDue(world)
+  local outlook, water = Needs.woodOutlook(world), Needs.waterOutlook(world)
+  local need = Needs.warmthNeeded(world)
+  local electric = math.min(need, Power.heatPerNight(world, now.season))
+  local shelterId = Shelter.id(world)
+  local shelterDef = shelterId and world.registry:get("objects", shelterId)
+  local warmth = {
+    need = need,
+    electric = electric,
+    fireNeed = need - electric,
+    wood = outlook.stock,
+    perNight = outlook.perNight,
+    nights = outlook.nights,
+    noFire = outlook.noFire,
+    level = (Alerts.level(world, "fuel")),
+  }
+  local food = {
+    days = Needs.foodDays(world),
+    calories = Needs.calories(world),
+    need = world.tuning.needs.dailyCalories,
+    level = (Alerts.level(world, "food")),
+  }
+  local drink = {
+    perDay = water.perDay,
+    days = water.days,
+    stock = water.stock,
+    cistern = water.cistern,
+    canteen = water.canteen,
+    thirstDays = water.thirstDays,
+    level = (Alerts.level(world, "drink")),
+  }
+  local gaps = 0
+  for _, row in ipairs({ warmth, food, drink }) do
+    if row.level > 0 then
+      gaps = gaps + 1
+    end
+  end
+  return {
+    hour = now.hour,
+    sunset = sunset,
+    due = due,
+    leads = leads,
+    warmth = warmth,
+    food = food,
+    water = drink,
+    shelter = {
+      id = shelterId,
+      name = shelterDef and shelterDef.name,
+      insulation = Shelter.nightInsulation(world),
+      heat = Needs.heatEfficiency(world) > 0,
+    },
+    exposure = { stub = true, level = shelterExposure(world, shelterId), shelter = shelterId },
+    risks = tonightRisks(world),
+    gaps = gaps,
   }
 end
 

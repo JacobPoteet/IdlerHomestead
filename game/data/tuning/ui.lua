@@ -630,6 +630,17 @@ return {
       water = "Contour bands are the water table. Dotted ground is watered. A well or pump needs a bright band.",
     },
   },
+  tonight = { -- the Tonight card (GDD §4.2, D161; src/ui/tonight.lua, src/ui/tonight_card.lua); UI pixels
+    margin = 8, -- gap between the card and the view edge and the HUD plates
+    pad = 8, -- inner padding of the card
+    stripH = 30, -- height of the title strip (at least the touch target)
+    sideWidth = 280, -- width of the card at the right edge of a wide view
+    sheetMaxWidth = 460, -- widest the bottom sheet gets on a tall view
+    sheetShare = 0.6, -- 0..1 most of the free height the bottom sheet may take; taller content scrolls
+    refresh = 0.5, -- real seconds between looks at the figures (the card and the stamp read the same cached look)
+    rowGap = 6, -- space between rows
+    fixH = 24, -- height of a fix button (at least the touch target)
+  },
   wheel = { -- the tool wheel (src/ui/tool_wheel.lua, GDD §9.4, D138); UI pixels and degrees unless noted
     wedges = { -- the six tools and their fixed directions (0 = right, 90 = down): never reorder after release
       { id = "hand", angle = -60 },

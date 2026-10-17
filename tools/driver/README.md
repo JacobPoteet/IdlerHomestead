@@ -31,6 +31,8 @@ journal, power, guide, town/truck), `clear` (order a clear and capture the progr
 
 Also `drinking` (D160: the drink chip on the bar full, low, thirsty and refilled by the routine, with its modal in each state).
 
+Also `tonight` (D161: the dusk check: the Tonight stamp by day, the card opening by itself before sunset, a tap on the ground reaching the world around it, the Chop and Fill fixes issuing orders, the Tab focus ring, Close and the stamp bringing it back, Esc and T, and the all-ready card; a side card on desktop and landscape, a bottom sheet on phone).
+
 Also `goats` (D71: a goat pen with goats browsing its yard and the object card, milk waiting in the pail, a tap sending the homesteader to milk with its toast, a cheese press loaded with milk, the animal-feed warning toast, the Animals chapter of the journal), and `uxbatch` (D70: the Pantry scrolled by drag and wheel, the amber and red chips with their warning toasts, the winter-readiness pill and card, the won't-ripen warning on a plan and on the tile card, the bedtime toast and the morning report card).
 
 Also `clarity` (D72: the tap-to-explain chip cards and their shortcut, the Tools and More palettes on narrow views, the tool caption, the Journal unlock hint on a ??? idea and on a blank stamp, the truck panel charging and ready with the "ready" chip and toast).
