@@ -457,7 +457,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 
 **Phase A: Tonight and Footing**
 - A1 (#340) Dusk check: the Tonight card and a `Readiness.tonight` accessor. **Done (D161).**
-- A2 (#341) Footing state machine (earned, slipped, regained), events, save.
+- A2 (#341) Footing state machine (earned, slipped, regained), events, save. **Done (D162).**
 - A3 (#342) Goal ladder in the HUD and Progress panel: the pressing goal line, locked gates.
 - A4 (#343) Gate framework: a `requiresFooting` flag in content, read by Catalog, Contracts, Land, Charters.
 - A5 (#344) Harness: Footing metrics and an early-game pacing report.

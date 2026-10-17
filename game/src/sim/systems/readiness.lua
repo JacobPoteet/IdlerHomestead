@@ -9,6 +9,7 @@
 -- by the harvest.
 
 local Calendar = require("src.sim.systems.calendar")
+local Footing = require("src.sim.systems.footing")
 local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
 local Power = require("src.sim.systems.power")
@@ -232,13 +233,13 @@ local function tonightRisks(world)
 end
 
 --- Should the Tonight card open by itself now? Two answers: `due` (it is the evening: from `tuning.night.duskLeadHours`
---- before sunset until bedtime) and `leads` (tonight is the pressing goal; always, until the Footing state of #341
---- can turn it off once it is held and has not slipped). Cheap, so the scene can ask every frame.
+--- before sunset until bedtime) and `leads` (tonight is the pressing goal: until Footing is earned, and again while
+--- it is slipped; D162). Cheap, so the scene can ask every frame.
 function Readiness.tonightDue(world)
   local sunrise, sunset = Calendar.daylight(world)
   local hour = Calendar.now(world).hour
   local due = hour >= math.max(sunrise, sunset - world.tuning.night.duskLeadHours) and not Sleep.isBedtime(world)
-  return due, true
+  return due, Footing.tonightLeads(world)
 end
 
 --- The dusk check (D161, #340), the one accessor behind the Tonight card: what tonight needs and what the

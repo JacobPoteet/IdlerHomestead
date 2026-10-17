@@ -288,4 +288,12 @@ return {
     icon = "icon_smoked_fish",
     event = "processing.done",
   },
+  {
+    id = "found_footing",
+    name = "Footing",
+    line = "Warm, fed, watered. Standing on my own.",
+    hint = "Keep fuel, food and water stocked for days",
+    icon = "icon_campfire",
+    event = "footing.gained",
+  },
 }

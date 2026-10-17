@@ -20,6 +20,8 @@ local Crops = require("src.sim.systems.crops")
 local Needs = require("src.sim.systems.needs")
 local Food = require("src.sim.systems.food")
 local Established = require("src.sim.systems.established")
+local Footing = require("src.sim.systems.footing")
+local FootingText = require("src.ui.footing_text")
 local Ftue = require("src.sim.systems.ftue")
 local Marks = require("src.sim.systems.marks")
 local Placement = require("src.sim.systems.placement")
@@ -289,6 +291,13 @@ function Homestead:subscribe()
         "starterPlanned",
         string.format("Routine planned a starter field (%d tiles). Plan field changes it", e.tiles)
       )
+    end),
+    -- Footing (D162, #341): the gained card is a panel (updateTonight); a slip and the way back get a held toast.
+    events:on("footing.slipped", function()
+      self:heldToast("footing", FootingText.slippedLine)
+    end),
+    events:on("footing.regained", function()
+      self:heldToast("footing", FootingText.regainedLine)
     end),
     events:on("stand.sold", function(e)
       self:showToast(string.format("Roadside stand sold %d items for $%d", e.units, e.earned))
@@ -1938,6 +1947,9 @@ end
 
 --- The stamp or the T key: bring the card up, or put it away.
 function Homestead:toggleTonight()
+  if self.tonight.open then
+    self.footingCard = false -- closing the Footing card; the next opening is the Tonight card
+  end
   self.tonight:toggle(self:tonightDay(), self.tonightLook.due)
   self:lookTonight()
   self.tonightKey = nil
@@ -1947,6 +1959,7 @@ end
 
 --- The card's Close (and Esc): put it away; in the evening it stays away until tomorrow's.
 function Homestead:dismissTonight()
+  self.footingCard = false
   self.tonight:dismiss(self:tonightDay(), self.tonightLook.due)
   self.tonightKey = nil
   self.tonightRect = nil
@@ -1983,7 +1996,18 @@ function Homestead:updateTonight(dt)
     self:lookTonight()
   end
   local due, leads = Readiness.tonightDue(self.world)
-  self.tonight:sync(due, leads, self:tonightDay(), Actors.homesteader(self.world).asleep == true)
+  local asleep = Actors.homesteader(self.world).asleep == true
+  self.tonight:sync(due, leads, self:tonightDay(), asleep)
+  -- The one-time Footing card (D162): a panel in the Tonight card's place, up once it is earned, awake and on top.
+  if Footing.cardDue(self.world) and not asleep and self.app:top() == self then
+    Footing.cardShown(self.world)
+    self.footingCard = true
+    self.tonight.open, self.tonight.manual = true, true
+    self:record(FootingText.logLine)
+    self:lookTonight()
+    self.tonightKey = nil
+    self.tonightCard.focusShown = false
+  end
   self:layoutTonight()
 end
 
@@ -1997,7 +2021,11 @@ function Homestead:layoutTonight()
   local touch = self.app.ctx.tuning.input.minTouchTarget
   local look = self.tonightLook
   if not self.tonightModel then
-    self.tonightModel = TonightText.build(look, Dusk.fixes(self.world, look))
+    if self.footingCard then
+      self.tonightModel = FootingText.build(Footing.checks(self.world), self.app.ctx.tuning.night.footing)
+    else
+      self.tonightModel = TonightText.build(look, Dusk.fixes(self.world, look))
+    end
   end
   local model = self.tonightModel
   local bounds = { top = self.topH, bottom = view.h - self.bottomH }
