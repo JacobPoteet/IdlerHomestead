@@ -30,6 +30,8 @@ local Ambient = require("src.render.ambient")
 local Settings = require("src.core.settings")
 local Marks = require("src.sim.systems.marks")
 local Sketch = require("src.render.sketch")
+local HeldTool = require("src.render.held_tool")
+local Icons = require("src.ui.icons")
 
 local Renderer = {}
 
@@ -56,6 +58,7 @@ function Renderer.new(world)
     clock = EffectClock.new(world.tuning.visuals.effectClock),
     fx = WeatherFx.new(world),
     wetTint = { 1, 1, 1 }, -- this frame's colour multiplier for objects on wet land (rewritten in place, D124)
+    facings = {}, -- actor id -> 1 (right) or -1 (left): which way each figure last faced, for the tool in its hand
   }, Renderer)
   self:buildGround()
   self:buildWater()
@@ -714,6 +717,13 @@ function Renderer:draw(alpha, visible, daylight)
     if not actor.asleep then
       self:castShadow(shadows, Assets.sprite(actor.kind), math.floor(feetX + 0.5), math.floor(feetY + 0.5), 1, true)
     end
+    local held, facing
+    if actor.kind == "homesteader" and not actor.asleep then
+      local cfg = world.tuning.visuals.heldTool
+      facing = HeldTool.facing(cfg, world.state.grid, actor, actor.job, self.facings[actor.id])
+      self.facings[actor.id] = facing
+      held = HeldTool.forJob(cfg, actor.job)
+    end
     items[#items + 1] = {
       feetY,
       function()
@@ -722,13 +732,15 @@ function Renderer:draw(alpha, visible, daylight)
           return
         end
         local sprite = Assets.sprite(actor.kind)
+        local x0, y0 = math.floor(feetX - sprite.w / 2 + 0.5), math.floor(feetY - sprite.h + 0.5)
         love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.draw(
-          sprite.image,
-          sprite.quad,
-          math.floor(feetX - sprite.w / 2 + 0.5),
-          math.floor(feetY - sprite.h + 0.5)
-        )
+        love.graphics.draw(sprite.image, sprite.quad, x0, y0)
+        if held then
+          local toolId = Icons.tool(world, held)
+          local tool = Assets.sprite(toolId)
+          local tx, ty, sx = HeldTool.placement(world.tuning.visuals.heldTool, toolId, sprite.w, x0, y0, facing)
+          love.graphics.draw(tool.image, tool.quad, tx, ty, 0, sx, 1)
+        end
         if actor.bucket and actor.bucket > 0 then
           -- Tiny water gauge beside the homesteader while carrying water.
           local frac = math.min(1, actor.bucket / Water.bucketCapacity(world))
