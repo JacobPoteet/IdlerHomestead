@@ -32,9 +32,47 @@ local shippedMercy, shippedYear = {}, cfg.yearScale[1]
 for k, v in pairs(cfg.mercy) do
   shippedMercy[k] = v
 end
+-- The event definitions are shared content (every registry in the process requires the same tables, so another test file
+-- sees what this one leaves), and tests edit them to force a case. Every test runs between a deep copy and a restore that
+-- always happens, whether or not an assertion failed half way (a failed test used to leave its edit behind).
+local function deepCopy(v)
+  if type(v) ~= "table" then
+    return v
+  end
+  local out = {}
+  for k, x in pairs(v) do
+    out[k] = deepCopy(x)
+  end
+  return setmetatable(out, getmetatable(v))
+end
+local pristine = {}
+for _, d in ipairs(reg:all("events")) do
+  pristine[d] = deepCopy(d)
+end
+local function restoreContent()
+  for d, copy in pairs(pristine) do
+    for k in pairs(d) do
+      rawset(d, k, nil) -- (definitions are strict: they refuse a new field)
+    end
+    for k, v in pairs(deepCopy(copy)) do
+      rawset(d, k, v)
+    end
+  end
+end
 local test = T.test
 T.test = function(name, fn)
   test(name, function()
+    restoreContent()
+    local ok, err = xpcall(fn, debug.traceback)
+    restoreContent()
+    if not ok then
+      error(err, 0)
+    end
+  end)
+end
+local rawTest = T.test
+T.test = function(name, fn)
+  rawTest(name, function()
     for k, v in pairs(shipped) do
       cfg[k] = v
     end
@@ -110,6 +148,21 @@ T.test("events: the content audit finds no problem, and catches an unsafe ignore
   d.options[1].effect = { capital = true }
   T.truthy(#Events.audit(world) > 0, "a capital outcome with no lesser form is caught")
   d.options[1].effect = { status = "ankle_1" }
+  T.same(Events.audit(world), {})
+end)
+
+T.test("events: the audit applies each ignore status on every active status of its family", function()
+  local world = newWorld()
+  local chill = reg:get("statuses", "chill")
+  local d = reg:get("events", "sprained_ankle")
+  local severity = chill.severity
+  d.ignore.effect = { status = "chill" }
+  T.same(Events.audit(world), {}, "the chill renews and changes nothing")
+  chill.severity = 2 -- a one-off that outranks the infected cut would worsen it
+  local problems = Events.audit(world)
+  chill.severity = severity
+  T.truthy(#problems > 0, "an ignore status that would worsen an active one is caught")
+  T.truthy(table.concat(problems, " "):find("on infection", 1, true), "the infected cut is named")
   T.same(Events.audit(world), {})
 end)
 
@@ -218,6 +271,31 @@ T.test("events: the chance follows exposure, the year and the pity timer", funct
     cfg.chancePerNight * cfg.yearScale[#cfg.yearScale] * Events.exposure(world).multiplier,
     1e-9
   )
+end)
+
+T.test("events: no backlog builds up while the player is away or a card is open", function()
+  local world = newWorld()
+  cfg.chancePerNight, cfg.yearScale[1], cfg.maxChance = 1, 1, 1
+  Events.setAway(world, true)
+  for day = 12, 17 do
+    setTime(world, day, 21.5)
+    tick(world)
+    T.eq(world.state.events.rollDay, day, "the dusk is still marked done")
+  end
+  T.eq(#world.state.events.scheduled, 0, "six dusks away, nothing queued")
+  T.eq(#world.state.events.pending, 0)
+  T.eq(world.state.events.quiet, 0, "the pity timer did not move while nothing was drawn")
+  -- Back: the next dusk draws as usual (one event, not a pile).
+  Events.setAway(world, false)
+  setTime(world, 18, 21.5)
+  tick(world)
+  T.eq(#world.state.events.scheduled + #world.state.events.pending, 1)
+  -- A card left open holds the draw too.
+  local queued = #world.state.events.scheduled + #world.state.events.pending
+  Events.force(world, "sprained_ankle")
+  setTime(world, 19, 21.5)
+  tick(world)
+  T.eq(#world.state.events.scheduled + #world.state.events.pending, queued + 1, "only the forced card was added")
 end)
 
 T.test("events: the pity timer counts quiet nights and resets on an occurrence", function()
@@ -437,7 +515,6 @@ T.test("events: an outcome never takes Condition under the floor, and Fever skip
   Events.force(world, "sprained_ankle")
   Events.choose(world, 2)
   T.eq(Needs.condition(world), cfg.mercy.conditionFloor)
-  d.options[2].effect = { status = "ankle_2" }
   T.eq(Needs.injure(world, 50, cfg.mercy.conditionFloor), 0, "already at the floor")
   world.state.needs.condition = 100
   world.state.events.last = {}
@@ -532,7 +609,6 @@ T.test("events: the effect vocabulary - resources, flags, tiles, notes and chain
   T.eq(#world.state.events.pending, 1)
   Events.choose(world, 2)
   T.eq(#Events.scheduled(world), 0, "the chain ends at the depth limit")
-  d.options[2].effect = { status = "ankle_2" }
   cfg.maxChainDepth = 2
 end)
 

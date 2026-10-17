@@ -154,6 +154,31 @@ T.test("status: a family escalates to its cap and never stacks", function()
   T.eq(applied[4].kind, "renewed")
 end)
 
+T.test("status: a one-off status of a family never escalates the active one, it only renews", function()
+  -- The ignore outcome of the fever (chill) shares the fever family: ignoring must not turn an infection into the flu.
+  local world = newWorld()
+  Status.apply(world, "infection")
+  T.eq(Status.apply(world, "chill"), "renewed")
+  T.eq(ids(world), "infection", "the chill leaves the infection as it is")
+  T.eq(Status.get(world, "infection").left, reg:get("statuses", "infection").duration)
+  Status.clear(world, "infection")
+  Status.apply(world, "fever")
+  T.eq(Status.apply(world, "chill"), "renewed")
+  T.eq(ids(world), "fever")
+  Status.apply(world, "fever") -- a second fever is a stage of the chain: it still escalates
+  T.eq(ids(world), "flu")
+  T.eq(Status.apply(world, "chill"), "renewed")
+  T.eq(ids(world), "flu", "and the flu stays the flu")
+  -- Whatever the severity, no status without an `escalatesTo` changes another of its family.
+  for _, active in ipairs(reg:all("statuses")) do
+    for _, applied in ipairs(reg:all("statuses")) do
+      if applied.family == active.family and not applied.escalatesTo and applied.severity <= active.severity then
+        T.eq(Status.resolve(world, active.id, applied.id), active.id, applied.id .. " on " .. active.id)
+      end
+    end
+  end
+end)
+
 T.test("status: applying a worse severity of an active family takes the worse one", function()
   local world = newWorld()
   Status.apply(world, "ankle_1")
