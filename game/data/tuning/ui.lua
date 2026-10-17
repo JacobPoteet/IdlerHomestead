@@ -701,6 +701,21 @@ return {
     rowGap = 6, -- space between rows
     fixH = 24, -- height of a fix button (at least the touch target)
   },
+  notices = { -- the ranked notice queue (PLAN_DEPTH principle 8, D168, D172; src/ui/notices.lua, read by the homestead scene)
+    rank = { "tonight", "event", "contract", "levy" }, -- notice ids in the order they take the screen: of those waiting the first is up, one at a time, and a card already up keeps its place until it is answered or put away. Ids with nothing waiting are skipped, so later systems (contracts, the land levy) add themselves here
+  },
+  eventCard = { -- the event card (D172, #348; src/ui/event_text.lua, src/ui/event_card.lua); UI pixels unless noted
+    margin = 8, -- gap between the card and the view edge and the HUD plates
+    pad = 8, -- inner padding of the card
+    stripH = 30, -- height of the title strip (at least the touch target)
+    sideWidth = 300, -- width of the card at the right edge of a wide view (a little wider than the Tonight card: options carry three lines each)
+    sheetMaxWidth = 460, -- widest the bottom sheet gets on a tall view
+    sheetShare = 0.75, -- 0..1 most of the free height the bottom sheet may take; taller content scrolls
+    blockGap = 6, -- space between the option blocks
+    blockPad = 6, -- padding inside an option block
+    barH = 6, -- height of the ignore-window bar
+    ignoreMinH = 30, -- smallest height of the "do nothing" block (at least the touch target)
+  },
   wheel = { -- the tool wheel (src/ui/tool_wheel.lua, GDD §9.4, D138); UI pixels and degrees unless noted
     wedges = { -- the six tools and their fixed directions (0 = right, 90 = down): never reorder after release
       { id = "hand", angle = -60 },

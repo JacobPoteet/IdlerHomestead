@@ -513,6 +513,7 @@ local function optionView(world, d, index)
     risk = o.risk,
     careful = o.careful == true,
     bold = o.bold == true,
+    effect = o.effect, -- the content's effect table, for the card's plain words (read-only)
     affordable = missing == nil,
     lacking = missing,
   }
@@ -528,17 +529,23 @@ local function view(world, entry)
     bad = d.bad,
     wake = d.wake == true,
     options = { optionView(world, d, 1), optionView(world, d, 2) },
-    ignore = { label = d.ignore.label, risk = d.ignore.risk },
+    ignore = { label = d.ignore.label, risk = d.ignore.risk, effect = d.ignore.effect },
     hoursLeft = entry.hoursLeft,
     realLeft = entry.realLeft,
   }
 end
 
 --- The open card, as a read-only view, or nil: { id, title, line, class, bad, wake, options = { { index, label, cost, risk,
---- careful, bold, affordable, lacking } x2 }, ignore = { label, risk }, hoursLeft, realLeft }.
+--- careful, bold, effect, affordable, lacking } x2 }, ignore = { label, risk, effect }, hoursLeft, realLeft }. `effect` is the
+--- content's own table (read-only), so the card (B4, src/ui/event_text.lua) can say it in plain words.
 function Events.pending(world)
   local entry = state(world).pending[1]
   return entry and view(world, entry) or nil
+end
+
+--- How many cards wait (the first is open): a cheap look for the notice queue, which asks every frame.
+function Events.waiting(world)
+  return #state(world).pending
 end
 
 --- Every waiting card in order (the first is open), for the ranked notice queue (PLAN_DEPTH principle 8).
@@ -581,7 +588,7 @@ function Events.ignore(world, reason)
   return true
 end
 
---- Offer an event now, outside the draw: the debug and driver path (B4's card is not built). Skips the schedule, the
+--- Offer an event now, outside the draw: the debug and driver path (the card itself is the homestead scene's). Skips the schedule, the
 --- budget and the mercy rules, but not the queue: false + "busy" while a card is open.
 function Events.force(world, id)
   if #state(world).pending > 0 then

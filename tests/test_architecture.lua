@@ -24,6 +24,8 @@ local function simFiles()
     "game/src/meta/run.lua",
     "game/src/ui/tonight.lua", -- the Tonight card's state and place (D161): pure, no drawing
     "game/src/ui/tonight_text.lua", -- and its words
+    "game/src/ui/notices.lua", -- the ranked notice queue (D172): pure, no drawing
+    "game/src/ui/event_text.lua", -- the event card's words (D172): pure, no drawing
     "game/src/ui/felling_text.lua", -- the limit on wood from trees (#362): pure, no drawing
     "game/src/ui/footing_text.lua", -- the Footing card's words (D162): pure, no drawing
     "game/src/ui/goal_text.lua", -- the goal line's and the Progress panel's words (D163): pure, no drawing
