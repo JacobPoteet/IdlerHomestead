@@ -460,7 +460,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - A2 (#341) Footing state machine (earned, slipped, regained), events, save. **Done (D162).**
 - A3 (#342) Goal ladder in the HUD and Progress panel: the pressing goal line, locked gates. **Done (D163).**
 - A4 (#343) Gate framework: a `requiresFooting` flag in content, read by Catalog, Contracts, Land, Charters.
-- A5 (#344) Harness: Footing metrics and an early-game pacing report.
+- A5 (#344) Harness: Footing metrics and an early-game pacing report. **Done (D165).**
 
 **Phase B: Status and events**
 - B1 (#345) Status system (sim) and stat-modifier integration.

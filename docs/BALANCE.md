@@ -17,7 +17,7 @@ lovec tools/balance help=1                    # option list
 | `runs=N` | career length: a failed run is followed by recovery (the policy picks the free study) and a new run on new land with knowledge kept | 1 |
 | `features=all\|none\|a,b` | optional policy behaviours, see "Policy features" below; `none` plays the harness as it was before they existed | all |
 | `outfit=light\|mid\|heavy` | dress the homesteader in a whole outfit of one weight class (the first garment of the class in every slot, put on through the wardrobe's own grant and wear), see "The wardrobe" below | the starter outfit (all mid) |
-| `out=file.csv` / `out=file.json` | CSV: one row per seed per morning (money, food, warmth, notes, known...). JSON: summaries plus one record per run | none |
+| `out=file.csv` / `out=file.json` | CSV: one row per seed per morning (money, food, warmth, notes, known...; the last three columns are the Footing columns, see "Footing" below). JSON: summaries plus one record per run | none |
 | `set=domain.key=value` | override a tuning number for what-if runs, repeatable, e.g. `set=needs.warmthPeak=6` | none |
 | `jobs=N` | worker threads that play (policy, seed) pairs in parallel; `jobs=1` plays them one after another in the main thread. The report and `out=` files are byte-identical either way | CPU count, at most 16 |
 | `profile=1` / `profile=N` | sample the run with LuaJIT's profiler (forces `jobs=1`) and print the top 25 (or N) lines and functions | off |
@@ -383,3 +383,29 @@ Read: survival is unchanged. The winter need is about 12 percent lower because t
 | heavy | 70% / 100% / 100% | 90% / 90% | 1 of 20 |
 
 Read: `outfit=mid` is identical to no outfit in every printed number (the starter outfit multiplies by exactly 1). The effects are small and neither extreme wins: a full light outfit harvests about 2% more by day (scripted year 1: 384 against 377 crops), a full heavy one changes only the heat, and the deaths that differ are the chaotic drift any tiny speed change causes in 10 seeds (the active policy's year-3 hunger deaths under light follow a different morning order, not the cold). A light outfit lives through the Great Winter as often as the others do. The idle policy's year-1 deaths are hunger and the same for every outfit.
+
+## Footing: metrics and the early-game pacing baseline (#344, D165)
+
+Reporting only: no target gates anything (the targets live in `docs/PLAN_DEPTH.md` §3.2 and §15, for the M9 pass). Footing is the run state of D162; the harness reads its events (`footing.gained`, `slipped`, `regained`) and, once a dusk judgement has run, the same `Footing.checks` the sim used. It changes nothing in the sim.
+
+**What each run reports.** The day Footing was first earned (absolute day of the run, 1 is the first spring day; none if never), slips, regains, and while Footing is still unearned the dusk nights judged and how many failed each of the four tests (shelter, water, fuel, food), with the fuel failures by season. The first frozen season's first day is recorded so the share "before the first winter" is exact (`gainedDay < winterDay`).
+
+**What the report prints** (a `Footing:` block per policy and run index): runs that reached it out of all runs, the share before the first winter, the day of Footing as median / p10 / p90 over the runs that reached it, slips per run (mean, median, p90, runs that slipped at least once), and the failed-test means. Every run counts in the shares (a run that dies first did not reach it). The `Days survived`, `Failures` and winter-readiness blocks are unchanged.
+
+**Columns.** CSV (appended after `failedAtEnd`): `footing` (that morning: 0 not held, 1 held, 2 slipped), `footingDay` (the run's day, empty if never), `footingSlips` (the run's total). JSON: `policies.<p>.runs[].summary.footing` holds `n, reached, reachedFraction, beforeWinter, beforeWinterFraction, slippedRuns, day {n,p10,p25,p50,p75,p90}, slips {..}, slipsMean, nightsMean, failMean, failFuelMean`; each record in `results` has a `footing` table (`gainedDay, slips, regains, nights, fail, failFuel, winterDay`). The `owned` list also counts the woodshed and the wood stove now. `jobs=8` and `jobs=1` give byte-identical report text and JSON (checked for the baseline below; `tests/test_balance_smoke.lua` compares the Footing record across the thread boundary).
+
+**Baseline** (current main: A1 to A4 merged, no other M8 slice; `lovec tools/balance policy=all seeds=20 years=1`, seeds 1 to 20, a year is 28 days, so the first winter begins on day 22). Every Footing number is a first guess (3 nights of fuel, 3 days of food, 5 good nights in a row, slip under 1 night or 1 day), none balanced.
+
+| Policy | Reached Footing | Before the first winter | Day of Footing median [p10, p90] | Slips per run (mean) | Alive at day 28 |
+|---|---|---|---|---|---|
+| idle | 12 / 20 (60%) | 11 / 20 (55%) | 16.0 [10.4, 21.0] | 0.60 (12 runs slipped once) | 9 / 20 |
+| scripted | 20 / 20 | 20 / 20 | 9.0 [8.8, 10.0] | 0.00 | 20 / 20 |
+| active | 20 / 20 | 20 / 20 | 7.0 [7.0, 7.0] | 0.00 | 20 / 20 |
+
+**Footing is reachable** by every policy. Against the PLAN_DEPTH §3.2 targets (read, not enforced): the `active` median is day 7 (target about 12) and `scripted` day 9 (target 16), earlier than planned; the share before the first winter is 100% for both (target at least 85% for `active`); and the active first-winter failure rate is 0% (target 40 to 60%, BALANCE.md item 1). The early game is therefore easier than the plan assumes for the two playing policies; it is a finding for M9, not a change here.
+
+**What blocks it.** Dusk nights judged before Footing, per run: idle 20.2, scripted 8.3, active 6.0. Almost all failures are food: idle 14.3 nights, scripted 3.5, active 2.0 (the 3-days-of-food test, before the first harvest and the pantry fill); shelter and water never fail for any policy (a camp with a fire and the canteen are in hand at once); fuel fails only for idle, 0.5 nights per run, all in winter. Idle is the no-player control: of its 20 runs 8 never reach Footing, 11 die of hunger by the end of the year (4 in winter, 7 at the year's end), and every idle run that did reach it slipped exactly once.
+
+**The woodshed question** (fuel storage in cold seasons). Without a woodshed wood is capped at 60 units, and three autumn nights of fuel is about 63 wood by the plan's figure, so a Footing earned in autumn or winter might need storage. The baseline cannot show that: `scripted` and `active` earn Footing in their first spring (day 7 to 10) and both buy a woodshed in 100% of runs (the shopping list puts it first), so the cap is never the binding limit for them, they hold fuel 1.3 times the whole first winter's need on its first day, and neither slips in autumn or winter. The only policy without a woodshed, `idle`, holds 0.60 of the winter's need on its first winter day, never covers it (0% of runs), and still earned Footing in 11 runs before winter (idle fails the fuel test on 0.5 nights per run before earning it, all in winter). So the baseline neither confirms nor rules out the concern: it needs a run that earns Footing in autumn without a woodshed, which none of the three policies produces. If M9 wants it measured, a `set=` what-if cannot remove the shed (it is a policy buy); that would need a policy knob.
+
+Follow-ups: none opened. Footing is reachable for every policy, so no `balance` issue was needed from this slice.

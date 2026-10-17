@@ -7,6 +7,7 @@
 local Calendar = require("src.sim.systems.calendar")
 local Features = require("features")
 local Finds = require("src.sim.systems.finds")
+local Footing = require("src.sim.systems.footing")
 local Inventory = require("src.sim.systems.inventory")
 local Machines = require("src.sim.systems.machines")
 local Power = require("src.sim.systems.power")
@@ -83,6 +84,12 @@ local function countKeys(t)
   return n
 end
 
+--- 0 Footing not held, 1 held, 2 held but slipped (the CSV column).
+local function footingCode(world)
+  local s = world.state.footing
+  return s.held and (s.slipped and 2 or 1) or 0
+end
+
 local function snapshot(world)
   local now = Calendar.now(world)
   local j = world.meta.journal
@@ -101,6 +108,7 @@ local function snapshot(world)
     notes = countKeys(j.notes),
     known = countKeys(j.known),
     ideas = #Journal.ideas(world),
+    footing = footingCode(world),
   }
 end
 
@@ -175,7 +183,22 @@ local function playRun(ctx, session, policyName, seed, years, features)
     soldBy = {}, -- resource id -> units sold by the truck and the stand (D75)
     daysTotal = daysTotal,
     features = Features.label(features or {}),
+    -- Footing (D165, #344): the day it was first earned (nil if never), slips and regains, the dusk nights judged
+    -- before it was earned, how many of them failed each of the four tests, and the first frozen season's first day.
+    footing = {
+      slips = 0,
+      regains = 0,
+      nights = 0,
+      fail = { shelter = 0, water = 0, fuel = 0, food = 0 },
+      failFuel = {}, -- season -> nights short of fuel before Footing was earned
+    },
   }
+  for n, season in ipairs(tuning.time.seasons) do
+    if Weather.isFrozenSeason(world, season) then
+      result.footing.winterDay = (n - 1) * tuning.time.daysPerSeason + 1
+      break
+    end
+  end
   local hourSeconds = tuning.time.dayLength / 24
   local damage = { hunger = 0, cold = 0, thirst = 0 } -- Condition lost since the last day with no damage
   local last = { hunger = 0, cold = 0, thirst = 0 }
@@ -254,6 +277,15 @@ local function playRun(ctx, session, policyName, seed, years, features)
     local field = e.kind == "goats" and "goatsLost" or "hensLost"
     result.counters[field] = result.counters[field] + 1
   end)
+  events:on("footing.gained", function(e)
+    result.footing.gainedDay = result.footing.gainedDay or e.day
+  end)
+  events:on("footing.slipped", function()
+    result.footing.slips = result.footing.slips + 1
+  end)
+  events:on("footing.regained", function()
+    result.footing.regains = result.footing.regains + 1
+  end)
   events:on("power.brownout", function()
     result.counters.brownouts = result.counters.brownouts + 1
   end)
@@ -301,6 +333,7 @@ local function playRun(ctx, session, policyName, seed, years, features)
   end)
 
   local ticksRun = 0
+  local lastJudged = world.state.footing.last
   while ticksRun < capTicks and not failed do
     -- A find is a modal for a player; the policy answers at once (by need, or the first option).
     local offer = Finds.pending(world)
@@ -312,6 +345,25 @@ local function playRun(ctx, session, policyName, seed, years, features)
     end
     world:tick(step)
     ticksRun = ticksRun + 1
+    -- A dusk judgement just ran: note which of its four tests failed while Footing is still to be earned. Reads
+    -- the same checks the sim just used, in the same tick, and changes nothing.
+    local judged = world.state.footing.last
+    if judged ~= lastJudged then
+      lastJudged = judged
+      local f = result.footing
+      if not f.gainedDay then
+        f.nights = f.nights + 1
+        local season = Calendar.now(world).season
+        for _, c in ipairs(Footing.checks(world)) do
+          if not c.ok then
+            f.fail[c.id] = f.fail[c.id] + 1
+            if c.id == "fuel" then
+              f.failFuel[season] = (f.failFuel[season] or 0) + 1
+            end
+          end
+        end
+      end
+    end
     -- Energy ledger (kW of the last tick x hours): made, wanted, served, wasted.
     local flow, c = Power.flow(world), result.counters
     local hours = step / hourSeconds
@@ -352,6 +404,8 @@ local function playRun(ctx, session, policyName, seed, years, features)
   for _, id in ipairs({
     "camp",
     "shack",
+    "woodshed",
+    "wood_stove",
     "shelter_cat",
     "chicken_coop",
     "chicken_fence",
@@ -478,6 +532,55 @@ local function quantiles(values)
   }
 end
 
+--- Footing across runs (D165, #344), every run counted: how many earned it, the day (median, p10, p90 of those that
+--- did), how many did so before the first frozen season began, slips per run, and the mean number of dusk nights
+--- (before it was earned) that failed each of the four tests. Reporting only: nothing gates on it.
+function Balance.footingSummary(results)
+  local f = { n = #results, reached = 0, beforeWinter = 0, slippedRuns = 0 }
+  local days, slips = {}, {}
+  local fail, failFuel, nights = { shelter = 0, water = 0, fuel = 0, food = 0 }, {}, 0
+  for _, r in ipairs(results) do
+    local x = r.footing
+    slips[#slips + 1] = x.slips
+    if x.slips > 0 then
+      f.slippedRuns = f.slippedRuns + 1
+    end
+    if x.gainedDay then
+      f.reached = f.reached + 1
+      days[#days + 1] = x.gainedDay
+      if x.winterDay and x.gainedDay < x.winterDay then
+        f.beforeWinter = f.beforeWinter + 1
+      end
+    end
+    nights = nights + x.nights
+    for id, count in pairs(x.fail) do
+      fail[id] = fail[id] + count
+    end
+    for season, count in pairs(x.failFuel) do
+      failFuel[season] = (failFuel[season] or 0) + count
+    end
+  end
+  local n = math.max(1, #results)
+  f.reachedFraction = f.reached / n
+  f.beforeWinterFraction = f.beforeWinter / n
+  f.day = quantiles(days) -- nil when no run reached it
+  f.slips = quantiles(slips)
+  local sum = 0
+  for _, v in ipairs(slips) do
+    sum = sum + v
+  end
+  f.slipsMean = sum / n
+  f.nightsMean = nights / n
+  f.failMean, f.failFuelMean = {}, {}
+  for id, count in pairs(fail) do
+    f.failMean[id] = count / n
+  end
+  for season, count in pairs(failFuel) do
+    f.failFuelMean[season] = count / n
+  end
+  return f
+end
+
 --- Aggregate run results (all of one policy and run index) into a summary table.
 function Balance.summarize(ctx, results, years)
   local points = Balance.samplePoints(ctx, years)
@@ -602,6 +705,7 @@ function Balance.summarize(ctx, results, years)
     end
   end
   summary.features = results[1] and results[1].features or "none"
+  summary.footing = Balance.footingSummary(results)
   return summary
 end
 
@@ -644,6 +748,52 @@ local METRIC_NAMES = {
   known = "journal nodes learned",
   ideas = "ideas waiting",
 }
+
+--- The Footing block of a summary (D165, #344): reporting only, no target.
+function Balance.printFooting(ctx, f)
+  local d = f.day
+  line("")
+  line(
+    string.format(
+      "Footing: reached %d/%d runs (%s), before the first winter %d/%d (%s); day of Footing median %s  p10 %s  p90 %s (of those that reached it)",
+      f.reached,
+      f.n,
+      pct(f.reachedFraction),
+      f.beforeWinter,
+      f.n,
+      pct(f.beforeWinterFraction),
+      d and num(d.p50, 1) or "never",
+      d and num(d.p10, 1) or "-",
+      d and num(d.p90, 1) or "-"
+    )
+  )
+  line(
+    string.format(
+      "  slips per run: mean %.2f  median %s  p90 %s  (%d runs slipped at least once)",
+      f.slipsMean,
+      num(f.slips.p50, 1),
+      num(f.slips.p90, 1),
+      f.slippedRuns
+    )
+  )
+  local fuel = {}
+  for _, season in ipairs(ctx.tuning.time.seasons) do
+    if f.failFuelMean[season] then
+      fuel[#fuel + 1] = string.format("%s %.1f", season, f.failFuelMean[season])
+    end
+  end
+  line(
+    string.format(
+      "  dusk nights judged before Footing, per run: %.1f; failing shelter %.1f, water %.1f, fuel %.1f, food %.1f; short of fuel by season: %s",
+      f.nightsMean,
+      f.failMean.shelter,
+      f.failMean.water,
+      f.failMean.fuel,
+      f.failMean.food,
+      #fuel > 0 and table.concat(fuel, ", ") or "none"
+    )
+  )
+end
 
 --- Print the human-readable report for one (policy, run index) summary.
 function Balance.printSummary(ctx, policyName, runIndex, summary, years)
@@ -725,6 +875,8 @@ function Balance.printSummary(ctx, policyName, runIndex, summary, years)
     end
     line("Failure causes (dominant source of Condition loss): " .. table.concat(causes, "   "))
   end
+
+  Balance.printFooting(ctx, summary.footing)
 
   -- Curves: median [p25-p75] among seeds alive at each point.
   for _, m in ipairs(METRICS) do
@@ -930,11 +1082,12 @@ local function jsonEncode(v, indent)
 end
 Balance.jsonEncode = jsonEncode
 
---- CSV with one row per seed per run per season-start snapshot (day 1, 2, ...).
+--- CSV with one row per seed per run per day snapshot. `footing` is 0 not held, 1 held, 2 slipped on that morning;
+--- `footingDay` (empty if never earned) and `footingSlips` are the run's totals, repeated on each row.
 function Balance.writeCsv(path, all)
   local fh = assert(io.open(path, "w"))
   fh:write(
-    "policy,seed,run,day,year,season,dayOfSeason,condition,money,foodDays,warmth,warmthNights,notes,known,ideas,failedAtEnd\n"
+    "policy,seed,run,day,year,season,dayOfSeason,condition,money,foodDays,warmth,warmthNights,notes,known,ideas,failedAtEnd,footing,footingDay,footingSlips\n"
   )
   for _, r in ipairs(all) do
     local days = {}
@@ -946,7 +1099,7 @@ function Balance.writeCsv(path, all)
       local s = r.snaps[day]
       fh:write(
         string.format(
-          "%s,%d,%d,%d,%d,%s,%d,%.1f,%d,%.2f,%.2f,%.2f,%d,%d,%d,%d\n",
+          "%s,%d,%d,%d,%d,%s,%d,%.1f,%d,%.2f,%.2f,%.2f,%d,%d,%d,%d,%d,%s,%d\n",
           r.policy,
           r.baseSeed,
           r.run,
@@ -962,7 +1115,10 @@ function Balance.writeCsv(path, all)
           s.notes,
           s.known,
           s.ideas,
-          r.alive and 0 or 1
+          r.alive and 0 or 1,
+          s.footing,
+          r.footing.gainedDay and tostring(r.footing.gainedDay) or "",
+          r.footing.slips
         )
       )
     end
@@ -1027,6 +1183,7 @@ function Balance.runRecord(r)
     cause = r.cause,
     final = r.final,
     counters = r.counters,
+    footing = r.footing,
   }
 end
 
