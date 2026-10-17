@@ -44,6 +44,55 @@ T.test("balance harness: summaries, careers after failure, and tuning overrides"
   end, "no such number")
 end)
 
+-- Footing metrics (#344, D165) ----------------------------------------------------------------------------
+
+T.test("balance harness: Footing metrics reach the summary, the CSV and the JSON", function()
+  -- Scripted earns Footing around day 10, so half a year (14 days) is enough; idle is the no-show control.
+  local results = {}
+  for seed = 1, 2 do
+    results[#results + 1] = Balance.playSeed(ctx, "scripted", seed, 0.5, 1)[1]
+  end
+  local f = Balance.summarize(ctx, results, 0.5).footing
+  T.eq(f.n, 2)
+  T.truthy(f.reached >= 1, "scripted earns Footing within two weeks")
+  T.truthy(f.day.p10 <= f.day.p50 and f.day.p50 <= f.day.p90, "day quantiles are ordered")
+  T.truthy(f.beforeWinter <= f.reached)
+  T.truthy(f.slips and f.slipsMean >= 0)
+  for _, id in ipairs({ "shelter", "water", "fuel", "food" }) do
+    T.truthy(f.failMean[id], "failure mean for " .. id)
+  end
+  -- A run that never earns it reports no day and is still counted in the shares.
+  local none = Balance.footingSummary({
+    {
+      footing = {
+        slips = 0,
+        regains = 0,
+        nights = 3,
+        winterDay = 22,
+        fail = { shelter = 0, water = 0, fuel = 0, food = 3 },
+        failFuel = {},
+      },
+    },
+  })
+  T.eq(none.reached, 0)
+  T.eq(none.day, nil)
+  T.eq(none.reachedFraction, 0)
+  T.eq(none.failMean.food, 3)
+
+  local path = os.tmpname()
+  Balance.writeCsv(path, results)
+  local fh = assert(io.open(path, "r"))
+  local header = fh:read("*l")
+  local row = fh:read("*l")
+  fh:close()
+  os.remove(path)
+  T.truthy(header:find(",footing,footingDay,footingSlips$"), "CSV header carries the Footing columns")
+  T.truthy(row:match("%d+,[^,]*,%d+$"), "CSV rows end with footing, day and slips")
+  local json = Balance.jsonEncode({ summary = f, run = Balance.runRecord(results[1]) })
+  T.truthy(json:find("beforeWinterFraction", 1, true))
+  T.truthy(json:find("footing", 1, true))
+end)
+
 -- Parallel seeds (parallel.lua, worker.lua; issue #123) -------------------------------------------
 
 local Parallel = require("parallel")
@@ -72,6 +121,7 @@ T.test("balance parallel: worker threads give the same results as playing in thi
     for seed = 3, 4 do
       local here = Balance.playSeed(ctx, name, seed, years, 1, all)
       T.same(played[name][seed], here, name .. " seed " .. seed .. " matches")
+      T.same(played[name][seed][1].footing, here[1].footing, name .. " seed " .. seed .. " Footing record matches")
     end
   end
   T.errors(function()

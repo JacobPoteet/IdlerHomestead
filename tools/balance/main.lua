@@ -25,6 +25,10 @@ Idler Homestead balance harness. Usage:  lovec tools/balance [key=value ...]
                                         print the top 25 (or N) lines and functions
   trace=1                               also print the first seed of each policy day by day
   out=path.csv|path.json                write per-day rows (csv) or summaries + runs (json)
+                                        both carry Footing (#344): csv columns footing (0 no, 1 held, 2 slipped),
+                                        footingDay, footingSlips; json summary.footing and per-run footing.
+                                        The report prints day of Footing (median/p10/p90), the share reaching it
+                                        before the first winter and slips per run. Reporting only, no target.
   set=domain.key=value                  override a tuning number for what-if runs (repeatable),
                                         e.g. set=needs.coldDamage=15 set=needs.warmthPeak=3
   quiet=1                               no progress lines
