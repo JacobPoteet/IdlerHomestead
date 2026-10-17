@@ -111,6 +111,7 @@ tier owned and draws icons at whole-pixel scales (1x on the HUD, 2x in the tool 
 | `icon_tool_hand`, `icon_tool_hoe`, `icon_tool_pail`, `icon_tool_pail_big`, `icon_tool_hatchet`, `icon_tool_axe`, `icon_tool_rod`, `icon_tool_rod_sturdy`, `icon_tool_hammer` | Tools and their owned tiers |
 | `icon_verb_move`, `icon_verb_pickup`, `icon_verb_demolish`, `icon_verb_untill` | Verbs (Demolish on red) |
 | `icon_signal_alert`, `icon_signal_idea`, `icon_signal_clothes` | Round amber decision stamps (the shirt is the Wardrobe's "New clothes" stamp) |
+| `icon_status`, `icon_status_ankle`, `icon_status_fever`, `icon_status_back`, `icon_status_burn`, `icon_status_tired` | Status chip icons (D167): one per family of `data/content/statuses.lua` (`icon_status_<family>`), `icon_status` for a family with none. Placeholders; the shape differs per family so the chip never relies on colour |
 | `icon_book_notebook`, `icon_book_ledger`, `icon_menu` | The two books and Menu |
 | `icon_tab_journal`, `icon_tab_fish`, `icon_tab_diary`, `icon_tab_pantry`, `icon_tab_routine`, `icon_tab_catalog`, `icon_tab_truck` | One-colour ink stamps for the book tabs (drawn white, tinted when stamped, D143) |
 | `icon_slot_head`, `icon_slot_torso`, `icon_slot_legs`, `icon_slot_feet`, `icon_slot_extra`, `icon_preset_warm`, `icon_preset_cold` | One-colour ink stamps for the Wardrobe (D154): the five slot tabs, and the Warm (sun) and Cold (snowflake) preset chips |

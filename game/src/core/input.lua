@@ -20,6 +20,7 @@
 --   wardrobe {}           C: open the Wardrobe (and close it again)
 --   tonight {}            T: open the Tonight card, the dusk check (and close it again)
 --   progress {}           P: open the Progress panel, the goal ladder and milestones (and close it again)
+--   status {}             H: open the card of the first active status, an injury or condition (and close it again)
 --
 -- Also tracks the time of the last real input for idle takeover (GDD §5.2).
 

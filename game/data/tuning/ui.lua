@@ -353,6 +353,53 @@ return {
     rowGap = 3, -- space between rows
     refresh = 0.5, -- real seconds between looks at the figures while the panel is open
   },
+  status = { -- the status chips under the Condition meter and their detail card (D167, #346; src/ui/status_text.lua, src/scenes/status.lua); UI pixels unless noted
+    chipMaxWidth = 300, -- widest a chip grows (icon, effect and days); a narrower view gives it the whole width
+    panelWidth = 320, -- width of the detail card (shrinks to fit a narrow view)
+    pad = 12, -- inner padding of the card
+    headH = 44, -- height of the card's title strip
+    rowGap = 4, -- space between the card's lines
+    sectionGap = 8, -- space above the card's "how it ends" lines
+    refresh = 0.5, -- real seconds between looks at the status while the card is open (it closes itself when the status is gone)
+    chipFormat = "%s · %s", -- a chip's words: the effect, then the days left
+    chipShortFormat = "%s %s", -- the chip when the effect does not fit: the name, then the days left
+    daysShort = "%dd", -- days left on a chip
+    openShort = "until cured", -- a chip's days for a status with no end date
+    daysLeft = { one = "Ends tomorrow morning", many = "Ends in %d days", open = "Lasts until it is cured" }, -- the card's time line
+    clearedBy = { -- the card's "how it ends" line by the status's clearedBy
+      time = "It wears off with time.",
+      rest = "A day of rest in the shelter clears it.",
+      item = "First aid clears it.",
+    },
+    escalates = "Hurt the same way again and it becomes %s.", -- the card's line for a status with a worse step
+    capped = "It cannot get worse. Another hit only renews the time.", -- the card's line at the top of a family
+    overall = "%d of %d statuses at once", -- the card's footer: how many are active of the most
+    effectOrder = { -- the order the card lists a status's effects in
+      "workSpeed",
+      "fallChance",
+      "carryCapacity",
+      "conditionRecovery",
+      "conditionDrain",
+      "studySpeed",
+      "warmthNeed",
+      "waterNeed",
+    },
+    effects = { -- the card's words for a modifier: `less` when the multiplier is under 1, `more` when over (%d is the percent); conditionDrain is a flat number of points a day
+      workSpeed = { less = "Work %d%% slower", more = "Work %d%% faster" },
+      fallChance = { less = "Falls %d%% less likely", more = "Falls %d%% more likely" },
+      carryCapacity = { less = "Carries %d%% less", more = "Carries %d%% more" },
+      conditionRecovery = { less = "Recovers %d%% less Condition a day", more = "Recovers %d%% more Condition a day" },
+      conditionDrain = { more = "Loses %d Condition a day" },
+      studySpeed = { less = "Studies %d%% slower", more = "Studies %d%% faster" },
+      warmthNeed = { less = "Needs %d%% less warmth at night", more = "Needs %d%% more warmth at night" },
+      waterNeed = { less = "Drinks %d%% less", more = "Drinks %d%% more" },
+    },
+    subtitle = "H or Esc closes it", -- the card's hint line (short: the Close button sits beside it)
+    none = "Nothing is wrong with you.", -- the toast when H is pressed with no status active
+    hurtLine = "Hurt this run: %s", -- the recovery scene's line (the names, joined)
+    hurtJoin = ", ", -- between the names on that line
+    hurtCount = "%s x%d", -- a name hit more than once
+  },
   journal = { -- Field Journal navigation (D81, #194); all virtual pixels unless noted
     defaultArea = "Other", -- area heading for a chapter whose content has no `area`
     pad = 4, -- space inside the map rect and between the map rect and the node card

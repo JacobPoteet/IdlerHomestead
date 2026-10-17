@@ -84,6 +84,9 @@ local function plates(out)
   if out.goal then
     list[#list + 1] = { "goal", out.goal }
   end
+  for _, r in ipairs(out.statuses or {}) do
+    list[#list + 1] = { "status " .. r.id, r }
+  end
   return list
 end
 
@@ -205,3 +208,46 @@ T.test(
     end
   end
 )
+
+T.test("hud: status chips hang under the Condition meter, clear of every plate, at every size (D167)", function()
+  for _, view in ipairs(SIZES) do
+    for _, vitals in ipairs({ 6, 11 }) do
+      for _, count in ipairs({ 1, 3 }) do
+        local s = spec(vitals, 3)
+        s.statusAnchor = "v4"
+        s.statuses = {}
+        for i = 1, count do
+          s.statuses[i] =
+            { id = "st" .. i, w = H.stampSize + words("Work 20% slower · 3d") + H.textPad, h = H.stampSize }
+        end
+        local where = string.format("%s v=%d chips=%d", view.name, vitals, count)
+        local out = Hud.arrange(s, view, CFG)
+        check(view, where, out, s)
+        T.eq(#out.statuses, count, where .. ": every chip is placed")
+        for _, r in ipairs(out.statuses) do
+          T.truthy(r.h >= tun.input.minTouchTarget, where .. ": a touch-sized chip")
+          T.truthy(r.y >= out.topH, where .. ": under the top plates")
+        end
+        if out.vitals[1].y < out.clock.y + out.clock.h then -- beside the clock
+          local anchor
+          for _, it in ipairs(out.vitals[1].items) do
+            anchor = anchor or (it.id == "v4" and it) or nil
+          end
+          T.truthy(out.statusBottom, where .. ": a right-hand column reports its foot")
+          T.truthy(out.statuses[1].x + out.statuses[1].w <= view.w - H.pad, where .. ": inside the right edge")
+          T.truthy(
+            out.statuses[1].x <= anchor.x or out.statuses[1].x + out.statuses[1].w == view.w - H.pad,
+            where .. ": at the meter"
+          )
+        else
+          T.eq(out.statusBottom, nil, where .. ": wrapped vitals put the chips in the left stack")
+          T.eq(out.statuses[1].y, out.topH, where .. ": first line of the stack")
+          T.truthy(
+            out.goal.y >= out.statuses[count].y + out.statuses[count].h,
+            where .. ": the goal line is below the chips"
+          )
+        end
+      end
+    end
+  end
+end)

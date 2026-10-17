@@ -24,6 +24,8 @@ local Footing = require("src.sim.systems.footing")
 local FootingText = require("src.ui.footing_text")
 local Goal = require("src.sim.systems.goal")
 local GoalText = require("src.ui.goal_text")
+local Status = require("src.sim.systems.status")
+local StatusText = require("src.ui.status_text")
 local Ftue = require("src.sim.systems.ftue")
 local Marks = require("src.sim.systems.marks")
 local Placement = require("src.sim.systems.placement")
@@ -789,6 +791,33 @@ function Homestead:goalLine(view)
   return text, GoalText.level(self.goal)
 end
 
+--- The status chips under the Condition meter (D167, #346): { { id, label, icon, w } } for the statuses active, in the
+--- order applied. The label is the main effect and the days left, or the name and the days when the view is narrow.
+function Homestead:statusChips(view)
+  local ui = self.app.ctx.tuning.ui
+  local H, cfg = ui.hud, ui.status
+  local maxW = math.min(cfg.chipMaxWidth, view.w - 2 * H.pad) - H.stampSize - H.textPad
+  local out = {}
+  for _, st in ipairs(Status.active(self.world)) do
+    local label = StatusText.chip(cfg, st, maxW, function(t)
+      return (Text.measure(t, "small"))
+    end)
+    out[#out + 1] = {
+      id = st.id,
+      label = label,
+      icon = StatusText.icon(Assets.has, st),
+      w = H.stampSize + Text.measure(label, "small") + H.textPad,
+      name = st.name,
+    }
+  end
+  return out
+end
+
+--- Open the detail card of a status (a chip's tap): what it does, how long it lasts, what clears it (D167, #346).
+function Homestead:openStatus(id)
+  self.app:push(require("src.scenes.status").new(self.world, id))
+end
+
 --- Open the Progress panel: the goal ladder, Footing, the run's milestones and the gates (D163, #342).
 function Homestead:openProgress()
   self.app:push(require("src.scenes.progress").new(self.world))
@@ -916,6 +945,9 @@ function Homestead:hudKey()
     parts[#parts + 1] = s.id .. ":" .. s.label
   end
   parts[#parts + 1] = "goal:" .. (self:goalLine(self.app.view))
+  for _, c in ipairs(self:statusChips(self.app.view)) do
+    parts[#parts + 1] = "status:" .. c.id .. ":" .. c.label
+  end
   return table.concat(parts, "|")
 end
 
@@ -1081,6 +1113,12 @@ function Homestead:layoutHud(view)
   -- The pressing-goal line (D163, #342): its own line under the top plates, wide as its words up to a cap.
   local goalText, goalLevel = self:goalLine(view)
   spec.goal = { w = H.stampSize + Text.measure(goalText, "small") + H.textPad, h = ui.goal.lineH }
+  local chips = self:statusChips(view)
+  spec.statusAnchor = "condition"
+  spec.statuses = {}
+  for _, c in ipairs(chips) do
+    spec.statuses[#spec.statuses + 1] = { id = c.id, w = c.w, h = H.stampSize }
+  end
   local stamps = self:stampList()
   for _, s in ipairs(stamps) do
     spec.stamps[#spec.stamps + 1] = {
@@ -1119,6 +1157,7 @@ function Homestead:layoutHud(view)
   self.hud = out
   self.hudCaption = caption
   self.topH = out.topH
+  self.statusBottom = out.statusBottom -- the right-hand status column's foot (nil without one); the Tonight card sits below it
   self.bottomH = view.h - out.bottomTop
 
   -- The plates that answer a tap are buttons with their own drawing (Buttons `draw`), so a label stays for
@@ -1199,6 +1238,21 @@ function Homestead:layoutHud(view)
       end,
       draw = function(b)
         self:drawStamp(b, stamp, false)
+      end,
+    })
+  end
+  -- A status chip is a plate of an icon and words (never colour alone); a tap opens its card (D167, #346).
+  for n, r in ipairs(out.statuses) do
+    local c = chips[n]
+    local chip = { icon = c.icon, label = c.label, color = theme.colors.text }
+    add(r, {
+      id = "status:" .. c.id,
+      label = c.name .. ": " .. c.label,
+      onPress = function()
+        self:openStatus(c.id)
+      end,
+      draw = function(b)
+        self:drawStamp(b, chip, false)
       end,
     })
   end
@@ -1901,7 +1955,7 @@ function Homestead:layoutLensCard()
     collapsed = cfg.collapseOnPlace and small and self.lens.source == "trigger" and self.mode == "place"
   end
   local touch = self.app.ctx.tuning.input.minTouchTarget
-  local bounds = { top = self.topH, bottom = view.h - self.bottomH }
+  local bounds = { top = math.max(self.topH, self.statusBottom or 0), bottom = view.h - self.bottomH }
   local spec = LensState.cardRect(cfg, view, bounds, collapsed, touch)
   self.lensRect, self.lensLayout = spec.rect, spec.layout
   local r = spec.rect
@@ -2069,7 +2123,7 @@ function Homestead:layoutTonight()
     end
   end
   local model = self.tonightModel
-  local bounds = { top = self.topH, bottom = view.h - self.bottomH }
+  local bounds = { top = math.max(self.topH, self.statusBottom or 0), bottom = view.h - self.bottomH }
   local first = Tonight.place(cfg, view, bounds, 0, touch)
   local contentH = self.tonightCard:measure(model, first.rect.w - 2 * cfg.pad)
   local spec = Tonight.place(cfg, view, bounds, contentH, touch)
@@ -2639,6 +2693,15 @@ function Homestead:action(name, data)
   end
   if name == "tonight" then
     self:toggleTonight() -- T: open or close the dusk check at any hour
+    return true
+  end
+  if name == "status" then
+    local first = Status.active(self.world)[1] -- H: the first status's card (a chip's tap opens its own, D167)
+    if first then
+      self:openStatus(first.id)
+    else
+      self:showToast(self.app.ctx.tuning.ui.status.none)
+    end
     return true
   end
   if name == "progress" then
