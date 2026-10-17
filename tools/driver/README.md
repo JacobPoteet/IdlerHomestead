@@ -35,6 +35,8 @@ Also `tonight` (D161: the dusk check: the Tonight stamp by day, the card opening
 
 Also `footing` (D162: five good dusks earn Footing, the one-time panel in the Tonight card's place with a tap outside it reaching the ground and Tab then Enter on Close, no Tonight card at the next dusk, then a slip bringing it back; a side card on desktop, a bottom sheet on phone).
 
+Also `goal` (D163: the pressing-goal line under the top bar at the start, with Tonight short, with Footing's checklist and with the winter and the reserve target, and slipped; a tap on it opening the Progress panel, its milestones ticking and its gates locked then open, P and Esc closing it; desktop, phone and landscape).
+
 Also `goats` (D71: a goat pen with goats browsing its yard and the object card, milk waiting in the pail, a tap sending the homesteader to milk with its toast, a cheese press loaded with milk, the animal-feed warning toast, the Animals chapter of the journal), and `uxbatch` (D70: the Pantry scrolled by drag and wheel, the amber and red chips with their warning toasts, the winter-readiness pill and card, the won't-ripen warning on a plan and on the tile card, the bedtime toast and the morning report card).
 
 Also `clarity` (D72: the tap-to-explain chip cards and their shortcut, the Tools and More palettes on narrow views, the tool caption, the Journal unlock hint on a ??? idea and on a blank stamp, the truck panel charging and ready with the "ready" chip and toast).

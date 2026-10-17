@@ -341,6 +341,18 @@ return {
     coalesceSeconds = 60, -- game seconds within which the pieces of one multi-part event (storage full for several goods) merge into one line
     panelWidth = 400, -- virtual pixels wide the log panel (shrinks to fit a narrow view)
   },
+  goal = { -- the pressing-goal line under the top bar and the Progress panel (D163, #342; src/ui/goal_text.lua, src/scenes/progress.lua); UI pixels
+    lineH = 24, -- height of the goal line (a tap target: at least the touch size)
+    lineMaxWidth = 380, -- widest the goal line grows on a wide view; a narrower view gives it the whole width
+    panelWidth = 380, -- width of the Progress panel (shrinks to fit a narrow view)
+    pad = 12, -- inner padding of the panel
+    headH = 38, -- height of the panel's title strip
+    markSize = 9, -- edge of a checklist box
+    markGap = 6, -- space between a box and its words
+    sectionGap = 10, -- space above each section title
+    rowGap = 3, -- space between rows
+    refresh = 0.5, -- real seconds between looks at the figures while the panel is open
+  },
   journal = { -- Field Journal navigation (D81, #194); all virtual pixels unless noted
     defaultArea = "Other", -- area heading for a chapter whose content has no `area`
     pad = 4, -- space inside the map rect and between the map rect and the node card

@@ -106,6 +106,13 @@ return {
     match = "table?", -- event field -> value, or { min = n } / { max = n }
     count = "number?", -- matching events needed (default 1)
   },
+  milestones = { -- run milestones (D163, #342); see the header of content/milestones.lua
+    name = "string", -- the checklist line (<= ~4 words)
+    hint = "string", -- what to do, written as an action (<= ~8 words)
+    event = "string", -- world event that reaches it
+    match = "table?", -- event field -> value, a list of values (any one), or { min = n } / { max = n }
+    count = "number?", -- matching events needed (default 1)
+  },
   chapters = {
     name = "string", -- region title on the journal map
     pages = "table", -- node `page` values that belong to this chapter

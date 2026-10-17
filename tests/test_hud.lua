@@ -28,6 +28,10 @@ local function spec(vitals, stamps, caption)
       { id = "notebook", w = 12 + 3 * H.textPad + words("Notebook"), compactW = H.badgeH },
       { id = "ledger", w = 12 + 3 * H.textPad + words("Ledger"), compactW = H.badgeH },
     },
+    goal = {
+      w = H.stampSize + words("Winter in 34 days · wood 80 of 300 · food 5 of 40") + H.textPad,
+      h = tun.ui.goal.lineH,
+    }, -- the pressing-goal line (D163)
   }
   for i = 1, vitals do
     s.vitals[i] = { id = "v" .. i, w = 12 + 3 + words("4 · 2.1n") }
@@ -76,6 +80,9 @@ local function plates(out)
   end
   if out.caption then
     list[#list + 1] = { "caption", out.caption }
+  end
+  if out.goal then
+    list[#list + 1] = { "goal", out.goal }
   end
   return list
 end
@@ -168,3 +175,33 @@ T.test("hud: fits at every allowed UI scale of every window size", function()
     end
   end
 end)
+
+T.test(
+  "hud: the pressing-goal line is its own line under the top plates, above the stamps, never wider than the view",
+  function()
+    for _, view in ipairs(SIZES) do
+      local s = spec(6, 3)
+      local out = Hud.arrange(s, view, CFG)
+      T.truthy(out.goal, view.name .. ": the line is placed")
+      T.eq(out.goal.y, out.topH, view.name .. ": directly under the top plates")
+      T.truthy(out.goal.w <= view.w - 2 * H.pad, view.name .. ": inside the view width")
+      T.truthy(out.goal.h >= tun.input.minTouchTarget, view.name .. ": a touch-sized line")
+      for _, st in ipairs(out.stamps) do
+        T.truthy(st.y >= out.goal.y + out.goal.h, view.name .. ": stamps start below the line")
+      end
+      local bare = Hud.arrange({
+        clock = s.clock,
+        speed = s.speed,
+        menu = s.menu,
+        vitals = s.vitals,
+        vitalH = s.vitalH,
+        stamps = {},
+        badge = s.badge,
+        tool = s.tool,
+        books = s.books,
+      }, view, CFG)
+      T.eq(bare.goal, nil, view.name .. ": no line when the scene gives none")
+      T.eq(bare.topH, out.topH, view.name .. ": the top plates are the same height with or without it")
+    end
+  end
+)
