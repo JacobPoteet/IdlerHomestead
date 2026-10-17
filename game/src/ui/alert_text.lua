@@ -4,6 +4,7 @@
 
 local Alerts = require("src.sim.systems.alerts")
 local Crops = require("src.sim.systems.crops")
+local FellingText = require("src.ui.felling_text")
 local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
 local Readiness = require("src.sim.systems.readiness")
@@ -147,6 +148,10 @@ function AlertText.readinessCard(world)
     r.fuel.nights,
     r.fuel.woodNeed
   )
+  local limit = FellingText.readiness(r.fuel.felling)
+  if limit then
+    lines[#lines + 1] = limit
+  end
   if r.electric.total > 0 then
     lines[#lines + 1] = string.format(
       "Electric: your heaters should make about %.0f warmth a night, so wood covers the rest.",
@@ -162,11 +167,7 @@ function AlertText.readinessCard(world)
   end
   local advice = {}
   if not r.fuel.ok then
-    if Ledger.isFull(world, Needs.fuelId(world)) then
-      advice[#advice + 1] = "the wood store is full: a woodshed holds more"
-    else
-      advice[#advice + 1] = "fell trees or buy wood"
-    end
+    advice[#advice + 1] = FellingText.advice(r.fuel.felling, Ledger.isFull(world, Needs.fuelId(world)))
   end
   if not r.food.ok then
     advice[#advice + 1] = "harvest, fish and keep food for winter in the Pantry"

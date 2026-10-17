@@ -22,6 +22,7 @@ local Food = require("src.sim.systems.food")
 local Established = require("src.sim.systems.established")
 local Events = require("src.sim.systems.events")
 local Footing = require("src.sim.systems.footing")
+local FellingText = require("src.ui.felling_text")
 local FootingText = require("src.ui.footing_text")
 local Goal = require("src.sim.systems.goal")
 local GoalText = require("src.ui.goal_text")
@@ -2597,7 +2598,7 @@ function Homestead:tap(i)
     return
   end
   local hs = Actors.homesteader(world)
-  local taskType, full =
+  local taskType, full, limited =
     Actors.order(world, hs, i, { crop = self.seed, tool = self.tool, categories = TOOL_CATEGORIES[self.tool] })
   if taskType then
     self.session:cancelRoutine() -- any order hands control back (D43)
@@ -2615,6 +2616,9 @@ function Homestead:tap(i)
   elseif full then
     -- Refused for lack of room: say which store is full (D59).
     self:showToast(string.format("%s storage is full", world.registry:get("resources", full).name))
+  elseif limited == "felling" then
+    -- Refused because the season's allowance of wood from trees is used up (#362): say what is left to do.
+    self:showToast(FellingText.refused)
   elseif self.tool == "untill" then
     self:showToast(self.app.ctx.tuning.ui.placement.noUntill)
   elseif self.tool == "pail" or self.tool == "axe" then

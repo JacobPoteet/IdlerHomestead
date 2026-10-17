@@ -2,6 +2,7 @@
 -- Dusk.fixes into the card's rows, so tests can check the numbers without a window. A level is a word as well as a
 -- colour (Fine, Low, Short), so the card does not lean on colour alone.
 
+local FellingText = require("src.ui.felling_text")
 local theme = require("src.ui.theme")
 
 local TonightText = {}
@@ -92,6 +93,10 @@ local function warmthRow(w)
           or string.format("%s covered", plural(math.floor(w.nights * 10) / 10, "night"))
       )
     end
+  end
+  local limit = FellingText.tonight(w.felling)
+  if limit then
+    text = text .. " " .. limit
   end
   return text
 end

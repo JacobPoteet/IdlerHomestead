@@ -3,6 +3,7 @@
 -- Emits "object.cleared" { object, tile, yields }.
 
 local Crops = require("src.sim.systems.crops")
+local Felling = require("src.sim.systems.felling")
 local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
 local Stats = require("src.sim.stats")
@@ -54,7 +55,13 @@ function Clearing.init(world)
     end,
     canDo = function(w, _, i)
       local def = Grid.object(w, i)
-      return def ~= nil and clearable(def) and shortage(w, def) == nil
+      return def ~= nil and clearable(def) and shortage(w, def) == nil and not Felling.limited(w, def)
+    end,
+    -- Why a tap on a tree is refused when it is not a full store: the season's allowance of wood from trees is used
+    -- up (#362). A reason id, shown by the scene.
+    limit = function(w, _, i)
+      local def = Grid.object(w, i)
+      return def ~= nil and clearable(def) and Felling.limited(w, def) and "felling" or nil
     end,
     blocked = function(w, _, i)
       local def = Grid.object(w, i)
@@ -83,6 +90,7 @@ function Clearing.init(world)
         -- nothing is lost here; the overflow call is only a same-tick safety net.
         gained[id] = Ledger.addOrOverflow(w, id, amount, "clear")
       end
+      Felling.record(w, def, gained.wood or 0)
       Grid.removeObject(w, anchor)
       -- `object` is the family (every tree species reports "tree", so the note and the chop sound need no species list).
       w.events:emit("object.cleared", { object = def.kind or def.id, species = def.id, tile = anchor, yields = gained })
@@ -107,6 +115,7 @@ function Clearing.init(world)
     end,
     canDo = clear.canDo,
     blocked = clear.blocked,
+    limit = clear.limit,
     workTime = clear.workTime,
     complete = clear.complete,
   })

@@ -212,6 +212,7 @@ return {
     orderFull = "Held: %s storage is full",
     orderUnreachable = "Held: the homesteader can't reach it",
     orderBlocked = "Held: no room to step aside",
+    orderLimit = "Held: no more wood from trees this season", -- a tree under the building cannot be felled: the season's allowance of wood from trees is used up (#362)
     orderClose = "Close",
     orderCancel = "Cancel order",
     cancelled = "Cancelled the %s order",
