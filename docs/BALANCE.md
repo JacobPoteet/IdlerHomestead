@@ -11,13 +11,15 @@ lovec tools/balance help=1                    # option list
 
 | option | meaning | default |
 |---|---|---|
-| `policy=all\|idle\|scripted\|active\|a,b` | policies to play | all |
+| `policy=all\|idle\|scripted\|active\|human\|a,b` | policies to play (`human` is `active` made fallible, see "Policies") | all |
 | `seeds=N`, `seed0=N` | number of seeds and the first one | 20, 1 |
 | `years=N` | span per run (fractions work: `years=0.25` is one season) | 1 |
 | `runs=N` | career length: a failed run is followed by recovery (the policy picks the free study) and a new run on new land with knowledge kept | 1 |
 | `features=all\|none\|a,b` | optional policy behaviours, see "Policy features" below; `none` plays the harness as it was before they existed | all |
 | `outfit=light\|mid\|heavy` | dress the homesteader in a whole outfit of one weight class (the first garment of the class in every slot, put on through the wardrobe's own grant and wear), see "The wardrobe" below | the starter outfit (all mid) |
 | `events=off\|ignore\|careful\|bold\|random` | how the simulated player answers a misfortune event card (D169, #347; `tools/balance/event_policy.lua`). `off` disables events in the harness, so the report is what it was before them; the others turn them on and add an `Events:` block (offered, chosen, ignored per event, days with a status, most statuses at once, lowest Condition) and `events` in the JSON. A card is answered once, from a seeded stream; `ignore` lets every window run out. Compare a run with the default for events on against off on the same seeds | off |
+| `pair=1` | paired seeds (#410): every (policy, seed) plays twice, once with events disabled and once with events on under `events=` (required with `pair=1`), and the report adds a "Paired events off/on" block; the rest of the report is the events-on leg. See "Spiral measures, paired events and gates" | off |
+| `gates=report\|strict` | the gates always print (see the same section); `strict` also exits 1 when one fails | report |
 | `out=file.csv` / `out=file.json` | CSV: one row per seed per morning (money, food, warmth, notes, known...; the last three columns are the Footing columns, see "Footing" below). JSON: summaries plus one record per run | none |
 | `set=domain.key=value` | override a tuning number for what-if runs, repeatable, e.g. `set=needs.warmthPeak=6` | none |
 | `jobs=N` | worker threads that play (policy, seed) pairs in parallel; `jobs=1` plays them one after another in the main thread. The report and `out=` files are byte-identical either way | CPU count, at most 16 |
@@ -27,7 +29,7 @@ lovec tools/balance help=1                    # option list
 
 Speed (since #123, one thread): about 0.4 s per seed-year for `idle` (it dies in the first week), 2 s for `scripted` and `active`; with the default `jobs` on a 12-CPU machine, the default run (all policies, 20 seeds, 1 year) takes about 15 s. Runs are deterministic per seed and tuning. The harness is not part of `lovec tests`, but `tests/test_balance_smoke.lua` runs one seed for a season so it cannot rot, and checks that worker threads return exactly what an in-thread run does.
 
-Files: `tools/balance/main.lua` (CLI), `balance.lua` (run loop, aggregation, reports), `policies.lua` (the three policies, with every player-behaviour knob in one `POLICY` table), `features.lua` (the optional behaviours below, shopping list, placement, find scoring), `parallel.lua` and `worker.lua` (the `jobs=` thread pool), `profile.lua` (`profile=`).
+Files: `tools/balance/main.lua` (CLI), `balance.lua` (run loop, aggregation, reports), `gates.lua` (the gates and their first-guess limits), `event_policy.lua` (the event-choice policies), `policies.lua` (the four policies, with every player-behaviour knob in one `POLICY` table), `features.lua` (the optional behaviours below, shopping list, placement, find scoring), `parallel.lua` and `worker.lua` (the `jobs=` thread pool), `profile.lua` (`profile=`).
 
 ## Harness speed (#123, D58)
 
@@ -66,6 +68,7 @@ The issue's "about 17 s" single seed-year was measured before D57; at the merge 
 - **idle**: the player never acts. The idle routine runs from the first second. Since D61 the routine plans a starter field when nothing is planned, so it plants (before D61 it never did).
 - **scripted**: day 1 plans one field tile per starting seed near the creek, then the routine runs. Keep targets stay automatic. Each morning, when the truck is charged, it presses Auto-load and makes the trip if the load is worth selling (else it empties the truck again), orders the next item from a fixed buy list (woodshed, wood stove, axe, smoker, big bucket, sturdy rod, used panel), places delivered objects near the truck, and fills the study queue from a fixed list. It never gives a direct order.
 - **active**: everything `scripted` does, plus a keep target on wood (what its worst-case winter plan still needs, D75, D104) and direct orders like an engaged player: harvest, water (bucket hauling), plant, till, load the smoker, fell trees for the winter's fuel (worst-case severity plus the longest snap), clear junk for cash, hand-fish with the rod, grow the field as seeds come in, buy seeds and bait. It sleeps at night (no orders at bedtime) so study progresses, and hands control to the routine after the takeover delay when it has nothing to order. The fishing mini-game is a dice roll (75 percent landed) plus plausible game time. This is a diligent player with perfect execution, so treat it as an upper bound on what a human achieves.
+- **human** (#410): `active` made fallible, the policy between `active` and `scripted`. After each job it waits `POLICY.humanReactionSeconds` (20 s on average, 0.5x to 1.5x) before the next order, skips each morning chore (trip, buy, place, study, seed orders, field planning) with chance `humanSkipChance` (0.25) on a day, lands fish at `humanFishSkill` (0.5) and does not look at an event card with chance `humanIgnoreCard` (0.25, the card runs out as if ignored). The knobs are first guesses at an average first-year player, not measured from play. Its draws come from the policy's own seeded stream, so a seed repeats exactly.
 
 Metrics are sampled at the start of each morning. "Alive at season end" means the run reached the first morning after that season. "Fuel (winter nights covered)" is warmth in stock divided by the full winter night (`needs.warmthPeak`, 8 since D104), before severity and cold snap.
 
@@ -453,3 +456,40 @@ Reporting only, no target. Two new lines per policy and run index, under the per
 - `Crop kinds planted year N`: the median number of distinct crops planted that year and the share of runs that planted one beyond the starters. JSON: `summary.crops.planted[year]`.
 
 First look (5 seeds, 2 years, first-guess crop numbers, not tuned): scripted plants the starters only (it buys no seeds); active planted 2 kinds in year 1 and 3 in year 2 (60 percent of runs planting a third), starter share of sales 62 percent. Everyone survives, Footing is reached at day 10 (scripted) and 7 (active), and two runs of the same command, and `jobs=1`, print the same report. The active policy now keeps at most `starterFieldShare` (0.75) of its 48 field tiles for radish and potato, so it can plant what it has learned; the seed ideas come after the policy's nine listed items in its study order, so year 1 sees little of them.
+
+## Spiral measures, paired events and gates (#410, D186)
+
+Reporting first, gates second; nothing here changes a run. Every limit lives in `tools/balance/gates.lua` and is a first guess for the M9 pass. The gates print under each policy's report (and as `summary.gates` in the JSON); `gates=strict` makes the harness exit 1 when one fails, the default only reports. The last line of a run is `Gates failed: N`.
+
+**Spiral measures** (a `Spiral:` line per policy and run index; JSON `summary.spiral` and `spiral` per run): slips per run, mornings spent slipped per run, slip-to-death (of the runs that slipped, those that died while Footing was held but slipped), runs that died before ever earning Footing, and year-1 deaths with the hunger ones. A death on the span's last rollover counts as year 2 (#130). Not built from the plan: "lasting damage flags open at death" (nothing lasts after the wear cut, D184) and "money on levy day" (the levy is cut).
+
+**Paired events** (`pair=1 events=<policy>`): each seed is played twice from the same seed and policy, once with the events engine off and once on, and the report is the events-on leg plus a `Paired events off/on` line: share failing with events on and off, both live, both fail, fail only with events on (the event-caused failures, listed by seed) and fail only with events off (noise: the runs diverge as soon as an event lands). Careers (`runs` above 1) pair by run index. One process plays both legs by switching `tuning.events.enabled` per run, so threads, seeds and output order are unchanged.
+
+| Gate | Applies to | Limit (first guess) |
+|---|---|---|
+| idle reaches Footing | idle | at least 90% of runs |
+| idle does not starve in year 1 | idle | 0% of runs die of hunger in year 1 |
+| no death spiral | every policy (n/a when nothing slipped) | at most 25% of slipped runs die slipped |
+| no event-caused failure | every policy, paired runs only | active 5%, human 15%, others 10% |
+
+**Baseline** (main at D185, the fields trim, 20 seeds, 1 year, `lovec tools/balance policy=all seeds=20 years=1`; events off):
+
+| Policy | Failed | Reached Footing | Day of Footing median | Slips per run | Slip-to-death | Year-1 hunger deaths | Gates |
+|---|---|---|---|---|---|---|---|
+| idle | 20/20 | 2/20 (10%) | 12.5 | 0.10 | 2/2 | 19/20 | reaches Footing FAIL (10%), starves FAIL (95%), spiral FAIL (100%) |
+| scripted | 0/20 | 20/20 | 9.0 | 0 | none slipped | 0 | n/a |
+| active | 0/20 | 20/20 | 7.0 | 0 | none slipped | 0 | n/a |
+| human | 6/20 (all hunger) | 18/20 | 11.5 | 0.70 | 4/14 (29%) | 4/20 | spiral FAIL (limit 25%) |
+
+**The idle gates are red.** With every upkeep task on and the routine alone, 18 of 20 idle runs never earn Footing and 19 of 20 die of hunger (1 in autumn, 18 in the first winter, 1 on the span's last rollover), almost all failing the 3-days-of-food test (dusk nights judged before Footing: 23.8 per run, food failing 21.6 of them). That is the finding D184 asked the harness to make measurable; it is not tuned here.
+
+**Paired report**, `policy=scripted,active,human seeds=20 years=1 events=careful pair=1` (twice, and `jobs=1`: identical text):
+
+| Policy | Fail events on | Fail events off | Only events on | Only events off | Event-failure gate |
+|---|---|---|---|---|---|
+| scripted | 0% | 0% | 0 | 0 | PASS (limit 10%) |
+| active | 0% | 0% | 0 | 0 | PASS (limit 5%) |
+| human | 35% | 30% | 1 (5%: seed 15, day 27, hunger) | 0 | PASS (limit 15%); spiral FAIL (33% of slipped runs die slipped, limit 25%) |
+
+Read: events cost the careful active and scripted players nothing in a year. The human policy fails 30% of its seeds with events off already (food: it skips the trip, the buy list and the seed orders on a quarter of mornings), so event-caused failure is a small share on top of an economy failure it does not need events to produce. The human knobs (`POLICY.humanReactionSeconds` 20, `humanSkipChance` 0.25, `humanIgnoreCard` 0.25, `humanFishSkill` 0.5) are untested guesses and may be harsher than a real first-year player; calibrating them against play is for M9.
+

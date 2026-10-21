@@ -7,7 +7,7 @@ package.path = "game/?.lua;game/?/init.lua;tools/balance/?.lua;" .. package.path
 
 local USAGE = [[
 Idler Homestead balance harness. Usage:  lovec tools/balance [key=value ...]
-  policy=all|idle|scripted|active|a,b   policies to play            (default all)
+  policy=all|idle|scripted|active|human|a,b  policies to play       (default all; human is active made fallible, #410)
   seeds=N                               seeds per policy            (default 20)
   seed0=N                               first seed                  (default 1)
   years=N                               years to simulate per run   (default 1)
@@ -33,6 +33,12 @@ Idler Homestead balance harness. Usage:  lovec tools/balance [key=value ...]
   events=off|ignore|careful|bold|random  the event-choice policy (D169): how the player answers misfortune
                                         event cards; off (default) plays with events disabled, so the output
                                         is what it was without them. Pair a run with the default for events on/off
+  pair=1                                paired seeds (#410): play every seed twice, with events disabled and with them on
+                                        under the events= policy (required), and report the runs that fail only with
+                                        events on (event-caused failure) beside the usual report, which is the events-on leg
+  gates=report|strict                   the pass/fail gates (idle reaches Footing and does not starve in year 1, no death
+                                        spiral, no event-caused failure) always print; strict also exits 1 when one fails
+                                        (default report). Limits: tools/balance/gates.lua (first guesses)
   set=domain.key=value                  override a tuning number for what-if runs (repeatable),
                                         e.g. set=needs.coldDamage=15 set=needs.warmthPeak=3
   quiet=1                               no progress lines
@@ -74,6 +80,12 @@ function love.load(args)
         names[#names + 1] = name
       end
     end
+    local pair = opts.pair ~= nil and opts.pair ~= "0"
+    assert(
+      not pair or (opts.events and opts.events ~= "off"),
+      "pair=1 needs an event policy: events=ignore|careful|bold|random"
+    )
+    assert(opts.gates == nil or opts.gates == "report" or opts.gates == "strict", "gates= must be report or strict")
     local seeds = tonumber(opts.seeds) or 20
     local seed0 = tonumber(opts.seed0) or 1
     local years = tonumber(opts.years) or 1
@@ -97,6 +109,7 @@ function love.load(args)
         runs,
         Features.label(features),
         outfit and (" outfit=" .. outfit) or "",
+        pair and (" paired events off/" .. opts.events) or "",
         #opts.sets > 0 and (" overrides: " .. table.concat(opts.sets, " ")) or ""
       )
     )
@@ -131,6 +144,7 @@ function love.load(args)
         features = opts.features,
         outfit = outfit,
         events = opts.events,
+        pair = pair,
         sets = opts.sets,
         jobs = jobs,
         onProgress = function(done, total)
@@ -147,12 +161,12 @@ function love.load(args)
       if played then
         return played[name][seed]
       end
-      return Balance.playSeed(ctx, name, seed, years, runs, features, outfit, opts.events)
+      return Balance.playSeed(ctx, name, seed, years, runs, features, outfit, opts.events, pair)
     end
 
     local all, report =
       {}, {
-        config = { seeds = seeds, seed0 = seed0, years = years, runs = runs, overrides = opts.sets, features = Features.label(features), outfit = outfit, events = opts.events },
+        config = { seeds = seeds, seed0 = seed0, years = years, runs = runs, overrides = opts.sets, features = Features.label(features), outfit = outfit, events = opts.events, pair = pair },
         policies = {},
       }
     for _, name in ipairs(names) do
@@ -174,13 +188,21 @@ function love.load(args)
       local entry = { runs = {} }
       for r = 1, runs do
         if byRun[r] then
-          local summary = Balance.summarize(ctx, byRun[r], years)
+          local summary = Balance.summarize(ctx, byRun[r], years, name)
           Balance.printSummary(ctx, name, r, summary, years)
           Balance.printFeatures(summary, years)
           entry.runs[#entry.runs + 1] = { run = r, summary = summary }
         end
       end
       report.policies[name] = entry
+    end
+    local failedGates = 0
+    for _, entry in pairs(report.policies) do
+      for _, run in ipairs(entry.runs) do
+        for _, g in ipairs(run.summary.gates) do
+          failedGates = failedGates + (g.pass == false and 1 or 0)
+        end
+      end
     end
     if Profile then
       io.write(
@@ -196,6 +218,7 @@ function love.load(args)
       )
     )
 
+    io.write(string.format("Gates failed: %d\n", failedGates))
     if opts.out then
       if opts.out:lower():match("%.json$") then
         report.results = {}

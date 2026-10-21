@@ -10,6 +10,7 @@ local Events = require("src.sim.systems.events")
 local Features = require("features")
 local Finds = require("src.sim.systems.finds")
 local Footing = require("src.sim.systems.footing")
+local Gates = require("gates")
 local Inventory = require("src.sim.systems.inventory")
 local Market = require("src.sim.systems.market")
 local Machines = require("src.sim.systems.machines")
@@ -138,6 +139,9 @@ end
 ---   alive, failDay, failSeason, failYear, cause, snaps[day], counters, winters[year].
 --- `session` carries the slot data (a fresh Session per run).
 local function playRun(ctx, session, policyName, seed, years, features, eventMode)
+  if eventMode == "off" then
+    eventMode = nil
+  end
   local world = session.world
   local tuning = ctx.tuning
   local tickRate = tuning.time.tickRate
@@ -479,6 +483,9 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
     if card and eventPolicy.answered ~= result.events.offered then
       eventPolicy.answered = result.events.offered -- one answer per card; a card left to run out is not asked again
       local answer = EventPolicy.answer(eventPolicy, card)
+      if policy.dropsCard and policy:dropsCard() then
+        answer = nil -- a person who does not look at the card: the window runs out (the human policy)
+      end
       if answer == "ignore" then
         Events.ignore(world)
       elseif answer then
@@ -534,6 +541,14 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
       result.cause = "thirst"
     else
       result.cause = "both"
+    end
+  end
+  -- Spiral facts (#410): was Footing held but slipped when the run ended, and the mornings spent slipped.
+  local fs = world.state.footing
+  result.spiral = { diedSlipped = failed and fs.held and fs.slipped or false, slippedDays = 0 }
+  for _, snap in pairs(result.snaps) do
+    if snap.footing == 2 then
+      result.spiral.slippedDays = result.spiral.slippedDays + 1
     end
   end
   result.final = snapshot(world)
@@ -603,12 +618,47 @@ function Balance.dress(world, class)
   assert(ok, "outfit=" .. class .. ": " .. tostring(reason))
 end
 
+--- The facts of an events-off run kept beside its events-on twin (#410): enough for the paired report, no snapshots.
+local function offLeg(r)
+  return {
+    alive = r.alive,
+    failDay = r.failDay,
+    failYear = r.failYear,
+    failSeason = r.failSeason,
+    cause = r.cause,
+    footingDay = r.footing.gainedDay,
+    slips = r.footing.slips,
+    money = r.final.money,
+    condition = r.final.condition,
+  }
+end
+
+--- Play one seed twice on the same seed, once with events disabled and once with events on under `eventMode` (a
+--- choice policy), and return the events-on results; each carries `off`, the facts of the events-off run with the same
+--- run index (nil when that career ended sooner). The two careers are independent: a run that dies in one has its own
+--- recovery and next run, so only run indexes both legs reached are paired.
+function Balance.playPair(ctx, policyName, seed, years, runs, features, outfit, eventMode)
+  assert(eventMode and eventMode ~= "off", "a paired run needs an event policy (events=ignore|careful|bold|random)")
+  local off = Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, "off")
+  local on = Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode)
+  for _, r in ipairs(on) do
+    r.off = off[r.run] and offLeg(off[r.run]) or nil
+  end
+  return on
+end
+
 --- Play one seed. With `runs` > 1, a failed run is followed by recovery (the policy's free study)
 --- and a fresh run on new land with the knowledge kept (GDD §4.3); a run that survives the span
 --- ends the career there. `outfit` ("light", "mid" or "heavy", optional) dresses the homesteader in the first
 --- garment of that weight class in every slot at the start of each run (Balance.dress). Returns a list of run
 --- results.
-function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode)
+function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode, pair)
+  if pair then
+    return Balance.playPair(ctx, policyName, seed, years, runs, features, outfit, eventMode)
+  end
+  if eventMode ~= nil then
+    ctx.tuning.events.enabled = eventMode ~= "off" -- the engine follows the mode (a paired run plays both ways in one process)
+  end
   local data = Save.newSlotData("balance")
   local store = Save.new(Save.memoryBackend(), { slotCount = 1 })
   local results = {}
@@ -823,8 +873,80 @@ function Balance.cropsSummary(ctx, results, years)
   return out
 end
 
+--- Spiral measures across runs (#410, PLAN_DEPTH §15), every run counted. A slip is Footing lost after it was held; a
+--- spiral is a run that slipped and then died while still slipped. Reporting plus the gate in gates.lua.
+function Balance.spiralSummary(results)
+  local out = {
+    n = #results,
+    slippedRuns = 0,
+    slips = 0,
+    diedSlipped = 0, -- runs that ended in death with Footing held but slipped
+    diedNeverFooted = 0, -- runs that died before they ever earned Footing
+    slippedDays = 0, -- mornings spent slipped, summed
+    yearOneStarved = 0, -- runs that died of hunger in year 1
+    yearOneFailed = 0,
+  }
+  for _, r in ipairs(results) do
+    local x = r.footing
+    out.slips = out.slips + x.slips
+    out.slippedRuns = out.slippedRuns + (x.slips > 0 and 1 or 0)
+    out.slippedDays = out.slippedDays + (r.spiral and r.spiral.slippedDays or 0)
+    if not r.alive then
+      out.diedSlipped = out.diedSlipped + (r.spiral and r.spiral.diedSlipped and 1 or 0)
+      out.diedNeverFooted = out.diedNeverFooted + (x.gainedDay and 0 or 1)
+      if r.failYear == 1 then
+        out.yearOneFailed = out.yearOneFailed + 1
+        out.yearOneStarved = out.yearOneStarved + (r.cause == "hunger" and 1 or 0)
+      end
+    end
+  end
+  local n = math.max(1, #results)
+  out.slipsPerRun = out.slips / n
+  out.slippedDaysPerRun = out.slippedDays / n
+  out.slipToDeath = out.slippedRuns > 0 and out.diedSlipped / out.slippedRuns or nil -- nil: nothing slipped
+  return out
+end
+
+--- The paired events-on/off comparison (#410) over runs that carry their events-off twin (nil when none do). The share that
+--- fail with events on and live with them off is the measure of event-caused failure (PLAN_DEPTH §15).
+function Balance.pairedSummary(results)
+  local out = {
+    n = 0,
+    mode = results[1] and results[1].events and results[1].events.mode or nil,
+    bothAlive = 0,
+    bothFailed = 0,
+    onlyOnFailed = 0, -- the event-caused failures
+    onlyOffFailed = 0, -- the opposite (noise: the runs diverge as soon as an event lands)
+    onlyOn = {}, -- the seeds behind onlyOnFailed, as { seed, run, day, cause }
+    causes = {}, -- failure cause of the event-caused failures
+  }
+  for _, r in ipairs(results) do
+    if r.off then
+      out.n = out.n + 1
+      if r.alive and r.off.alive then
+        out.bothAlive = out.bothAlive + 1
+      elseif not r.alive and not r.off.alive then
+        out.bothFailed = out.bothFailed + 1
+      elseif not r.alive then
+        out.onlyOnFailed = out.onlyOnFailed + 1
+        out.causes[r.cause] = (out.causes[r.cause] or 0) + 1
+        out.onlyOn[#out.onlyOn + 1] = { seed = r.baseSeed, run = r.run, day = r.failDay, cause = r.cause }
+      else
+        out.onlyOffFailed = out.onlyOffFailed + 1
+      end
+    end
+  end
+  if out.n == 0 then
+    return nil
+  end
+  out.eventCausedShare = out.onlyOnFailed / out.n
+  out.onFailedShare = (out.bothFailed + out.onlyOnFailed) / out.n
+  out.offFailedShare = (out.bothFailed + out.onlyOffFailed) / out.n
+  return out
+end
+
 --- Aggregate run results (all of one policy and run index) into a summary table.
-function Balance.summarize(ctx, results, years)
+function Balance.summarize(ctx, results, years, policyName)
   local points = Balance.samplePoints(ctx, years)
   local n = #results
   local summary = { n = n, points = {}, daysSurvived = nil, causes = {}, failSeasons = {}, winter = {} }
@@ -950,6 +1072,9 @@ function Balance.summarize(ctx, results, years)
   summary.footing = Balance.footingSummary(results)
   summary.crops = Balance.cropsSummary(ctx, results, years)
   summary.events = Balance.eventsSummary(results)
+  summary.spiral = Balance.spiralSummary(results)
+  summary.paired = Balance.pairedSummary(results)
+  summary.gates = Gates.evaluate(policyName or results[1].policy, summary)
   return summary
 end
 
@@ -1070,6 +1195,84 @@ function Balance.printFooting(ctx, f)
   )
 end
 
+--- The spiral, paired and gate blocks of a summary (#410). Gates print for every policy; the paired block only for a
+--- paired run (`pair=1`).
+function Balance.printSpiral(sp)
+  line("")
+  line(
+    string.format(
+      "Spiral: %.2f slips per run, %.1f mornings slipped per run; %s; died before ever earning Footing %d/%d; year-1 deaths %d (hunger %d)",
+      sp.slipsPerRun,
+      sp.slippedDaysPerRun,
+      sp.slipToDeath
+          and string.format("slip-to-death %d/%d runs (%s)", sp.diedSlipped, sp.slippedRuns, pct(sp.slipToDeath))
+        or "no run slipped",
+      sp.diedNeverFooted,
+      sp.n,
+      sp.yearOneFailed,
+      sp.yearOneStarved
+    )
+  )
+end
+
+function Balance.printPaired(p)
+  if not p then
+    return
+  end
+  line("")
+  line(
+    string.format(
+      "Paired events off/on (%s) over %d seeds: fail with events on %s, off %s; both live %d, both fail %d, "
+        .. "fail only with events on %d (%s), fail only with them off %d",
+      p.mode or "?",
+      p.n,
+      pct(p.onFailedShare),
+      pct(p.offFailedShare),
+      p.bothAlive,
+      p.bothFailed,
+      p.onlyOnFailed,
+      pct(p.eventCausedShare),
+      p.onlyOffFailed
+    )
+  )
+  for _, f in ipairs(p.onlyOn) do
+    line(
+      string.format(
+        "  event-caused failure: seed %d run %d, day %s, %s",
+        f.seed,
+        f.run,
+        tostring(f.day),
+        tostring(f.cause)
+      )
+    )
+  end
+end
+
+function Balance.printGates(gates)
+  if not gates or #gates == 0 then
+    return
+  end
+  line("")
+  line("Gates (first-guess limits in tools/balance/gates.lua):")
+  for _, g in ipairs(gates) do
+    local tag = g.pass == nil and "n/a " or (g.pass and "PASS" or "FAIL")
+    if g.value == nil then
+      line(string.format("  [%s] %s: %s", tag, g.text, g.note or "nothing to measure"))
+    else
+      line(
+        string.format(
+          "  [%s] %s: %s (need %s %s)",
+          tag,
+          g.text,
+          pct(g.value),
+          g.atLeast and "at least" or "at most",
+          pct(g.limit)
+        )
+      )
+    end
+  end
+end
+
 --- Print the human-readable report for one (policy, run index) summary.
 function Balance.printSummary(ctx, policyName, runIndex, summary, years)
   line("")
@@ -1153,6 +1356,9 @@ function Balance.printSummary(ctx, policyName, runIndex, summary, years)
 
   Balance.printFooting(ctx, summary.footing)
   Balance.printEvents(summary.events)
+  Balance.printSpiral(summary.spiral)
+  Balance.printPaired(summary.paired)
+  Balance.printGates(summary.gates)
 
   -- Curves: median [p25-p75] among seeds alive at each point.
   for _, m in ipairs(METRICS) do
@@ -1535,7 +1741,9 @@ function Balance.runRecord(r)
     final = r.final,
     counters = r.counters,
     footing = r.footing,
+    spiral = r.spiral,
     events = r.events,
+    off = r.off,
   }
 end
 
