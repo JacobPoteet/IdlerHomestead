@@ -139,7 +139,7 @@ Also `move` (D98: the object card with Pick up and Move, the move preview over a
 
 Also `fixbatch` (D93: Pantry rows with clear buttons, a station's waiting output with its Discard button and confirm, the "Full" pill listing only blocking stores, the idle nudge held behind a panel with the pulsing Routine button).
 
-Also `crops` (D102: a field with every growth stage, thirsty and ripe crops, bare and tilled plans and ground sprites at zoom 1 and 2 in day, night, rain and snow).
+Also `crops` (D102: a field with every growth stage, thirsty and ripe crops, bare and tilled plans and ground sprites at zoom 1 and 2 in day, night, rain and snow). Also `cropkinds` (D177: all eleven crops at four stages in one field, a garlic plan in spring whose tile card says it waits for autumn, the Hoe ring listing only the learned crops, and the Water & Soil journal chapter with the new seeds as ideas).
 
 Also `perf` (D103: no screenshots; prints the CPU milliseconds of a busy frame, update and draw submit, at each zoom in clear weather and rain, from the F3 overlay's probes; compare `size=desktop|phone|landscape`).
 

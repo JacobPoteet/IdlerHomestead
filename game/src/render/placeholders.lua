@@ -299,6 +299,80 @@ function P.potato(p, _, _, variant)
   p:outline(C.outline)
 end
 
+-- The nine later crops (D177, #363) share one placeholder painter, set by a look: the shape of the ready stage
+-- (rosette, bush, root, tall) and the colour of what you pick. Real art replaces them one id at a time.
+local function shade(c, k)
+  return { math.min(1, c[1] * k), math.min(1, c[2] * k), math.min(1, c[3] * k) }
+end
+
+local CROP_LOOKS = {
+  lettuce = { kind = "rosette", fruit = { 0.50, 0.80, 0.32 } },
+  beans = { kind = "bush", fruit = { 0.42, 0.72, 0.26 } },
+  carrot = { kind = "root", fruit = { 0.93, 0.55, 0.18 } },
+  onion = { kind = "root", fruit = { 0.86, 0.70, 0.40 } },
+  garlic = { kind = "root", fruit = { 0.92, 0.90, 0.82 } },
+  squash = { kind = "bush", fruit = { 0.92, 0.62, 0.18 } },
+  tomato = { kind = "bush", fruit = { 0.86, 0.20, 0.16 } },
+  corn = { kind = "tall", fruit = { 0.95, 0.82, 0.30 } },
+  herbs = { kind = "rosette", fruit = { 0.55, 0.36, 0.68 } },
+}
+
+local function laterCrop(look)
+  local ramp = { shade(look.fruit, 0.6), look.fruit, shade(look.fruit, 1.3), shade(look.fruit, 1.6) }
+  return function(p, _, _, variant)
+    cropBase(p, variant == 1)
+    if variant == 1 then -- sprout: two seed leaves on a stem
+      p:rect(8, 8, 1, 4, C.sproutDark)
+      p:ellipse(5, 8, 2, 1, C.sprout)
+      p:ellipse(11, 7, 2, 1, C.sproutLight)
+      p:px(8, 7, C.sproutLight)
+    elseif variant == 2 then -- growing: a leafy fan (a stalk for the tall ones)
+      if look.kind == "tall" then
+        p:rect(7, 3, 2, 9, C.leafDark)
+        p:ellipse(4, 6, 2, 1, C.leaf)
+        p:ellipse(12, 5, 2, 1, C.sprout)
+        p:ellipse(4, 9, 2, 1, C.sprout)
+      else
+        p:rect(8, 6, 1, 6, C.leafDark)
+        p:ellipse(5, 7, 2, 3, C.leaf)
+        p:ellipse(11, 7, 2, 3, C.sprout)
+        p:ellipse(8, 4, 2, 3, C.sproutLight)
+      end
+    elseif look.kind == "rosette" then -- ready: a full head of leaves in the crop's colour
+      clumps(p, { { 5, 8, 3 }, { 11, 8, 3 }, { 8, 6, 4 } }, ramp)
+    elseif look.kind == "bush" then -- ready: a leafy bush hung with the fruit
+      clumps(p, { { 6, 6, 3 }, { 10, 7, 3 }, { 8, 9, 3 } }, BROADLEAF)
+      for _, f in ipairs({ { 5, 5 }, { 10, 6 }, { 8, 9 }, { 6, 9 }, { 11, 9 } }) do
+        p:rect(f[1], f[2], 2, 2, look.fruit)
+      end
+    elseif look.kind == "root" then -- ready: the root shows above the soil under a tall crown
+      p:ellipse(5, 5, 2, 3, C.leaf)
+      p:ellipse(11, 5, 2, 3, C.sprout)
+      p:ellipse(8, 3, 2, 3, C.sproutLight)
+      p:circle(8, 10, 3, look.fruit)
+      p:px(7, 9, shade(look.fruit, 1.4))
+    else -- tall, ready: a stalk with leaves and a heavy ear
+      p:rect(7, 2, 2, 10, C.leafDark)
+      p:ellipse(4, 5, 2, 1, C.leaf)
+      p:ellipse(12, 4, 2, 1, C.sprout)
+      p:ellipse(4, 8, 2, 1, C.sprout)
+      p:rect(9, 6, 3, 4, look.fruit)
+      p:px(9, 6, shade(look.fruit, 1.4))
+    end
+    p:outline(C.outline)
+  end
+end
+
+for id, look in pairs(CROP_LOOKS) do
+  P[id] = laterCrop(look)
+  P["icon_seed_" .. id] = function(p)
+    p:ellipse(6, 7, 4, 4, look.fruit)
+    p:rect(5, 1, 2, 3, C.leaf)
+    p:px(5, 6, shade(look.fruit, 1.4))
+    p:outline(C.outline)
+  end
+end
+
 -- The "thirsty" droplet over a dry crop (#20): a blue drop with a dark edge, drawn over the graded world.
 function P.cue_droplet(p)
   p:px(3, 1, C.waterLight)
@@ -2088,5 +2162,8 @@ local function packet(cropPainter)
 end
 P.icon_packet_radish = packet(P.icon_seed_radish)
 P.icon_packet_potato = packet(P.icon_seed_potato)
+for id in pairs(CROP_LOOKS) do
+  P["icon_packet_" .. id] = packet(P["icon_seed_" .. id])
+end
 
 return P

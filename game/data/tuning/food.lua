@@ -18,6 +18,15 @@ return {
     byResource = {
       radish = 7, -- days a radish keeps fresh (a week: a harvest can wait for the next truck)
       potato = 21, -- days a potato keeps (three seasons: autumn potatoes last the winter)
+      -- D177 (#363): the other produce. Storage crops keep a year (28 d), fragile ones a few days.
+      lettuce = 4, -- days lettuce keeps (high spoilage: sell or eat it fast)
+      beans = 10, -- days fresh beans keep
+      tomato = 5, -- days a tomato keeps (fragile)
+      corn = 14, -- days corn keeps
+      carrot = 28, -- days a carrot keeps (a cellar crop: all year)
+      onion = 28, -- days an onion keeps (all year)
+      squash = 28, -- days squash keeps (all year)
+      garlic = 28, -- days garlic keeps (all year)
       egg = 14, -- days an egg keeps (two weeks)
     },
     byCategory = {

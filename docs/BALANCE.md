@@ -444,3 +444,12 @@ A content pass, not a balance pass: every weight, chance and cooldown is a reaso
 Two years (5 seeds, `bold` and `random`): scripted alive 5/5 under both; active `bold` 5/5 and `random` 4/5. The one `random` active loss (seed 4) died of hunger in winter of year 2 with foodDays 0 from day 52; with events off, `ignore` and `careful` the same seed lives, and its food was already falling in year 2 with events off (66 days of food at day 56 against 36 with `ignore` and 0 with `random`), so the cause is the active policy's thin year-2 food economy plus a slower summer, not an event outcome (no event outcome costs more than one canned food, and none kills). Left for M9.
 
 **Findings:** a water cost (the cut, the burn, the tooth) needs a cistern (water has no capacity without one), so a run without one sees those careful options disabled; `Careful` falls back to ignore. The back strain and the stove burn have no carry-streak or stove-use counter yet (the autumn harvest and being Tired, and a placed wood stove, stand in).
+
+## Crops: the starter-crop check and kinds planted (#363, D177)
+
+Reporting only, no target. Two new lines per policy and run index, under the per-feature block:
+
+- `Starter-crop income (the #263 check)`: the share of what the truck and the stand paid that came from the starter field's crops (`tuning.farming.starterField`, radish and potato), median [p25-p75] over runs that sold anything, and the mean dollars. It prices each sold unit at the price of the moment (the stand at its fraction). JSON: `summary.crops.starterShare`, `starterSalesMean`, `salesMean`. This is the playtest note of #263 (starting crops must not fund the mid game); the lines exist so M9 can set a target.
+- `Crop kinds planted year N`: the median number of distinct crops planted that year and the share of runs that planted one beyond the starters. JSON: `summary.crops.planted[year]`.
+
+First look (5 seeds, 2 years, first-guess crop numbers, not tuned): scripted plants the starters only (it buys no seeds); active planted 2 kinds in year 1 and 3 in year 2 (60 percent of runs planting a third), starter share of sales 62 percent. Everyone survives, Footing is reached at day 10 (scripted) and 7 (active), and two runs of the same command, and `jobs=1`, print the same report. The active policy now keeps at most `starterFieldShare` (0.75) of its 48 field tiles for radish and potato, so it can plant what it has learned; the seed ideas come after the policy's nine listed items in its study order, so year 1 sees little of them.

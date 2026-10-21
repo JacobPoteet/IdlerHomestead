@@ -416,7 +416,7 @@ end)
 
 local function studyCandidate()
   for _, def in ipairs(reg:all("catalog")) do
-    if def.studyNights and not def.starter then
+    if def.studyNights and def.studyNights >= 2 and not def.starter then -- several nights, so "night 2 of N" reads
       return def.id
     end
   end

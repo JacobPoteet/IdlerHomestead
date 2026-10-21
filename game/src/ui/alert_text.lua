@@ -89,7 +89,7 @@ end
 
 --- A line for the tile card of a crop in the ground, or nil: how long it has against the freeze.
 function AlertText.cropFrostLine(world, crop)
-  if Weather.isFrozen(world) then
+  if Weather.isFrozen(world) or Crops.survivesFrost(world, crop.id) then
     return nil
   end
   local left = Weather.daysToFreeze(world)
@@ -104,6 +104,15 @@ function AlertText.cropFrostLine(world, crop)
     return string.format("Frost in %dd: too late", left)
   end
   return string.format("Frost in %dd", left)
+end
+
+--- The seasons a crop is sown in, for a tile card: "autumn", "spring or autumn", "spring, summer or autumn" (D177).
+function AlertText.windowSeasons(world, cropId)
+  local seasons = world.registry:get("crops", cropId).plantSeasons
+  if #seasons == 1 then
+    return seasons[1]
+  end
+  return table.concat(seasons, ", ", 1, #seasons - 1) .. " or " .. seasons[#seasons]
 end
 
 -- Winter readiness (#166) ---------------------------------------------------------------------

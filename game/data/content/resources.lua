@@ -19,6 +19,15 @@ return {
 
   { id = "seed_radish", name = "Radish seeds", category = "seed" },
   { id = "seed_potato", name = "Seed potatoes", category = "seed" },
+  { id = "seed_lettuce", name = "Lettuce seeds", category = "seed" },
+  { id = "seed_beans", name = "Bean seeds", category = "seed" },
+  { id = "seed_carrot", name = "Carrot seeds", category = "seed" },
+  { id = "seed_onion", name = "Onion sets", category = "seed" },
+  { id = "seed_garlic", name = "Garlic cloves", category = "seed" },
+  { id = "seed_squash", name = "Squash seeds", category = "seed" },
+  { id = "seed_tomato", name = "Tomato seedlings", category = "seed" },
+  { id = "seed_corn", name = "Corn seeds", category = "seed" },
+  { id = "seed_herbs", name = "Herb seeds", category = "seed" },
   { id = "bait", name = "Bait", category = "supply" },
 
   -- Stored water (GDD §5.3): pumped into cisterns, drawn by buckets and drip lines. Capacity comes
@@ -45,6 +54,16 @@ return {
   -- Fresh produce
   { id = "radish", name = "Radish", category = "food", calories = 300, value = 1 },
   { id = "potato", name = "Potato", category = "food", calories = 900, value = 2, keepsForWinter = true },
+  -- D177 (#363): the other nine crops. value is $ per unit (first guesses for M9); herbs have no calories, so they are sold, not eaten.
+  { id = "lettuce", name = "Lettuce", category = "food", calories = 100, value = 2 },
+  { id = "beans", name = "Bush beans", category = "food", calories = 400, value = 2 },
+  { id = "tomato", name = "Tomato", category = "food", calories = 150, value = 4 },
+  { id = "corn", name = "Corn", category = "food", calories = 600, value = 2 },
+  { id = "carrot", name = "Carrot", category = "food", calories = 450, value = 3, keepsForWinter = true },
+  { id = "onion", name = "Onion", category = "food", calories = 200, value = 3, keepsForWinter = true },
+  { id = "squash", name = "Squash", category = "food", calories = 700, value = 3, keepsForWinter = true },
+  { id = "garlic", name = "Garlic", category = "food", calories = 60, value = 6 },
+  { id = "herbs", name = "Herbs", category = "food", value = 6 },
   -- Eggs (GDD §7.7, D63): laid by hens, collected from the coop's nest box. Capacity is a base cap
   -- (a full store holds the eggs in the nest instead of losing them, D59).
   { id = "egg", name = "Egg", category = "food", calories = 90, value = 2, capacity = 40 },
