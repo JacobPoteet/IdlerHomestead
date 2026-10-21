@@ -64,7 +64,6 @@ T.test("notices: one rank in tuning, Tonight before events, and the first waitin
   T.eq(Notices.pick(rank, { event = true, tonight = true }, nil), "tonight", "the higher rank wins a tie")
   T.eq(Notices.pick(rank, {}, nil), nil, "nothing waiting, nothing up")
   T.eq(Notices.pick(rank, { levy = true, contract = true }, nil), "contract")
-  T.eq(Notices.queue(rank, { levy = true, tonight = true, event = true })[2], "event")
 end)
 
 T.test("notices: a card that is up keeps its place until it is answered", function()

@@ -22,15 +22,4 @@ function Notices.pick(rank, waiting, current)
   return nil
 end
 
---- The ids waiting, in rank order (for a stamp that says what else is queued).
-function Notices.queue(rank, waiting)
-  local out = {}
-  for _, id in ipairs(rank) do
-    if waiting[id] then
-      out[#out + 1] = id
-    end
-  end
-  return out
-end
-
 return Notices

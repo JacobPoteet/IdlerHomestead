@@ -14,7 +14,6 @@
 --     queue = { itemId, ... },                       -- study order; [1] is being studied
 --     progress = { [itemId] = nights },              -- kept if unqueued: nothing is spent
 --   }
--- Run state: world.state.journal = { once = { [key] = true } }? (Journal.once, absent until used).
 -- Emits "journal.note" { note }, "journal.idea" { item }, "journal.learned" { item }.
 
 local Calendar = require("src.sim.systems.calendar")
@@ -361,19 +360,6 @@ function Journal.write(world, id)
     return false
   end
   writeNote(world, def)
-  return true
-end
-
---- A once-per-run flag (D169, #109): true the first time `key` is asked in this run, false after. Run state
---- (world.state.journal = { once }, absent until used), so a new run asks again and a failed run's flags go with it.
-function Journal.once(world, key)
-  local st = world.state.journal or {}
-  world.state.journal = st
-  st.once = st.once or {}
-  if st.once[key] then
-    return false
-  end
-  st.once[key] = true
   return true
 end
 

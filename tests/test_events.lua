@@ -612,6 +612,21 @@ T.test("events: the effect vocabulary - resources, flags, tiles, notes and chain
   cfg.maxChainDepth = 2
 end)
 
+T.test("events: applying a choice never moves the event stream (tiles have their own)", function()
+  local world = newWorld()
+  setTime(world, 12, 13)
+  world.state.crops[10] = { id = "radish", growth = 0.5 }
+  world.state.crops[11] = { id = "radish", growth = 0.5 }
+  reg:get("events", "sprained_ankle").options[2].effect = { lockTiles = { count = 1, days = 2 } }
+  local before = world.state.rng.event and world.state.rng.event.s
+  Events.force(world, "sprained_ankle")
+  Events.choose(world, 2)
+  T.truthy(Events.tileLocked(world, 10) or Events.tileLocked(world, 11), "a tile was picked")
+  T.truthy(world.state.rng.eventTiles, "on its own stream")
+  T.eq(world.state.rng.event and world.state.rng.event.s, before, "the dusk draw is untouched")
+  world.state.crops[10], world.state.crops[11] = nil, nil
+end)
+
 T.test("events: one wake a night", function()
   local world = newWorld()
   local d = reg:get("events", "sprained_ankle")
@@ -638,11 +653,6 @@ T.test("journal: Journal.write and the once-per-run flag", function()
   T.errors(function()
     Journal.write(world, "no_such_note")
   end)
-  T.eq(world.state.journal, nil, "no run state until a flag is asked")
-  T.truthy(Journal.once(world, "stray_dog"))
-  T.falsy(Journal.once(world, "stray_dog"))
-  T.truthy(Journal.once(world, "other"))
-  T.truthy(Journal.once(newWorld(), "stray_dog"), "a new run asks again")
 end)
 
 -- Save ----------------------------------------------------------------------------------------------------------------

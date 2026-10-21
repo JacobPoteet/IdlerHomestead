@@ -123,7 +123,7 @@ T.test("status: a new run has none, and nothing changes while none is active", f
   T.eq(Status.modifier(world, "conditionDrain"), 0)
   T.eq(Needs.waterNeeded(world), tun.needs.dailyWater)
   T.eq(Water.bucketCapacity(world), tun.actors.bucketCapacity)
-  T.eq(Actors.fallFactor(world), 1)
+  T.eq(Stats.factor(world, "fallChance"), 1)
   T.eq(world.state.status.active[1], nil)
 end)
 
@@ -411,9 +411,9 @@ end)
 T.test("status hook: fall chance is the actors' accessor", function()
   local world = newWorld()
   Status.apply(world, "ankle_2")
-  T.eq(Actors.fallFactor(world), 2)
+  T.eq(Stats.factor(world, "fallChance"), 2)
   Status.apply(world, "ankle_2") -- torn: 3
-  T.eq(Actors.fallFactor(world), 3)
+  T.eq(Stats.factor(world, "fallChance"), 3)
 end)
 
 T.test("status hook: the warmth need follows a fever (tonight, not the season-long forecast)", function()
