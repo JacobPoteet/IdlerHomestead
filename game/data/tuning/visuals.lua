@@ -112,6 +112,7 @@ return {
       line = { 0.70, 0.90, 1.00 }, -- connection dots and reach rings
       rich = { 0.46, 0.86, 0.38 }, -- the Soil lens: fertile ground
       poor = { 1.00, 0.66, 0.22 }, -- the Soil lens: worn ground
+      weed = { 0.92, 0.40, 0.80 }, -- the Soil lens: weeds (D180), a magenta that neither the green nor the amber of fertility can be mistaken for
     },
     power = {
       sourceBase = 1.6, -- tiles: radius of a source's pool before its peak adds to it
@@ -143,6 +144,7 @@ return {
       density = 0.7, -- 0..1 stipple density of the richest ground in the farm (the world shows through the rest)
       minLevel = 0.35, -- 0..1 share of that density the poorest ground keeps, so worn land still shows
       wildShare = 0.6, -- 0..1 share of the density ground that is not part of the farm gets
+      weedDensity = 0.6, -- 0..1 stipple density of the thickest weeds (a sprout paints at 0.4 of it)
     },
     refreshSeconds = 0.25, -- real seconds between rebuilds of the data texture while a lens is on
   },

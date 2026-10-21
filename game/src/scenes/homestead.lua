@@ -64,6 +64,7 @@ local Soil = require("src.sim.systems.soil")
 local Tasks = require("src.sim.systems.tasks")
 local Threats = require("src.sim.systems.threats")
 local Cat = require("src.sim.systems.cat")
+local Compost = require("src.sim.systems.compost")
 local Animals = require("src.sim.systems.animals")
 local Finds = require("src.sim.systems.finds")
 local Machines = require("src.sim.systems.machines")
@@ -4315,6 +4316,14 @@ function Homestead:tileInfo(i)
         pressure >= soilCfg.pestAt and " (high): rotate the crop" or ""
       )
     end
+    local weeds = Soil.weeds(world, i)
+    if weeds > 0 then
+      lines[#lines + 1] = string.format(
+        "Weeds %d%%%s",
+        math.floor(weeds * 100 + 0.5),
+        weeds >= soilCfg.weedHigh and " (high): tap to pull them" or ""
+      )
+    end
     if Threats.blightAt(world, i) then
       lines[#lines + 1] = "Blight: pull it before it spreads"
     end
@@ -4390,6 +4399,17 @@ function Homestead:tileInfo(i)
       end
       if thirsty > 0 then
         lines[#lines + 1] = string.format("%d thirsty crops in zone", thirsty)
+      end
+    end
+    if obj.compost then
+      local info = Compost.info(world, anchor)
+      lines[#lines + 1] = string.format("Raw %d / %d", math.floor(info.raw), info.cap)
+      if info.batch and info.batch.blocked then
+        lines[#lines + 1] = string.format("Compost done: %d waiting for storage room", info.batch.count)
+      elseif info.batch then
+        lines[#lines + 1] = string.format("Composting %d · %.1fh left", info.batch.count, info.batch.hoursLeft)
+      else
+        lines[#lines + 1] = string.format("Fills to %d raw to start a batch", world.tuning.compost.startAt)
       end
     end
     if obj.station then

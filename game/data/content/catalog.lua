@@ -532,6 +532,18 @@ return {
     object = "cheese_press",
     unique = true,
   },
+  -- Compost (PLAN_DEPTH 8.4, D181): learned from the first rotten vegetable, so spoilage is what teaches it.
+  {
+    id = "compost_bin",
+    name = "Compost bin",
+    line = "Manure and rotten food become compost.",
+    desc = "Takes manure, crop trimmings and spoiled food and turns them into compost over a couple of days. Compost is spread on worn field tiles by the Upkeep routine.",
+    page = "preserving",
+    price = 25,
+    needs = { "produce_spoils" },
+    studyNights = 1,
+    object = "compost_bin",
+  },
   -- Machines (GDD §5.3 rung 3, §7.4, D65): a mid-game goal once the field is big and the power is up.
   {
     id = "auto_harvester",
@@ -616,13 +628,13 @@ return {
   {
     id = "straw_mulch",
     name = "Straw mulch",
-    line = "Mulched beds stay damp through droughts.",
+    line = "Mulched beds stay damp and grow few weeds.",
     page = "weather",
     price = 15,
     needs = { "dry_spell" },
     studyNights = 1,
     equipment = true,
-    modifiers = { droughtGuard = 0.75 },
+    modifiers = { droughtGuard = 0.75, weedGuard = 0.75 }, -- weedGuard: the share of weed sprouting and growth it holds back (D180)
   },
   {
     id = "row_covers",

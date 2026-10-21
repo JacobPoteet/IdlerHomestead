@@ -14,6 +14,7 @@ local Inventory = require("src.sim.systems.inventory")
 local Market = require("src.sim.systems.market")
 local Machines = require("src.sim.systems.machines")
 local Power = require("src.sim.systems.power")
+local Soil = require("src.sim.systems.soil")
 local Stand = require("src.sim.systems.stand")
 local Wardrobe = require("src.sim.systems.wardrobe")
 local Journal = require("src.sim.systems.journal")
@@ -184,6 +185,11 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
       zeroYields = 0,
       pestHits = 0,
       blightOutbreaks = 0,
+      weedCut = 0, -- weeds and compost (D180, D181): the yield share weeds cut (summed over harvests), tiles pulled, overgrown tile-days, compost made and spread
+      weedsPulled = 0,
+      weedyDays = 0,
+      compostMade = 0,
+      compostSpread = 0,
       rainDays = 0,
       cloudyDays = 0,
       brownouts = 0,
@@ -261,6 +267,16 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
     c.harvestsRepeat = c.harvestsRepeat + (e.repeated and 1 or 0)
     c.pressureCut = c.pressureCut + tuning.soil.pressureCut * e.pressure
     c.zeroYields = c.zeroYields + (e.amount < 1 and 1 or 0)
+    c.weedCut = c.weedCut + tuning.soil.weedCut * e.weeds
+  end)
+  events:on("weed.pulled", function()
+    result.counters.weedsPulled = result.counters.weedsPulled + 1
+  end)
+  events:on("compost.done", function(e)
+    result.counters.compostMade = result.counters.compostMade + e.count
+  end)
+  events:on("compost.spread", function()
+    result.counters.compostSpread = result.counters.compostSpread + 1
   end)
   events:on("pest.struck", function(e)
     result.counters.pestHits = result.counters.pestHits + (e.saved and 0 or 1)
@@ -416,6 +432,11 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
   events:on("calendar.newDay", function()
     if not failed then
       policy:daily(world)
+    end
+    for _, i in ipairs(Soil.weedTiles(world)) do -- after the dawn's growth: tiles the routine has let get overgrown
+      if Soil.weeds(world, i) >= tuning.soil.weedHigh then
+        result.counters.weedyDays = result.counters.weedyDays + 1
+      end
     end
   end)
 
@@ -1249,6 +1270,17 @@ function Balance.printFeatures(summary, years)
       q("zeroYields").mean,
       q("pestHits").mean,
       q("blightOutbreaks").mean
+    )
+  )
+  line(
+    string.format(
+      "Weeds and compost per run (mean): yield cut by weeds %.1f%% on average, %.0f tiles pulled, %.1f overgrown tile-days, "
+        .. "compost made %.1f and spread on %.1f tiles",
+      100 * q("weedCut").mean / harvests,
+      q("weedsPulled").mean,
+      q("weedyDays").mean,
+      q("compostMade").mean,
+      q("compostSpread").mean
     )
   )
   line(

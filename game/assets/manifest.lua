@@ -62,6 +62,7 @@ return {
     chicken_coop = { placeholder = "chicken_coop", w = 32, h = 24 },
     goat_pen = { placeholder = "goat_pen", w = 32, h = 32 },
     cheese_press = { placeholder = "cheese_press", w = 16, h = 16 },
+    compost_bin = { placeholder = "compost_bin", w = 16, h = 16 }, -- D181
     auto_harvester = { placeholder = "auto_harvester", w = 16, h = 24 },
 
     -- Crops: one sprite per growth stage (1 = sprout ... 3 = ready)
@@ -235,6 +236,9 @@ return {
     icon_goat_pen = { placeholder = "icon_goat_pen", w = 12, h = 12 },
     icon_goat_trailer = { placeholder = "icon_goat_trailer", w = 12, h = 12 },
     icon_cheese_press = { placeholder = "icon_cheese_press", w = 12, h = 12 },
+    icon_compost_bin = { placeholder = "icon_compost_bin", w = 12, h = 12 }, -- D181
+    icon_manure = { placeholder = "icon_manure", w = 12, h = 12 },
+    icon_compost = { placeholder = "icon_compost", w = 12, h = 12 },
     icon_auto_harvester = { placeholder = "icon_auto_harvester", w = 12, h = 12 },
     icon_fuel = { placeholder = "icon_fuel", w = 12, h = 12 },
     icon_fuel_can = { placeholder = "icon_fuel", w = 12, h = 12 },

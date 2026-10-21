@@ -4,7 +4,7 @@
 -- markers; tests read this directly. Never changes the sim.
 --
 --   Power:  r = source pools, g = sink bands, b = sinks that are short of power, a = unused
---   Soil:   r = fertility, g = the farm (tilled, planned or planted), a = farmable ground (b unused)
+--   Soil:   r = fertility, g = the farm (tilled, planned or planted), b = weeds on the farm (D180), a = farmable ground
 --   Water:  r = water table, g = irrigation coverage (count / 4), b = ground a well or pump can go on,
 --           a = coverage of lines that have run dry (count / 4)
 --
@@ -137,6 +137,7 @@ function Fields.soil(world)
   end
   for _, i in ipairs(Crops.fieldTiles(world)) do
     f.g[i] = 1
+    f.b[i] = Soil.weeds(world, i)
   end
   return f
 end

@@ -694,6 +694,8 @@ return {
       fieldNone = "No field yet",
       field = "Field: %d tiles, fertility %d%% on average",
       fieldLow = "Poorest tile %d%%",
+      weeds = "Weeds on %d tiles, %d overgrown", -- D180: tiles with any weeds, tiles from weedHigh
+      weedsNone = "No weeds",
       noSeed = "Pick a seed to see what a plan would give",
       noGround = "Nothing farmable under the pointer",
       one = "%s here: about %.1f, fertility %d%%",
@@ -707,7 +709,7 @@ return {
     legend = {
       power = "Warm pools make power, cool bands use it. Dots march along each connection.",
       water = "Contour bands are the water table. Dotted ground is watered. A well or pump needs a bright band.",
-      soil = "Dense green is rich ground, thin amber is worn. Your field is bright, wild ground faint. Beans and fallow rest it.",
+      soil = "Dense green is rich ground, thin amber is worn. Your field is bright, wild ground faint. Beans, fallow and compost rest it. Pink flecks are weeds: the Upkeep routine pulls them.",
     },
   },
   tonight = { -- the Tonight card (GDD §4.2, D161; src/ui/tonight.lua, src/ui/tonight_card.lua); UI pixels

@@ -29,6 +29,7 @@ return {
   "finds",
   "cat",
   "animals",
+  "compost", -- D181: the bins, the manure loop and the Fertilize task; after animals, whose Tend chores rake into it
   "threats",
   "shelter", -- D82: accessors only (insulation, heater slot, best bed); read by power, needs, sleep
   "needs",

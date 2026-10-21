@@ -210,6 +210,23 @@ function Card:soilRows(w, rows)
   if field then
     add({ kind = "text", h = 13, str = string.format(words.field, field.count, math.floor(field.mean * 100 + 0.5)) })
     add({ kind = "text", h = 13, str = string.format(words.fieldLow, math.floor(field.low * 100 + 0.5)) })
+    local weedy, overgrown = 0, 0
+    for _, i in ipairs(Soil.weedTiles(world)) do
+      weedy = weedy + 1
+      if Soil.weeds(world, i) >= world.tuning.soil.weedHigh then
+        overgrown = overgrown + 1
+      end
+    end
+    if weedy > 0 then
+      add({
+        kind = "text",
+        h = 13,
+        str = string.format(words.weeds, weedy, overgrown),
+        color = overgrown > 0 and theme.colors.danger or theme.colors.textDim,
+      })
+    else
+      add({ kind = "text", h = 13, str = words.weedsNone, color = theme.colors.textDim })
+    end
   else
     add({ kind = "text", h = 14, str = words.fieldNone, color = theme.colors.textDim })
   end

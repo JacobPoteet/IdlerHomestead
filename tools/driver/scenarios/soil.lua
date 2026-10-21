@@ -134,4 +134,70 @@ return function(d)
   assert(not hasLine(scene:tileInfo(pi), "Blight"), "no crop, no blight line")
   scene.selected = nil
   d:frames(6)
+
+  -- Weeds (D180, #366): the Soil lens flecks weedy field tiles, its card counts them, the tile card names the level and
+  -- a tap pulls them (the Weed order). The weeds are set through the sim (a scenario cannot wait for the timer).
+  local wx, wy = tillableNear(d, 1, 1)
+  local wi = Grid.index(grid, wx, wy)
+  world.state.fields.tilled[wi] = true
+  world.state.soil.weeds[wi] = 0.3
+  for n = 0, 5 do
+    local ti = Grid.index(grid, ax + n % 3, ay + 1 + math.floor(n / 3))
+    if Grid.terrain(world, ti).tillable and not world.occupancy[ti] then
+      world.state.fields.tilled[ti] = true
+      world.state.soil.weeds[ti] = 0.2 + 0.15 * n
+    end
+  end
+  assert(hasLine(scene:tileInfo(wi), "Weeds 30%"), "a weedy tile names its level")
+  assert(not hasLine(scene:tileInfo(wi), "(high)"), "30% is not yet high")
+  world.state.soil.weeds[wi] = 0.7
+  assert(hasLine(scene:tileInfo(wi), "Weeds 70% (high): tap to pull them"), "a high one says to pull it")
+  scene.seedButtons.radish.onPress()
+  d:frames(2)
+  d:pick("Plan field")
+  d:frames(10)
+  assert(scene.lens:active() == "soil", "the lens shows the weeds")
+  d:shot("weeds_lens")
+  scene.lens:dismiss()
+  d:frames(4)
+  scene.mode = "act"
+  scene.seed = nil
+  d:frames(2)
+  d:clickTile(wx, wy)
+  d:frames(4)
+  d:setSpeed(1)
+  d:advance(20)
+  d:setSpeed(0)
+  d:frames(4)
+  assert((world.state.soil.weeds[wi] or 0) == 0, "the homesteader pulled them")
+  dismissFinds(d)
+
+  -- Compost (D181, #367): a bin shows its raw store and its batch on the tile card.
+  local Inventory = require("src.sim.systems.inventory")
+  local hx, hy = d:homesteaderTile()
+  local bin
+  for r = 2, 12 do -- the nearest tile the bin can go on (not the field, the road or a building)
+    for y = hy - r, hy + r do
+      for x = hx - r, hx + r do
+        local ti = Grid.inBounds(grid, x, y) and Grid.index(grid, x, y)
+        if not bin and ti and Inventory.canPlace(world, "compost_bin", ti) then
+          bin = ti
+        end
+      end
+    end
+  end
+  assert(bin, "a spot for the bin")
+  Inventory.addObject(world, "compost_bin")
+  assert(Inventory.place(world, "compost_bin", bin), "the bin is placed")
+  local Compost = require("src.sim.systems.compost")
+  Compost.feed(world, 6, "residue")
+  d:setSpeed(1)
+  d:advance(1)
+  d:setSpeed(0)
+  assert(hasLine(scene:tileInfo(bin), "Composting 3"), "the card names the running batch")
+  scene.selected = bin
+  d:frames(12)
+  d:shot("compost_bin_card")
+  scene.selected = nil
+  d:frames(4)
 end

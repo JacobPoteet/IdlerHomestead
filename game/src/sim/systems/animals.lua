@@ -37,6 +37,7 @@
 
 local Calendar = require("src.sim.systems.calendar")
 local Cat = require("src.sim.systems.cat")
+local Compost = require("src.sim.systems.compost")
 local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
 local Stats = require("src.sim.stats")
@@ -349,7 +350,8 @@ function Animals.tend(world)
     end
     s.water = coopTotal(world, "waterer")
   end
-  world.events:emit("animals.tended", { eggs = eggs, feed = feed, kind = "hens" })
+  local manure = Compost.rake(world, "hens") -- the chore also rakes the house out for the compost bin (D181)
+  world.events:emit("animals.tended", { eggs = eggs, feed = feed, kind = "hens", manure = manure })
   return eggs, feed
 end
 
@@ -377,7 +379,8 @@ function Animals.tendPen(world)
     end
     g.water = penTotal(world, "trough")
   end
-  world.events:emit("animals.tended", { milk = milk, feed = hay, kind = "goats" })
+  local manure = Compost.rake(world, "goats")
+  world.events:emit("animals.tended", { milk = milk, feed = hay, kind = "goats", manure = manure })
   return milk, hay
 end
 

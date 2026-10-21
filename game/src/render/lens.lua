@@ -152,6 +152,8 @@ function Lens:pass(graded, target, args)
     cLine = paint.line,
     cRich = paint.rich,
     cPoor = paint.poor,
+    cWeed = paint.weed,
+    weedDensity = cfg.soil.weedDensity,
     soilMin = cfg.soil.minLevel,
     wildShare = cfg.soil.wildShare,
     soilDensity = cfg.soil.density,

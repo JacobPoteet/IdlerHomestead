@@ -5,13 +5,13 @@
 --     plan: the player's field layout. The idle routine tills, plants and replants planned tiles.
 --   world.state.crops = { [i] = { id, growth = 0..1, moisture = 0..1 } }
 -- A harvest draws the tile's fertility and yield scales with it; the same family twice in a row builds pest
--- pressure that cuts yield (soil.lua, D178, D179).
+-- pressure that cuts yield, and weeds cut it until the `weed` task pulls them (soil.lua, D178, D179, D180).
 -- Crops grow only while moist; one watering lasts tuning.farming.moistureDays. Nothing grows or
 -- can be planted while the ground is frozen, and the first frost kills whatever is still in the
 -- ground (GDD §4.1), except a `hardy` crop, which sits the winter out dormant (D177). A crop is sown only in
 -- the seasons of its `plantSeasons`.
 -- Emits "crop.planted" { crop, tile }, "crop.harvested" { crop, tile, amount, seeds } and
--- "crop.frosted" { crop, tile }. "crop.harvested" also carries the tile's `pressure` and whether the harvest `repeated` its family.
+-- "crop.frosted" { crop, tile }. "crop.harvested" also carries the tile's `pressure`, whether the harvest `repeated` its family, and its `weeds`.
 
 local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
@@ -89,6 +89,11 @@ function Crops.tileStatus(world, i)
     mature = crop ~= nil and Crops.isMature(crop),
     held = fields.held[i] == true,
   }
+end
+
+--- Is tile i held for a queued placement (D79)?
+function Crops.isHeld(world, i)
+  return world.state.fields.held[i] == true
 end
 
 --- Hold (or release) tiles for a queued placement (D79): a held tile takes no new plan, tilling or
@@ -490,7 +495,7 @@ local function registerTasks(world)
       local def = w.registry:get("crops", crop.id)
       local rng = w:rng("farming")
       local mult = Soil.yieldMultiplier(w, i) -- soil quality, fertility and pest pressure (D178, D179), read before the harvest changes them
-      local pressure, repeated = Soil.pressure(w, i), Soil.repeats(w, i, def)
+      local pressure, repeated, weeds = Soil.pressure(w, i), Soil.repeats(w, i, def), Soil.weeds(w, i)
       local amount = math.max(1, math.floor(def.yield * mult + rng:float()))
       local seeds = rng:int(def.seedReturn[1], def.seedReturn[2])
       w.state.crops[i] = nil
@@ -500,9 +505,46 @@ local function registerTasks(world)
       -- here is only a same-tick safety net and is announced, never silent.
       Ledger.addOrOverflow(w, def.produce, amount, "harvest")
       Ledger.addOrOverflow(w, def.seed, seeds, "harvest")
-      local harvest =
-        { crop = def.id, tile = i, amount = amount, seeds = seeds, pressure = pressure, repeated = repeated }
+      local harvest = {
+        crop = def.id,
+        tile = i,
+        amount = amount,
+        seeds = seeds,
+        pressure = pressure,
+        repeated = repeated,
+        weeds = weeds,
+      }
       w.events:emit("crop.harvested", harvest)
+    end,
+  })
+
+  -- Weeding (D180): the idle routine pulls a tile from `weedPullAt`, the player's tap pulls any weedy tile.
+  -- A tap on a ripe or dry crop still harvests or waters first (clickOrder 35 sits after both).
+  Tasks.register(world, {
+    id = "weed",
+    category = "maintenance",
+    verb = "Weed",
+    clickOrder = 35,
+    candidates = function(w, _, add)
+      local pullAt = w.tuning.soil.weedPullAt
+      for _, i in ipairs(Soil.weedTiles(w)) do
+        if Soil.weeds(w, i) >= pullAt then
+          add(i)
+        end
+      end
+    end,
+    canDo = function(w, _, i, order)
+      local level = Soil.weeds(w, i)
+      if level <= 0 or fields.held[i] then
+        return false
+      end
+      return order ~= nil or level >= w.tuning.soil.weedPullAt
+    end,
+    workTime = function(w)
+      return w.tuning.soil.weedPullTime
+    end,
+    complete = function(w, _, i)
+      Soil.pull(w, i)
     end,
   })
 

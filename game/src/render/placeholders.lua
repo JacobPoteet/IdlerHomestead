@@ -1168,6 +1168,50 @@ function P.cheese_press(p)
   p:px(9, 12, CHEESE_DARK)
 end
 
+local COMPOST_DARK = { 0.24, 0.17, 0.11 }
+local COMPOST_MID = { 0.36, 0.26, 0.16 }
+local COMPOST_PILE = { 0.30, 0.22, 0.14 }
+
+-- The compost bin (16x16): a slatted box of boards with a heap of dark compost over the rim.
+function P.compost_bin(p)
+  p:ellipse(8, 14, 7, 1, C.shadow)
+  p:rect(2, 6, 12, 8, COMPOST_MID) -- the heap, seen over the front boards
+  p:rect(4, 4, 8, 3, COMPOST_PILE)
+  p:px(6, 3, C.leafLight)
+  p:px(9, 4, C.leafLight)
+  p:px(7, 5, C.leaf)
+  p:rect(2, 7, 12, 7, C.bark) -- front boards
+  p:rect(2, 9, 12, 1, C.barkDark)
+  p:rect(2, 12, 12, 1, C.barkDark)
+  p:rect(2, 6, 2, 8, C.barkLight) -- corner posts
+  p:rect(12, 6, 2, 8, C.barkLight)
+end
+
+function P.icon_compost_bin(p)
+  p:rect(2, 2, 8, 3, COMPOST_PILE)
+  p:rect(1, 4, 10, 6, C.bark)
+  p:rect(1, 6, 10, 1, C.barkDark)
+  p:rect(1, 8, 10, 1, C.barkDark)
+  p:px(5, 1, C.leafLight)
+end
+
+function P.icon_manure(p)
+  p:rect(2, 7, 8, 3, COMPOST_MID) -- a forkful of muck
+  p:rect(3, 5, 6, 2, COMPOST_PILE)
+  p:rect(4, 3, 3, 2, COMPOST_MID)
+  p:px(5, 2, HAY_GOLD)
+  p:px(8, 4, HAY_GOLD)
+  p:px(2, 6, HAY_GOLD)
+end
+
+function P.icon_compost(p)
+  p:rect(2, 7, 8, 3, COMPOST_DARK) -- a handful of crumbly compost
+  p:rect(3, 5, 6, 2, COMPOST_PILE)
+  p:rect(4, 3, 4, 2, COMPOST_DARK)
+  p:px(5, 4, C.leafLight)
+  p:px(7, 6, C.leaf)
+end
+
 function P.icon_goat(p)
   p:rect(2, 4, 7, 4, GOAT_COAT)
   p:rect(2, 7, 7, 1, GOAT_DARK)
