@@ -1242,6 +1242,10 @@ local HAIL_ICE = { 0.86, 0.93, 1.0 }
 local SUN = { 0.98, 0.78, 0.25 }
 local LOCUST = { 0.52, 0.62, 0.22 }
 local LOCUST_DARK = { 0.34, 0.42, 0.14 }
+local BLIGHT = { 0.42, 0.36, 0.22 }
+local BLIGHT_DARK = { 0.24, 0.2, 0.12 }
+local COPPER = { 0.36, 0.66, 0.58 }
+local COPPER_DARK = { 0.22, 0.44, 0.4 }
 local NET = { 0.85, 0.85, 0.80 }
 local STRAW = { 0.86, 0.74, 0.40 }
 
@@ -1273,6 +1277,26 @@ function P.icon_locust(p)
   p:px(2, 9, LOCUST_DARK)
   p:px(6, 8, LOCUST_DARK)
   p:px(7, 9, LOCUST_DARK)
+end
+
+function P.icon_blight(p)
+  p:rect(5, 4, 1, 7, C.leaf)
+  p:rect(2, 3, 3, 3, BLIGHT)
+  p:rect(6, 2, 3, 3, BLIGHT)
+  p:px(3, 4, BLIGHT_DARK)
+  p:px(7, 3, BLIGHT_DARK)
+  p:px(4, 8, BLIGHT_DARK)
+  p:px(8, 8, BLIGHT_DARK)
+  p:rect(0, 11, 12, 1, C.soilWet)
+end
+
+function P.icon_copper_spray(p)
+  p:rect(0, 9, 12, 2, C.soilDry)
+  p:rect(3, 3, 5, 6, COPPER)
+  p:rect(4, 1, 3, 2, COPPER_DARK)
+  p:px(9, 2, COPPER)
+  p:px(10, 3, COPPER)
+  p:px(9, 4, COPPER)
 end
 
 function P.icon_frost(p)

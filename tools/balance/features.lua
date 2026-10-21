@@ -7,6 +7,7 @@
 
 local Animals = require("src.sim.systems.animals")
 local Calendar = require("src.sim.systems.calendar")
+local Crops = require("src.sim.systems.crops")
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
@@ -15,6 +16,7 @@ local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Needs = require("src.sim.systems.needs")
 local Power = require("src.sim.systems.power")
+local Soil = require("src.sim.systems.soil")
 local Water = require("src.sim.systems.water")
 local Weather = require("src.sim.systems.weather")
 
@@ -22,6 +24,9 @@ local Features = {}
 
 --- Feature ids, in the order they are listed in reports.
 Features.LIST = { "cat", "stand", "chickens", "goats", "water", "power", "machines", "finds", "weather" }
+
+--- Opt-in behaviours: only on when named, never part of `all`, so the standing baselines do not move.
+Features.OPT_IN = { "rotate" }
 
 Features.describe = {
   cat = "buy the shelter cat once the Mice note unlocks it (#115)",
@@ -33,6 +38,7 @@ Features.describe = {
   machines = "buy the auto-harvester last on the list and place it where it reaches the most field (#42)",
   finds = "choose finds by need instead of the first option (#111)",
   weather = "active: no hauling water in the rain (#101)",
+  rotate = "replant empty planned tiles with a family other than the one last harvested there, from the seeds in hand (D179)",
 }
 
 --- Parse a `features=` value: nil/"all" is every feature, "none" is none, else a comma list.
@@ -49,11 +55,23 @@ function Features.parse(spec)
     return set
   end
   for id in spec:gmatch("[^,]+") do
-    assert(
-      Features.describe[id],
-      "unknown feature '" .. id .. "' (" .. table.concat(Features.LIST, "|") .. "|all|none)"
-    )
-    set[id] = true
+    if id == "all" then -- `all,rotate`: every standing feature plus the opt-ins named
+      for _, every in ipairs(Features.LIST) do
+        set[every] = true
+      end
+    else
+      assert(
+        Features.describe[id],
+        "unknown feature '"
+          .. id
+          .. "' ("
+          .. table.concat(Features.LIST, "|")
+          .. "|"
+          .. table.concat(Features.OPT_IN, "|")
+          .. "|all|none)"
+      )
+      set[id] = true
+    end
   end
   return set
 end
@@ -62,6 +80,11 @@ end
 function Features.label(set)
   local ids = {}
   for _, id in ipairs(Features.LIST) do
+    if set[id] then
+      ids[#ids + 1] = id
+    end
+  end
+  for _, id in ipairs(Features.OPT_IN) do
     if set[id] then
       ids[#ids + 1] = id
     end
@@ -389,9 +412,42 @@ end
 
 -- Daily switching (power) -------------------------------------------------------------------------------
 
+--- Rotation (D179): an empty planned tile whose plan repeats the family last harvested there is replanned with a
+--- crop of another family that can be sown now and has seed to spare (each seed promised to one tile only).
+function Features.rotate(world)
+  local fields = world.state.fields
+  local tiles = {}
+  for i in pairs(fields.plan) do
+    if not world.state.crops[i] then
+      tiles[#tiles + 1] = i
+    end
+  end
+  table.sort(tiles)
+  local spare = {}
+  for _, crop in ipairs(world.registry:all("crops")) do
+    spare[crop.id] = Ledger.get(world, crop.seed)
+  end
+  for _, i in ipairs(tiles) do
+    local planned = world.registry:get("crops", fields.plan[i])
+    local last = Soil.lastFamily(world, i)
+    if last and planned.family == last then
+      for _, crop in ipairs(world.registry:all("crops")) do
+        if crop.family ~= last and spare[crop.id] > 0 and Crops.canPlantNow(world, crop) then
+          spare[crop.id] = spare[crop.id] - 1
+          Crops.setPlan(world, i, crop.id)
+          break
+        end
+      end
+    end
+  end
+end
+
 --- Morning switches: while it is warm the truck is charged before the battery bank; near winter the
 --- bank comes first so the heater has stored sun for the dark hours.
 function Features.daily(world, set)
+  if set.rotate then
+    Features.rotate(world)
+  end
   if not set.power then
     return
   end

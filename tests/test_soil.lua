@@ -296,6 +296,260 @@ T.test("soil: fertility and the worked set survive a save, packed with the grid"
   T.eq(Soil.fertility(loaded, i), 0.4)
 end)
 
+-- Rotation and pest pressure (PLAN_DEPTH 8.3, D179) ----------------------------------------------------
+
+T.test(
+  "pressure: the same family twice in a row builds it, rotating relieves it, the first harvest sets none",
+  function()
+    local world = newWorld()
+    local i = freeTile(world)
+    harvest(world, i, "radish")
+    T.eq(Soil.pressure(world, i), 0, "no history, no pressure")
+    T.eq(world.state.soil.family[i], "brassicas", "the family is remembered")
+    harvest(world, i, "radish")
+    T.near(Soil.pressure(world, i), cfg.pressurePerRepeat, 0.001, "a repeat builds pressure")
+    harvest(world, i, "radish")
+    T.near(Soil.pressure(world, i), 2 * cfg.pressurePerRepeat, 0.001)
+    harvest(world, i, "potato")
+    T.near(
+      Soil.pressure(world, i),
+      math.max(0, 2 * cfg.pressurePerRepeat - cfg.rotateRelief),
+      0.001,
+      "a rotation relieves it"
+    )
+    T.eq(world.state.soil.family[i], "nightshades")
+    harvest(world, i, "beans")
+    harvest(world, i, "radish")
+    T.eq(Soil.pressure(world, i), 0, "rotating clears it for good")
+  end
+)
+
+T.test("pressure: it caps at 1, is whole hundredths and reports each change", function()
+  local world = newWorld()
+  local i = freeTile(world)
+  local seen = {}
+  world.events:on("soil.pressure", function(e)
+    seen[#seen + 1] = e
+  end)
+  for _ = 1, 8 do
+    harvest(world, i, "radish")
+  end
+  T.eq(Soil.pressure(world, i), 1, "capped")
+  T.eq(math.floor(Soil.pressure(world, i) * 100 + 0.5) / 100, Soil.pressure(world, i))
+  T.truthy(#seen >= 4 and seen[1].cause == "repeat" and seen[1].tile == i, "each change is announced")
+  local before = #seen
+  harvest(world, i, "radish")
+  T.eq(#seen, before, "no change, no event")
+end)
+
+T.test("pressure: it cuts yield by a share, and the cut never reaches zero", function()
+  local world = newWorld()
+  local i = freeTile(world)
+  T.eq(Soil.pressureFactor(world, i), 1, "clean ground: no cut")
+  world.state.soil.pressure[i] = 1
+  T.near(Soil.pressureFactor(world, i), 1 - cfg.pressureCut, 1e-9)
+  T.truthy(cfg.pressureCut > 0 and cfg.pressureCut < 1, "a share of the yield, not all of it")
+  local clean = freeTile(world, i)
+  T.truthy(Soil.yieldMultiplier(world, i) < Soil.yieldMultiplier(world, clean) + 1e-9, "pressure only lowers")
+  -- The worst ground there is: no fertility, full pressure, the poorest soil. A harvest still gives something.
+  world.state.grid.fertility[i] = 0
+  world.state.grid.soil[i] = 0
+  T.truthy(Soil.yieldMultiplier(world, i) > 0)
+  for _ = 1, 30 do
+    harvest(world, i, "radish")
+    T.truthy(world.state.soil.pressure[i] == 1)
+    T.truthy(Ledger.get(world, "radish") > 0)
+    local before = Ledger.get(world, "radish")
+    Ledger.remove(world, "radish", before, "test")
+    world.state.grid.fertility[i] = 0
+  end
+end)
+
+T.test("pressure: the Plan readout and the harvest read the pressured multiplier", function()
+  local world = newWorld()
+  local i = freeTile(world)
+  local clean = Soil.expectedYield(world, "radish", i)
+  world.state.soil.pressure[i] = 1
+  T.near(Soil.expectedYield(world, "radish", i), clean * (1 - cfg.pressureCut), 1e-9)
+end)
+
+T.test("pressure: harvested announces the pressure and whether the family repeated", function()
+  local world = newWorld()
+  local i = freeTile(world)
+  local seen = {}
+  world.events:on("crop.harvested", function(e)
+    seen[#seen + 1] = e
+  end)
+  harvest(world, i, "radish")
+  harvest(world, i, "radish")
+  harvest(world, i, "potato")
+  T.eq(seen[1].repeated, false)
+  T.eq(seen[2].repeated, true)
+  T.near(seen[3].pressure, cfg.pressurePerRepeat, 0.001, "the pressure the harvest met, before it changed")
+  T.eq(seen[3].repeated, false)
+end)
+
+T.test("pressure: a tile with no crop sheds it a day, and a crop on it holds it", function()
+  local world = newWorld()
+  local i = freeTile(world)
+  local j = freeTile(world, i)
+  world.state.soil.pressure[i] = 0.3
+  world.state.soil.pressure[j] = 0.3
+  world.state.crops[j] = { id = "radish", growth = 0.1, moisture = 1 }
+  newDay(world)
+  T.near(Soil.pressure(world, i), 0.3 - cfg.fallowRelief, 0.001)
+  T.eq(Soil.pressure(world, j), 0.3, "a growing crop keeps it")
+  for _ = 1, 40 do
+    newDay(world)
+  end
+  T.eq(Soil.pressure(world, i), 0, "fallow clears it")
+  T.eq(world.state.soil.pressure[i], nil, "and the tile leaves the set")
+  T.eq(world.state.soil.family[i], nil, "no history was made here")
+end)
+
+local function pestWorld(seed)
+  local world = newWorld(seed)
+  local tiles = {}
+  for n = 1, 6 do
+    local i = freeTile(world) -- planting it takes the tile out of the next search
+    tiles[n] = i
+    world.state.soil.pressure[i] = n <= 3 and 1 or 0.2
+    world.state.crops[i] = { id = "potato", growth = 0.1, moisture = 1 }
+  end
+  return world, tiles
+end
+
+T.test(
+  "pests: high pressure invites a pest that knocks the crop back, never kills it; low pressure is left alone",
+  function()
+    local world, tiles = pestWorld()
+    local seen = {}
+    world.events:on("pest.struck", function(e)
+      seen[#seen + 1] = e
+    end)
+    local damaged = {}
+    world.events:on("crop.damaged", function(e)
+      damaged[e.tile] = e.cause
+    end)
+    for _ = 1, 30 do
+      newDay(world)
+      for _, i in ipairs(tiles) do
+        T.truthy(world.state.crops[i], "a pest never kills the crop")
+        world.state.crops[i].growth = 0.5 -- a hit would show as growth lost
+      end
+    end
+    T.truthy(#seen > 0, "pests came to the pressured tiles")
+    for _, e in ipairs(seen) do
+      T.truthy(e.pressure >= cfg.pestAt, "only tiles at or above pestAt are visited")
+      T.eq(damaged[e.tile], "pests", "the crop is hurt with the pests as the cause")
+    end
+    for n = 4, 6 do
+      T.eq(damaged[tiles[n]], nil, "low pressure: left alone")
+    end
+  end
+)
+
+T.test("pests: ripe crops are not rolled for, and the roll is deterministic per seed", function()
+  local function run(seed)
+    local world, tiles = pestWorld(seed)
+    world.state.crops[tiles[1]].growth = 1
+    local out = {}
+    world.events:on("pest.struck", function(e)
+      out[#out + 1] = e.tile .. "@" .. #out
+      T.truthy(e.tile ~= tiles[1], "the ripe one is spared")
+    end)
+    for _ = 1, 20 do
+      newDay(world)
+      for _, i in ipairs(tiles) do
+        world.state.crops[i].growth = i == tiles[1] and 1 or 0.5
+      end
+    end
+    return table.concat(out, " ")
+  end
+  T.eq(run(3), run(3))
+end)
+
+T.test("pests: row covers (pestGuard) turn them aside and the rolls do not change", function()
+  local Inventory = require("src.sim.systems.inventory")
+  local function run(guarded)
+    local world, tiles = pestWorld(5)
+    if guarded then
+      Inventory.addEquipment(world, "row_covers")
+    end
+    local hits, saved = 0, 0
+    world.events:on("pest.struck", function(e)
+      if e.saved then
+        saved = saved + 1
+      else
+        hits = hits + 1
+      end
+    end)
+    for _ = 1, 40 do
+      newDay(world)
+      for _, i in ipairs(tiles) do
+        world.state.crops[i].growth = 0.5
+      end
+    end
+    return hits, saved
+  end
+  local hits0, saved0 = run(false)
+  local hits1, saved1 = run(true)
+  T.eq(saved0, 0)
+  T.truthy(hits1 < hits0, "the covers cut the hits")
+  T.eq(hits1 + saved1, hits0, "the same pests came; the covers saved some")
+end)
+
+T.test("pests: their stream is their own, so the farming rolls are unchanged", function()
+  local a, tilesA = pestWorld(6)
+  local b = pestWorld(6)
+  for _ = 1, 10 do
+    newDay(a)
+    for _, i in ipairs(tilesA) do
+      a.state.crops[i].growth = 0.5
+    end
+  end
+  T.eq(a:rng("farming"):float(), b:rng("farming"):float())
+end)
+
+T.test("rotation: rotating beats replanting the same crop, and neither ever yields nothing", function()
+  local function year(rotate)
+    local world = newWorld(2)
+    local i = freeTile(world)
+    local total, least = 0, math.huge
+    local crops = rotate and { "radish", "potato", "beans", "radish", "potato", "beans" } or { "radish" }
+    for n = 1, 18 do
+      world.state.grid.fertility[i] = 0.8 -- the same ground each time: only pressure differs
+      Ledger.remove(world, "radish", Ledger.get(world, "radish"), "test")
+      Ledger.remove(world, "potato", Ledger.get(world, "potato"), "test")
+      Ledger.remove(world, "beans", Ledger.get(world, "beans"), "test")
+      local id = crops[(n - 1) % #crops + 1]
+      harvest(world, i, id)
+      local got = Ledger.get(world, reg:get("crops", id).produce)
+      T.truthy(got >= 1, "never a zero yield")
+      if id == "radish" then
+        total, least = total + got, math.min(least, got)
+      end
+    end
+    return total
+  end
+  -- Compare the radish: replanted every time it is cut; rotated it is cut only when it follows another family.
+  T.truthy(year(true) / 6 >= year(false) / 18, "a rotated radish out-yields a replanted one")
+end)
+
+T.test("pressure: family memory and pressure survive a save", function()
+  local world = newWorld()
+  local i = freeTile(world)
+  harvest(world, i, "radish")
+  harvest(world, i, "radish")
+  local data = Save.newSlotData("Soil")
+  data.run = world.state
+  local disk = serialize.decode(serialize.encode(Save.forDisk(data)))
+  Gridpack.unpack(disk.run.grid)
+  local loaded = World.new({ registry = reg, tuning = tun }, disk.run)
+  T.near(Soil.pressure(loaded, i), cfg.pressurePerRepeat, 0.001)
+  T.eq(loaded.state.soil.family[i], "brassicas")
+end)
+
 -- Cost --------------------------------------------------------------------------------------------
 
 T.test("soil: the day's fallow step and the lens data stay cheap on a large grid", function()

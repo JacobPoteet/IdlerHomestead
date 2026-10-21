@@ -272,6 +272,15 @@ return {
     match = { threat = "locusts" },
   },
   {
+    id = "blight_outbreak",
+    name = "Blight",
+    line = "Grey rot crept from bed to bed in the wet.",
+    hint = "See blight break out in wet weather",
+    icon = "icon_blight",
+    event = "threat.struck",
+    match = { threat = "blight" },
+  },
+  {
     id = "early_frost",
     name = "Early frost",
     line = "Frost came before the harvest was in.",

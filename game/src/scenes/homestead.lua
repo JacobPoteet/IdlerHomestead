@@ -62,6 +62,7 @@ local Stand = require("src.sim.systems.stand")
 local Routine = require("src.sim.systems.routine")
 local Soil = require("src.sim.systems.soil")
 local Tasks = require("src.sim.systems.tasks")
+local Threats = require("src.sim.systems.threats")
 local Cat = require("src.sim.systems.cat")
 local Animals = require("src.sim.systems.animals")
 local Finds = require("src.sim.systems.finds")
@@ -4306,6 +4307,17 @@ function Homestead:tileInfo(i)
       math.floor(fertility * 100 + 0.5),
       fertility < soilCfg.poorBelow and " (poor)" or fertility >= soilCfg.richFrom and " (rich)" or ""
     )
+    local pressure = Soil.pressure(world, i)
+    if pressure > 0 then
+      lines[#lines + 1] = string.format(
+        "Pest pressure %d%%%s",
+        math.floor(pressure * 100 + 0.5),
+        pressure >= soilCfg.pestAt and " (high): rotate the crop" or ""
+      )
+    end
+    if Threats.blightAt(world, i) then
+      lines[#lines + 1] = "Blight: pull it before it spreads"
+    end
     if Land.hasWaterTable(world, i) and not world.occupancy[i] then
       local shallow = Land.waterTable(world, i) >= world.tuning.water.table.shallow
       lines[#lines + 1] = shallow and "Water table high: dig here" or "Water table: wells work"

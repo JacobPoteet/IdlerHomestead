@@ -1,7 +1,8 @@
 -- Growing-season threats (GDD §4.1, §7.9, D67). Each year rolls a few of these (tuning.threats
 -- curves); each one writes its own Field Journal note when it strikes, and that note makes its
 -- countermeasure (a catalog equipment item) an idea. Effects are a small data vocabulary applied by
--- src/sim/systems/threats.lua: `damage` (crops hit once) or `drought` (crops dry fast for a spell).
+-- src/sim/systems/threats.lua: `damage` (crops hit once), `drought` (crops dry fast for a spell) or `spread`
+-- (blight: infected crops pass it to their neighbours until pulled).
 -- `strike` makes a threat weather-driven: it may land on any day of its span, more likely on stormy
 -- days (Weather.threat), and the forecast shows which days are risky.
 return {
@@ -65,5 +66,24 @@ return {
     guard = "frostGuard",
     counter = "frost_cloth",
     damage = { share = 0.6, kill = true, ripe = false, unripe = true },
+  },
+  {
+    id = "blight",
+    name = "Blight",
+    line = "Wet weather rots crops, and it spreads.",
+    icon = "icon_blight",
+    season = "spring",
+    startDays = { 1, 2 },
+    span = { 4, 5 },
+    hour = 9,
+    minYear = 2,
+    weight = 1,
+    guard = "blightGuard",
+    counter = "copper_spray",
+    -- seedChance: per day chance the first crop is infected on a rainy day (dryFactor of it on a dry one);
+    -- spreadChance: per day, per infected neighbour, that a crop beside it catches it (same weather factor, plus
+    -- pressureWeight x the tile's pest pressure); setback: growth an infected unripe crop loses a day;
+    -- killDays: days infected before the crop dies. The chances scale with Threats.strength.
+    spread = { seedChance = 0.5, dryFactor = 0.2, spreadChance = 0.4, pressureWeight = 1, setback = 0.15, killDays = 3 },
   },
 }

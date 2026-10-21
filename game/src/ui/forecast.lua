@@ -101,6 +101,8 @@ function Forecast.threats(world)
       text = t.name .. " " .. when(t.inDays)
     elseif world.registry:get("threats", t.id).drought then
       text = string.format("Drought, %s left: water often", plural(t.daysLeft, "day"))
+    elseif world.registry:get("threats", t.id).spread then
+      text = string.format("Blight, %s left: pull sick crops", plural(t.daysLeft, "day"))
     elseif t.risk then
       text = string.format("%s season, %s left", t.name, plural(t.daysLeft, "day"))
     else
@@ -134,6 +136,8 @@ function Forecast.threatStarted(world, id)
     return def.name .. " season: storms may bring " .. def.name:lower()
   elseif def.drought then
     return "Drought: the beds dry out fast. Keep them watered."
+  elseif def.spread then
+    return def.name .. ": wet weather spreads it. Pull sick crops."
   end
   return nil
 end
@@ -141,7 +145,9 @@ end
 --- The summary toast when a threat is over.
 function Forecast.threatSummary(world, e)
   local def = world.registry:get("threats", e.threat)
-  if not e.struck then
+  if not e.struck and def.spread then
+    return def.name .. " passed: none broke out"
+  elseif not e.struck then
     return string.format("The %s season passed without %s", def.name:lower(), def.name:lower())
   end
   local parts = {}
@@ -149,7 +155,7 @@ function Forecast.threatSummary(world, e)
     parts[#parts + 1] = plural(e.lost, "crop") .. " lost"
   end
   if e.damaged > 0 then
-    parts[#parts + 1] = plural(e.damaged, "crop") .. " knocked back"
+    parts[#parts + 1] = plural(e.damaged, "crop") .. (def.spread and " infected" or " knocked back")
   end
   if e.saved > 0 then
     parts[#parts + 1] = e.saved .. " saved by " .. world.registry:get("catalog", def.counter).name:lower()
