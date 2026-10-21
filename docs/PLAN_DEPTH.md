@@ -315,7 +315,7 @@ Berries and orchard trees cost a lot to start. In days (D168): planted in one se
 
 ### 8.6 Quality
 
-Tiers: normal, good, excellent. Quality comes from fertility, a weeded tile, timely water and **tending** (hand-watering or a tap at the right moment gives a "tended" mark). The routine reaches **good** at best; **excellent** needs active play. Sell value x1, x1.25, x1.6; contracts ask for a tier. This is the concrete answer to "what does active play give me".
+**Built as two tiers (D185):** normal and fine (x1.3); the tended mark and the excellent tier are gone, and the routine earns fine. Original text, kept for the record: tiers normal, good, excellent. Quality comes from fertility, a weeded tile, timely water and **tending** (hand-watering or a tap at the right moment gives a "tended" mark). The routine reaches **good** at best; **excellent** needs active play. Sell value x1, x1.25, x1.6; contracts ask for a tier. This is the concrete answer to "what does active play give me".
 
 ### 8.7 Later additions
 
@@ -583,10 +583,10 @@ Issues are written to be done by an agent alone: each states its goal, design re
 **Phase D: Fields and soil**
 - D1 (#363) Crop schema and 8 new crops (content, journal pages, seed items).
 - D2 (#364) Soil fertility and the overlay.
-- D3 (#365) Rotation families and pest pressure. **Simplified (D184, #430):** blight on full-pressure tiles only, never spreads.
-- D4 (#366) Weeds, weeding task, mulch. **Simplified (D184, #430):** lower weed cut, pulled by default.
-- D5 (#367) Compost bin and manure loop. **Simplified (D184, #430):** no haul task; the bin draws from the ledger.
-- D6 (#368) Quality tiers and tended marks. **Done (D182).** **Simplified (D184, #430):** two tiers, no tended mark.
+- D3 (#365) Rotation families and pest pressure. **Simplified (D184, #430), done (D185):** blight marks crops on full-pressure tiles only (`blight = { chance, dryFactor }` in threats content), spoils only that harvest, never spreads. Pressure shows only on the tile card.
+- D4 (#366) Weeds, weeding task, mulch. **Simplified (D184, #430), done (D185):** `weedCut` 0.4 to 0.15, `maintenance` moved above planting in the default routine.
+- D5 (#367) Compost bin and manure loop. **Simplified (D184, #430), done (D185):** no haul task; the bin draws from the ledger and the routine fertilizes the lowest-fertility worn tile.
+- D6 (#368) Quality tiers and tended marks. **Done (D182).** **Simplified (D184, #430), done (D185):** two tiers (normal, fine x1.3), no tended mark.
 - D7 (#369) Perennials: berries and orchard. **Done (D183).** **Simplified (D184, #430):** no death roll or hand prune.
 - D8 (#370) Routine categories and conditions for the new tasks. **MERGED (D184)** into D-simplify #430: every upkeep task ON by default, plus the idle-day chore test.
 

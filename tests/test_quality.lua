@@ -1,6 +1,6 @@
--- Crop quality (PLAN_DEPTH 8.6, D182, issue #368): the grade from fertility, weeds, thirst and the tended mark, the
--- tier tally that follows the ledger, the price multipliers at the truck and the stand, and the rule that the routine
--- reaches good while excellent needs the player.
+-- Crop quality (PLAN_DEPTH 8.6, D182, D185, issue #368): the grade from fertility, weeds and thirst, the tier tally
+-- that follows the ledger, the price multipliers at the truck and the stand, and the rule that the idle routine earns
+-- fine on healthy soil (there is no tended mark).
 local T = require("harness")
 local tuningLoader = require("src.core.tuning")
 local Registry = require("src.core.registry")
@@ -75,7 +75,7 @@ local function harvest(world, i, cropId, opts)
   world.state.fields.tilled[i] = true
   world.state.grid.fertility[i] = opts.fertility or 1
   world.state.soil.weeds[i] = opts.weeds
-  world.state.crops[i] = { id = cropId, growth = 1, moisture = 1, thirst = opts.thirst or 0, tends = opts.tends or 0 }
+  world.state.crops[i] = { id = cropId, growth = 1, moisture = 1, thirst = opts.thirst or 0 }
   local seen
   local off = world.events:on("crop.harvested", function(e)
     seen = e
@@ -89,37 +89,33 @@ end
 
 -- The data ----------------------------------------------------------------------------------------------
 
-T.test("quality: three tiers, worst first, each worth more, and the bars are ordered", function()
-  T.same(cfg.tiers, { "normal", "good", "excellent" })
+T.test("quality: two tiers, worst first, fine worth more, and the bar is a share of the penalty", function()
+  T.same(cfg.tiers, { "normal", "fine" })
   T.eq(cfg.priceMult.normal, 1)
-  T.truthy(cfg.priceMult.good > cfg.priceMult.normal and cfg.priceMult.excellent > cfg.priceMult.good)
-  T.truthy(cfg.excellentMax < cfg.goodMax, "excellent is the harder bar")
+  T.truthy(cfg.priceMult.fine > cfg.priceMult.normal)
+  T.truthy(cfg.fineMax > 0 and cfg.fineMax < 1)
   T.near(cfg.weightFertility + cfg.weightWeeds + cfg.weightWater, 1, 1e-9, "the weights share one penalty")
   local world = newWorld()
   T.eq(Quality.rank(world, "normal"), 1)
-  T.eq(Quality.rank(world, "excellent"), 3)
+  T.eq(Quality.rank(world, "fine"), 2)
   T.errors(function()
-    Quality.rank(world, "legendary")
+    Quality.rank(world, "excellent")
   end)
 end)
 
 -- The grade ----------------------------------------------------------------------------------------------
 
-T.test("quality: clean rich ground is good, a tended crop on it excellent, neglect is normal", function()
+T.test("quality: clean rich ground is fine, neglect is normal", function()
   local world = newWorld()
   setTime(world, SUMMER + 2)
   local i = freeTiles(world, 1)[1]
-  T.eq(harvest(world, i, "radish", { fertility = 1 }).quality, "good", "untended: good at best")
-  T.eq(harvest(world, i, "radish", { fertility = 1, tends = 1 }).quality, "excellent", "tended on clean rich ground")
+  local e = harvest(world, i, "radish", { fertility = 1 })
+  T.eq(e.quality, "fine", "clean rich ground")
+  T.eq(e.tended, nil, "there is no tended mark")
   T.eq(
-    harvest(world, i, "tomato", { fertility = 0.2, weeds = 0.8, thirst = 1, tends = 1 }).quality,
+    harvest(world, i, "tomato", { fertility = 0.2, weeds = 0.8, thirst = 1 }).quality,
     "normal",
-    "weedy, drained and thirsty: tended does not save it"
-  )
-  T.eq(
-    harvest(world, i, "tomato", { fertility = 0.2, weeds = 0.8, thirst = 1, tends = 1 }).tended,
-    true,
-    "the harvest says it was tended"
+    "weedy, drained and thirsty"
   )
 end)
 
@@ -127,8 +123,8 @@ T.test("quality: the more sensitive crop falls a tier sooner on the same ground"
   local world = newWorld()
   setTime(world, SUMMER + 2)
   local i = freeTiles(world, 1)[1]
-  local mid = { fertility = 0.4, weeds = 0.4, tends = 1 }
-  T.eq(harvest(world, i, "radish", mid).quality, "good", "radish (0.3) shrugs it off")
+  local mid = { fertility = 0.4, weeds = 0.4 }
+  T.eq(harvest(world, i, "radish", mid).quality, "fine", "radish (0.3) shrugs it off")
   T.eq(harvest(world, i, "tomato", mid).quality, "normal", "tomato (0.8) shows it")
 end)
 
@@ -153,7 +149,7 @@ T.test("quality: thirst builds while a crop stands dry and unripe, and stops whe
   local world = newWorld()
   setTime(world, SUMMER + 2)
   local i = freeTiles(world, 1)[1]
-  world.state.crops[i] = { id = "carrot", growth = 0, moisture = 0, thirst = 0, tends = 0 }
+  world.state.crops[i] = { id = "carrot", growth = 0, moisture = 0, thirst = 0 }
   run(world, tun.time.dayLength / 4)
   T.near(world.state.crops[i].thirst, 0.25, 0.01, "a quarter of a day dry is a quarter of a day thirsty")
   world.state.crops[i].moisture = 1
@@ -165,45 +161,9 @@ T.test("quality: thirst builds while a crop stands dry and unripe, and stops whe
   T.eq(world.state.crops[i].thirst, before, "no thirst once it is ripe")
 end)
 
--- The tended mark --------------------------------------------------------------------------------------------
+-- The idle routine earns fine --------------------------------------------------------------------------------
 
-T.test("quality: a hand order that waters or weeds a crop tends it, the routine's does not", function()
-  local world = newWorld()
-  setTime(world, SUMMER + 2)
-  local i = freeTiles(world, 1)[1]
-  world.state.crops[i] = { id = "carrot", growth = 0.3, moisture = 0, thirst = 0, tends = 0 }
-  local hs = Actors.homesteader(world)
-  hs.bucket = 3
-  local water, weed = Tasks.get(world, "water_crop"), Tasks.get(world, "weed")
-  water.complete(world, hs, i, nil) -- the routine
-  T.falsy(Crops.isTendedAt(world, i), "the routine's watering leaves no mark")
-  world.state.crops[i].moisture = 0
-  water.complete(world, hs, i, {}) -- a tap
-  T.truthy(Crops.isTendedAt(world, i), "a tap that waters tends it (tendsNeeded " .. cfg.tendsNeeded .. ")")
-  world.state.crops[i].tends = 0
-  world.state.soil.weeds[i] = 0.3
-  weed.complete(world, hs, i, {})
-  T.eq(world.state.crops[i].tends, 1, "pulling its weeds by hand tends it")
-  T.falsy(Crops.tend(world, i + 100000, {}), "nothing to tend on an empty tile")
-end)
-
-T.test("quality: the player's own tap on a dry crop leaves the mark, end to end", function()
-  local world = newWorld()
-  setTime(world, SUMMER + 2, 8)
-  local i = freeTiles(world, 1)[1]
-  world.state.crops[i] = { id = "carrot", growth = 0.3, moisture = 0, thirst = 0, tends = 0 }
-  local hs = Actors.homesteader(world)
-  hs.bucket = 1
-  Actors.order(world, hs, i, {})
-  run(world, 60)
-  T.truthy(world.state.crops[i].moisture > 0, "it was watered")
-  T.truthy(Crops.isTendedAt(world, i), "and is tended")
-  T.eq(QualityText.cropLine(world, i):find("tended", 1, true) ~= nil, true, "the tile card says so")
-end)
-
--- The routine reaches good, active play reaches excellent ----------------------------------------------------
-
-T.test("quality: left to the routine every harvest is good or normal and none is excellent", function()
+T.test("quality: left to the routine, harvests on rich ground are fine", function()
   local world = newWorld(5)
   world.control = "idle"
   setTime(world, SUMMER, 6)
@@ -213,47 +173,28 @@ T.test("quality: left to the routine every harvest is good or normal and none is
     world.state.grid.fertility[i] = 1
   end
   Ledger.add(world, "seed_radish", 8, "test")
-  local tiers = { normal = 0, good = 0, excellent = 0 }
+  local tiers = { normal = 0, fine = 0 }
   world.events:on("crop.harvested", function(e)
     tiers[e.quality] = tiers[e.quality] + 1
   end)
   run(world, tun.time.dayLength * 5)
-  T.truthy(tiers.good > 0, "the routine reaches good on rich ground")
-  T.eq(tiers.excellent, 0, "and never excellent without a tend")
+  T.truthy(tiers.fine > 0, "the routine earns fine on rich ground, no hand orders needed")
 end)
 
-T.test("quality: active play, tending as it goes, reaches excellent where the routine cannot", function()
-  local world = newWorld(5)
-  setTime(world, SUMMER, 6)
-  local tiles = freeTiles(world, 4)
+T.test("quality: a hand order and the routine's own job leave the same crop", function()
+  local world = newWorld()
+  setTime(world, SUMMER + 2)
+  local i = freeTiles(world, 1)[1]
+  world.state.crops[i] = { id = "carrot", growth = 0.3, moisture = 0, thirst = 0 }
   local hs = Actors.homesteader(world)
-  for _, i in ipairs(tiles) do
-    world.state.grid.fertility[i] = 1
-    world.state.crops[i] = { id = "radish", growth = 0, moisture = 0, thirst = 0, tends = 0 }
-  end
-  -- the player hand-waters each tile the moment it dries, as an engaged player would
-  local seen = {}
-  world.events:on("crop.harvested", function(e)
-    seen[#seen + 1] = e.quality
-  end)
-  for _ = 1, 40 do
-    for _, i in ipairs(tiles) do
-      if Crops.needsWaterAt(world, i) then
-        hs.bucket = 1
-        Tasks.get(world, "water_crop").complete(world, hs, i, {})
-      end
-    end
-    run(world, tun.time.dayLength / 16)
-  end
-  for _, i in ipairs(tiles) do
-    if Crops.isRipeAt(world, i) then
-      Tasks.get(world, "harvest").complete(world, hs, i)
-    end
-  end
-  T.truthy(#seen > 0, "something ripened")
-  for _, tier in ipairs(seen) do
-    T.eq(tier, "excellent")
-  end
+  hs.bucket = 3
+  Tasks.get(world, "water_crop").complete(world, hs, i, nil)
+  local routine = serialize.encode(world.state.crops[i])
+  world.state.crops[i].moisture = 0
+  Tasks.get(world, "water_crop").complete(world, hs, i, {})
+  T.eq(serialize.encode(world.state.crops[i]), routine, "no tended mark on either")
+  T.truthy(QualityText.cropLine(world, i):find("Quality:", 1, true))
+  T.falsy(QualityText.cropLine(world, i):find("tended", 1, true))
 end)
 
 -- The tally ----------------------------------------------------------------------------------------------------
@@ -265,16 +206,16 @@ T.test(
     setTime(world, SUMMER + 2)
     local i = freeTiles(world, 1)[1]
     Ledger.add(world, "radish", 3, "test") -- three plain ones already in store
-    local e = harvest(world, i, "radish", { fertility = 1, tends = 1 })
-    T.eq(e.quality, "excellent")
+    local e = harvest(world, i, "radish", { fertility = 1 })
+    T.eq(e.quality, "fine")
     local counts = Quality.counts(world, "radish")
-    T.eq(counts.excellent, e.amount)
+    T.eq(counts.fine, e.amount)
     T.eq(counts.normal, 3)
-    T.eq(Quality.atLeast(world, "radish", "good"), e.amount, "the contracts hook: units at a tier or better")
+    T.eq(Quality.atLeast(world, "radish", "fine"), e.amount, "the contracts hook: units at a tier or better")
     T.eq(Quality.atLeast(world, "radish", "normal"), Ledger.get(world, "radish"))
-    T.truthy(QualityText.stock(world, "radish"):find("excellent", 1, true))
+    T.truthy(QualityText.stock(world, "radish"):find("fine", 1, true))
     Ledger.remove(world, "radish", 3, "ate") -- the plain ones go first
-    T.eq(Quality.counts(world, "radish").excellent, e.amount)
+    T.eq(Quality.counts(world, "radish").fine, e.amount)
     Ledger.remove(world, "radish", e.amount, "ate")
     T.falsy(Quality.hasAny(world, "radish"), "an empty store holds no tiers")
     T.falsy(QualityText.stock(world, "radish"))
@@ -288,19 +229,19 @@ T.test("quality: a harvest that overflows a full store tallies only what fitted"
   Ledger.setCapacity(world, "radish", 2)
   Ledger.add(world, "radish", 2, "test")
   world.state.grid.fertility[i] = 1
-  world.state.crops[i] = { id = "radish", growth = 1, moisture = 1, thirst = 0, tends = 1 }
+  world.state.crops[i] = { id = "radish", growth = 1, moisture = 1, thirst = 0 }
   Tasks.get(world, "harvest").complete(world, Actors.homesteader(world), i) -- the safety net: nothing fits
-  T.eq(Quality.counts(world, "radish").excellent, 0)
+  T.eq(Quality.counts(world, "radish").fine, 0)
   T.eq(Ledger.get(world, "radish"), 2)
 end)
 
 T.test("quality: pick and worth read the best or the worst units first", function()
   local world = newWorld()
   Ledger.add(world, "radish", 6, "test")
-  world.state.quality.radish = { good = 2, excellent = 1 }
-  T.same(Quality.pick(world, "radish", 2, "best"), { excellent = 1, good = 1 })
-  T.same(Quality.pick(world, "radish", 4, "worst"), { normal = 3, good = 1 })
-  T.near(Quality.worth(world, "radish", 2, "best"), cfg.priceMult.excellent + cfg.priceMult.good, 1e-9)
+  world.state.quality.radish = { fine = 3 }
+  T.same(Quality.pick(world, "radish", 2, "best"), { fine = 2 })
+  T.same(Quality.pick(world, "radish", 5, "worst"), { normal = 3, fine = 2 })
+  T.near(Quality.worth(world, "radish", 2, "best"), 2 * cfg.priceMult.fine, 1e-9)
   T.near(Quality.worth(world, "radish", 3, "worst"), 3, 1e-9)
 end)
 
@@ -312,30 +253,25 @@ T.test("quality: the town pays the tier's multiplier and sells the best units fi
   local base = reg:get("resources", "potato").value
   T.eq(Market.tierPrice(world, "potato", "normal"), base)
   T.near(
-    Market.tierPrice(world, "potato", "excellent"),
-    base * cfg.priceMult.excellent,
+    Market.tierPrice(world, "potato", "fine"),
+    base * cfg.priceMult.fine,
     1e-9,
     "better tiers are not rounded per unit"
   )
-  T.near(Market.tierPrice(world, "potato", "good"), base * cfg.priceMult.good, 1e-9)
   Ledger.add(world, "potato", 10, "test")
-  world.state.quality.potato = { good = 3, excellent = 2 }
+  world.state.quality.potato = { fine = 5 }
   Market.setLoad(world, "potato", 4, true)
   local lines, total = Market.loadQuote(world)
   T.eq(#lines, 1)
-  T.same(lines[1].tiers, { excellent = 2, good = 2 })
-  T.eq(
-    total,
-    math.floor(2 * Market.tierPrice(world, "potato", "excellent") + 2 * Market.tierPrice(world, "potato", "good") + 0.5),
-    "a line rounds once"
-  )
+  T.same(lines[1].tiers, { fine = 4 })
+  T.eq(total, math.floor(4 * Market.tierPrice(world, "potato", "fine") + 0.5), "a line rounds once")
   world.state.market.prices.radish = 1
   Ledger.add(world, "radish", 5, "test")
-  world.state.quality.radish = { good = 5 }
+  world.state.quality.radish = { fine = 5 }
   T.eq(
     Market.worth(world, "radish", 5, "best"),
-    6,
-    "five $1 radishes at good are worth $6, not $5 (1.25 each, rounded once)"
+    7,
+    "five $1 radishes at fine are worth $7, not $5 (1.3 each, rounded once)"
   )
   T.eq(lines[1].price, base, "price stays the normal unit price")
   world.state.market.inTown = true
@@ -344,41 +280,41 @@ T.test("quality: the town pays the tier's multiplier and sells the best units fi
   T.eq(earned, total)
   T.eq(Ledger.get(world, "money"), money + total)
   T.eq(Ledger.get(world, "potato"), 6)
-  T.same(world.state.quality.potato, { good = 1 }, "the two excellent and two good went; one good is left")
+  T.same(world.state.quality.potato, { fine = 1 }, "the four fine ones went; one is left")
 end)
 
 T.test("quality: the stand sells the worst units first at their tier's price", function()
   local world = newWorld()
   world.state.market.prices.potato = 1
   Ledger.add(world, "potato", 5, "test")
-  world.state.quality.potato = { good = 2, excellent = 1 } -- two normal, two good, one excellent
+  world.state.quality.potato = { fine = 2 } -- three normal, two fine
   local worth = Quality.worth(world, "potato", 2, "worst")
-  T.eq(worth, 2, "the two plain ones")
+  T.eq(worth, 2, "two of the three plain ones")
   T.near(
     Stand.unitPrice(world, "potato") * worth,
     Market.sellPrice(world, "potato") * tun.stand.priceFraction * 2,
     1e-9
   )
   Ledger.remove(world, "potato", 2, "stand")
-  T.same(world.state.quality.potato, { good = 2, excellent = 1 }, "the ledger took the plain ones")
+  T.same(world.state.quality.potato, { fine = 2 }, "the ledger took the plain ones")
 end)
 
 -- Save -------------------------------------------------------------------------------------------------------------
 
-T.test("quality: the tally and the crop's thirst and tends survive a save", function()
+T.test("quality: the tally and the crop's thirst and blight survive a save", function()
   local world = newWorld()
   setTime(world, SUMMER + 2)
   local i = freeTiles(world, 1)[1]
   Ledger.add(world, "radish", 5, "test")
-  world.state.quality.radish = { good = 3 }
-  world.state.crops[i] = { id = "carrot", growth = 0.5, moisture = 0.4, thirst = 0.3, tends = 2 }
+  world.state.quality.radish = { fine = 3 }
+  world.state.crops[i] = { id = "carrot", growth = 0.5, moisture = 0.4, thirst = 0.3, blighted = true }
   local data = Save.newSlotData("Quality")
   data.run = world.state
   local disk = serialize.decode(serialize.encode(Save.forDisk(data)))
   Gridpack.unpack(disk.run.grid)
   local back = World.new({ registry = reg, tuning = tun }, disk.run)
-  T.same(back.state.quality.radish, { good = 3 })
+  T.same(back.state.quality.radish, { fine = 3 })
   T.eq(back.state.crops[i].thirst, 0.3)
-  T.eq(back.state.crops[i].tends, 2)
-  T.eq(Quality.counts(back, "radish").good, 3)
+  T.truthy(back.state.crops[i].blighted)
+  T.eq(Quality.counts(back, "radish").fine, 3)
 end)

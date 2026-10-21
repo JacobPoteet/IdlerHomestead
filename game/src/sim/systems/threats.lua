@@ -13,10 +13,9 @@
 --            back. A weather-driven threat (`strike`, hail) instead rolls each day of its span at its
 --            hour with chance x Weather.threat ^ weatherPower (#97), so storms bring it, and strikes
 --            at most once; a span without a strike passes harmlessly.
---   spread   (blight, #154) a disease: on a day at the threat's hour (far likelier when it rains) one crop is
---            infected, then each day every infected crop is knocked back, dies after `killDays`, and may pass
---            it to a crop on each of the four neighbouring tiles (likelier on tiles with pest pressure, D179).
---            Pulling or harvesting an infected crop ends its infection; the span's end clears the rest.
+--   blight   (#154, D185) on a day at the threat's hour each crop on a tile at full pest pressure rolls (far likelier
+--            when it rains) to be marked `blighted`; a marked crop's harvest gives no produce. Only crops on
+--            tiles at full pressure are ever marked, and it never spreads, sets a crop back or kills it.
 --   drought  for its span the beds dry `dryRate` times faster and a crop left dry for `witherHours`
 --            withers; rain breaks the drought early.
 -- Countermeasures are catalog equipment whose modifiers name the threat's `guard` stat; the guard
@@ -28,7 +27,6 @@
 --   years = { [year] = { { id, start (calendar day), days, status = "waiting"|"active"|"done",
 --                          warned, rollDay, struck, lost, damaged, saved, broken } ... } },
 --   dry = { [tile] = in-game hours a crop has sat dry during a drought },
---   blight = { [tile] = days the crop there has been infected },
 --   history = { { year, id, struck, lost, damaged, saved } ... } (last `historyLimit`) }
 -- Emits "threat.warned" { threat, days }, "threat.started" { threat, days },
 --   "threat.struck" { threat, hit, lost, damaged, saved }, "threat.ended" { threat, struck, lost,
@@ -36,7 +34,6 @@
 
 local Calendar = require("src.sim.systems.calendar")
 local Crops = require("src.sim.systems.crops")
-local Grid = require("src.sim.grid")
 local Soil = require("src.sim.systems.soil")
 local Stats = require("src.sim.stats")
 local Weather = require("src.sim.systems.weather")
@@ -261,94 +258,51 @@ local function applyDamage(world, e, d)
   world.events:emit("threat.struck", { threat = e.id, hit = hit, lost = e.lost, damaged = e.damaged, saved = e.saved })
 end
 
-local ORTHO = { { 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 } }
+local FULL_PRESSURE = 1 -- the top of the 0..1 pest-pressure scale (a scale end, not a balance value)
 
---- Is the crop on tile i infected with blight?
+--- Is the crop on tile i marked by blight (its harvest will be spoiled)?
 function Threats.blightAt(world, i)
-  return state(world).blight[i] ~= nil and Crops.hasCropAt(world, i)
+  return Crops.isBlighted(world, i)
 end
 
---- Tiles with an infected crop, ascending.
+--- Tiles with a blighted crop, ascending.
 function Threats.blightTiles(world)
   local tiles = {}
-  for i in pairs(state(world).blight) do
-    if Crops.hasCropAt(world, i) then
+  for _, i in ipairs(Crops.plantedTiles(world)) do
+    if Crops.isBlighted(world, i) then
       tiles[#tiles + 1] = i
     end
   end
-  table.sort(tiles)
   return tiles
 end
 
--- One day of a spreading disease (at the threat's hour). The stream draws the same rolls whatever the guard.
-local function spreadDay(world, e, d)
-  local s, cfg, rng = state(world), d.spread, world:rng("threats")
-  local wet = Weather.isRaining(world)
-  local weather = wet and 1 or cfg.dryFactor
-  local strength = Threats.strength(world)
+-- One day of blight (at the threat's hour): every planted crop on a tile at full pest pressure rolls (far likelier on
+-- a rainy day) to be marked, and a marked crop gives no produce at its harvest. It never spreads, never sets a crop
+-- back and never kills it. The stream draws a roll for every such tile whatever the guard.
+local function blightDay(world, e, d)
+  local cfg, rng = d.blight, world:rng("threats")
+  local weather = Weather.isRaining(world) and 1 or cfg.dryFactor
+  local chance = math.min(1, cfg.chance * weather * Threats.strength(world))
   local guard = Threats.guard(world, e.id)
-  local infected = Threats.blightTiles(world)
-  local fresh = {}
-  for _, i in ipairs(infected) do
-    local age = s.blight[i] + 1
-    if age >= cfg.killDays then
-      s.blight[i] = nil
-      Crops.destroy(world, i, e.id)
-      e.lost = e.lost + 1
-    else
-      s.blight[i] = age
-      if not Crops.isRipeAt(world, i) then
-        Crops.setBack(world, i, cfg.setback, e.id)
+  local marked = false
+  for _, i in ipairs(Crops.plantedTiles(world)) do
+    if not Crops.isBlighted(world, i) and Soil.pressure(world, i) >= FULL_PRESSURE then
+      local roll = rng:float()
+      if roll < chance * (1 - guard) then
+        Crops.blight(world, i)
+        e.damaged = e.damaged + 1
+        marked = true
+      elseif roll < chance then
+        e.saved = e.saved + 1
       end
     end
   end
-  for i in pairs(s.blight) do
-    if not Crops.hasCropAt(world, i) then
-      s.blight[i] = nil -- pulled, harvested or lost to something else
-    end
-  end
-  local grid = world.state.grid
-  for _, i in ipairs(infected) do
-    if s.blight[i] then
-      local x, y = Grid.coords(grid, i)
-      for _, dir in ipairs(ORTHO) do
-        local nx, ny = x + dir[1], y + dir[2]
-        if Grid.inBounds(grid, nx, ny) then
-          local j = Grid.index(grid, nx, ny)
-          if Crops.hasCropAt(world, j) and s.blight[j] == nil and not fresh[j] then
-            local chance =
-              math.min(1, cfg.spreadChance * weather * strength * (1 + cfg.pressureWeight * Soil.pressure(world, j)))
-            local roll = rng:float()
-            if roll < chance * (1 - guard) then
-              fresh[j] = true
-              e.damaged = e.damaged + 1
-            elseif roll < chance then
-              e.saved = e.saved + 1
-            end
-          end
-        end
-      end
-    end
-  end
-  for j in pairs(fresh) do
-    s.blight[j] = 0
-  end
-  -- The first infection: a roll a day until it breaks out, then the crop it lands on is chosen.
-  local broke = false
-  if not e.struck then
-    local chance = math.min(1, cfg.seedChance * weather * strength)
-    local roll, pick = rng:float(), rng:float()
-    local planted = Crops.plantedTiles(world)
-    if roll < chance and #planted > 0 then
-      local j = planted[math.min(#planted, math.floor(pick * #planted) + 1)]
-      s.blight[j] = 0
-      e.damaged = e.damaged + 1
-      e.struck = true
-      broke = true
-    end
-  end
-  if broke then
-    world.events:emit("threat.struck", { threat = e.id, hit = 1, lost = e.lost, damaged = e.damaged, saved = e.saved })
+  if marked and not e.struck then
+    e.struck = true
+    world.events:emit(
+      "threat.struck",
+      { threat = e.id, hit = e.damaged, lost = e.lost, damaged = e.damaged, saved = e.saved }
+    )
   end
 end
 
@@ -377,9 +331,6 @@ local function finish(world, e)
   local s, cfg = state(world), world.tuning.threats
   e.status = "done"
   s.dry = {}
-  if def(world, e.id).spread then
-    s.blight = {} -- the wet spell ends and the infection with it
-  end
   local history = s.history
   history[#history + 1] = {
     year = Calendar.now(world).year,
@@ -438,10 +389,10 @@ local function step(world, e, now, dt)
       return
     end
     droughtTick(world, e, d, dt)
-  elseif d.spread then
+  elseif d.blight then
     if now.hour >= d.hour and e.rollDay < now.day then
       e.rollDay = now.day
-      spreadDay(world, e, d)
+      blightDay(world, e, d)
     end
   elseif now.hour >= d.hour and e.rollDay < now.day then
     e.rollDay = now.day
@@ -463,7 +414,6 @@ function Threats.init(world)
   -- A fresh run starts empty; this year's schedule is rolled now.
   s.years = s.years or {}
   s.dry = s.dry or {}
-  s.blight = s.blight or {}
   s.history = s.history or {}
   Threats.schedule(world)
 end

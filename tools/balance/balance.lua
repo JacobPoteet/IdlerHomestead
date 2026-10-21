@@ -190,8 +190,7 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
       weedyDays = 0,
       compostMade = 0,
       compostSpread = 0,
-      qualityGood = 0, -- crop quality (D182): harvests graded good and excellent (the rest are normal)
-      qualityExcellent = 0,
+      qualityFine = 0, -- crop quality (D182): harvests graded fine (the rest are normal; D182, D185)
       fruitFirst = 0, -- perennials (D183): harvests of the young first crop and of established plants, units of fruit picked
       fruitFull = 0,
       fruitUnits = 0,
@@ -281,8 +280,7 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
       c.fruitFull = c.fruitFull + (e.stage == "mature" and 1 or 0)
       c.fruitUnits = c.fruitUnits + e.amount
     end
-    c.qualityGood = c.qualityGood + (e.quality == "good" and 1 or 0)
-    c.qualityExcellent = c.qualityExcellent + (e.quality == "excellent" and 1 or 0)
+    c.qualityFine = c.qualityFine + (e.quality == "fine" and 1 or 0)
   end)
   events:on("crop.planted", function(e)
     local c = result.counters
@@ -1312,9 +1310,8 @@ function Balance.printFeatures(summary, years)
   )
   line(
     string.format(
-      "Quality per run (mean): %.0f%% of harvests good, %.0f%% excellent (the routine cannot reach excellent, D182)",
-      100 * q("qualityGood").mean / harvests,
-      100 * q("qualityExcellent").mean / harvests
+      "Quality per run (mean): %.0f%% of harvests fine (healthy soil earns it, whoever tends it, D185)",
+      100 * q("qualityFine").mean / harvests
     )
   )
   line(

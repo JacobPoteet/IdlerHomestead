@@ -1,14 +1,13 @@
--- Crop quality (PLAN_DEPTH 8.6, D182): normal, good and excellent produce.
+-- Crop quality (PLAN_DEPTH 8.6, D182, D185): normal and fine produce.
 --
 -- Grading (`Quality.grade`, read by the harvest task in crops.lua): a penalty from 0 (a perfect crop) to 1 is made of
 -- the tile's missing fertility, its weeds at harvest and how long the crop stood thirsty (crop.thirst, in game days,
 -- against `thirstTolerance` of its grow time), weighted by tuning.quality. The crop's `qualitySensitivity` scales it:
--- sensitivity x penalty at or under `goodMax` is good, and at or under `excellentMax` with the tended mark (the crop's
--- `tends`, one for each hand order that watered it or pulled its weeds) is excellent. The idle routine never gives a
--- tended mark, so it tops out at good and excellent needs the player (or a policy that gives orders).
+-- sensitivity x penalty at or under `fineMax` is fine, anything over is normal. There is no tended mark, so the idle
+-- routine (which waters and weeds on its own) earns fine on healthy soil as the player does.
 --
 -- Stock: the ledger holds plain counts, so the tiers are a tally that follows it, as the spoilage batches do.
---   world.state.quality = { [resourceId] = { good = units, excellent = units } }   (units above normal only)
+--   world.state.quality = { [resourceId] = { fine = units } }   (units above normal only)
 -- Units that leave the ledger by eating, spoiling or the stand take the lowest tier first (the family eats the worst,
 -- the stand sells the worst and keeps the best for the truck); a truck sale calls `Quality.take(.., "best")` first so
 -- the best units are the ones sold. The tally is trimmed to the ledger on every decrease, so it can never exceed it.
@@ -45,11 +44,6 @@ function Quality.priceMult(world, tier)
   return cfg(world).priceMult[tier]
 end
 
---- Does the crop carry the tended mark?
-function Quality.isTended(world, crop)
-  return (crop.tends or 0) >= cfg(world).tendsNeeded
-end
-
 --- The penalty (0..1) a crop on tile `i` would be graded on now: fertility, weeds and thirst, weighted.
 function Quality.penalty(world, i, crop, def)
   local c = cfg(world)
@@ -59,20 +53,15 @@ function Quality.penalty(world, i, crop, def)
     + c.weightWater * thirst
 end
 
---- Grade the crop on tile `i` as it stands: returns the tier id, the penalty and whether it is tended.
+--- Grade the crop on tile `i` as it stands: returns the tier id and the penalty.
 function Quality.grade(world, i, crop, def)
   local c = cfg(world)
   local penalty = Quality.penalty(world, i, crop, def)
-  local felt = def.qualitySensitivity * penalty
-  local tended = Quality.isTended(world, crop)
   local tier = c.tiers[1]
-  if felt <= c.goodMax then
+  if def.qualitySensitivity * penalty <= c.fineMax then
     tier = c.tiers[2]
   end
-  if tended and felt <= c.excellentMax then
-    tier = c.tiers[3]
-  end
-  return tier, penalty, tended
+  return tier, penalty
 end
 
 -- Stock -----------------------------------------------------------------------------------------
@@ -81,13 +70,12 @@ local function tally(world, id)
   return world.state.quality[id]
 end
 
---- Units of `id` in each tier: { normal, good, excellent } (the normal count is what is left of the ledger's).
+--- Units of `id` in each tier: { normal, fine } (the normal count is what is left of the ledger's).
 function Quality.counts(world, id)
   local t = tally(world, id)
   local tiers = cfg(world).tiers
-  local good, excellent = t and t[tiers[2]] or 0, t and t[tiers[3]] or 0
-  local total = Ledger.get(world, id)
-  return { [tiers[1]] = math.max(0, total - good - excellent), [tiers[2]] = good, [tiers[3]] = excellent }
+  local fine = t and t[tiers[2]] or 0
+  return { [tiers[1]] = math.max(0, Ledger.get(world, id) - fine), [tiers[2]] = fine }
 end
 
 --- Units of `id` at `tier` or better (the contracts hook).
@@ -104,8 +92,7 @@ end
 
 --- Is any unit of `id` above normal?
 function Quality.hasAny(world, id)
-  local t = tally(world, id)
-  return t ~= nil
+  return tally(world, id) ~= nil
 end
 
 --- Record `n` freshly added units of `id` at `tier` (call after the ledger add, with the amount that fitted).
@@ -119,22 +106,15 @@ function Quality.add(world, id, tier, n)
   world.state.quality[id] = t
 end
 
--- Make the tally add up to at most `total`, dropping the lowest tier first.
+-- Make the tally add up to at most `total`.
 local function trim(world, id, total)
   local t = tally(world, id)
   if not t then
     return
   end
-  local tiers = cfg(world).tiers
-  local excess = (t[tiers[2]] or 0) + (t[tiers[3]] or 0) - total
-  for rank = 2, #tiers do
-    if excess <= 0 then
-      break
-    end
-    local have = t[tiers[rank]] or 0
-    local cut = math.min(have, excess)
-    t[tiers[rank]] = have - cut > 0 and have - cut or nil
-    excess = excess - cut
+  local fine = cfg(world).tiers[2]
+  if (t[fine] or 0) > total then
+    t[fine] = total > 0 and total or nil
   end
   if next(t) == nil then
     world.state.quality[id] = nil

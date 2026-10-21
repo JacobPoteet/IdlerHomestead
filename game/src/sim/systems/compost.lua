@@ -1,21 +1,21 @@
--- Compost and the manure loop (PLAN_DEPTH 8.4, D181): residue, spoiled food and animal manure become compost.
+-- Compost and the manure loop (PLAN_DEPTH 8.4, D181, D185): residue, spoiled food and animal manure become compost.
 --
 -- The loop, end to end:
 --   1. Hens and goats make muck in their house every game day (`state.compost.muck`, capped; a house with no
 --      animals makes none). The Tend chores (animals.lua) call `Compost.rake`, which moves the whole units into the
 --      ledger as "manure", but only while a compost bin exists.
---   2. The `haul_manure` task (category "maintenance") carries ledger manure into a bin's raw store.
---   3. A bin also takes crop residue (each harvest) and spoiled food (a share of every "food.spoiled" unit, so
---      spoilage losses, #169, are partly recovered) on its own, with no hauling. The bin with the most room takes
---      it, ties to the lower anchor; what no bin has room for is lost.
---   4. A bin with `startAt` raw units starts a batch like a processing station: up to `batchRaw` raw units go in,
+--   2. A bin draws the ledger's manure straight in each tick (no haul task, D185), as far as it has room, and also
+--      takes crop residue (each harvest) and spoiled food (a share of every "food.spoiled" unit, so spoilage losses,
+--      #169, are partly recovered) on its own. The bin with the most room takes it, ties to the lower anchor; what no
+--      bin has room for is lost (manure stays in the ledger).
+--   3. A bin with `startAt` raw units starts a batch like a processing station: up to `batchRaw` raw units go in,
 --      `yield` of them come out as compost after `hours` in-game hours, into the ledger "compost" stock. A batch the
 --      ledger has no room for waits in the bin, keeping it busy (D59).
---   5. The `fertilize` task spreads one ledger compost unit on a field tile through Soil.add. The idle routine does it
---      for worn tiles; a player tap does it on any tile under `fertilizeMax`.
+--   4. The `fertilize` task spreads one ledger compost unit on a field tile through Soil.add. The idle routine does it
+--      for the single lowest-fertility worn tile (D185); a player tap does it on any tile under `fertilizeMax`.
 --
 -- State: world.state.compost = { muck = { hens, goats } (units, fractional), bins = { [anchor] = { raw (units),
---   batch = { count, remaining } | nil } }, made, hauled, spread (lifetime units) }
+--   batch = { count, remaining } | nil } }, made, spread (lifetime units) }
 -- Emits "compost.fed" { tile, amount, cause } (cause "manure" | "residue" | "spoiled"), "compost.started" { tile, raw,
 -- count }, "compost.done" { tile, count } (units that went into stock), "compost.blocked" { tile, count },
 -- "compost.spread" { tile, from, to }.
@@ -125,24 +125,6 @@ function Compost.rake(world, kind)
   return units
 end
 
--- A bin that can take a haul of manure right now.
-local function canHaul(world, anchor)
-  return Ledger.get(world, MANURE) >= 1 and Compost.room(world, anchor) >= 1
-end
-
---- Carry manure from the ledger into the bin at `anchor`. Returns the units carried.
-function Compost.haul(world, anchor)
-  local cfg = world.tuning.compost
-  local units = math.min(math.floor(Ledger.get(world, MANURE)), cfg.haulBatch, math.floor(Compost.room(world, anchor)))
-  if units <= 0 or not Ledger.remove(world, MANURE, units, "hauled") then
-    return 0
-  end
-  binAt(world, anchor).raw = binAt(world, anchor).raw + units
-  state(world).hauled = state(world).hauled + units
-  world.events:emit("compost.fed", { tile = anchor, amount = units, cause = "manure" })
-  return units
-end
-
 --- Could a compost unit be spread on tile i right now by a player tap (the tile is farmed, under
 --- `fertilizeMax`, and there is compost)?
 function Compost.canSpread(world, i, routine)
@@ -200,36 +182,6 @@ end
 
 local function registerTasks(world)
   Tasks.register(world, {
-    id = "haul_manure",
-    category = "maintenance",
-    verb = "Haul manure",
-    clickOrder = 65,
-    candidates = function(w, _, add)
-      if Ledger.get(w, MANURE) >= w.tuning.compost.haulAt then
-        for _, anchor in ipairs(bins(w)) do
-          add(anchor)
-        end
-      end
-    end,
-    canDo = function(w, _, i, order)
-      local _, anchor = Grid.object(w, i)
-      if not anchor or not binDef(w, anchor) then
-        return false
-      end
-      return canHaul(w, anchor) and (order ~= nil or Ledger.get(w, MANURE) >= w.tuning.compost.haulAt)
-    end,
-    workTime = function(w)
-      return w.tuning.compost.haulTime
-    end,
-    complete = function(w, _, i)
-      local _, anchor = Grid.object(w, i)
-      if anchor then
-        Compost.haul(w, anchor)
-      end
-    end,
-  })
-
-  Tasks.register(world, {
     id = "fertilize",
     category = "maintenance",
     verb = "Fertilize",
@@ -238,8 +190,16 @@ local function registerTasks(world)
       if Ledger.get(w, COMPOST) < 1 then
         return
       end
+      -- one candidate: the lowest-fertility worn tile, ties to the lower index (D185); the worn list is ascending
+      local lowest, lowestFertility
       for _, i in ipairs(Soil.worn(w, w.tuning.compost.fertilizeBelow)) do
-        add(i)
+        local fertility = Soil.fertility(w, i)
+        if Compost.canSpread(w, i, true) and (lowest == nil or fertility < lowestFertility) then
+          lowest, lowestFertility = i, fertility
+        end
+      end
+      if lowest then
+        add(lowest)
       end
     end,
     canDo = function(w, _, i, order)
@@ -260,7 +220,6 @@ function Compost.init(world)
   s.muck = s.muck or { hens = 0, goats = 0 }
   s.bins = s.bins or {}
   s.made = s.made or 0
-  s.hauled = s.hauled or 0
   s.spread = s.spread or 0
   registerTasks(world)
   world.events:on("calendar.newDay", function()
@@ -307,7 +266,18 @@ local function stepBin(world, anchor, bin, dt)
   end
 end
 
+-- The bins draw the ledger's manure in, whole units, as far as their combined room goes (D185).
+local function drawManure(world)
+  local units = math.min(math.floor(Ledger.get(world, MANURE)), math.floor(Compost.totalRoom(world) + EPS))
+  if units > 0 and Ledger.remove(world, MANURE, units, "composted") then
+    Compost.feed(world, units, "manure")
+  end
+end
+
 function Compost.tick(world, dt)
+  if Compost.hasBin(world) then
+    drawManure(world)
+  end
   local list = state(world).bins
   for _, anchor in ipairs(bins(world)) do
     local bin = list[anchor]
