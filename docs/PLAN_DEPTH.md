@@ -109,7 +109,9 @@ Danger on a night is `base chance x season x weather x exposure`, where **exposu
 - guards: cat, dog, fence, lantern, trip line;
 - how much the player pushed: sleeping late, starting the night short of warmth.
 
-Exposure is a single readable number on the Tonight card ("Exposure: high - smoker and 8 hens, no dog"). **Units (D168):** exposure points, 0 to 10, 5 neutral (`tuning.night.exposure`); each source adds points, each guard subtracts, and the total is clamped to 0..10. The chance multiplier runs linearly from about 0.4 at 0 to about 1.8 at 10 (first guesses). The card shows the word (low, medium, high) and the points. Clear nights are colder (the existing weather model), storms raise wind and fall risks.
+> **Built (D187):** the Tonight card shows the **word** only (low, medium, high) with what drives it, never the points. The points stay internal (0 to 10).
+
+Exposure is a single readable figure on the Tonight card ("Exposure: high - smoker and 8 hens, no dog"). **Units (D168):** exposure points, 0 to 10, 5 neutral (`tuning.night.exposure`); each source adds points, each guard subtracts, and the total is clamped to 0..10. The chance multiplier runs linearly from about 0.4 at 0 to about 1.8 at 10 (first guesses). The card shows the word (low, medium, high) and the points. Clear nights are colder (the existing weather model), storms raise wind and fall risks.
 
 ### 5.2 Waking
 
@@ -141,6 +143,8 @@ A **night threat** is a content entry: `id`, `seasons`, `minDay`, `minYear`, `ex
 | **Pipe freeze** | winter | exposed pipes and pump | no water in the morning | insulation, a heated pump house, burn fuel to thaw |
 | **Power outage** | winter, storms | a small battery bank | heater and lights down for the night | bigger bank, generator |
 | **Stove fire** | winter | a sooty stove run hot, wood piled close | scare (Fire event, 6.2) or the stove lost | sweep the flue (upkeep, section 10), water bucket by the door |
+
+> **Built (D187, C1):** `systems/nightthreats.lua` and `data/content/night_threats.lua`. Mice and the fox are in; each is planned at dusk (before the event draw, so it can claim the night slot) and lands at 23:00. While Footing is slipped the chance is scaled and the fox takes only feed. The rest of the list arrives by data and a handler in later slices.
 
 Rules: one threat per night at most; the dusk sign is shown when any threat is active that the player could still act on; a threat the player already countered (guard high enough) is reported as "turned away" so the work is visible (it uses the night slot, 5).
 
@@ -527,7 +531,7 @@ Risks: scope (this is a large milestone); event fatigue; compounding statuses. M
 
 1. **D-simplify (#430)**, which absorbs D8 (#370): two quality tiers, no perennial death, combined yield floor, compost without the haul task, lower weed cut, routine defaults ON and the idle-day chore test.
 2. **#410**: human policy, idle gates, paired events report. **Done (D186):** `human` policy, `pair=1`, spiral metrics and `gates=` in the harness; the idle gates are red on main and left to M9.
-3. **C1 #355**: threat framework; mice and fox move in; exposure as a word on the Tonight card.
+3. **C1 #355**: threat framework; mice and fox move in; exposure as a word on the Tonight card. **Done (D187).**
 4. **C2 + C3 #356 / #357**: raccoon, deer and rabbits, bear and bear box.
 5. **C4 #358**: the dog, eating from the ledger.
 6. **C5 #359**: cold front plus pipe freeze (folds in #91, #211).
@@ -571,7 +575,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - B10 (#354) First-aid kit and Techniques notes for body events. **MERGED (D184)** into H5 #388; the kit stays one catalog consumable.
 
 **Phase C: Night threats**
-- C1 (#355) Night threat framework; move mice and fox into it; dusk signs; wake hook. **Amended (D168):** designed with B3 (shared exposure units 0 to 10, nightly slot, turned-away threats use the slot and the pity timer); per-guard `covers` and upkeep.
+- C1 (#355) **Done (D187).** Night threat framework; move mice and fox into it; dusk signs; wake hook. **Amended (D168):** designed with B3 (shared exposure units 0 to 10, nightly slot, turned-away threats use the slot and the pity timer); per-guard `covers` and upkeep.
 - C2 (#356) Raccoon, skunk, deer and rabbits. **Simplified (D184):** raccoon and deer with rabbits; no skunk. Absorbs C3 and #114.
 - C3 (#357) Black bear and the bear box. **MERGED (D184)** into C2 #356 (one PR).
 - C4 (#358) Wolves and coyotes; the dog companion. **Simplified (D184):** the dog only, eating from the food ledger. **Wolves and coyotes DEFERRED** to M10.

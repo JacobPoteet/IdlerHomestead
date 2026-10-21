@@ -200,16 +200,37 @@ T.test("tonight: asking changes nothing (the saved shape is untouched)", functio
   T.eq(serialize.encode(world.state), before)
 end)
 
-T.test("tonight: exposure is a stub read from the shelter alone, truck highest and shack lowest", function()
+T.test("tonight: exposure is a word from the exposure model, truck highest and shack lowest, never points", function()
   local world = newWorld(2)
   local e = Readiness.tonight(world).exposure
-  T.truthy(e.stub)
-  T.eq(e.level, "high")
+  T.eq(e.word, "high")
+  T.eq(e.points, nil, "the card gets the word, not the number")
   local at = placeNear(world, "camp", 3)
-  T.eq(Readiness.tonight(world).exposure.level, "medium")
+  T.eq(Readiness.tonight(world).exposure.word, "medium")
   Inventory.addObject(world, "shack")
   T.truthy(Inventory.place(world, "shack", at))
-  T.eq(Readiness.tonight(world).exposure.level, "low")
+  T.eq(Readiness.tonight(world).exposure.word, "low")
+  Ledger.add(world, "smoked_fish", 2) -- a store that draws animals raises it and is named
+  e = Readiness.tonight(world).exposure
+  T.eq(e.word, "medium")
+  T.eq(e.stores[1], "smoked fish")
+end)
+
+T.test("tonight: the card says exposure as a word with what drives it, and shows the dusk sign", function()
+  local world = newWorld(2)
+  local t = Readiness.tonight(world)
+  local text = TonightText.build(t, Dusk.fixes(world, t)).notes[2].text
+  T.truthy(text:find("Exposure: high.", 1, true))
+  T.falsy(text:find("%d+ points"), "never points")
+  Ledger.add(world, "smoked_fish", 2)
+  t = Readiness.tonight(world)
+  T.truthy(TonightText.build(t, Dusk.fixes(world, t)).notes[2].text:find("Smoked fish in store.", 1, true))
+  t.risks[#t.risks + 1] = { id = "sign", threat = "fox", line = "Fresh tracks by the coop." }
+  local lines = {}
+  for _, note in ipairs(TonightText.build(t, Dusk.fixes(world, t)).notes) do
+    lines[#lines + 1] = note.text
+  end
+  T.truthy(table.concat(lines, "\n"):find("Fresh tracks by the coop.", 1, true))
 end)
 
 T.test("tonight: risks list a cold snap tonight or coming, and a stormy night", function()

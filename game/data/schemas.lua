@@ -152,6 +152,21 @@ return {
     options = "table", -- exactly two { label, cost?, effect, risk, careful?, bold? }
     ignore = "table", -- { label, effect, risk }: applies when nobody answers in the window; free, safe, never escalates
   },
+  night_threats = { -- night threats (D187, #355); see the header of content/night_threats.lua
+    name = "string", -- label (<= ~3 words)
+    handler = "string", -- "cat" | "animals": the system whose nightPlan and nightLand draw and land it
+    seasons = "table?", -- list of season ids it can come in; absent = every season
+    minDay = "number?", -- earliest day of the run
+    minYear = "number?", -- earliest year
+    weight = "number", -- relative weight when more than one threat hits the same night
+    exposure = "number", -- 0..1: how much night exposure shapes its chance
+    guard = "string?", -- stat whose modifiers turn it aside
+    counter = "string?", -- catalog id of the item that answers it
+    warn = "table", -- { line }: the dusk sign on the Tonight card
+    outcomes = "table", -- { turned = { report }, landed = { capital?, lesser?, sparedReport? } }
+    wake = "string?", -- id of a night event offered once it has resolved
+    journalNote = "string?", -- note id written the first time it lands
+  },
   chapters = {
     name = "string", -- region title on the journal map
     pages = "table", -- node `page` values that belong to this chapter

@@ -1,5 +1,5 @@
--- The night (docs/PLAN_DEPTH.md §3.1, §5, M8 phase A). So far the dusk check that shows the Tonight card;
--- Footing (#341); the night-threat knobs arrive with their slices. First guesses, not balanced (balance waits
+-- The night (docs/PLAN_DEPTH.md §3.1, §5, M8 phases A and C). The dusk check that shows the Tonight card;
+-- Footing (#341); the exposure model and the night-threat mercy knobs (C1, #355). First guesses, not balanced (balance waits
 -- for M9).
 return {
   duskLeadHours = 4, -- in-game hours before sunset at which the Tonight card opens by itself (4 h is about 53 s at 1x: time to act on a gap, such as to fell two trees at 14 s each); the card stays until bedtime, can be dismissed and is re-opened from the Tonight stamp or the T key
@@ -13,7 +13,7 @@ return {
     slipFoodDays = 1, -- days of food below which held Footing slips (less than foodDays, for the same reason)
     regainNights = 2, -- good nights in a row that regain slipped Footing; a night that is not good starts the count again
   },
-  exposure = { -- how much the homestead gives a night to work with (PLAN_DEPTH 5.1, D169); shared by events and, later, night threats (C1)
+  exposure = { -- how much the homestead gives a night to work with (PLAN_DEPTH 5.1, D169); shared by events and night threats (C1, D187); the Tonight card shows only the word
     min = 0, -- points: the lowest exposure
     max = 10, -- points: the highest exposure; the total is clamped to min..max
     neutral = 5, -- points: a homestead with no source or guard
@@ -25,7 +25,11 @@ return {
     stores = { smoked_fish = 1, cheese = 1, chicken_feed = 0.5, hay = 0.5 }, -- points added while any is in stock: stores that attract animals
     perAnimal = 0.25, -- points for each hen and goat kept
     maxLivestock = 2, -- points: ceiling on what livestock add
-    guards = {}, -- points subtracted by an owned guard (cat, dog, fence, lantern, trip line): filled in by the guard slices (C7)
+    guards = {}, -- guard id -> { points = points subtracted while it is owned (equipment or in stock), covers = { threat ids it answers } }; only a covering guard lowers that threat's own chance, all of them lower the word on the card. Empty until the guard slices (dog, lantern) add theirs; the cat and the predator fence act inside their handlers' own odds
+  },
+  threats = { -- the night threat framework (C1, D187, PLAN_DEPTH 6.1, 6.5). First guesses, not balanced (M9)
+    coolingScale = 0.5, -- multiplier (0..1) on a threat's chance while the post-bad cooldown runs (tuning.events.badCooldownNights after a threat that landed or a bad event): a landed threat is not followed by another at once
+    history = 12, -- nights of resolved threats kept in the run state (older ones are dropped)
   },
   fix = { -- the one-tap fix actions: ordinary orders, no new automation
     maxMarks = 6, -- most trees or logs one "Chop" tap marks; a larger gap marks this many and the card offers the rest next time

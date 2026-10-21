@@ -32,6 +32,7 @@ return {
   "animals",
   "compost", -- D181: the bins, the manure loop and the Fertilize task; after animals, whose Tend chores rake into it
   "threats",
+  "nightthreats", -- D187: plans the night's threat at dusk and claims the night slot; after cat and animals (its handlers), before events (which draws at the same dusk)
   "shelter", -- D82: accessors only (insulation, heater slot, best bed); read by power, needs, sleep
   "needs",
   "status", -- D166: injury and condition statuses; after needs so a duration counts down once the night's draw is done (read through Stats.factor)

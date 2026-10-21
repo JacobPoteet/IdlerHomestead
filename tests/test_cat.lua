@@ -118,16 +118,20 @@ T.test("cat: mice leave fish, cans and seed alone, and skip an empty larder or t
   end)
 end)
 
-T.test("cat: the nightly roll runs once a day from the tick", function()
-  with({ { mice, "chancePerDay", 1 } }, function()
-    local world = raidWorld()
-    world:tick(STEP)
-    local after = Ledger.get(world, "potato")
-    T.truthy(after < 20)
-    world:tick(STEP)
-    T.eq(Ledger.get(world, "potato"), after)
-  end)
-end)
+T.test(
+  "cat: the nightly roll runs once a day from the tick (planned at dusk, landed at the raid hour, D187)",
+  function()
+    with({ { mice, "chancePerDay", 1 } }, function()
+      local world = raidWorld()
+      world:tick(STEP) -- it is past sunset and raid hour: the dusk plan is made...
+      world:tick(STEP) -- ...and lands on the next tick
+      local after = Ledger.get(world, "potato")
+      T.truthy(after < 20)
+      world:tick(STEP)
+      T.eq(Ledger.get(world, "potato"), after)
+    end)
+  end
+)
 
 T.test("cat: rough weather and the harvest season make a raid likelier, never above 1", function()
   local world = newWorld()
@@ -148,10 +152,10 @@ T.test("cat: a cat arrives once owned, and catches raids by how well it is kept"
     T.falsy(Cat.present(world))
     T.eq(Cat.catchChance(world), 0)
     local arrived = collect(world, "cat.arrived")
-    giveCat(world) -- it is already raid hour, so the tick rolls tonight's raid: the cat catches it
+    giveCat(world) -- the cat's own tick no longer rolls the raid (the night threat framework does, D187)
     T.truthy(Cat.present(world))
     T.eq(#arrived, 1)
-    T.eq(world.state.cat.caught, 1)
+    T.eq(world.state.cat.caught, 0)
     T.eq(Ledger.get(world, "potato"), 20)
     setTime(world, AUTUMN + 1, mice.raidHour + 0.25)
     T.eq(Cat.raid(world), "caught")
@@ -159,7 +163,7 @@ T.test("cat: a cat arrives once owned, and catches raids by how well it is kept"
     world.state.cat.fed = false
     T.eq(Cat.raid(world), "raided")
     T.truthy(Ledger.get(world, "potato") < 20)
-    T.eq(world.state.cat.caught, 2)
+    T.eq(world.state.cat.caught, 1)
   end)
 end)
 

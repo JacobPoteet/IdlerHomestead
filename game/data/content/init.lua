@@ -20,4 +20,5 @@ return {
   "milestones",
   "statuses",
   "events",
+  "night_threats",
 }

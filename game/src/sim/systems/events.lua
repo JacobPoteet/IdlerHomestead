@@ -5,9 +5,9 @@
 -- THE NIGHT SLOT, EXPOSURE AND THE PITY TIMER (shared with the night-threat framework, C1, #355, so it can reuse them as
 -- they are). Each dusk (the first tick at or after sunset, once a day) is one draw for the coming night and the day after:
 --   * Exposure (Events.exposure): 0..10 points from the homestead (tuning.night.exposure), 5 neutral; it scales the chance
---     of the draw linearly (Events.chance). The Tonight card will show the word and the points.
---   * One slot a night, shared by threats and events. A threat claims it first (Events.claimSlot, ahead of this system in
---     the system list); an event draw is skipped on a night the slot is claimed. A threat that is turned away still used
+--     of the draw linearly (Events.chance). The Tonight card shows the word only (D187).
+--   * One slot a night, shared by threats and events. A threat claims it first (Events.claimSlot, from nightthreats.lua,
+--     which runs ahead of this system in the system list and plans its threat at dusk, D187); an event draw is skipped on a night the slot is claimed. A threat that is turned away still used
 --     the slot and counts as an occurrence for the pity timer, but starts no cooldown (Events.slotOutcome "turned"); one
 --     that landed starts the post-bad cooldown like a bad event ("landed").
 --   * Pity (state.quiet): nights since the last occurrence; from tuning.events.pityNights the chance rises each night.
@@ -70,6 +70,7 @@ local Crops = require("src.sim.systems.crops")
 local Food = require("src.sim.systems.food")
 local Footing = require("src.sim.systems.footing")
 local Grid = require("src.sim.grid")
+local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
@@ -153,29 +154,46 @@ end
 
 -- Exposure ------------------------------------------------------------------------------------------
 
+-- Is this guard owned? A guard is catalog equipment (a cat, a fence, a lantern) or anything held in the ledger.
+local function guardOwned(world, id)
+  return Inventory.hasEquipment(world, id) or (world.registry:has("resources", id) and Ledger.get(world, id) > 0)
+end
+
 --- How much the homestead gives a night to work with: { points (0..10, 5 neutral), word ("low" | "medium" | "high"),
---- multiplier (on the night's chance) }. Shelter, stores that attract animals and livestock raise it; guards (C7) lower it.
-function Events.exposure(world)
+--- multiplier (on the night's chance), parts = { shelter (id or nil), stores (ids in stock that attract animals),
+--- animals (hens and goats kept), guards (ids owned that count) } }. Shelter, stores that attract animals and livestock
+--- raise it; each owned guard in tuning.night.exposure.guards lowers it by its points (C7 adds the guards). With a
+--- `threatId` only the guards that cover that threat count (a guard lists the threats it covers, PLAN_DEPTH 6.1).
+function Events.exposure(world, threatId)
   local x = world.tuning.night.exposure
   local points = x.neutral
   local shelter = Shelter.id(world)
   local shelterPoints = shelter and rawget(x.shelter, shelter) or 0 -- a shelter the table does not list adds nothing
   points = points + shelterPoints
+  local parts = { shelter = shelter, stores = {}, animals = Animals.hens(world) + Animals.goats(world), guards = {} }
   for _, id in ipairs(sortedKeys(x.stores)) do
     if Ledger.get(world, id) > 0 then
       points = points + x.stores[id]
+      parts.stores[#parts.stores + 1] = id
     end
   end
-  points = points + math.min(x.maxLivestock, (Animals.hens(world) + Animals.goats(world)) * x.perAnimal)
+  points = points + math.min(x.maxLivestock, parts.animals * x.perAnimal)
   for _, id in ipairs(sortedKeys(x.guards)) do
-    if Ledger.get(world, id) > 0 then
-      points = points - x.guards[id]
+    local guard = x.guards[id]
+    if guardOwned(world, id) and (threatId == nil or contains(guard.covers, threatId)) then
+      points = points - guard.points
+      parts.guards[#parts.guards + 1] = id
     end
   end
   points = math.max(x.min, math.min(x.max, points))
   local word = points < x.lowBelow and "low" or (points >= x.highFrom and "high" or "medium")
   local share = (points - x.min) / (x.max - x.min)
-  return { points = points, word = word, multiplier = x.chanceAtMin + (x.chanceAtMax - x.chanceAtMin) * share }
+  return {
+    points = points,
+    word = word,
+    multiplier = x.chanceAtMin + (x.chanceAtMax - x.chanceAtMin) * share,
+    parts = parts,
+  }
 end
 
 --- Chance (0..1) that tonight's draw produces an occurrence: the base, scaled by exposure and the year, plus pity.
@@ -187,6 +205,11 @@ function Events.chance(world)
     chance = chance + c.pityBoost * (s.quiet - c.pityNights + 1)
   end
   return math.min(c.maxChance, chance)
+end
+
+--- Is the post-bad cooldown running (a bad event or a landed threat in the last tuning.events.badCooldownNights nights)?
+function Events.cooling(world)
+  return Calendar.now(world).day <= state(world).coolUntil
 end
 
 --- Multiplier (0..1) on a night threat's strength: reduced while Footing is slipped (PLAN_DEPTH 6.5). For the threat framework.
@@ -508,6 +531,18 @@ end
 schedule = function(world, id, day, depth)
   local s = state(world)
   s.scheduled[#s.scheduled + 1] = { id = id, due = dueOn(world, def(world, id), day), depth = depth or 0 }
+end
+
+--- Offer a night event a threat woke the homesteader for (C1's `wake`): the same road as a drawn event, so the hour, the
+--- budget and every mercy rule still apply when it comes due (not before night `firstNight`, one wake a night, nothing
+--- while Footing is slipped or Condition is low). Returns whether it was scheduled.
+function Events.scheduleWake(world, id)
+  local d = def(world, id)
+  if not d.wake or d.when ~= "night" or Calendar.now(world).day < cfg(world).firstNight then
+    return false
+  end
+  schedule(world, id, Calendar.now(world).day, 0)
+  return true
 end
 
 local resolve -- (below) apply an outcome

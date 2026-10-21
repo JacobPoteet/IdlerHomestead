@@ -1,7 +1,8 @@
 -- Mice and the cat (GDD §7.7, D54).
 --
--- Mice: once a night (tuning.cat.mice.raidHour) a roll from the seeded stream "mice" may bring a
--- raid, more likely in autumn and winter and in rough weather. A raid ruins some units of stored
+-- Mice: once a night a roll from the seeded stream "mice" may bring a raid, more likely in autumn and winter and in
+-- rough weather. The night threat framework (nightthreats.lua, D187) plans it at dusk (Cat.nightPlan) and lands it at
+-- tuning.cat.mice.raidHour (Cat.nightLand); Cat.raid is both in one call. A raid ruins some units of stored
 -- fresh food through the ledger (reason "mice"). With a cat, each raid is caught with a
 -- probability that depends on whether the cat is fed and how fond it is of the homesteader.
 --
@@ -257,20 +258,10 @@ local function feed(world, c)
   c.fed = best ~= nil and Ledger.remove(world, best.id, cfg.mealUnits, "cat")
 end
 
---- Roll tonight's raid now. Returns "caught", "raided" or nil (no mice, or nothing to eat).
-function Cat.raid(world)
-  local c, cfg = world.state.cat, world.tuning.cat.mice
-  local rng = world:rng("mice")
-  local day = Calendar.now(world).day
-  c.raidDay = day
-  -- Always draw both rolls so the stream does not depend on the stores or the cat.
-  local hit = rng:chance(Cat.raidChance(world))
-  local catchRoll = rng:float()
-  if not hit or day < cfg.firstDay then
-    return nil
-  end
+-- The stored fresh food a raid can take: { { id, n } ... } in registry order, and the total units.
+local function raidStock(world)
   local targets = {}
-  for _, category in ipairs(cfg.targetCategories) do
+  for _, category in ipairs(world.tuning.cat.mice.targetCategories) do
     targets[category] = true
   end
   local stock, total = {}, 0
@@ -281,11 +272,45 @@ function Cat.raid(world)
       total = total + n
     end
   end
+  return stock, total
+end
+
+--- The in-game hour tonight's raid lands (the night threat framework calls Cat.nightLand then).
+function Cat.nightHour(world)
+  return world.tuning.cat.mice.raidHour
+end
+
+--- Plan tonight's raid (the night threat framework calls this at dusk, C1, D187): draws the stream, and returns a plan
+--- ({ catchRoll }) when mice come and there is food to take, or nil. Both rolls are always drawn so the stream does not
+--- depend on the stores or the cat. `scale` multiplies the chance (exposure and the mercy rules, 1 = unchanged).
+function Cat.nightPlan(world, scale)
+  local c, cfg = world.state.cat, world.tuning.cat.mice
+  local rng = world:rng("mice")
+  local day = Calendar.now(world).day
+  c.raidDay = day
+  local hit = rng:chance(math.min(1, Cat.raidChance(world) * (scale or 1)))
+  local catchRoll = rng:float()
+  if not hit or day < cfg.firstDay then
+    return nil
+  end
+  local _, total = raidStock(world)
+  if total == 0 then
+    return nil
+  end
+  return { catchRoll = catchRoll }
+end
+
+--- Land a planned raid: "caught" (the cat got it) or "raided" (food was ruined), nil if the food is gone by now.
+function Cat.nightLand(world, plan)
+  local c, cfg = world.state.cat, world.tuning.cat.mice
+  local rng = world:rng("mice")
+  local day = Calendar.now(world).day
+  local stock, total = raidStock(world)
   if total == 0 then
     return nil
   end
   c.raids = c.raids + 1
-  if catchRoll < Cat.catchChance(world) then
+  if plan.catchRoll < Cat.catchChance(world) then
     c.caught = c.caught + 1
     world.events:emit("mice.caught", { day = day })
     return "caught"
@@ -311,6 +336,13 @@ function Cat.raid(world)
   c.lost = c.lost + units
   world.events:emit("mice.raided", { day = day, lost = lost, units = units })
   return "raided"
+end
+
+--- Roll tonight's raid and land it now. Returns "caught", "raided" or nil (no mice, or nothing to eat). The game plays
+--- it through the night threat framework (plan at dusk, land at the hour); this is the same two steps in one call.
+function Cat.raid(world)
+  local plan = Cat.nightPlan(world)
+  return plan and Cat.nightLand(world, plan) or nil
 end
 
 function Cat.tick(world, dt)
@@ -339,9 +371,6 @@ function Cat.tick(world, dt)
         choose(world, c)
       end
     end
-  end
-  if now.hour >= world.tuning.cat.mice.raidHour and c.raidDay < now.day then
-    Cat.raid(world)
   end
 end
 

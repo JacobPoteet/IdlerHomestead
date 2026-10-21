@@ -522,6 +522,26 @@ T.test("morning report: hunger, burned fuel and a raid appear; the cold counts t
   T.truthy(text:find("A fox took 1 hen", 1, true))
 end)
 
+T.test(
+  "morning report: a threat turned away is listed from its content line, and a spared fox says what it took",
+  function()
+    local world, reports = throughTheNight(4, nil, function(w)
+      w.events:emit("nightthreat.resolved", { id = "mice", outcome = "turned", lost = {} })
+      w.events:emit("nightthreat.resolved", { id = "fox", outcome = "spared", lost = { chicken_feed = 3 } })
+    end)
+    T.eq(#reports, 1)
+    local report = Nightly.report(world)
+    T.eq(#report.threats, 2)
+    local all = {}
+    for _, line in ipairs(NightText.morning(world, report)) do
+      all[#all + 1] = line.text
+    end
+    local text = table.concat(all, "\n")
+    T.truthy(text:find("The cat caught a mouse in the night.", 1, true))
+    T.truthy(text:find("A fox got into the feed store. The animals were safe.", 1, true))
+  end
+)
+
 T.test("morning report: a mid-night wake does not split the night in two", function()
   local world, reports = throughTheNight(4, nil, function(w)
     Sleep.wake(w, Actors.homesteader(w)) -- a player order in the small hours
