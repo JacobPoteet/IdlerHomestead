@@ -26,7 +26,7 @@ local Features = {}
 Features.LIST = { "cat", "stand", "chickens", "goats", "water", "power", "machines", "finds", "weather" }
 
 --- Opt-in behaviours: only on when named, never part of `all`, so the standing baselines do not move.
-Features.OPT_IN = { "rotate" }
+Features.OPT_IN = { "rotate", "orchard" }
 
 Features.describe = {
   cat = "buy the shelter cat once the Mice note unlocks it (#115)",
@@ -39,6 +39,7 @@ Features.describe = {
   finds = "choose finds by need instead of the first option (#111)",
   weather = "active: no hauling water in the rain (#101)",
   rotate = "replant empty planned tiles with a family other than the one last harvested there, from the seeds in hand (D179)",
+  orchard = "learn, buy and plan berry canes and apple trees once money allows (a few of each); the routine prunes and wraps them (D183)",
 }
 
 --- Parse a `features=` value: nil/"all" is every feature, "none" is none, else a comma list.
@@ -213,6 +214,13 @@ local SHOPPING = {
   { id = "auto_harvester", feature = "machines" },
 }
 
+-- The orchard feature (D183): what to learn, buy and plan, and how many plants of each to hold. Player behaviour.
+local ORCHARD = {
+  { id = "berries_seeds", crop = "berries", want = 4 },
+  { id = "apple_seeds", crop = "apple", want = 2 },
+}
+local ORCHARD_RESERVE = 0 -- $ kept back when buying plants (none: the orchard goes first in the morning buying, before the other features)
+
 --- The shopping list for a feature set: { early = {...}, rest = {...} } of entries.
 function Features.shopping(set)
   local list = { early = {}, rest = {} }
@@ -230,6 +238,11 @@ function Features.studyIds(set)
   for _, entry in ipairs(SHOPPING) do
     if set[entry.feature] then
       ids[#ids + 1] = entry.id
+    end
+  end
+  if set.orchard then
+    for _, plant in ipairs(ORCHARD) do
+      ids[#ids + 1] = plant.id
     end
   end
   return ids
@@ -432,11 +445,71 @@ function Features.rotate(world)
     local last = Soil.lastFamily(world, i)
     if last and planned.family == last then
       for _, crop in ipairs(world.registry:all("crops")) do
-        if crop.family ~= last and spare[crop.id] > 0 and Crops.canPlantNow(world, crop) then
+        if crop.family ~= last and not crop.perennial and spare[crop.id] > 0 and Crops.canPlantNow(world, crop) then
           spare[crop.id] = spare[crop.id] - 1
           Crops.setPlan(world, i, crop.id)
           break
         end
+      end
+    end
+  end
+end
+
+--- Perennials (D183): buy canes and saplings when they are learned and affordable (the dear item first in line), and plan
+--- each one in hand on a free tillable tile near the spawn; the routine tills, plants, waters, prunes and wraps them.
+--- A plant counts once it is bought, planned or planted, so none is bought twice.
+function Features.orchard(world)
+  local grid, fields = world.state.grid, world.state.fields
+  for _, plant in ipairs(ORCHARD) do
+    local def = world.registry:get("crops", plant.crop)
+    local have = Ledger.get(world, def.seed)
+    for _, c in pairs(fields.plan) do
+      have = c == plant.crop and have + 1 or have
+    end
+    for _, order in ipairs(world.state.market.orders) do
+      if order.item == plant.id then
+        have = have + world.registry:get("catalog", plant.id).gives[def.seed]
+      end
+    end
+    if
+      have < plant.want
+      and Market.isKnown(world, plant.id)
+      and Market.cannotBuy(world, plant.id, false) == nil
+      and Ledger.get(world, "money")
+        >= Market.itemPrice(world, plant.id) + world.tuning.economy.deliveryFee + ORCHARD_RESERVE
+    then
+      Market.order(world, plant.id)
+    end
+    -- plan the plants in hand that no tile is waiting for
+    local unplanned = Ledger.get(world, def.seed)
+    for i, c in pairs(fields.plan) do
+      if c == plant.crop and not world.state.crops[i] then
+        unplanned = unplanned - 1
+      end
+    end
+    if unplanned > 0 and Crops.canPlantNow(world, def) then
+      local spawn = world.state.land.spawn
+      local scored = {}
+      for i = 1, #grid.terrain do
+        if
+          Grid.terrain(world, i).tillable
+          and not world.occupancy[i]
+          and not fields.tilled[i]
+          and not fields.plan[i]
+          and not fields.held[i]
+          and not world.state.crops[i]
+        then
+          scored[#scored + 1] = { i = i, score = Grid.distance(grid, i, spawn) - 4 * grid.soil[i] }
+        end
+      end
+      table.sort(scored, function(a, b)
+        if a.score ~= b.score then
+          return a.score < b.score
+        end
+        return a.i < b.i
+      end)
+      for k = 1, math.min(unplanned, #scored) do
+        Crops.setPlan(world, scored[k].i, plant.crop)
       end
     end
   end

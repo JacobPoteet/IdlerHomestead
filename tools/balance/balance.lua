@@ -192,6 +192,13 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
       compostSpread = 0,
       qualityGood = 0, -- crop quality (D182): harvests graded good and excellent (the rest are normal)
       qualityExcellent = 0,
+      fruitFirst = 0, -- perennials (D183): harvests of the young first crop and of established plants, plants lost to the freeze, units of fruit picked
+      fruitFull = 0,
+      plantsFrosted = 0,
+      fruitUnits = 0,
+      plantsPlanted = 0,
+      plantsRemoved = 0,
+      fruitLost = 0,
       rainDays = 0,
       cloudyDays = 0,
       brownouts = 0,
@@ -270,8 +277,28 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
     c.pressureCut = c.pressureCut + tuning.soil.pressureCut * e.pressure
     c.zeroYields = c.zeroYields + (e.amount < 1 and 1 or 0)
     c.weedCut = c.weedCut + tuning.soil.weedCut * e.weeds
+    if e.stage then
+      c.fruitFirst = c.fruitFirst + (e.stage == "first" and 1 or 0)
+      c.fruitFull = c.fruitFull + (e.stage == "mature" and 1 or 0)
+      c.fruitUnits = c.fruitUnits + e.amount
+    end
     c.qualityGood = c.qualityGood + (e.quality == "good" and 1 or 0)
     c.qualityExcellent = c.qualityExcellent + (e.quality == "excellent" and 1 or 0)
+  end)
+  events:on("crop.planted", function(e)
+    local c = result.counters
+    c.plantsPlanted = c.plantsPlanted + (ctx.registry:get("crops", e.crop).perennial and 1 or 0)
+  end)
+  events:on("crop.removed", function(e)
+    local c = result.counters
+    c.plantsRemoved = c.plantsRemoved + (ctx.registry:get("crops", e.crop).perennial and 1 or 0)
+  end)
+  events:on("crop.lost", function(e)
+    local c = result.counters
+    c.fruitLost = c.fruitLost + (ctx.registry:get("crops", e.crop).perennial and 1 or 0)
+  end)
+  events:on("crop.frosted", function(e)
+    result.counters.plantsFrosted = result.counters.plantsFrosted + (e.young and 1 or 0)
   end)
   events:on("weed.pulled", function()
     result.counters.weedsPulled = result.counters.weedsPulled + 1
@@ -1292,6 +1319,19 @@ function Balance.printFeatures(summary, years)
       "Quality per run (mean): %.0f%% of harvests good, %.0f%% excellent (the routine cannot reach excellent, D182)",
       100 * q("qualityGood").mean / harvests,
       100 * q("qualityExcellent").mean / harvests
+    )
+  )
+  line(
+    string.format(
+      "Perennials per run (mean): %.1f planted, %.1f young and %.1f established harvests, %.0f fruit picked, "
+        .. "%.1f young plants lost to the freeze, %.1f built over or pulled, %.1f crops stripped by a threat",
+      q("plantsPlanted").mean,
+      q("fruitFirst").mean,
+      q("fruitFull").mean,
+      q("fruitUnits").mean,
+      q("plantsFrosted").mean,
+      q("plantsRemoved").mean,
+      q("fruitLost").mean
     )
   )
   line(

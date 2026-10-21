@@ -65,8 +65,10 @@ local WINDOWS = {
   tomato = { "spring", "summer" },
   corn = { "spring", "summer" },
   herbs = { "spring", "summer", "autumn" },
+  berries = { "spring" }, -- the perennials (D183)
+  apple = { "spring", "summer" },
 }
-local HARDY = { lettuce = true, garlic = true }
+local HARDY = { lettuce = true, garlic = true, berries = true, apple = true }
 
 local function has(list, value)
   for _, v in ipairs(list) do
@@ -77,9 +79,9 @@ local function has(list, value)
   return false
 end
 
-T.test("crops: eleven crops, the starter pair first, and the data is the table above", function()
+T.test("crops: thirteen crops, the starter pair first, and the data is the table above", function()
   local all = reg:all("crops")
-  T.eq(#all, 11)
+  T.eq(#all, 13)
   T.eq(all[1].id, "radish", "the policies and the starter field rely on the order")
   T.eq(all[2].id, "potato")
   for _, crop in ipairs(all) do
@@ -94,7 +96,11 @@ T.test("crops: every crop has the schema fields in range and its five data files
   for _, crop in ipairs(reg:all("crops")) do
     local id = crop.id
     T.truthy(crop.growDays > 0 and crop.yield > 0, id .. " grows and yields")
-    T.truthy(crop.seedReturn[1] >= 1 and crop.seedReturn[2] >= crop.seedReturn[1], id .. " seed return")
+    if crop.perennial then
+      T.eq(crop.seedReturn[2], 0, id .. " gives no seed back (it is planted once)")
+    else
+      T.truthy(crop.seedReturn[1] >= 1 and crop.seedReturn[2] >= crop.seedReturn[1], id .. " seed return")
+    end
     T.truthy(#crop.plantSeasons > 0, id .. " has a window")
     for _, s in ipairs(crop.plantSeasons) do
       T.truthy(has(seasons, s), id .. " window season " .. s)

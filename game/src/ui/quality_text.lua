@@ -36,7 +36,7 @@ end
 --- sees what hand watering and weeding do. Nil when there is no crop or it is a resting perennial.
 function QualityText.cropLine(world, i)
   local crop = world.state.crops[i]
-  if not crop or crop.rest then
+  if not crop or (crop.rest and crop.growth < 1) then
     return nil
   end
   local def = world.registry:get("crops", crop.id)

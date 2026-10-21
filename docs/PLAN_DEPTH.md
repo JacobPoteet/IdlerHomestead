@@ -529,7 +529,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - D4 (#366) Weeds, weeding task, mulch.
 - D5 (#367) Compost bin and manure loop.
 - D6 (#368) Quality tiers and tended marks. **Done (D182).**
-- D7 (#369) Perennials: berries and orchard.
+- D7 (#369) Perennials: berries and orchard. **Done (D183).**
 - D8 (#370) Routine categories and conditions for the new tasks.
 
 **Phase E: Market**

@@ -437,7 +437,7 @@ end
 local function cropStage(crop)
   if crop.growth >= 1 then
     return 3
-  elseif crop.growth >= 0.4 then
+  elseif crop.growth >= 0.4 or crop.stage == "first" or crop.stage == "mature" then -- a perennial past its sapling year stands leafy
     return 2
   end
   return 1
@@ -562,7 +562,7 @@ function Renderer:draw(alpha, visible, daylight)
       items[#items + 1] = {
         y * tile - 0.5,
         function()
-          local thirsty = crop.moisture <= 0 and crop.growth < 1
+          local thirsty = crop.moisture <= 0 and crop.growth < 1 and not crop.rest
           local sprite = Assets.sprite(crop.id .. "_" .. cropStage(crop))
           if sway then
             self:drawSwaying(

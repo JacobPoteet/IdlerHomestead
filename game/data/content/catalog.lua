@@ -121,6 +121,28 @@ return {
     studyNights = 2,
     gives = { seed_garlic = 4 },
   },
+  -- D183 (#369): the perennials. Dear to start (the price is for the plants), they come late: the frost teaches what
+  -- a bed of canes or a tree is for, and a first sale teaches that fruit is worth the wait.
+  {
+    id = "berries_seeds",
+    name = "Berry canes x2",
+    line = "Plant in spring; a small crop that summer, full after winter.",
+    page = "seeds",
+    price = 40,
+    needs = { "first_frost", "first_trip" },
+    studyNights = 3,
+    gives = { seed_berries = 2 },
+  },
+  {
+    id = "apple_seeds",
+    name = "Apple sapling",
+    line = "Plant in spring or summer; fruit in autumn for years.",
+    page = "seeds",
+    price = 90,
+    needs = { "first_frost", "stand_sale" },
+    studyNights = 3,
+    gives = { seed_apple = 1 },
+  },
   {
     id = "canned_food",
     name = "Canned food x2",

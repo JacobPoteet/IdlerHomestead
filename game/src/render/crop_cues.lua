@@ -12,7 +12,7 @@ function CropCues.cue(crop)
   if crop.growth >= 1 then
     return "ready"
   end
-  if crop.moisture <= 0 then
+  if crop.moisture <= 0 and not crop.rest then
     return "thirsty"
   end
   return nil

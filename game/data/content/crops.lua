@@ -7,7 +7,11 @@
 --   waterAppetite: multiplier on how fast a watering dries (1 = the base rate; above 1 is thirstier).
 --   fertilityDraw: points of a tile's 0..1 fertility a harvest draws; negative adds (legumes). Read by soil.lua (D178).
 --   family: rotation family (tuning.farming.families). Read by D3.
---   qualitySensitivity: 0..1, how strongly the quality tier follows fertility, weeding and tending. Read by D7.
+--   qualitySensitivity: 0..1, how strongly the quality tier follows fertility, weeding and tending (quality.lua, D182).
+--   perennial: (optional) planted once, it stays in the ground and fruits every year in `fruitSeason` (D183, PLAN_DEPTH 8.5).
+--     First, small crop in the fruiting season after the one it was planted in, a full crop after one winter; young plants
+--     (before that winter) want wrapping before the freeze and are drawn to the animals in `vulnerable` (data for the night
+--     threats of phase C). growDays is the watered days the fruit takes to ripen inside its season; seedReturn is { 0, 0 }.
 -- Elsewhere: sale price is resources.lua `value`, shelf life is tuning/food.lua, and the journal gate (the notes
 -- that make the seed an idea on the Seeds page) is the seed's catalog entry `needs`.
 local ALL = { "spring", "summer", "autumn" }
@@ -176,5 +180,38 @@ return {
     fertilityDraw = 0.05,
     family = "herbs",
     qualitySensitivity = 0.7,
+  },
+  -- D183 (#369): the perennials. A high start cost (the catalog price), a slow start and then income for years.
+  {
+    id = "berries",
+    name = "Berry canes",
+    seed = "seed_berries",
+    produce = "berries",
+    growDays = 4,
+    yield = 6,
+    seedReturn = { 0, 0 },
+    plantSeasons = { "spring" },
+    frost = "hardy",
+    waterAppetite = 1.1,
+    fertilityDraw = 0.1,
+    family = "perennials",
+    qualitySensitivity = 0.7,
+    perennial = { fruitSeason = "summer", vulnerable = { "deer" } },
+  },
+  {
+    id = "apple",
+    name = "Apple tree",
+    seed = "seed_apple",
+    produce = "apple",
+    growDays = 5,
+    yield = 12,
+    seedReturn = { 0, 0 },
+    plantSeasons = { "spring", "summer" },
+    frost = "hardy",
+    waterAppetite = 0.9,
+    fertilityDraw = 0.15,
+    family = "perennials",
+    qualitySensitivity = 0.5,
+    perennial = { fruitSeason = "autumn", vulnerable = { "deer", "bear" } },
   },
 }

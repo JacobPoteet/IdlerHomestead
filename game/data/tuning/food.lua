@@ -27,6 +27,8 @@ return {
       onion = 28, -- days an onion keeps (all year)
       squash = 28, -- days squash keeps (all year)
       garlic = 28, -- days garlic keeps (all year)
+      berries = 3, -- days berries keep (the most fragile fruit: sell or eat them at once)
+      apple = 21, -- days an apple keeps (a cellar fruit: autumn apples last into winter)
       egg = 14, -- days an egg keeps (two weeks)
     },
     byCategory = {

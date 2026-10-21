@@ -106,6 +106,43 @@ function AlertText.cropFrostLine(world, crop)
   return string.format("Frost in %dd", left)
 end
 
+--- Lines for the tile card of a perennial in the ground (D183): its stage and when it fruits, then what it needs
+--- (pruning, wrapping before the freeze). Empty for an annual.
+function AlertText.perennialLines(world, crop)
+  local lines = {}
+  if not crop.stage then
+    return lines
+  end
+  local def = world.registry:get("crops", crop.id)
+  local season = def.perennial.fruitSeason
+  local first = world.tuning.perennials.firstYieldShare
+  if crop.stage == "sapling" then
+    lines[#lines + 1] = string.format("Sapling: small first crop in %s", season)
+  elseif crop.stage == "first" then
+    lines[#lines + 1] =
+      string.format("Young: %d%% crop in %s, full after winter", math.floor(first * 100 + 0.5), season)
+  else
+    lines[#lines + 1] = string.format("Established: full crop in %s", season)
+  end
+  if crop.pruneDue then
+    lines[#lines + 1] = "Needs pruning"
+  end
+  if Crops.isYoung(crop) then
+    if crop.wrapped then
+      lines[#lines + 1] = "Wrapped against the frost"
+    elseif not Weather.isFrozen(world) then
+      local left = Weather.daysToFreeze(world)
+      lines[#lines + 1] = left <= world.tuning.perennials.wrapLead and string.format("Wrap it: frost in %dd", left)
+        or "Wrap it before the first frost"
+    end
+    local animals = def.perennial.vulnerable
+    if #animals > 0 then
+      lines[#lines + 1] = "Draws " .. table.concat(animals, " and ") .. " while young"
+    end
+  end
+  return lines
+end
+
 --- The seasons a crop is sown in, for a tile card: "autumn", "spring or autumn", "spring, summer or autumn" (D177).
 function AlertText.windowSeasons(world, cropId)
   local seasons = world.registry:get("crops", cropId).plantSeasons

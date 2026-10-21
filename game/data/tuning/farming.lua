@@ -23,6 +23,17 @@ return {
   starterTruckWeight = 0.5, -- score per tile of distance to the truck
   starterSoilWeight = 4, -- score removed per 1.0 of soil quality (better soil wins ties)
   starterAdjacencyWeight = 2, -- score removed per neighbouring tile (of 8) already in the starter block (lower score wins; makes the field a compact lump, D88)
-  families = { "roots", "brassicas", "nightshades", "legumes", "cucurbits", "alliums", "greens", "grasses", "herbs" }, -- rotation families a crop may belong to (PLAN_DEPTH 8.3; D3 reads them, D177 only names them)
+  families = { -- rotation families a crop may belong to (PLAN_DEPTH 8.3; D3 reads them, D177 only names them; `perennials` is the family of berries and trees, which never rotate, D183)
+    "roots",
+    "brassicas",
+    "nightshades",
+    "legumes",
+    "cucurbits",
+    "alliums",
+    "greens",
+    "grasses",
+    "herbs",
+    "perennials",
+  },
   starterFrostMargin = 1, -- days of slack beyond a crop's grow time before the freeze when judging "ripens in time"
 }
