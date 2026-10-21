@@ -73,6 +73,12 @@ return {
     growDays = "number", -- watered game days to mature
     yield = "number", -- base produce per harvest, scaled by soil
     seedReturn = "table", -- { min, max } seeds back per harvest
+    plantSeasons = "table", -- season ids the plant task sows it in (D177); growth after planting is not limited to them
+    frost = "string", -- tender (the freeze kills it) | hardy (survives the freeze dormant)
+    waterAppetite = "number", -- multiplier on how fast a watering dries (1 = the base rate)
+    fertilityDraw = "number", -- share of a tile's fertility a harvest draws; negative adds (legumes); read by D2
+    family = "string", -- rotation family, one of tuning.farming.families; read by D3
+    qualitySensitivity = "number", -- 0..1 how strongly quality follows fertility, weeding and tending; read by D7
   },
   fish = {
     name = "string",

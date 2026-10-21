@@ -67,6 +67,15 @@ return {
     -- Crops: one sprite per growth stage (1 = sprout ... 3 = ready)
     radish = { placeholder = "radish", w = 16, h = 16, variants = 3 },
     potato = { placeholder = "potato", w = 16, h = 16, variants = 3 },
+    lettuce = { placeholder = "lettuce", w = 16, h = 16, variants = 3 }, -- D177: the nine later crops
+    beans = { placeholder = "beans", w = 16, h = 16, variants = 3 },
+    carrot = { placeholder = "carrot", w = 16, h = 16, variants = 3 },
+    onion = { placeholder = "onion", w = 16, h = 16, variants = 3 },
+    garlic = { placeholder = "garlic", w = 16, h = 16, variants = 3 },
+    squash = { placeholder = "squash", w = 16, h = 16, variants = 3 },
+    tomato = { placeholder = "tomato", w = 16, h = 16, variants = 3 },
+    corn = { placeholder = "corn", w = 16, h = 16, variants = 3 },
+    herbs = { placeholder = "herbs", w = 16, h = 16, variants = 3 },
 
     -- Actors
     homesteader = { placeholder = "homesteader", w = 20, h = 22 },
@@ -84,6 +93,15 @@ return {
     icon_scrap = { placeholder = "icon_scrap", w = 12, h = 12 },
     icon_seed_radish = { placeholder = "icon_seed_radish", w = 12, h = 12 },
     icon_seed_potato = { placeholder = "icon_seed_potato", w = 12, h = 12 },
+    icon_seed_lettuce = { placeholder = "icon_seed_lettuce", w = 12, h = 12 }, -- D177: seed (catalog) and produce (resource) icons
+    icon_seed_beans = { placeholder = "icon_seed_beans", w = 12, h = 12 },
+    icon_seed_carrot = { placeholder = "icon_seed_carrot", w = 12, h = 12 },
+    icon_seed_onion = { placeholder = "icon_seed_onion", w = 12, h = 12 },
+    icon_seed_garlic = { placeholder = "icon_seed_garlic", w = 12, h = 12 },
+    icon_seed_squash = { placeholder = "icon_seed_squash", w = 12, h = 12 },
+    icon_seed_tomato = { placeholder = "icon_seed_tomato", w = 12, h = 12 },
+    icon_seed_corn = { placeholder = "icon_seed_corn", w = 12, h = 12 },
+    icon_seed_herbs = { placeholder = "icon_seed_herbs", w = 12, h = 12 },
     icon_heart = { placeholder = "icon_heart", w = 12, h = 12 },
     icon_wx_clear = { placeholder = "icon_wx_clear", w = 12, h = 12 }, -- weather chip glyphs (D112)
     icon_wx_cloudy = { placeholder = "icon_wx_cloudy", w = 12, h = 12 },
@@ -97,6 +115,15 @@ return {
     icon_bait = { placeholder = "icon_bait", w = 12, h = 12 },
     icon_radish = { placeholder = "icon_seed_radish", w = 12, h = 12 },
     icon_potato = { placeholder = "icon_seed_potato", w = 12, h = 12 },
+    icon_lettuce = { placeholder = "icon_seed_lettuce", w = 12, h = 12 },
+    icon_beans = { placeholder = "icon_seed_beans", w = 12, h = 12 },
+    icon_carrot = { placeholder = "icon_seed_carrot", w = 12, h = 12 },
+    icon_onion = { placeholder = "icon_seed_onion", w = 12, h = 12 },
+    icon_garlic = { placeholder = "icon_seed_garlic", w = 12, h = 12 },
+    icon_squash = { placeholder = "icon_seed_squash", w = 12, h = 12 },
+    icon_tomato = { placeholder = "icon_seed_tomato", w = 12, h = 12 },
+    icon_corn = { placeholder = "icon_seed_corn", w = 12, h = 12 },
+    icon_herbs = { placeholder = "icon_seed_herbs", w = 12, h = 12 },
     icon_canned_food = { placeholder = "icon_food", w = 12, h = 12 },
     -- Interface icons (GDD §9.4, D142): tools, verbs, signals, books, seed packets
     icon_tool_hand = { placeholder = "icon_tool_hand", w = 12, h = 12 },
@@ -147,6 +174,15 @@ return {
     icon_packet = { placeholder = "icon_packet", w = 12, h = 12 },
     icon_packet_radish = { placeholder = "icon_packet_radish", w = 12, h = 12 },
     icon_packet_potato = { placeholder = "icon_packet_potato", w = 12, h = 12 },
+    icon_packet_lettuce = { placeholder = "icon_packet_lettuce", w = 12, h = 12 },
+    icon_packet_beans = { placeholder = "icon_packet_beans", w = 12, h = 12 },
+    icon_packet_carrot = { placeholder = "icon_packet_carrot", w = 12, h = 12 },
+    icon_packet_onion = { placeholder = "icon_packet_onion", w = 12, h = 12 },
+    icon_packet_garlic = { placeholder = "icon_packet_garlic", w = 12, h = 12 },
+    icon_packet_squash = { placeholder = "icon_packet_squash", w = 12, h = 12 },
+    icon_packet_tomato = { placeholder = "icon_packet_tomato", w = 12, h = 12 },
+    icon_packet_corn = { placeholder = "icon_packet_corn", w = 12, h = 12 },
+    icon_packet_herbs = { placeholder = "icon_packet_herbs", w = 12, h = 12 },
     -- One icon per fish species (same painter, tinted per species)
     icon_creek_chub = { placeholder = "fish_icon", w = 12, h = 12 },
     icon_sunfish = { placeholder = "fish_icon", w = 12, h = 12 },

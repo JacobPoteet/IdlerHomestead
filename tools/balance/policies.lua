@@ -53,6 +53,7 @@ local POLICY = {
   placeFromRing = 2, -- tiles from the truck at which delivered objects are placed (leaves a walkway)
   placeToRing = 10, -- farthest ring tried when placing
   maxFieldTiles = 48, -- active: most tiles the player will keep in fields
+  starterFieldShare = 0.75, -- active: share of those tiles the starter crops (radish, potato) may fill; the rest waits for the other crops (D177)
   blacklistSeconds = 60, -- seconds an unreachable target is skipped
   fishSkill = 0.75, -- active: chance the tension mini-game ends in a landed fish
   fightPadding = 3, -- active: seconds of reeling on top of the fish's stamina
@@ -262,6 +263,20 @@ function Base:planField(world, cap)
   if room <= 0 then
     return
   end
+  -- D177 (#363): with a cap, the starter crops (radish, potato) take at most `starterFieldShare` of it, so a player who has
+  -- learned the other crops has room to plant them (a field full of the starters never changes; there is no replacing).
+  local starter, starterRoom = {}, math.huge
+  if cap then
+    for _, entry in ipairs(world.tuning.farming.starterField) do
+      starter[entry.crop] = true
+    end
+    starterRoom = math.floor(cap * POLICY.starterFieldShare)
+    for _, c in pairs(fields.plan) do
+      if starter[c] then
+        starterRoom = starterRoom - 1
+      end
+    end
+  end
   for _, crop in ipairs(world.registry:all("crops")) do
     local seeds = Ledger.get(world, crop.seed)
     local claimed = 0
@@ -271,18 +286,28 @@ function Base:planField(world, cap)
       end
     end
     local want = math.min(seeds - claimed, room)
+    if starter[crop.id] then
+      want = math.min(want, starterRoom)
+    end
     if want > 0 and self:canMature(world, crop) then
       for _, i in ipairs(self:fieldTiles(world, want)) do
         Crops.setPlan(world, i, crop.id)
         room = room - 1
+        if starter[crop.id] then
+          starterRoom = starterRoom - 1
+        end
       end
     end
   end
 end
 
---- Would a crop planted today ripen before the freeze, with a day of slack for watering lag?
+--- Would a crop planted today be sown in this season and ripen before the freeze (a hardy one just overwinters),
+--- with a day of slack for watering lag?
 function Base:canMature(world, crop)
-  return daysToFreeze(world) >= crop.growDays + POLICY.frostMargin
+  if not Crops.canPlantNow(world, crop) then
+    return false -- frozen, or the crop is not sown in this season (D177)
+  end
+  return Crops.survivesFrost(world, crop) or daysToFreeze(world) >= crop.growDays + POLICY.frostMargin
 end
 
 function Base:start(world)

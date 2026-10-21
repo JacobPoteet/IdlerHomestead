@@ -1058,7 +1058,7 @@ function Homestead:layoutHud(view)
       end),
     },
   }
-  for _, crop in ipairs(world.registry:all("crops")) do
+  for _, crop in ipairs(self:seedCrops()) do
     local button = {
       id = "seed:" .. crop.id,
       w = ui.buttonWidths.seed,
@@ -3339,6 +3339,18 @@ function Homestead:currentTool()
   return "hand"
 end
 
+--- The crops whose packets the Hoe's ring and the tools tray list: every crop with seed in the store, and every crop
+--- whose seed is learned (D177). An unlearned crop with no seed stays off both, so the packets never name it (D117).
+function Homestead:seedCrops()
+  local world, list = self.world, {}
+  for _, crop in ipairs(world.registry:all("crops")) do
+    if Ledger.get(world, crop.seed) > 0 or Journal.isKnown(world, crop.id .. "_seeds") then
+      list[#list + 1] = crop
+    end
+  end
+  return list
+end
+
 --- The seed the Hoe takes when no packet is chosen: the last one used while it lasts, else the first crop
 --- with seed to sow, else the first crop.
 function Homestead:defaultSeed()
@@ -3369,7 +3381,7 @@ function Homestead:ringItems(id)
   local world, ui = self.world, self.app.ctx.tuning.ui
   local L = ui.labels
   local seeds = {}
-  for _, crop in ipairs(world.registry:all("crops")) do
+  for _, crop in ipairs(self:seedCrops()) do
     seeds[#seeds + 1] = {
       kind = "seed",
       crop = crop.id,
@@ -4446,7 +4458,9 @@ function Homestead:tileInfo(i)
     local planned = world.state.fields.plan[i]
     lines[#lines + 1] = "Planned: " .. world.registry:get("crops", planned).name
     local risk = Crops.frostRisk(world, planned)
-    if risk then
+    if not Crops.inWindow(world, planned) and not Weather.isFrozen(world) then
+      lines[#lines + 1] = "Not planted until " .. AlertText.windowSeasons(world, planned)
+    elseif risk then
       lines[#lines + 1] = risk.level == "late" and "Too late: frost first" or "Close to frost"
     end
   end

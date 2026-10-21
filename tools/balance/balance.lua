@@ -11,6 +11,7 @@ local Features = require("features")
 local Finds = require("src.sim.systems.finds")
 local Footing = require("src.sim.systems.footing")
 local Inventory = require("src.sim.systems.inventory")
+local Market = require("src.sim.systems.market")
 local Machines = require("src.sim.systems.machines")
 local Power = require("src.sim.systems.power")
 local Stand = require("src.sim.systems.stand")
@@ -184,6 +185,11 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
     finds = {}, -- find id -> times picked
     spoiledBy = {}, -- resource id -> units spoiled (D73)
     soldBy = {}, -- resource id -> units sold by the truck and the stand (D75)
+    -- Crop income (D177, #363): $ the truck and the stand paid, at the price of the moment: `all` for every good,
+    -- `crops` for crop produce, `starter` for the starter field's crops (tuning.farming.starterField). The check
+    -- behind "starting-crop income must not fund the mid game" (#263): reporting only, no target.
+    sales = { all = 0, crops = 0, starter = 0 },
+    plantedByYear = {}, -- game year -> crop id -> plantings (how many kinds the player grows once the others are known)
     daysTotal = daysTotal,
     features = Features.label(features or {}),
     -- Events (D169, #347): only when an event-choice policy is chosen. What came, how it was answered, and the spiral
@@ -216,6 +222,13 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
       result.footing.winterDay = (n - 1) * tuning.time.daysPerSeason + 1
       break
     end
+  end
+  local produceOf, starterProduce = {}, {} -- resource id -> true, for crop produce and for the starter field's
+  for _, crop in ipairs(ctx.registry:all("crops")) do
+    produceOf[crop.produce] = true
+  end
+  for _, entry in ipairs(tuning.farming.starterField) do
+    starterProduce[ctx.registry:get("crops", entry.crop).produce] = true
   end
   local hourSeconds = tuning.time.dayLength / 24
   local damage = { hunger = 0, cold = 0, thirst = 0 } -- Condition lost since the last day with no damage
@@ -268,7 +281,22 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
   events:on("ledger.changed", function(e)
     if (e.reason == "sold" or e.reason == "stand") and e.delta < 0 then
       result.soldBy[e.id] = (result.soldBy[e.id] or 0) - e.delta
+      local price = e.reason == "stand" and Stand.unitPrice(world, e.id) or Market.sellPrice(world, e.id)
+      local worth = -e.delta * price
+      result.sales.all = result.sales.all + worth
+      if produceOf[e.id] then
+        result.sales.crops = result.sales.crops + worth
+        if starterProduce[e.id] then
+          result.sales.starter = result.sales.starter + worth
+        end
+      end
     end
+  end)
+  events:on("crop.planted", function(e)
+    local year = Calendar.now(world).year
+    local by = result.plantedByYear[year] or {}
+    result.plantedByYear[year] = by
+    by[e.crop] = (by[e.crop] or 0) + 1
   end)
   events:on("mice.caught", function()
     result.counters.miceCaught = result.counters.miceCaught + 1
@@ -689,6 +717,49 @@ function Balance.footingSummary(results)
   return f
 end
 
+--- Crops across runs (D177, #363), reporting only: the starter crops' share of what the farm sold (the check that
+--- starting-crop income does not fund the mid game, #263) and how many kinds were planted each year.
+function Balance.cropsSummary(ctx, results, years)
+  local perYear = #ctx.tuning.time.seasons * ctx.tuning.time.daysPerSeason
+  local shares, starterSales, allSales = {}, 0, 0
+  for _, r in ipairs(results) do
+    local s = r.sales or { all = 0, crops = 0, starter = 0 }
+    starterSales, allSales = starterSales + s.starter, allSales + s.all
+    if s.all > 0 then
+      shares[#shares + 1] = s.starter / s.all
+    end
+  end
+  local out = {
+    starterShare = quantiles(shares), -- per run: starter-crop sales / all sales, runs that sold anything
+    starterSalesMean = starterSales / math.max(1, #results), -- $ per run
+    salesMean = allSales / math.max(1, #results), -- $ per run, every good
+    starterCrops = #ctx.tuning.farming.starterField,
+    planted = {}, -- year -> { kinds = quantiles of distinct crops planted, beyondStarters = share of runs planting another }
+  }
+  local starter = {}
+  for _, entry in ipairs(ctx.tuning.farming.starterField) do
+    starter[entry.crop] = true
+  end
+  for year = 1, years do
+    local kinds, beyond, n = {}, 0, 0
+    for _, r in ipairs(results) do
+      if r.snaps[(year - 1) * perYear + 1] or year == 1 then
+        local count, other = 0, false
+        for crop in pairs((r.plantedByYear or {})[year] or {}) do
+          count = count + 1
+          other = other or not starter[crop]
+        end
+        kinds[#kinds + 1] = count
+        beyond, n = beyond + (other and 1 or 0), n + 1
+      end
+    end
+    if n > 0 then
+      out.planted[year] = { kinds = quantiles(kinds), beyondStarters = beyond / n, n = n }
+    end
+  end
+  return out
+end
+
 --- Aggregate run results (all of one policy and run index) into a summary table.
 function Balance.summarize(ctx, results, years)
   local points = Balance.samplePoints(ctx, years)
@@ -814,6 +885,7 @@ function Balance.summarize(ctx, results, years)
   end
   summary.features = results[1] and results[1].features or "none"
   summary.footing = Balance.footingSummary(results)
+  summary.crops = Balance.cropsSummary(ctx, results, years)
   summary.events = Balance.eventsSummary(results)
   return summary
 end
@@ -1181,6 +1253,39 @@ function Balance.printFeatures(summary, years)
   end
   table.sort(sold)
   line("Sold per run by good, truck and stand (mean units): " .. (#sold > 0 and table.concat(sold, ", ") or "-"))
+  Balance.printCrops(summary.crops, years)
+end
+
+--- The crops block of a summary (D177, #363): reporting only, no target. The share is the check behind #263: how much
+--- of what the farm sold came from the two starter crops, which must not carry the mid game.
+function Balance.printCrops(c, years)
+  if not c then
+    return
+  end
+  local share = c.starterShare
+  line(
+    string.format(
+      "Starter-crop income (the #263 check): %s of sales value median%s, $%.0f of $%.0f per run (mean)",
+      share and pct(share.p50) or "-",
+      share and string.format(" [p25-p75 %s-%s]", pct(share.p25), pct(share.p75)) or "",
+      c.starterSalesMean,
+      c.salesMean
+    )
+  )
+  for year = 1, years do
+    local p = c.planted[year]
+    if p then
+      line(
+        string.format(
+          "Crop kinds planted year %d (median of %d): %s; runs that planted a crop beyond the starters %s",
+          year,
+          p.n,
+          num(p.kinds.p50, 0),
+          pct(p.beyondStarters)
+        )
+      )
+    end
+  end
 end
 
 -- File output -------------------------------------------------------------------------------------

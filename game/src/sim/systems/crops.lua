@@ -6,10 +6,12 @@
 --   world.state.crops = { [i] = { id, growth = 0..1, moisture = 0..1 } }
 -- Crops grow only while moist; one watering lasts tuning.farming.moistureDays. Nothing grows or
 -- can be planted while the ground is frozen, and the first frost kills whatever is still in the
--- ground (GDD §4.1).
+-- ground (GDD §4.1), except a `hardy` crop, which sits the winter out dormant (D177). A crop is sown only in
+-- the seasons of its `plantSeasons`.
 -- Emits "crop.planted" { crop, tile }, "crop.harvested" { crop, tile, amount, seeds } and
 -- "crop.frosted" { crop, tile }.
 
+local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
 local Land = require("src.sim.systems.land")
 local Ledger = require("src.sim.systems.ledger")
@@ -17,6 +19,30 @@ local Tasks = require("src.sim.systems.tasks")
 local Weather = require("src.sim.systems.weather")
 
 local Crops = {}
+
+--- Is the crop's plant window open in `season` (default: now)? Radish and potato are open all three unfrozen
+--- seasons, garlic only in autumn (D177). Takes a crop id or a crop definition.
+function Crops.inWindow(world, crop, season)
+  local def = type(crop) == "table" and crop or world.registry:get("crops", crop)
+  season = season or Calendar.now(world).season
+  for _, s in ipairs(def.plantSeasons) do
+    if s == season then
+      return true
+    end
+  end
+  return false
+end
+
+--- Can the plant task sow this crop right now: the ground is not frozen and the season is in its window?
+function Crops.canPlantNow(world, crop)
+  return not Weather.isFrozen(world) and Crops.inWindow(world, crop)
+end
+
+--- Does the crop live through the freeze (D177)? Tender crops die at it; hardy ones sit dormant.
+function Crops.survivesFrost(world, crop)
+  local def = type(crop) == "table" and crop or world.registry:get("crops", crop)
+  return def.frost == "hardy"
+end
 
 function Crops.isMature(crop)
   return crop.growth >= 1
@@ -291,7 +317,11 @@ function Crops.planStarter(world)
   for _, entry in ipairs(cfg.starterField) do
     local def = world.registry:get("crops", entry.crop)
     local count = math.min(entry.tiles, Ledger.get(world, def.seed))
-    if count > 0 and daysLeft >= def.growDays + cfg.starterFrostMargin then
+    if
+      count > 0
+      and Crops.inWindow(world, def)
+      and (Crops.survivesFrost(world, def) or daysLeft >= def.growDays + cfg.starterFrostMargin)
+    then
       wanted[#wanted + 1] = { def = def, count = count }
       total = total + count
     end
@@ -322,6 +352,9 @@ function Crops.frostRisk(world, cropId)
     return nil
   end
   local def = world.registry:get("crops", cropId)
+  if Crops.survivesFrost(world, def) then
+    return nil
+  end
   local left = Weather.daysToFreeze(world)
   if left == math.huge then
     return nil
@@ -486,13 +519,11 @@ local function registerTasks(world)
       end)
     end,
     canDo = function(w, _, i, order)
-      if Weather.isFrozen(w) then
-        return false
+      local cropId = cropFor(w, i, order)
+      if cropId == nil or not Crops.canPlantNow(w, cropId) then
+        return false -- frozen ground, or the crop's plant window is shut (a planned tile waits for its season)
       end
-      return fields.tilled[i] == true
-        and not w.state.crops[i]
-        and not fields.held[i]
-        and hasSeed(w, cropFor(w, i, order))
+      return fields.tilled[i] == true and not w.state.crops[i] and not fields.held[i] and hasSeed(w, cropId)
     end,
     workTime = function(w)
       return w.tuning.farming.plantTime
@@ -643,8 +674,10 @@ function Crops.frost(world)
   table.sort(tiles)
   for _, i in ipairs(tiles) do
     local crop = world.state.crops[i]
-    world.state.crops[i] = nil
-    world.events:emit("crop.frosted", { crop = crop.id, tile = i })
+    if not Crops.survivesFrost(world, crop.id) then -- hardy crops sit the winter out dormant (D177)
+      world.state.crops[i] = nil
+      world.events:emit("crop.frosted", { crop = crop.id, tile = i })
+    end
   end
 end
 
@@ -673,7 +706,7 @@ function Crops.tick(world, dt)
     if crop.growth < 1 and crop.moisture > 0 then
       local def = world.registry:get("crops", crop.id)
       crop.growth = math.min(1, crop.growth + dt / (def.growDays * dayLength))
-      crop.moisture = math.max(0, crop.moisture - dryRate)
+      crop.moisture = math.max(0, crop.moisture - dryRate * def.waterAppetite)
     end
   end
 end
