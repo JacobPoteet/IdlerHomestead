@@ -126,12 +126,6 @@ local function workRate(world, job)
   return rate * Wardrobe.workBonus(world) * Stats.factor(world, "workSpeed")
 end
 
---- Multiplier on the chance the homesteader falls, from the statuses (1 with none). The base chance and the roll
---- belong to the events that make a fall (phase B); they multiply their chance by this.
-function Actors.fallFactor(world)
-  return Stats.factor(world, "fallChance")
-end
-
 --- Progress of the actor's current timed action, for the UI (GDD D44), or nil when there is none:
 --- walking, resting, or an instant action (work time 0). Read-only.
 --- Returns { task, target, fraction (0..1), duration (work seconds), remaining (game seconds) }.

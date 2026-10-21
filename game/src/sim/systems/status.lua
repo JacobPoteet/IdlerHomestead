@@ -16,7 +16,7 @@
 --     of 1 is gone tomorrow morning; one with none lasts until Status.clear or Status.clearBy ends it.
 --
 -- Hooks (the systems that read the modifiers): Stats.factor("workSpeed") in the actor's work rate, "carryCapacity" in
--- Water.bucketCapacity, "fallChance" in Actors.fallFactor, "warmthNeed" in Needs.warmthNeeded (tonight's need; the
+-- Water.bucketCapacity, "fallChance" (Stats.factor, for the fall events), "warmthNeed" in Needs.warmthNeeded (tonight's need; the
 -- season-long readiness forecast ignores a passing status), "waterNeed" in Needs.waterNeeded, "studySpeed" in the journal's study rate, and "conditionRecovery" and
 -- "conditionDrain" in Needs.daily.
 --

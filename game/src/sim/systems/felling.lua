@@ -60,8 +60,15 @@ function Felling.limited(world, def)
   if def.kind ~= "tree" then
     return false
   end
-  local out = Felling.outlook(world)
-  return out ~= nil and out.now and out.left <= 0
+  -- The current season's tally against its allowance, without building the outlook table (this runs every canDo tick).
+  local now = Calendar.now(world)
+  local allowance = Felling.allowance(world, now.season)
+  if allowance == nil then
+    return false
+  end
+  local s = world.state.felling
+  local used = s.key == seasonKey(now) and s.wood or 0
+  return allowance - used <= 0
 end
 
 --- A felled tree gave `wood` units: add them to the season's tally (only seasons with a limit keep one).

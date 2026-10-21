@@ -406,7 +406,8 @@ local schedule -- (below) queue an event for its hour
 
 local function pickTiles(world, count)
   local tiles = Crops.plantedTiles(world)
-  local rng, picked = world:rng("event"), {}
+  -- Its own stream: choosing must never move the dusk draw ("two rolls per dusk" on the `event` stream).
+  local rng, picked = world:rng("eventTiles"), {}
   for _ = 1, math.min(count, #tiles) do
     picked[#picked + 1] = table.remove(tiles, rng:int(1, #tiles))
   end
@@ -631,15 +632,6 @@ end
 --- How many cards wait (the first is open): a cheap look for the notice queue, which asks every frame.
 function Events.waiting(world)
   return #state(world).pending
-end
-
---- Every waiting card in order (the first is open), for the ranked notice queue (PLAN_DEPTH principle 8).
-function Events.queue(world)
-  local out = {}
-  for i, entry in ipairs(state(world).pending) do
-    out[i] = view(world, entry)
-  end
-  return out
 end
 
 -- Standing orders ---------------------------------------------------------------------------------------
