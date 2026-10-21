@@ -12,6 +12,7 @@ return {
   "idle",
   "actors",
   "farming",
+  "soil",
   "water",
   "needs",
   "sandbox",

@@ -4,15 +4,18 @@
 -- markers; tests read this directly. Never changes the sim.
 --
 --   Power:  r = source pools, g = sink bands, b = sinks that are short of power, a = unused
+--   Soil:   r = fertility, g = the farm (tilled, planned or planted), a = farmable ground (b unused)
 --   Water:  r = water table, g = irrigation coverage (count / 4), b = ground a well or pump can go on,
 --           a = coverage of lines that have run dry (count / 4)
 --
 -- A field is the strongest of the radial falloffs of the objects that make it, so pools of neighbours join.
 
+local Crops = require("src.sim.systems.crops")
 local Grid = require("src.sim.grid")
 local Land = require("src.sim.systems.land")
 local Power = require("src.sim.systems.power")
 local RangePreview = require("src.ui.range_preview")
+local Soil = require("src.sim.systems.soil")
 local Water = require("src.sim.systems.water")
 
 local Fields = {}
@@ -118,6 +121,22 @@ function Fields.power(world, cfg)
   end
   for _, s in ipairs(sinks) do
     connect(nearest(hubs or sources, s), s, s.live)
+  end
+  return f
+end
+
+--- The soil lens's fields (D178): fertility on every farmable tile, with the farm's own tiles marked.
+function Fields.soil(world)
+  local grid = world.state.grid
+  local f = blank(grid)
+  for i = 1, grid.w * grid.h do
+    if Grid.terrain(world, i).tillable and not world.occupancy[i] then
+      f.a[i] = 1
+      f.r[i] = Soil.fertility(world, i)
+    end
+  end
+  for _, i in ipairs(Crops.fieldTiles(world)) do
+    f.g[i] = 1
   end
   return f
 end

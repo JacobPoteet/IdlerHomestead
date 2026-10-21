@@ -5,6 +5,7 @@
 --   terrain[i]           terrain id per tile (flat array, i = (y - 1) * w + x)
 --   soil[i]              soil quality 0..1
 --   waterTable[i]        groundwater nearness 0..1 (wells and pumps need a high one; see Land)
+--   fertility[i]         soil fertility 0..1, drawn by harvests and refilled by fallow (see Soil, D178)
 --   objects[anchor]      { id = objectId } keyed by the object's top-left tile index
 -- Runtime only (rebuilt on load): world.occupancy[i] = anchor index of the object covering tile i.
 

@@ -8,6 +8,7 @@ return {
   "weather",
   "established", -- D117: the Great Winter's thaw marks the slot; listens to the calendar after weather
   "land",
+  "soil", -- D178: fertility per tile (grid.fertility); before crops, which read it at harvest
   "tasks",
   "crops",
   "inventory",

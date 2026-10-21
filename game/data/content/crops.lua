@@ -1,11 +1,11 @@
 -- Crops (GDD §5.3, PLAN_DEPTH §8.1, D177). Every number is a reasoned first guess for the M9 balance pass.
 --   seed / produce: the resources planted and harvested. growDays: watered game days to mature.
---   yield / seedReturn: base amounts, scaled by soil quality ({ min, max } seeds back).
+--   yield / seedReturn: base amounts, scaled by soil quality and fertility ({ min, max } seeds back).
 --   plantSeasons: season ids the plant task will sow it in (a planned tile waits for the season; growth after
 --     planting is not limited to it). Garlic is sown in autumn and overwinters.
 --   frost: "tender" dies at the freeze, ripe or not; "hardy" survives it dormant (nothing grows while frozen).
 --   waterAppetite: multiplier on how fast a watering dries (1 = the base rate; above 1 is thirstier).
---   fertilityDraw: fraction of a tile's fertility a harvest draws; negative adds (legumes). Read by D2.
+--   fertilityDraw: points of a tile's 0..1 fertility a harvest draws; negative adds (legumes). Read by soil.lua (D178).
 --   family: rotation family (tuning.farming.families). Read by D3.
 --   qualitySensitivity: 0..1, how strongly the quality tier follows fertility, weeding and tending. Read by D7.
 -- Elsewhere: sale price is resources.lua `value`, shelf life is tuning/food.lua, and the journal gate (the notes

@@ -170,6 +170,15 @@ function Panel:layout(rect)
       live,
     },
     {
+      "Soil lens",
+      function()
+        LensState.forced = LensState.forced ~= "soil" and "soil" or nil
+        relayout()
+      end,
+      LensState.forced == "soil",
+      live,
+    },
+    {
       lensCfg.enabled and "Lens effect on" or "Lens effect off",
       function()
         lensCfg.enabled = not lensCfg.enabled
