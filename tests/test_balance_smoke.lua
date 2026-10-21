@@ -309,3 +309,81 @@ T.test("balance harness: a run with an event policy plays, reports events and re
   T.truthy(summary.events and summary.events.n == 1)
   T.eq(Balance.playSeed(ctx, "scripted", 1, 0.25, 1)[1].events, nil, "no events block without a policy")
 end)
+
+-- Human policy, paired events and gates (#410) -------------------------------------------------------------
+
+T.test("balance harness: the human policy plays fallibly and repeats", function()
+  local a = Balance.playSeed(ctx, "human", 2, 0.5, 1)[1]
+  local b = Balance.playSeed(ctx, "human", 2, 0.5, 1)[1]
+  T.eq(a.final.money, b.final.money, "human repeats")
+  T.eq(a.counters.harvested, b.counters.harvested, "human repeats its harvest")
+  T.truthy(a.snaps[2], "recorded the first morning")
+  T.truthy(a.spiral and a.spiral.slippedDays >= 0, "the run carries its spiral facts")
+  T.truthy(Policies.describe.human, "listed with a description")
+end)
+
+T.test("balance harness: a paired run carries its events-off twin and counts event-caused failures", function()
+  local saved = ctx.tuning.events.enabled
+  local on = Balance.playSeed(ctx, "scripted", 1, 0.5, 1, nil, nil, "random", true)
+  T.eq(#on, 1)
+  T.truthy(on[1].events and on[1].events.offered >= 0, "the primary leg is the events-on run")
+  T.truthy(on[1].off and on[1].off.alive ~= nil, "the events-off twin is attached")
+  local again = Balance.playSeed(ctx, "scripted", 1, 0.5, 1, nil, nil, "random", true)
+  T.eq(again[1].final.money, on[1].final.money, "a paired run repeats")
+  T.eq(again[1].off.money, on[1].off.money, "its twin repeats")
+  T.errors(function()
+    Balance.playSeed(ctx, "scripted", 1, 0.25, 1, nil, nil, nil, true)
+  end, "event policy")
+  -- The counting itself, on made-up runs.
+  local function run(alive, offAlive)
+    return {
+      alive = alive,
+      cause = "cold",
+      failDay = 5,
+      baseSeed = 1,
+      run = 1,
+      events = { mode = "ignore" },
+      off = { alive = offAlive },
+    }
+  end
+  local p = Balance.pairedSummary({ run(true, true), run(false, true), run(false, false), run(true, false) })
+  T.eq(p.n, 4)
+  T.eq(p.onlyOnFailed, 1)
+  T.eq(p.bothFailed, 1)
+  T.eq(p.onlyOffFailed, 1)
+  T.eq(p.eventCausedShare, 0.25)
+  T.eq(Balance.pairedSummary({ { alive = true } }), nil, "no twins, no paired block")
+  ctx.tuning.events.enabled = saved
+end)
+
+T.test("balance harness: spiral measures and gates", function()
+  local Gates = require("gates")
+  local function run(slips, alive, diedSlipped, cause, year)
+    return {
+      alive = alive,
+      cause = cause,
+      failYear = year,
+      footing = { slips = slips, gainedDay = 5 },
+      spiral = { diedSlipped = diedSlipped, slippedDays = slips * 2 },
+    }
+  end
+  local sp = Balance.spiralSummary({ run(1, false, true, "hunger", 1), run(2, true, false), run(0, true, false) })
+  T.eq(sp.slippedRuns, 2)
+  T.eq(sp.slipToDeath, 0.5)
+  T.eq(sp.yearOneStarved, 1)
+  T.eq(sp.slippedDaysPerRun, 2)
+  local summary = { n = 3, spiral = sp, footing = { reachedFraction = 1 } }
+  local byId = {}
+  for _, g in ipairs(Gates.evaluate("idle", summary)) do
+    byId[g.id] = g
+  end
+  T.eq(byId.idleFooting.pass, true)
+  T.eq(byId.idleStarve.pass, false, "one year-1 starvation fails the idle gate")
+  T.eq(byId.spiral.pass, false, "half the slipped runs died slipped")
+  T.eq(byId.eventFailure, nil, "no event gate without a paired run")
+  summary.paired = { n = 4, eventCausedShare = 0.5 }
+  local list = Gates.evaluate("active", summary)
+  T.eq(list[#list].pass, false, "an event-caused share over the limit fails")
+  local none = Gates.evaluate("scripted", { n = 1, spiral = Balance.spiralSummary({}), footing = {} })
+  T.eq(none[1].pass, nil, "no slip, nothing to measure")
+end)

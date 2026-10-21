@@ -18,6 +18,9 @@
 --             delay when it has nothing to order. It sleeps at night (no orders at bedtime), so
 --             study progresses. Fishing is abstracted: the mini-game outcome is a dice roll
 --             (POLICY.fishSkill) and takes a plausible length of game time.
+--   human     `active` made fallible (#410): it reacts slowly once a job ends, skips some of the morning chores and
+--             seed orders, lands fewer fish, and does not look at some event cards. A perfect policy hides the
+--             failures a person has, so this one stands between `active` (an upper bound) and `scripted`.
 --
 -- Everything in POLICY is *player behaviour*, not game balance; game numbers are always read from
 -- tuning and content.
@@ -62,6 +65,11 @@ local POLICY = {
   urgentFuelNights = 3, -- active: nights of the coming season's warmth in stock below which felling wood jumps the queue
   frostMargin = 1, -- active: days of slack when judging whether a crop can mature before the freeze
   holdTripsUntilDay = 14, -- power feature: last day of the run on which trips wait for the truck battery to fill once (the "Full battery" note unlocks the power items)
+  -- The human policy (#410). Every number is a first guess at an average first-year player, not measured from play.
+  humanReactionSeconds = 20, -- human: mean seconds between a job ending and the next order (0.5x to 1.5x, a seeded draw)
+  humanSkipChance = 0.25, -- human: chance each morning chore (trip, buy, place, study, seeds, field plan) is skipped on a day
+  humanIgnoreCard = 0.25, -- human: chance an event card is not looked at (its window runs out)
+  humanFishSkill = 0.5, -- human: chance the tension mini-game ends in a landed fish
   featureReserve = 8, -- $ kept back when buying feature items (power, water, stand, cat) so seeds and bait stay affordable
 }
 Policies.POLICY = POLICY
@@ -422,16 +430,29 @@ function Base:study(world)
   end
 end
 
+--- Is a morning chore done today? Always, except for the human policy (a seeded skip).
+function Base:does()
+  return true
+end
+
 --- The morning routine, run on every new day.
 function Base:daily(world)
-  self:trip(world)
+  if self:does("trip") then
+    self:trip(world)
+  end
   if self.features.orchard then
     Features.orchard(world) -- before the other buying: a perennial pays only if it goes in early (D183)
   end
-  self:buy(world)
-  self:place(world)
+  if self:does("buy") then
+    self:buy(world)
+  end
+  if self:does("place") then
+    self:place(world)
+  end
   Features.daily(world, self.features)
-  self:study(world)
+  if self:does("study") then
+    self:study(world)
+  end
 end
 
 function Base:step() end
@@ -509,7 +530,7 @@ function Active:daily(world)
   for _ in pairs(fields.plan) do
     planned = planned + 1
   end
-  if planned < POLICY.maxFieldTiles then
+  if planned < POLICY.maxFieldTiles and self:does("seeds") then
     for _, crop in ipairs(world.registry:all("crops")) do
       local id = crop.seed:gsub("^seed_", "") .. "_seeds"
       if world.registry:has("catalog", id) and self:canMature(world, crop) and Ledger.get(world, crop.seed) <= 0 then
@@ -524,7 +545,9 @@ function Active:daily(world)
       end
     end
   end
-  self:planField(world, POLICY.maxFieldTiles)
+  if self:does("plan") then
+    self:planField(world, POLICY.maxFieldTiles)
+  end
   -- Keep a stock of bait for the rod.
   if Fishing.hasRod(world) and Ledger.get(world, "bait") < 2 and Market.cannotBuy(world, "bait", false) == nil then
     if
@@ -746,7 +769,8 @@ function Active:choose(world, actor)
         and Ledger.get(world, world.registry:get("crops", cropId).seed) > 0
     end)
     if
-      #plant > 0 and tryOrder(self, world, actor, plant, function(i)
+      #plant > 0
+      and tryOrder(self, world, actor, plant, function(i)
         return { crop = fields.plan[i] }
       end)
     then
@@ -805,7 +829,7 @@ function Active:step(world)
       local fish = self.pendingFish
       self.pendingFish = nil
       if fish then
-        if self.rng:chance(POLICY.fishSkill) then
+        if self.rng:chance(self.fishSkill or POLICY.fishSkill) then
           Fishing.land(world, fish.id, Fishing.rollSize(world, fish), "active")
         else
           Fishing.lose(world, fish.id, "slipped")
@@ -821,14 +845,56 @@ function Active:step(world)
   world.control = engaged and "active" or "idle"
 end
 
+-- human --------------------------------------------------------------------------------------
+-- `active` with the mistakes of a person (#410). Same orders, same morning routine, but: a pause after every job before
+-- the next order (reaction), a seeded chance to skip each morning chore, a worse hand at the fishing mini-game and a
+-- seeded chance not to look at an event card. The draws come from the policy's own stream, so a seed repeats exactly.
+
+local Human = setmetatable({}, { __index = Active })
+Human.__index = Human
+
+local function humanNew(world, seed, features)
+  local self = activeNew(world, seed, features)
+  self.fishSkill = POLICY.humanFishSkill
+  self.freeSince = nil -- tick the homesteader last became free to take an order
+  self.reactAfter = nil -- ticks the player takes to react to being free this time
+  return setmetatable(self, Human)
+end
+
+function Human:does()
+  return not self.rng:chance(POLICY.humanSkipChance)
+end
+
+function Human:dropsCard()
+  return self.rng:chance(POLICY.humanIgnoreCard)
+end
+
+--- Orders only once the reaction time since the homesteader was last free has passed.
+function Human:choose(world, actor)
+  local now = world.state.tick
+  if not self.freeSince then
+    self.freeSince = now
+    self.reactAfter = ticks(world, POLICY.humanReactionSeconds * (0.5 + self.rng:float()))
+  end
+  if now - self.freeSince < self.reactAfter then
+    return false
+  end
+  if Active.choose(self, world, actor) then
+    self.freeSince = nil
+    return true
+  end
+  return false
+end
+
 -- Registry ---------------------------------------------------------------------------------------
 
-Policies.list = { "idle", "scripted", "active" }
+Policies.list = { "idle", "scripted", "active", "human" }
 
 Policies.describe = {
   idle = "player never acts; the idle routine runs from the first second",
   scripted = "plans a field on day 1, then routine; morning chores: trip, buy list, place, study",
   active = "scripted chores plus direct orders (farm, fuel, clear junk, hand-fish); routine after takeover delay",
+  human = "active made fallible: slow to react, skips some chores, fishes worse, ignores some event cards",
 }
 
 --- Build a policy instance. It is `attach`ed to the world's events, then `start`ed once.
@@ -840,8 +906,10 @@ function Policies.new(name, world, seed, features)
     inst = scriptedNew(world, seed, features)
   elseif name == "active" then
     inst = activeNew(world, seed, features)
+  elseif name == "human" then
+    inst = humanNew(world, seed, features)
   else
-    error("unknown policy '" .. tostring(name) .. "' (idle|scripted|active)")
+    error("unknown policy '" .. tostring(name) .. "' (idle|scripted|active|human)")
   end
   inst:attach(world)
   inst:start(world)

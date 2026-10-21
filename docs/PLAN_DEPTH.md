@@ -526,7 +526,7 @@ Risks: scope (this is a large milestone); event fatigue; compounding statuses. M
 **Depth trim (D184).** Slices below marked **CUT**, **DEFERRED** or **MERGED** are not built in M8; the fate and issue number are on each line. Simplified slices carry a `DEPTH TRIM` block at the top of their issue body, which wins over the slice text here. The build order is now:
 
 1. **D-simplify (#430)**, which absorbs D8 (#370): two quality tiers, no perennial death, combined yield floor, compost without the haul task, lower weed cut, routine defaults ON and the idle-day chore test.
-2. **#410**: human policy, idle gates, paired events report.
+2. **#410**: human policy, idle gates, paired events report. **Done (D186):** `human` policy, `pair=1`, spiral metrics and `gates=` in the harness; the idle gates are red on main and left to M9.
 3. **C1 #355**: threat framework; mice and fox move in; exposure as a word on the Tonight card.
 4. **C2 + C3 #356 / #357**: raccoon, deer and rabbits, bear and bear box.
 5. **C4 #358**: the dog, eating from the ledger.
