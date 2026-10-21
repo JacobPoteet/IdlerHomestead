@@ -673,6 +673,7 @@ return {
   },
   lens = { -- the lenses' switch-on routes and side card (GDD §9.4, D141, D145; src/ui/lens.lua, src/ui/lens_card.lua); UI pixels
     tools = { pail = "water" }, -- tool in hand -> the lens it shows
+    modes = { plan = "soil" }, -- hand mode -> the lens it shows (the Plan field tool shows soil fertility, D178)
     vitals = { battery = "power", weather = "power", water = "water" }, -- vital (chip) -> the lens a tap opens
     margin = 8, -- gap between the card and the view edge and the HUD plates
     stripH = 30, -- height of the collapsed strip (at least the touch target)
@@ -682,12 +683,31 @@ return {
     sheetMaxWidth = 460, -- widest the bottom sheet gets on a tall view
     sheetShare = 0.5, -- 0..1 share of the free height the bottom sheet takes
     collapseOnPlace = true, -- a card that came with a placement opens as a strip on small views, so the ground stays in sight
+    collapseOnPlan = true, -- the Soil card that came with the Plan field tool opens as a strip on any view, so the ground it asks you to tap stays reachable (D178)
     smallView = 600, -- a view whose short side is under this counts as small
     rowH = 24, -- height of a row of the card
-    title = { power = "Power", water = "Water" },
+    title = { power = "Power", water = "Water", soil = "Soil" },
+    soil = { -- the Soil card's words (D178); %d are whole numbers, %.1f one decimal
+      stripOne = "%s: about %.1f", -- the folded card's one-line readout: crop, expected yield on the tile
+      stripMany = "%s x%d: about %.0f", -- crop, tiles, expected yield in all
+      stripField = "field %d%%", -- no seed in hand: the field's average fertility
+      fieldNone = "No field yet",
+      field = "Field: %d tiles, fertility %d%% on average",
+      fieldLow = "Poorest tile %d%%",
+      noSeed = "Pick a seed to see what a plan would give",
+      noGround = "Nothing farmable under the pointer",
+      one = "%s here: about %.1f, fertility %d%%",
+      many = "%s on %d tiles: about %.1f in all (%.1f each)",
+      manyRange = "Fertility %d%% on average, lowest %d%%",
+      draws = "Each harvest draws %d%% fertility",
+      adds = "Each harvest adds %d%% fertility",
+      poor = "Poor ground: this will yield little",
+      rich = "Rich ground",
+    },
     legend = {
       power = "Warm pools make power, cool bands use it. Dots march along each connection.",
       water = "Contour bands are the water table. Dotted ground is watered. A well or pump needs a bright band.",
+      soil = "Dense green is rich ground, thin amber is worn. Your field is bright, wild ground faint. Beans and fallow rest it.",
     },
   },
   tonight = { -- the Tonight card (GDD §4.2, D161; src/ui/tonight.lua, src/ui/tonight_card.lua); UI pixels

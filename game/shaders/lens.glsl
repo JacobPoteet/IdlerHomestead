@@ -1,10 +1,11 @@
-// The Power and Water lenses (GDD §9.4, D141, D145; src/render/lens.lua). One full-screen pass over the graded
+// The Power, Water and Soil lenses (GDD §9.4, D141, D145; src/render/lens.lua). One full-screen pass over the graded
 // frame: the world is washed to a cool blueprint, then one system is painted over it in dither density, so a
 // value reads by pattern as well as colour. Everything is cut on the world's art-pixel grid, and the dither
 // settings (tuning.visuals.dither.lens, include/dither.glsl) decide the pattern and the number of bands.
 //
 // dataMap has one texel per tile. Power: r = source pools, g = sink bands, b = sinks short of power.
 // Water: r = water table, g = irrigation coverage, b = ground a well or pump can go on, a = dry coverage.
+// Soil: r = fertility, g = part of the farm, a = farmable ground.
 // Connections, reach rings and gauges are drawn by the renderer over this pass.
 
 uniform Image dataMap;       // one texel per tile, nearest filtered
@@ -12,7 +13,7 @@ uniform vec2 mapTiles;       // the map in tiles
 uniform float tileSize;      // art pixels per tile
 uniform vec2 gridOrigin;     // screen pixel where an art pixel starts (the camera's rounded translation)
 uniform float pixelSize;     // screen pixels per art pixel
-uniform float mode;          // 1 = power, 2 = water
+uniform float mode;          // 1 = power, 2 = water, 3 = soil
 uniform vec3 washTint;       // the blueprint's cool multiplier
 uniform float washKeep;      // 0..1 share of the world's colour that stays
 uniform float washAmount;    // 0..1 strength of the wash
@@ -29,6 +30,11 @@ uniform vec3 cCover;
 uniform vec3 cDry;
 uniform vec3 cSpot;
 uniform vec3 cLine;
+uniform vec3 cRich;          // soil: fertile ground
+uniform vec3 cPoor;          // soil: worn ground
+uniform float soilMin;       // 0..1 stipple level of the poorest ground
+uniform float wildShare;     // 0..1 share of the stipple density that ground outside the farm gets
+uniform float soilDensity;   // 0..1 stipple density of the richest farm ground
 uniform float coverDensity;  // 0..1 stipple density of coverage at one line
 uniform float spotDensity;   // 0..1 stipple density on ground a well or pump can go on
 uniform float tableFloor;    // 0..1 water table below which nothing is painted
@@ -83,7 +89,16 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
     if (t.x < 0.0 || t.y < 0.0 || t.x > mapTiles.x || t.y > mapTiles.y) {
         return vec4(c, src.a);
     }
-    if (mode < 1.5) {
+    if (mode > 2.5) {
+        vec4 d = tileAt(t);
+        if (d.a > 0.0) {
+            float q = soilMin + (1.0 - soilMin) * d.r;
+            vec3 col = mix(cPoor, cRich, d.r);
+            float share = d.g > 0.0 ? 1.0 : wildShare;
+            float m = ditherMask(soilDensity * q * share, cell + vec2(5.0, 2.0), dither);
+            c = mix(c, col * mix(0.7, 1.0, d.r) * dim, m * alpha);
+        }
+    } else if (mode < 1.5) {
         vec4 d = smoothAt(t);
         c = band(c, cSource, ditherQuantize(d.r, cell, dither), cell);
         c = band(c, cSink, ditherQuantize(d.g, cell + vec2(2.0, 7.0), dither), cell);

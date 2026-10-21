@@ -11,6 +11,8 @@ local Shaders = require("src.render.shaders")
 local Lens = {}
 Lens.__index = Lens
 
+local MODES = { power = 1, water = 2, soil = 3 } -- shaders/lens.glsl `mode`
+
 function Lens.new(world)
   return setmetatable({ world = world, since = math.huge, key = nil }, Lens)
 end
@@ -32,7 +34,14 @@ function Lens:refresh(id, preview)
     return
   end
   self.key, self.since = key, 0
-  local fields = id == "power" and Fields.power(self.world, cfg.power) or Fields.water(self.world, cfg.water, preview)
+  local fields
+  if id == "power" then
+    fields = Fields.power(self.world, cfg.power)
+  elseif id == "soil" then
+    fields = Fields.soil(self.world)
+  else
+    fields = Fields.water(self.world, cfg.water, preview)
+  end
   local grid = self.world.state.grid
   if not self.data or self.data:getWidth() ~= grid.w or self.data:getHeight() ~= grid.h then
     self.data = love.image.newImageData(grid.w, grid.h)
@@ -125,7 +134,7 @@ function Lens:pass(graded, target, args)
     tileSize = tile,
     gridOrigin = args.origin,
     pixelSize = args.pixelSize,
-    mode = args.id == "power" and 1 or 2,
+    mode = MODES[args.id] or 2,
     washTint = wash.tint,
     washKeep = wash.keepColor,
     washAmount = wash.amount,
@@ -141,6 +150,11 @@ function Lens:pass(graded, target, args)
     cDry = paint.dry,
     cSpot = paint.spot,
     cLine = paint.line,
+    cRich = paint.rich,
+    cPoor = paint.poor,
+    soilMin = cfg.soil.minLevel,
+    wildShare = cfg.soil.wildShare,
+    soilDensity = cfg.soil.density,
     coverDensity = cfg.water.coverDensity,
     spotDensity = cfg.water.spotDensity,
     tableFloor = cfg.water.tableFloor,

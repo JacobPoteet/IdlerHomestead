@@ -4,6 +4,7 @@
 --   world.state.fields = { tilled = { [i] = true }, plan = { [i] = cropId } }
 --     plan: the player's field layout. The idle routine tills, plants and replants planned tiles.
 --   world.state.crops = { [i] = { id, growth = 0..1, moisture = 0..1 } }
+-- A harvest draws the tile's fertility and yield scales with it (soil.lua, D178).
 -- Crops grow only while moist; one watering lasts tuning.farming.moistureDays. Nothing grows or
 -- can be planted while the ground is frozen, and the first frost kills whatever is still in the
 -- ground (GDD §4.1), except a `hardy` crop, which sits the winter out dormant (D177). A crop is sown only in
@@ -15,6 +16,7 @@ local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
 local Land = require("src.sim.systems.land")
 local Ledger = require("src.sim.systems.ledger")
+local Soil = require("src.sim.systems.soil")
 local Tasks = require("src.sim.systems.tasks")
 local Weather = require("src.sim.systems.weather")
 
@@ -381,6 +383,33 @@ local function hasSeed(world, cropId)
   return cropId ~= nil and Ledger.get(world, world.registry:get("crops", cropId).seed) > 0
 end
 
+--- Tiles that are part of the farm: tilled, planned or planted, ascending (the Soil lens's field).
+function Crops.fieldTiles(world)
+  local seen, list = {}, {}
+  local function add(i)
+    if not seen[i] then
+      seen[i] = true
+      list[#list + 1] = i
+    end
+  end
+  for i in pairs(world.state.fields.tilled) do
+    add(i)
+  end
+  for i in pairs(world.state.fields.plan) do
+    add(i)
+  end
+  for i in pairs(world.state.crops) do
+    add(i)
+  end
+  table.sort(list)
+  return list
+end
+
+--- Is any crop in the ground on tile i?
+function Crops.hasCropAt(world, i)
+  return world.state.crops[i] ~= nil
+end
+
 --- Is there a crop on tile i that is dry and not yet grown?
 function Crops.needsWaterAt(world, i)
   local crop = world.state.crops[i]
@@ -459,12 +488,11 @@ local function registerTasks(world)
       local crop = w.state.crops[i]
       local def = w.registry:get("crops", crop.id)
       local rng = w:rng("farming")
-      local soil = w.state.grid.soil[i]
-      local farming = w.tuning.farming
-      local mult = farming.soilYieldMin + (farming.soilYieldMax - farming.soilYieldMin) * soil
+      local mult = Soil.yieldMultiplier(w, i) -- soil quality and fertility (D178), read before the harvest draws it
       local amount = math.max(1, math.floor(def.yield * mult + rng:float()))
       local seeds = rng:int(def.seedReturn[1], def.seedReturn[2])
       w.state.crops[i] = nil
+      Soil.harvested(w, i, def)
       -- canDo is re-checked every tick of the job, so a store that fills mid-job drops it and the
       -- crop stays put; the rolled amounts never exceed what harvestShortage checked. Overflow
       -- here is only a same-tick safety net and is announced, never silent.

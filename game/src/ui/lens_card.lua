@@ -5,8 +5,10 @@
 -- hover), and rows scroll as one list. The geometry is src/ui/lens.lua; the pool and band painting is the
 -- renderer's. Presentation only: the switches go through the Power system's own setters.
 
+local Crops = require("src.sim.systems.crops")
 local Ledger = require("src.sim.systems.ledger")
 local Power = require("src.sim.systems.power")
+local Soil = require("src.sim.systems.soil")
 local Water = require("src.sim.systems.water")
 local Buttons = require("src.ui.buttons")
 local Grid = require("src.sim.grid")
@@ -70,7 +72,7 @@ local function stateText(row)
   return "On"
 end
 
---- Show lens `id` ("power" | "water") in `rect`. `collapsed` folds it to the strip. `onClose` runs on Close and
+--- Show lens `id` ("power" | "water" | "soil") in `rect`. `collapsed` folds it to the strip. `onClose` runs on Close and
 --- `onFold(collapsed)` when the player folds or opens the card.
 function Card:setup(id, rect, collapsed, onClose, onFold)
   if self.lens ~= id then
@@ -195,6 +197,82 @@ function Card:powerRows(w, rows)
   add({ kind = "legend", h = noteHeight(legend, w, self.cfg.rowH) + 6, str = legend })
 end
 
+--- The Soil card's rows (D178): how rich the field is, then what the Plan tool's pointer or rectangle would give
+--- for the seed in hand. `self.focus` = { crop = seed id or nil, tiles = { tile index ... }, rect = bool }, set by the
+--- homestead every frame.
+function Card:soilRows(w, rows)
+  local world, words = self.world, self.cfg.soil
+  local function add(r)
+    rows[#rows + 1] = r
+  end
+  local field = Soil.summary(world, Crops.fieldTiles(world))
+  add({ kind = "head", h = 12, str = "Your field" })
+  if field then
+    add({ kind = "text", h = 13, str = string.format(words.field, field.count, math.floor(field.mean * 100 + 0.5)) })
+    add({ kind = "text", h = 13, str = string.format(words.fieldLow, math.floor(field.low * 100 + 0.5)) })
+  else
+    add({ kind = "text", h = 14, str = words.fieldNone, color = theme.colors.textDim })
+  end
+  add({ kind = "gap", h = 6 })
+  add({ kind = "head", h = 12, str = self.focus and self.focus.rect and "This plan" or "This tile" })
+  local focus = self.focus or { tiles = {} }
+  local def = focus.crop and world.registry:get("crops", focus.crop)
+  local sum = Soil.summary(world, focus.tiles)
+  if not def then
+    add({ kind = "text", h = noteHeight(words.noSeed, w, 14), str = words.noSeed, color = theme.colors.textDim })
+  elseif not sum then
+    add({ kind = "text", h = noteHeight(words.noGround, w, 14), str = words.noGround, color = theme.colors.textDim })
+  else
+    local total = 0
+    for _, i in ipairs(focus.tiles) do
+      total = total + Soil.expectedYield(world, def.id, i)
+    end
+    local mean = math.floor(sum.mean * 100 + 0.5)
+    local line
+    if sum.count == 1 then
+      line = string.format(words.one, def.name, total, mean)
+    else
+      line = string.format(words.many, def.name, sum.count, total, total / sum.count)
+    end
+    add({ kind = "text", h = noteHeight(line, w, 14) + 2, str = line })
+    if sum.count > 1 then
+      add({ kind = "text", h = 13, str = string.format(words.manyRange, mean, math.floor(sum.low * 100 + 0.5)) })
+    end
+    local draw = math.floor(math.abs(def.fertilityDraw) * 100 + 0.5)
+    add({
+      kind = "text",
+      h = 13,
+      str = string.format(def.fertilityDraw < 0 and words.adds or words.draws, draw),
+      color = theme.colors.textDim,
+    })
+    if sum.mean < world.tuning.soil.poorBelow then
+      add({ kind = "text", h = 13, str = words.poor, color = theme.colors.danger })
+    elseif sum.mean >= world.tuning.soil.richFrom then
+      add({ kind = "text", h = 13, str = words.rich, color = GREEN })
+    end
+  end
+  local legend = self.cfg.legend.soil
+  add({ kind = "legend", h = noteHeight(legend, w, self.cfg.rowH) + 6, str = legend })
+end
+
+--- The folded Soil card's one line: the plan's expected yield for the seed in hand, else the field's fertility.
+function Card:soilStrip()
+  local world, words = self.world, self.cfg.soil
+  local focus = self.focus
+  local def = focus and focus.crop and world.registry:get("crops", focus.crop)
+  local sum = def and Soil.summary(world, focus.tiles)
+  if sum then
+    local total = 0
+    for _, i in ipairs(focus.tiles) do
+      total = total + Soil.expectedYield(world, def.id, i)
+    end
+    return sum.count == 1 and string.format(words.stripOne, def.name, total)
+      or string.format(words.stripMany, def.name, sum.count, total)
+  end
+  local field = Soil.summary(world, Crops.fieldTiles(world))
+  return field and string.format(words.stripField, math.floor(field.mean * 100 + 0.5)) or ""
+end
+
 -- Rows of the water card.
 function Card:waterRows(w, rows)
   local world = self.world
@@ -277,6 +355,8 @@ function Card:layout()
   local rows = {}
   if self.lens == "power" then
     self:powerRows(body.w, rows)
+  elseif self.lens == "soil" then
+    self:soilRows(body.w, rows)
   else
     self:waterRows(body.w, rows)
   end
@@ -296,7 +376,7 @@ function Card:layout()
     if ry + row.h > view.y and ry < view.y + view.h then
       local k = row.kind
       if k == "text" or k == "head" then
-        text(left, ry, row.str, row.color or (k == "head" and theme.colors.textDim or theme.colors.text))
+        text(left, ry, row.str, row.color or (k == "head" and theme.colors.textDim or theme.colors.text), body.w)
       elseif k == "legend" then
         text(left, ry + 4, row.str, theme.colors.textDim, body.w)
       elseif k == "bar" then
@@ -452,6 +532,7 @@ function Card:draw(view)
   if self.collapsed then
     local flow = self.lens == "power" and Power.flow(self.world)
     local summary = flow and string.format("%.1f kW in, %.1f kW out", flow.generation, flow.served)
+      or self.lens == "soil" and self:soilStrip()
       or string.format("%d%%", math.floor(Water.fraction(self.world) * 100 + 0.5))
     local x = r.x + PAD + Text.measure(title, "body") + 10
     if x + Text.measure(summary, "small") < r.x + self.titleW then

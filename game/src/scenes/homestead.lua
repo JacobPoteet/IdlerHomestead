@@ -60,6 +60,7 @@ local Market = require("src.sim.systems.market")
 local Sandbox = require("src.sim.systems.sandbox")
 local Stand = require("src.sim.systems.stand")
 local Routine = require("src.sim.systems.routine")
+local Soil = require("src.sim.systems.soil")
 local Tasks = require("src.sim.systems.tasks")
 local Cat = require("src.sim.systems.cat")
 local Animals = require("src.sim.systems.animals")
@@ -1977,7 +1978,26 @@ function Homestead:lensTrigger()
   if self.mode == "place" and self.placing then
     return LensState.forObject(self.world.registry:get("objects", self.placing))
   end
-  return LensState.forTool(self.app.ctx.tuning.ui.lens, self.tool)
+  local cfg = self.app.ctx.tuning.ui.lens
+  return LensState.forTool(cfg, self.tool) or LensState.forMode(cfg, self.mode)
+end
+
+--- The tiles the Soil lens reads out: the rectangle being planned (first tap to the pointer), else the tile under
+--- the pointer or last tapped. Farmable tiles only, in index order.
+function Homestead:soilFocus()
+  local world = self.world
+  local from, to = self.planStart, self.hover or self.planStart or self.selected
+  local list = {}
+  if not to then
+    return { crop = self.seed, tiles = list }
+  end
+  local tiles = from and self:rectTiles(from, to) or { to }
+  for _, i in ipairs(tiles) do
+    if Grid.terrain(world, i).tillable and not world.occupancy[i] then
+      list[#list + 1] = i
+    end
+  end
+  return { crop = self.seed, tiles = list, rect = from ~= nil }
 end
 
 --- Where the lens card is and what it shows; set up again only when something it depends on changes.
@@ -1991,7 +2011,9 @@ function Homestead:layoutLensCard()
   local small = math.min(view.w, view.h) < cfg.smallView
   local collapsed = self.lensFold
   if collapsed == nil then
-    collapsed = cfg.collapseOnPlace and small and self.lens.source == "trigger" and self.mode == "place"
+    local trigger = self.lens.source == "trigger"
+    collapsed = trigger
+      and (cfg.collapseOnPlace and small and self.mode == "place" or cfg.collapseOnPlan and self.mode == "plan")
   end
   local touch = self.app.ctx.tuning.input.minTouchTarget
   local bounds = { top = math.max(self.topH, self.statusBottom or 0), bottom = view.h - self.bottomH }
@@ -2367,6 +2389,9 @@ function Homestead:update(dt)
   self.lensView:tick(dt)
   self:stepFades(dt)
   if self.lens:active() then
+    if self.lens:active() == "soil" then
+      self.lensCard.focus = self:soilFocus() -- the Plan readout follows the pointer and the first tap (D178)
+    end
     self:layoutLensCard()
     self.lensCard:update(dt)
   end
@@ -4274,6 +4299,13 @@ function Homestead:tileInfo(i)
   end
   if terrain.tillable then
     lines[#lines + 1] = string.format("Soil %d%%", math.floor(grid.soil[i] * 100 + 0.5))
+    local fertility = Soil.fertility(world, i)
+    local soilCfg = world.tuning.soil
+    lines[#lines + 1] = string.format(
+      "Fertility %d%%%s",
+      math.floor(fertility * 100 + 0.5),
+      fertility < soilCfg.poorBelow and " (poor)" or fertility >= soilCfg.richFrom and " (rich)" or ""
+    )
     if Land.hasWaterTable(world, i) and not world.occupancy[i] then
       local shallow = Land.waterTable(world, i) >= world.tuning.water.table.shallow
       lines[#lines + 1] = shallow and "Water table high: dig here" or "Water table: wells work"

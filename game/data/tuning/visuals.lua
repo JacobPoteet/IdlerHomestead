@@ -89,7 +89,7 @@ return {
     ok = { 0.35, 0.62, 0.80, 0.30 },
     dry = { 0.95, 0.40, 0.30, 0.30 },
   },
-  lens = { -- the Power and Water lenses (GDD §9.4, D141, D145; src/render/lens.lua, shaders/lens.glsl): the world washed to a blueprint, one system painted in dither density
+  lens = { -- the Power, Water and Soil lenses (GDD §9.4, D141, D145, D178; src/render/lens.lua, shaders/lens.glsl): the world washed to a blueprint, one system painted in dither density
     enabled = true, -- false skips the world pass (the side card still works); also a switch in the F8 editor
     wash = { -- the blueprint
       tint = { 0.58, 0.72, 1.00 }, -- cool multiplier the washed world is tinted with
@@ -110,6 +110,8 @@ return {
       dry = { 1.00, 0.52, 0.30 }, -- coverage of a line that has run dry
       spot = { 1.00, 0.96, 0.62 }, -- ground a well or pump can go on
       line = { 0.70, 0.90, 1.00 }, -- connection dots and reach rings
+      rich = { 0.46, 0.86, 0.38 }, -- the Soil lens: fertile ground
+      poor = { 1.00, 0.66, 0.22 }, -- the Soil lens: worn ground
     },
     power = {
       sourceBase = 1.6, -- tiles: radius of a source's pool before its peak adds to it
@@ -136,6 +138,11 @@ return {
       coverDensity = 0.45, -- 0..1 stipple density of the irrigation coverage at one line
       spotDensity = 0.5, -- 0..1 stipple density on ground a well or pump can go on
       tableFloor = 0.08, -- 0..1 water table level below which nothing is painted
+    },
+    soil = { -- the Soil lens (D178)
+      density = 0.7, -- 0..1 stipple density of the richest ground in the farm (the world shows through the rest)
+      minLevel = 0.35, -- 0..1 share of that density the poorest ground keeps, so worn land still shows
+      wildShare = 0.6, -- 0..1 share of the density ground that is not part of the farm gets
     },
     refreshSeconds = 0.25, -- real seconds between rebuilds of the data texture while a lens is on
   },

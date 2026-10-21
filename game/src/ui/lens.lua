@@ -1,6 +1,6 @@
 -- Lenses (GDD §9.4, D141, D145): which lens is on, why, and where its side card goes. Pure (no drawing), so
 -- the switch-on routes are tested headless. One lens at a time, no lens buttons: a lens comes on with the tool in
--- hand (the Pail shows Water), with a placement (a panel shows Power, a pump shows Water), from its vital, or
+-- hand (the Pail shows Water, the Plan field tool Soil), with a placement (a panel shows Power, a pump shows Water), from its vital, or
 -- when a device is tapped. A lens that came with a trigger goes off when the trigger ends; a lens the player
 -- switched on (vital, tap) stays until the card's Close or the vital is tapped again.
 
@@ -26,6 +26,11 @@ function Lens.forTool(cfg, tool)
   return tool and rawget(cfg.tools, tool) or nil
 end
 
+--- The lens a hand mode shows, from `tuning.ui.lens.modes` (mode id -> lens id): the Plan field tool shows Soil.
+function Lens.forMode(cfg, mode)
+  return mode and rawget(cfg.modes, mode) or nil
+end
+
 --- The lens a chip (vital) opens, from `tuning.ui.lens.vitals` (chip id -> lens id).
 function Lens.forVital(cfg, chip)
   return rawget(cfg.vitals, chip)
@@ -36,7 +41,7 @@ function Lens.new(cfg)
   return setmetatable({ cfg = cfg, id = nil, source = nil, trigger = nil, dismissed = nil }, Lens)
 end
 
---- The lens showing now ("power" | "water") or nil.
+--- The lens showing now ("power" | "water" | "soil") or nil.
 function Lens:active()
   return Lens.forced or self.id
 end

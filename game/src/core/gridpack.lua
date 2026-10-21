@@ -1,9 +1,10 @@
 -- Compact on-disk form of the grid's per-tile arrays (#21, D103). In memory `state.grid.terrain`,
--- `soil` and `waterTable` stay plain arrays; only the saved file holds them as short strings:
+-- `soil`, `waterTable` and `fertility` stay plain arrays; only the saved file holds them as short strings:
 --
 --   terrain     "ids:grass,water,dirt;a12b3c4"   palette of ids, then runs of (palette letter, count)
 --   soil,       "hundredths:45*3,46,47*12"       tile values as whole hundredths, runs as value*count
---   waterTable
+--   waterTable,
+--   fertility
 --
 -- Exact by construction: a numeric array is packed only when every value is a whole number of
 -- hundredths that divides back to the very same double (`n / 100 == v`, which is how landgen made them),
@@ -14,7 +15,7 @@
 local Gridpack = {}
 
 local LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-local NUMERIC = { "soil", "waterTable" }
+local NUMERIC = { "soil", "waterTable", "fertility" }
 
 local function packTerrain(list)
   local n = #list
