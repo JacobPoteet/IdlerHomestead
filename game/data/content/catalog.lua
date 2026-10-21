@@ -636,6 +636,17 @@ return {
     modifiers = { pestGuard = 0.75 },
   },
   {
+    id = "copper_spray",
+    name = "Copper spray",
+    line = "A copper wash keeps blight from taking hold.",
+    page = "weather",
+    price = 25,
+    needs = { "blight_outbreak" },
+    studyNights = 1,
+    equipment = true,
+    modifiers = { blightGuard = 0.75 },
+  },
+  {
     id = "frost_cloth",
     name = "Frost cloth",
     line = "Covers keep an early frost off.",

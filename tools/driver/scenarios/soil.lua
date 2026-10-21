@@ -113,4 +113,25 @@ return function(d)
   d:frames(4)
   assert(scene.lens:active() == nil, "Close puts the lens away while the Plan tool is on")
   d:shot("closed")
+
+  -- Rotation (D179, #365): a tile that has grown the same family again and again names its pest pressure, and a
+  -- blighted crop says to pull it. The state is set through the sim (a scenario cannot wait for harvests).
+  local pi = Grid.index(grid, ax, ay)
+  world.state.fields.tilled[pi] = true
+  world.state.crops[pi] = { id = "radish", growth = 0.4, moisture = 1 }
+  world.state.soil.family[pi] = "brassicas"
+  world.state.soil.pressure[pi] = 0.3
+  assert(hasLine(scene:tileInfo(pi), "Pest pressure 30%"), "a pressured tile names it")
+  assert(not hasLine(scene:tileInfo(pi), "(high)"), "30% is not yet high")
+  world.state.soil.pressure[pi] = 0.75
+  assert(hasLine(scene:tileInfo(pi), "Pest pressure 75% (high): rotate the crop"), "a high one says to rotate")
+  world.state.threats.blight[pi] = 0
+  assert(hasLine(scene:tileInfo(pi), "Blight: pull it before it spreads"), "a blighted crop says to pull it")
+  scene.selected = pi
+  d:frames(12)
+  d:shot("pressure_card")
+  world.state.crops[pi] = nil
+  assert(not hasLine(scene:tileInfo(pi), "Blight"), "no crop, no blight line")
+  scene.selected = nil
+  d:frames(6)
 end

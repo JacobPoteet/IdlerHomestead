@@ -178,6 +178,12 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
       threatsStruck = 0,
       threatLost = 0,
       threatDamaged = 0,
+      harvests = 0, -- rotation (D179): harvests, those repeating the tile's last family, the yield share pest pressure cut (summed), harvests that gave nothing, pest hits, blight outbreaks
+      harvestsRepeat = 0,
+      pressureCut = 0,
+      zeroYields = 0,
+      pestHits = 0,
+      blightOutbreaks = 0,
       rainDays = 0,
       cloudyDays = 0,
       brownouts = 0,
@@ -249,7 +255,18 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
     failed = true
   end)
   events:on("crop.harvested", function(e)
-    result.counters.harvested = result.counters.harvested + e.amount
+    local c = result.counters
+    c.harvested = c.harvested + e.amount
+    c.harvests = c.harvests + 1
+    c.harvestsRepeat = c.harvestsRepeat + (e.repeated and 1 or 0)
+    c.pressureCut = c.pressureCut + tuning.soil.pressureCut * e.pressure
+    c.zeroYields = c.zeroYields + (e.amount < 1 and 1 or 0)
+  end)
+  events:on("pest.struck", function(e)
+    result.counters.pestHits = result.counters.pestHits + (e.saved and 0 or 1)
+  end)
+  events:on("threat.struck", function(e)
+    result.counters.blightOutbreaks = result.counters.blightOutbreaks + (e.threat == "blight" and 1 or 0)
   end)
   events:on("fish.caught", function()
     result.counters.fish = result.counters.fish + 1
@@ -1219,6 +1236,19 @@ function Balance.printFeatures(summary, years)
       q("threatsStruck").mean,
       q("threatLost").mean,
       q("threatDamaged").mean
+    )
+  )
+  local harvests = math.max(1, q("harvests").mean)
+  line(
+    string.format(
+      "Rotation per run (mean): %.0f harvests, %.0f%% repeating the tile's family, yield cut by pest pressure %.1f%% on average, "
+        .. "zero-yield harvests %.0f, pest hits %.1f, blight outbreaks %.2f",
+      q("harvests").mean,
+      100 * q("harvestsRepeat").mean / harvests,
+      100 * q("pressureCut").mean / harvests,
+      q("zeroYields").mean,
+      q("pestHits").mean,
+      q("blightOutbreaks").mean
     )
   )
   line(

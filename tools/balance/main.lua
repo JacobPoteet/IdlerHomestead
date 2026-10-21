@@ -15,7 +15,8 @@ Idler Homestead balance harness. Usage:  lovec tools/balance [key=value ...]
                                         study) and a new run with the knowledge kept     (default 1)
   features=all|none|a,b                 optional policy behaviours (default all): cat, stand, chickens, goats,
                                         water, power, machines, finds, weather; `none` plays the harness as it was
-                                        before them. Policies: see docs/BALANCE.md
+                                        before them. `rotate` is opt-in (not in `all`): replant a tile with a family other than
+                                        its last, from the seeds in hand (D179). Policies: see docs/BALANCE.md
   outfit=light|mid|heavy                dress the homesteader in a whole outfit of one weight class
                                         (the wardrobe's grant and wear; default: the starter outfit, all mid)
   jobs=N                                worker threads that play seeds in parallel (default: the

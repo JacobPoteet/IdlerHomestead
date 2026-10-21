@@ -242,6 +242,8 @@ return {
     icon_drought = { placeholder = "icon_drought", w = 12, h = 12 },
     icon_locust = { placeholder = "icon_locust", w = 12, h = 12 },
     icon_frost = { placeholder = "icon_frost", w = 12, h = 12 },
+    icon_blight = { placeholder = "icon_blight", w = 12, h = 12 },
+    icon_copper_spray = { placeholder = "icon_copper_spray", w = 12, h = 12 },
     icon_hail_netting = { placeholder = "icon_hail_netting", w = 12, h = 12 },
     icon_straw_mulch = { placeholder = "icon_straw_mulch", w = 12, h = 12 },
     icon_row_covers = { placeholder = "icon_row_covers", w = 12, h = 12 },

@@ -4,13 +4,14 @@
 --   world.state.fields = { tilled = { [i] = true }, plan = { [i] = cropId } }
 --     plan: the player's field layout. The idle routine tills, plants and replants planned tiles.
 --   world.state.crops = { [i] = { id, growth = 0..1, moisture = 0..1 } }
--- A harvest draws the tile's fertility and yield scales with it (soil.lua, D178).
+-- A harvest draws the tile's fertility and yield scales with it; the same family twice in a row builds pest
+-- pressure that cuts yield (soil.lua, D178, D179).
 -- Crops grow only while moist; one watering lasts tuning.farming.moistureDays. Nothing grows or
 -- can be planted while the ground is frozen, and the first frost kills whatever is still in the
 -- ground (GDD §4.1), except a `hardy` crop, which sits the winter out dormant (D177). A crop is sown only in
 -- the seasons of its `plantSeasons`.
 -- Emits "crop.planted" { crop, tile }, "crop.harvested" { crop, tile, amount, seeds } and
--- "crop.frosted" { crop, tile }.
+-- "crop.frosted" { crop, tile }. "crop.harvested" also carries the tile's `pressure` and whether the harvest `repeated` its family.
 
 local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
@@ -488,7 +489,8 @@ local function registerTasks(world)
       local crop = w.state.crops[i]
       local def = w.registry:get("crops", crop.id)
       local rng = w:rng("farming")
-      local mult = Soil.yieldMultiplier(w, i) -- soil quality and fertility (D178), read before the harvest draws it
+      local mult = Soil.yieldMultiplier(w, i) -- soil quality, fertility and pest pressure (D178, D179), read before the harvest changes them
+      local pressure, repeated = Soil.pressure(w, i), Soil.repeats(w, i, def)
       local amount = math.max(1, math.floor(def.yield * mult + rng:float()))
       local seeds = rng:int(def.seedReturn[1], def.seedReturn[2])
       w.state.crops[i] = nil
@@ -498,7 +500,9 @@ local function registerTasks(world)
       -- here is only a same-tick safety net and is announced, never silent.
       Ledger.addOrOverflow(w, def.produce, amount, "harvest")
       Ledger.addOrOverflow(w, def.seed, seeds, "harvest")
-      w.events:emit("crop.harvested", { crop = def.id, tile = i, amount = amount, seeds = seeds })
+      local harvest =
+        { crop = def.id, tile = i, amount = amount, seeds = seeds, pressure = pressure, repeated = repeated }
+      w.events:emit("crop.harvested", harvest)
     end,
   })
 
@@ -651,6 +655,12 @@ function Crops.plantedTiles(world)
   end
   table.sort(tiles)
   return tiles
+end
+
+--- Id of the crop on tile i, or nil.
+function Crops.cropIdAt(world, i)
+  local crop = world.state.crops[i]
+  return crop and crop.id or nil
 end
 
 --- Is the crop on tile i ripe? (false if there is none)
