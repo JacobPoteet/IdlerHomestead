@@ -11,6 +11,7 @@ return {
   moistureDays = 1, -- in-game days one watering keeps a tile moist
   soilYieldMin = 0.7, -- yield multiplier on the worst soil
   soilYieldMax = 1.3, -- yield multiplier on the best soil
+  minSoilMultiplier = 0.6, -- 0..1 floor on the combined yield multiplier of fertility, pest pressure and weeds (D185): skipping upkeep costs up to 40 percent of a yield, never the harvest
 
   -- The idle routine's starter field (D61, #66): planned for the player when the routine takes over
   -- and nothing at all is planned, so an unattended start does not starve.

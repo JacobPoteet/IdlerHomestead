@@ -5,7 +5,9 @@
 --     plan: the player's field layout. The idle routine tills, plants and replants planned tiles.
 --   world.state.crops = { [i] = { id, growth = 0..1, moisture = 0..1 } }
 -- A harvest draws the tile's fertility and yield scales with it; the same family twice in a row builds pest
--- pressure that cuts yield, and weeds cut it until the `weed` task pulls them (soil.lua, D178, D179, D180).
+-- pressure that cuts yield, and weeds cut it until the `weed` task pulls them, all together floored by
+-- `farming.minSoilMultiplier` (soil.lua, D178, D179, D180, D185). A crop blight has marked (`crop.blighted`, set by
+-- threats.lua on a tile at full pest pressure) gives no produce at its harvest, only seeds and residue.
 -- Crops grow only while moist; one watering lasts tuning.farming.moistureDays. Nothing grows or
 -- can be planted while the ground is frozen, and the first frost kills whatever is still in the
 -- ground (GDD §4.1), except a `hardy` crop, which sits the winter out dormant (D177). A crop is sown only in
@@ -16,7 +18,7 @@
 --   year's crop is picked). It ripens only inside its fruitSeason and only once a year; a harvest resets it instead of
 --   removing it. A young plant is data for the deer and bears of phase C (`Crops.vulnerableTo`).
 -- Emits "crop.planted" { crop, tile }, "crop.harvested" { crop, tile, amount, seeds } and
--- "crop.frosted" { crop, tile }. "crop.harvested" also carries the tile's `pressure`, whether the harvest `repeated` its family, and its `weeds`.
+-- "crop.frosted" { crop, tile }. "crop.harvested" also carries the tile's `pressure`, whether the harvest `repeated` its family, and its `weeds`, its `quality` tier and whether blight spoiled it (`blighted`).
 
 local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
@@ -65,7 +67,7 @@ end
 
 --- A fresh crop record for `def` (a crop definition) as the plant task makes it.
 function Crops.newCrop(world, def)
-  local crop = { id = def.id, growth = 0, moisture = 0, thirst = 0, tends = 0 }
+  local crop = { id = def.id, growth = 0, moisture = 0, thirst = 0 }
   if def.perennial then
     crop.stage, crop.seasons, crop.winters, crop.rest = "sapling", 0, 0, true
   end
@@ -518,23 +520,6 @@ function Crops.waterTile(world, i)
   return false
 end
 
---- A hand order tended the crop on tile i (it was watered, or its tile weeded, by the player's own tap or a policy's
---- order, never by the routine): one more tend towards the tended mark (D182). Returns true if there was a crop.
-function Crops.tend(world, i, order)
-  local crop = world.state.crops[i]
-  if not crop or not order then
-    return false
-  end
-  crop.tends = (crop.tends or 0) + 1
-  return true
-end
-
---- Does the crop on tile i carry the tended mark?
-function Crops.isTendedAt(world, i)
-  local crop = world.state.crops[i]
-  return crop ~= nil and Quality.isTended(world, crop)
-end
-
 local function anyCropNeedsWater(world)
   for _, crop in pairs(world.state.crops) do
     if Crops.needsWater(crop) then
@@ -597,15 +582,19 @@ local function registerTasks(world)
       local crop = w.state.crops[i]
       local def = w.registry:get("crops", crop.id)
       local rng = w:rng("farming")
-      local mult = Soil.yieldMultiplier(w, i) -- soil quality, fertility and pest pressure (D178, D179), read before the harvest changes them
+      local mult = Soil.yieldMultiplier(w, i) -- soil quality, fertility, pest pressure and weeds, floored (D178 to D180, D185), read before the harvest changes them
       local pressure, repeated, weeds = Soil.pressure(w, i), Soil.repeats(w, i, def), Soil.weeds(w, i)
-      local tier, penalty, tended = Quality.grade(w, i, crop, def) -- fertility, weeds, thirst and the tended mark (D182), read before the harvest changes them
+      local tier, penalty = Quality.grade(w, i, crop, def) -- fertility, weeds and thirst (D182), read before the harvest changes them
       local share = Crops.yieldShare(w, crop) -- a young perennial gives less (D183)
       local amount = math.max(1, math.floor(def.yield * mult * share + rng:float()))
       local seeds = rng:int(def.seedReturn[1], def.seedReturn[2])
+      local blighted = crop.blighted == true
+      if blighted then
+        amount = 0 -- blight spoils this tile's harvest and nothing else (D185)
+      end
       if def.perennial then
         -- the plant stays: it rests until its next fruiting season
-        crop.growth, crop.thirst, crop.tends = 0, 0, 0
+        crop.growth, crop.thirst, crop.blighted = 0, 0, nil
         crop.rest, crop.fruited = true, true
       else
         w.state.crops[i] = nil
@@ -627,7 +616,7 @@ local function registerTasks(world)
         weeds = weeds,
         quality = tier,
         penalty = penalty,
-        tended = tended,
+        blighted = blighted,
         stage = crop.stage,
       }
       w.events:emit("crop.harvested", harvest)
@@ -659,9 +648,8 @@ local function registerTasks(world)
     workTime = function(w)
       return w.tuning.soil.weedPullTime
     end,
-    complete = function(w, _, i, order)
+    complete = function(w, _, i)
       Soil.pull(w, i)
-      Crops.tend(w, i, order)
     end,
   })
 
@@ -691,11 +679,10 @@ local function registerTasks(world)
     workTime = function(w)
       return w.tuning.farming.waterTime
     end,
-    complete = function(w, actor, i, order)
+    complete = function(w, actor, i)
       local crop = w.state.crops[i]
       crop.moisture = 1
       actor.bucket = actor.bucket - 1
-      Crops.tend(w, i, order)
     end,
   })
 

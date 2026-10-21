@@ -2,7 +2,9 @@
 -- Fertility is 0..1 per tile, beside soil quality (grid.soil) and the water table. A harvest draws it by the
 -- crop's `fertilityDraw` (data/content/crops.lua); fallow, legumes, compost and manure give it back.
 -- Rotation (PLAN_DEPTH 8.3, D179): harvesting the same crop family twice in a row on a tile builds pest pressure,
--- a different family relieves it; pressure cuts yield and invites pests (the pest* keys).
+-- a different family relieves it; pressure cuts yield and invites pests (the pest* keys). The tile card and the Soil
+-- lens show it; at full pressure a wet-weather blight can spoil that tile's harvest (threats content, D185).
+-- Fertility, pressure and weeds together never cut a yield below `farming.minSoilMultiplier` (D185).
 -- Weeds (PLAN_DEPTH 8.3, D180): field tiles sprout weeds on a timer and weeds cut yield until a pull task clears
 -- them (the weed* keys); the Straw mulch equipment (stat weedGuard) holds them back.
 return {
@@ -23,7 +25,7 @@ return {
   weedSeedChance = 0.12, -- per game day chance a thawed field tile (tilled, planned or planted) with no weeds sprouts some; one roll a tile a day on the `weeds` RNG stream, whatever the mulch
   weedStart = 0.1, -- 0..1 weed level of a fresh sprout
   weedRate = 0.1, -- weed level gained per game day by a tile that already has weeds (a nuisance in 2 days, choking in 10)
-  weedCut = 0.4, -- 0..1 share of yield lost at full weeds (scales with the level); under 1, so weeds alone can never zero a yield
+  weedCut = 0.15, -- 0..1 share of yield lost at full weeds (scales with the level): weeds alone cost about 15 percent, never the harvest (D185)
   weedPullAt = 0.2, -- weed level from which the idle routine pulls a tile (a player tap pulls any); pulled at 2 days old, the idle rate keeps a field clean
   weedHigh = 0.5, -- weed level from which the tile card says "high" and the Soil lens paints the tile as overgrown
   weedPullTime = 1.5, -- seconds of work to pull a tile's weeds at 1x efficiency

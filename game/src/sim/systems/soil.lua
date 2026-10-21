@@ -18,6 +18,9 @@
 -- yield, so never to zero) and, from `pestAt`, invites a daily pest roll (own RNG stream "pests") that knocks the
 -- growing crop back (never kills it); the pestGuard stat (row covers) turns part of that aside.
 -- Emits "soil.pressure" { tile, from, to, cause } on every change and "pest.struck" { tile, crop, pressure, saved }.
+-- Fertility, pressure and weeds multiply into one upkeep factor that `farming.minSoilMultiplier` floors (D185), so
+-- skipping upkeep costs a share of a yield and never the harvest. A crop at full pressure can also be marked by
+-- blight (threats.lua), which spoils that tile's harvest only.
 --
 -- Weeds (PLAN_DEPTH 8.3, D180):
 --   world.state.soil.weeds[i]      weed level 0..1, whole hundredths, only tiles above 0
@@ -94,12 +97,18 @@ function Soil.weedFactor(world, i)
   return 1 - world.tuning.soil.weedCut * Soil.weeds(world, i)
 end
 
---- Yield multiplier of tile i: soil quality (tuning.farming.soilYieldMin..Max) times the fertility factor
---- times the pest-pressure factor times the weed factor.
+--- Yield multiplier from the tile's upkeep: fertility, pest pressure and weeds together, never under
+--- `farming.minSoilMultiplier` (D185), so neglect costs a share of the yield and never the harvest.
+function Soil.upkeepFactor(world, i)
+  local product = Soil.fertilityFactor(world, i) * Soil.pressureFactor(world, i) * Soil.weedFactor(world, i)
+  return math.max(world.tuning.farming.minSoilMultiplier, product)
+end
+
+--- Yield multiplier of tile i: soil quality (tuning.farming.soilYieldMin..Max) times the upkeep factor.
 function Soil.yieldMultiplier(world, i)
   local farming = world.tuning.farming
   local quality = farming.soilYieldMin + (farming.soilYieldMax - farming.soilYieldMin) * world.state.grid.soil[i]
-  return quality * Soil.fertilityFactor(world, i) * Soil.pressureFactor(world, i) * Soil.weedFactor(world, i)
+  return quality * Soil.upkeepFactor(world, i)
 end
 
 --- Harvest a crop would give on tile i today, before the harvest's own rounding roll (the Plan readout).
