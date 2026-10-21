@@ -121,11 +121,20 @@ local function waterRow(w)
   return text
 end
 
+-- Exposure as a word and what drives it (D187): "Exposure: high. Smoked fish in store, 8 animals kept." Never points.
 local function exposureLine(e)
-  if not e.level then
-    return "Exposure: no shelter placed."
+  local drivers = {}
+  if #e.stores > 0 then
+    drivers[#drivers + 1] = table.concat(e.stores, " and ") .. " in store"
   end
-  return string.format("Exposure: %s (a rough guess for now).", e.level)
+  if e.animals > 0 then
+    drivers[#drivers + 1] = plural(e.animals, "animal") .. " kept"
+  end
+  local text = "Exposure: " .. e.word .. "."
+  if #drivers > 0 then
+    text = text .. " " .. (table.concat(drivers, ", "):gsub("^%l", string.upper)) .. "."
+  end
+  return text
 end
 
 local function riskLines(risks)
@@ -134,7 +143,9 @@ local function riskLines(risks)
   end
   local lines = {}
   for _, r in ipairs(risks) do
-    if r.id == "snap" then
+    if r.id == "sign" then
+      lines[#lines + 1] = r.line
+    elseif r.id == "snap" then
       lines[#lines + 1] = r.days == 0 and "A cold snap tonight: the fire burns more."
         or string.format("A cold snap in %s.", plural(r.days, "day"))
     else

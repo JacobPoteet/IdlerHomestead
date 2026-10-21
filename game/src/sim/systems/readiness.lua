@@ -196,30 +196,23 @@ end
 
 -- Tonight (D161, #340): the dusk check ------------------------------------------------------------------------------
 
--- Where a shelter sits on the exposure ladder (PLAN_DEPTH §5.1: the truck gives the night the most to work with,
--- the shack the least): "high" at the lowest shelterRank, "low" at the highest, "medium" between. A stub until
--- the exposure model (C1) supplies the real figure; nil with no shelter placed.
-local function shelterExposure(world, id)
-  if not id then
-    return nil
+-- What the night is given to work with, as the Tonight card says it (D187, C1): the word from Events.exposure (low,
+-- medium, high; never the points) and what drives it, as names the card can list: the stores that attract animals, how
+-- many animals are kept, and the shelter.
+local function tonightExposure(world)
+  local Events = require("src.sim.systems.events") -- here, not at load: Events reaches Food, which requires this file
+  local e = Events.exposure(world)
+  local stores = {}
+  for _, id in ipairs(e.parts.stores) do
+    stores[#stores + 1] = world.registry:get("resources", id).name:lower()
   end
-  local lowest, highest = math.huge, -math.huge
-  for _, def in ipairs(world.registry:all("objects")) do
-    if def.shelter then
-      lowest, highest = math.min(lowest, def.shelterRank or 0), math.max(highest, def.shelterRank or 0)
-    end
-  end
-  local rank = world.registry:get("objects", id).shelterRank or 0
-  if rank <= lowest then
-    return "high"
-  elseif rank >= highest then
-    return "low"
-  end
-  return "medium"
+  return { word = e.word, stores = stores, animals = e.parts.animals, shelter = e.parts.shelter }
 end
 
--- The risks the night ahead carries that the player has been told about: { { id = "snap", days }, { id = "storm", kind } }.
+-- The risks the night ahead carries that the player has been told about: { { id = "snap", days }, { id = "storm", kind },
+-- { id = "sign", threat, line } }. The sign is the night threat framework's dusk sign (D187): set once the threat is drawn.
 local function tonightRisks(world)
+  local NightThreats = require("src.sim.systems.nightthreats") -- here, not at load (it reaches Events, and so Food)
   local risks = {}
   if Weather.isFrozen(world) then
     if Weather.isColdSnap(world) then
@@ -234,6 +227,10 @@ local function tonightRisks(world)
   end
   if Weather.threat(world) > 1 then -- 1 is an ordinary night; storms and wind raise it
     risks[#risks + 1] = { id = "storm", kind = Weather.kind(world) }
+  end
+  local sign = NightThreats.sign(world)
+  if sign then
+    risks[#risks + 1] = { id = "sign", threat = sign.id, line = sign.line }
   end
   return risks
 end
@@ -259,8 +256,9 @@ end
 ---     food = { days (Needs.foodDays), calories, need (a day's), level },
 ---     water = { perDay, days, stock, cistern, canteen, thirstDays, level },
 ---     shelter = { id, name, insulation, heat (a heat source is placed) } (id nil with no shelter placed),
----     exposure = { stub = true, level = "high" | "medium" | "low" | nil, shelter = id },
----     risks = { { id = "snap", days } | { id = "storm", kind } }, gaps (rows at amber or worse) }
+---     exposure = { word = "low" | "medium" | "high", stores (names in stock that attract animals), animals (kept),
+---                  shelter = id } (the word only: the points stay inside Events.exposure, D187),
+---     risks = { { id = "snap", days } | { id = "storm", kind } | { id = "sign", threat, line } }, gaps (rows at amber or worse) }
 function Readiness.tonight(world)
   local Alerts = require("src.sim.systems.alerts") -- here, not at load: Alerts reaches Food, which requires this file
   local now = Calendar.now(world)
@@ -317,7 +315,7 @@ function Readiness.tonight(world)
       insulation = Shelter.nightInsulation(world),
       heat = Needs.heatEfficiency(world) > 0,
     },
-    exposure = { stub = true, level = shelterExposure(world, shelterId), shelter = shelterId },
+    exposure = tonightExposure(world),
     risks = tonightRisks(world),
     gaps = gaps,
   }

@@ -7,6 +7,8 @@ local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
 local Marks = require("src.sim.systems.marks")
 local Needs = require("src.sim.systems.needs")
+local NightThreats = require("src.sim.systems.nightthreats")
+local Readiness = require("src.sim.systems.readiness")
 
 --- Jump the sim clock to a day and hour (the calendar's day marker with it, so no day is announced).
 local function jumpTo(world, day, hour)
@@ -141,4 +143,22 @@ return function(d)
   d:frames(40)
   assert(#scene.tonightCard.rowButtons.list == 0, "no gap, no fix button")
   d:shot("all_ready")
+
+  -- 9. After sunset the night's threat is drawn: the card says the exposure as a word and shows the dusk sign (D187, #355).
+  world.state.ledger.amounts.potato = 20
+  world.tuning.cat.mice.chancePerDay = 5 -- certain, whatever the season multiplier
+  jumpTo(world, day, sunset + 0.3)
+  d:frames(30)
+  dismissFinds(d)
+  quiet(d)
+  local sign = NightThreats.sign(world)
+  assert(sign, "a threat is drawn at sunset")
+  if not scene.tonight.open then
+    d:key("t")
+  end
+  d:frames(10)
+  assert(scene.tonight.open, "the card is up")
+  local t = Readiness.tonight(world)
+  assert(t.exposure.word and t.exposure.points == nil, "the card gets a word, not points")
+  d:shot("dusk_sign")
 end

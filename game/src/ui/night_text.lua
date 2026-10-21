@@ -103,8 +103,6 @@ function NightText.morning(world, report)
   local raided = counts(world, report.raided)
   if raided ~= "" then
     add("Mice took " .. raided .. ".", theme.colors.danger)
-  elseif report.caught > 0 then
-    add("The cat caught a mouse in the night.")
   end
   if report.killed > 0 then
     add(string.format("A fox took %s.", plural(report.killed, "hen")), theme.colors.danger)
@@ -112,8 +110,14 @@ function NightText.morning(world, report)
   if (report.killedGoats or 0) > 0 then
     add(string.format("A coyote took %s.", plural(report.killedGoats, "goat")), theme.colors.danger)
   end
-  if report.killed == 0 and (report.killedGoats or 0) == 0 and report.stopped > 0 then
-    add("A fox tried the animals in the night. The fence held.")
+  -- Threats the homestead turned away, and a fox a slipped Footing spared (night threats, D187): the content's own lines.
+  for _, threat in ipairs(report.threats or {}) do
+    local d = world.registry:get("night_threats", threat.id)
+    if threat.outcome == "turned" then
+      add(d.outcomes.turned.report)
+    elseif threat.outcome == "spared" then
+      add(d.outcomes.landed.sparedReport, theme.colors.danger)
+    end
   end
 
   -- Standing orders that fell back to ignoring because of the cost (B5, #349): "Kept the wood, ignored the sprained ankle."

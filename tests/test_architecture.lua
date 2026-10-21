@@ -58,6 +58,7 @@ local STATE_OWNERS = {
   alerts = "alerts",
   animals = "animals",
   nightly = "nightly",
+  nightthreats = "nightthreats",
   calendar = "calendar",
   cat = "cat",
   compost = "compost",

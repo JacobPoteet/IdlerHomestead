@@ -19,7 +19,8 @@
 --   the pail the milk the goats gave at `milkHour` (stream "milk"; goats dry off in winter and hold
 --   their milk in a storm). Winter has no browse, so hay is the winter pressure; a cold snap raises it.
 --   Tending the pen moves the milk into the ledger ("milk", the most perishable food).
--- Once a night at `predators.hour` a seeded roll (stream "predators") may bring a fox: more likely
+-- Once a night a seeded roll (stream "predators") may bring a fox, planned at dusk and landed at `predators.hour` by the
+-- night threat framework (nightthreats.lua, D187; Animals.raid is both in one call): more likely
 -- in lean seasons and rough weather (Weather.threat, #97), less with the cat about, turned back by
 -- the coop's door or the pen's fence plus the predator fence (stat `predatorGuard`), otherwise it takes
 -- a hen or two, or one goat (goats are tougher: a bonus guard, and less likely a target).
@@ -33,7 +34,8 @@
 -- Emits "animals.collected" { count } (eggs), "animals.milked" { count }, "animals.tended" { eggs, feed,
 -- kind }, "animals.laid" { count }, "animals.nestFull" { lost }, "animals.pailFull" { lost },
 -- "animals.short" { feed, water, kind }, "animals.lost" { reason, hens?, goats?, kind },
--- "animals.predator" { day, killed, stopped, kind } with kind = "hens" | "goats".
+-- "animals.predator" { day, killed, stopped, kind, spared? } with kind = "hens" | "goats" (spared: it got through but took
+-- no animal, because Footing is slipped).
 
 local Calendar = require("src.sim.systems.calendar")
 local Cat = require("src.sim.systems.cat")
@@ -517,11 +519,17 @@ function Animals.milking(world)
   return stored
 end
 
---- Tonight's raid, rolled now. Returns "stopped" (the defences held), "raided" (animals were taken) or
---- nil (no predator, no animals, or too early in the run). All rolls and the loss are always drawn, so
---- the stream does not depend on the defences. With both kept, a goat is a likelier target the more
---- goats there are, but each is worth `goatWeight` of a hen as prey.
-function Animals.raid(world)
+--- The in-game hour tonight's raid lands (the night threat framework calls Animals.nightLand then).
+function Animals.nightHour(world)
+  return world.tuning.animals.predators.hour
+end
+
+--- Plan tonight's raid (the night threat framework calls this at dusk, C1, D187). Returns a plan
+--- ({ kind, guardRoll, loss, goatLoss }) when a predator comes, or nil (no predator, no animals, or too early in the run).
+--- All rolls are always drawn, so the stream does not depend on the defences. With both kept, a goat is a likelier
+--- target the more goats there are, but each is worth `goatWeight` of a hen as prey. `scale` multiplies the chance
+--- (exposure and the mercy rules, 1 = unchanged).
+function Animals.nightPlan(world, scale)
   local s, cfg = state(world), world.tuning.animals.predators
   local day = Calendar.now(world).day
   s.raidDay = day
@@ -530,7 +538,7 @@ function Animals.raid(world)
     return nil
   end
   local rng = world:rng("predators")
-  local hit = rng:chance(Animals.raidChance(world))
+  local hit = rng:chance(math.min(1, Animals.raidChance(world) * (scale or 1)))
   local guardRoll = rng:float()
   local loss = rng:int(cfg.loss.min, cfg.loss.max)
   local goatLoss, targetRoll = 0, 0
@@ -548,24 +556,50 @@ function Animals.raid(world)
       kind = "goats"
     end
   end
+  return { kind = kind, guardRoll = guardRoll, loss = loss, goatLoss = goatLoss }
+end
+
+--- Land a planned raid: "stopped" (the defences held), "raided" (animals were taken), "spared" (it got through but
+--- `opts.spare` is set, so it takes no animal: the mercy rule for a slipped Footing, which the framework makes up
+--- for in stores), or nil when the animals it came for are gone by now.
+function Animals.nightLand(world, plan, opts)
+  local s = state(world)
+  local day = Calendar.now(world).day
+  local kind = plan.kind
+  local hens, goats = Animals.hens(world), Animals.goats(world)
+  if (kind == "goats" and goats == 0) or (kind ~= "goats" and hens == 0) then
+    return nil
+  end
   s.raids = s.raids + 1
-  if guardRoll < Animals.guard(world, kind) then
+  if plan.guardRoll < Animals.guard(world, kind) then
     s.stopped = s.stopped + 1
     world.events:emit("animals.predator", { day = day, killed = 0, stopped = true, kind = kind })
     return "stopped"
   end
+  if opts and opts.spare then
+    world.events:emit("animals.predator", { day = day, killed = 0, stopped = false, spared = true, kind = kind })
+    return "spared"
+  end
   local killed
   if kind == "goats" then
-    killed = math.min(goats, goatLoss)
+    killed = math.min(goats, plan.goatLoss)
     Ledger.remove(world, GOAT, killed, "predator")
     s.goats.lost = s.goats.lost + killed
   else
-    killed = math.min(hens, loss)
+    killed = math.min(hens, plan.loss)
     Ledger.remove(world, HEN, killed, "predator")
     s.lost = s.lost + killed
   end
   world.events:emit("animals.predator", { day = day, killed = killed, stopped = false, kind = kind })
   return "raided"
+end
+
+--- Tonight's raid, rolled and landed now. Returns "stopped" (the defences held), "raided" (animals were taken) or nil
+--- (no predator, no animals, or too early in the run). The game plays it through the night threat framework (plan at
+--- dusk, land at the hour); this is the same two steps in one call.
+function Animals.raid(world)
+  local plan = Animals.nightPlan(world)
+  return plan and Animals.nightLand(world, plan) or nil
 end
 
 local function register(world, id, verb, clickOrder, part, ready, canTend, needsTending, store, tend)
@@ -665,9 +699,6 @@ function Animals.tick(world)
   end
   if now.hour >= cfg.goats.careHour and s.goats.careDay < now.day then
     Animals.careGoats(world)
-  end
-  if now.hour >= cfg.predators.hour and s.raidDay < now.day then
-    Animals.raid(world)
   end
 end
 
