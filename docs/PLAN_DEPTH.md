@@ -298,7 +298,7 @@ A **compost bin** takes crop residue, spoiled food and manure and returns compos
 
 ### 8.5 Perennials
 
-Berries and orchard trees cost a lot to start. In days (D168): planted in one season, they give a first, small yield in the *next* season and a full yield once they have come through one winter; then they pay for years. They are the long-term idle investment. They need pruning and frost care (upkeep, section 10), and are vulnerable to deer. A young orchard is a bear and deer target.
+Berries and orchard trees cost a lot to start. In days (D168): planted in one season, they give a first, small yield in the *next* season and a full yield once they have come through one winter; then they pay for years. They are the long-term idle investment. **Built basic (D183):** no pruning or frost care, only water; a young plant is a deer and bear target (a data hook until phase C).
 
 ### 8.6 Quality
 
@@ -528,8 +528,8 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - D3 (#365) Rotation families and pest pressure.
 - D4 (#366) Weeds, weeding task, mulch.
 - D5 (#367) Compost bin and manure loop.
-- D6 (#368) Quality tiers and tended marks.
-- D7 (#369) Perennials: berries and orchard.
+- D6 (#368) Quality tiers and tended marks. **Done (D182).**
+- D7 (#369) Perennials: berries and orchard. **Done (D183).**
 - D8 (#370) Routine categories and conditions for the new tasks.
 
 **Phase E: Market**

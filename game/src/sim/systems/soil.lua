@@ -142,7 +142,7 @@ end
 function Soil.harvested(world, i, cropDef)
   local cfg = world.tuning.soil
   local soil = world.state.soil
-  if cropDef.family then
+  if cropDef.family and not cropDef.perennial then -- a perennial stays in its bed: nothing to rotate (D183)
     local last = soil.family[i]
     if last == cropDef.family then
       setPressure(world, i, Soil.pressure(world, i) + cfg.pressurePerRepeat, "repeat")

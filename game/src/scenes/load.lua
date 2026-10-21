@@ -13,6 +13,7 @@ local Needs = require("src.sim.systems.needs")
 local Readiness = require("src.sim.systems.readiness")
 local Buttons = require("src.ui.buttons")
 local Panel = require("src.ui.panel")
+local QualityText = require("src.ui.quality_text")
 local ScrollList = require("src.ui.scroll_list")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
@@ -303,7 +304,14 @@ function Load:draw()
   for _, row in ipairs(self.rows) do
     local res = row.res
     Panel.icon(Panel.resourceIcon(res.id), b.x + 12, row.y + 5)
-    Text.draw(string.format("%s  x%d", res.name, row.stock), b.x + 28, row.y + 6, { size = "small" })
+    local tiers = QualityText.stock(world, res.id)
+    Text.draw(
+      tiers and string.format("%s  x%d (%s)", res.name, row.stock, tiers)
+        or string.format("%s  x%d", res.name, row.stock),
+      b.x + 28,
+      row.y + 6,
+      { size = "small" }
+    )
     Text.draw(
       string.format("%d spare · keep %d · $%d each", row.spare, row.keep, Market.sellPrice(world, res.id)),
       b.x + 28,

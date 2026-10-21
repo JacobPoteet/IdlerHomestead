@@ -98,6 +98,7 @@ function PlaceText.destroyCropConfirm(world, i)
   local crop = world.state.crops[i]
   local name = world.registry:get("crops", crop.id).name:lower()
   local state = crop.growth >= 1 and p.destroyCropRipe
+    or crop.stage and string.format(p.destroyPerennial, crop.stage)
     or string.format(p.destroyCropGrowing, math.floor(crop.growth * 100))
   return { title = string.format(p.destroyTitle, name), text = string.format(p.destroyCrop, name, state) }
 end

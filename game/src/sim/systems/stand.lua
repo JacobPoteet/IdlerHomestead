@@ -16,6 +16,7 @@ local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
+local Quality = require("src.sim.systems.quality")
 local Spoilage = require("src.sim.systems.spoilage")
 local Stats = require("src.sim.stats")
 local Weather = require("src.sim.systems.weather")
@@ -125,7 +126,8 @@ function Stand.sell(world)
     local n = math.min(entry.n, cap - units)
     if n > 0 then
       taken[#taken + 1] = { id = entry.id, n = n }
-      raw = raw + n * Stand.unitPrice(world, entry.id)
+      -- the stand sells the worst units (the ledger drops them first) at the tier's price (D182)
+      raw = raw + Stand.unitPrice(world, entry.id) * Quality.worth(world, entry.id, n, "worst")
       units = units + n
     end
   end

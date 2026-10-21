@@ -77,6 +77,8 @@ return {
     tomato = { placeholder = "tomato", w = 16, h = 16, variants = 3 },
     corn = { placeholder = "corn", w = 16, h = 16, variants = 3 },
     herbs = { placeholder = "herbs", w = 16, h = 16, variants = 3 },
+    berries = { placeholder = "berries", w = 16, h = 16, variants = 3 }, -- D183: the perennials
+    apple = { placeholder = "apple", w = 16, h = 16, variants = 3 },
 
     -- Actors
     homesteader = { placeholder = "homesteader", w = 20, h = 22 },
@@ -103,6 +105,8 @@ return {
     icon_seed_tomato = { placeholder = "icon_seed_tomato", w = 12, h = 12 },
     icon_seed_corn = { placeholder = "icon_seed_corn", w = 12, h = 12 },
     icon_seed_herbs = { placeholder = "icon_seed_herbs", w = 12, h = 12 },
+    icon_seed_berries = { placeholder = "icon_seed_berries", w = 12, h = 12 },
+    icon_seed_apple = { placeholder = "icon_seed_apple", w = 12, h = 12 },
     icon_heart = { placeholder = "icon_heart", w = 12, h = 12 },
     icon_wx_clear = { placeholder = "icon_wx_clear", w = 12, h = 12 }, -- weather chip glyphs (D112)
     icon_wx_cloudy = { placeholder = "icon_wx_cloudy", w = 12, h = 12 },
@@ -125,6 +129,8 @@ return {
     icon_tomato = { placeholder = "icon_seed_tomato", w = 12, h = 12 },
     icon_corn = { placeholder = "icon_seed_corn", w = 12, h = 12 },
     icon_herbs = { placeholder = "icon_seed_herbs", w = 12, h = 12 },
+    icon_berries = { placeholder = "icon_seed_berries", w = 12, h = 12 },
+    icon_apple = { placeholder = "icon_seed_apple", w = 12, h = 12 },
     icon_canned_food = { placeholder = "icon_food", w = 12, h = 12 },
     -- Interface icons (GDD §9.4, D142): tools, verbs, signals, books, seed packets
     icon_tool_hand = { placeholder = "icon_tool_hand", w = 12, h = 12 },
@@ -184,6 +190,8 @@ return {
     icon_packet_tomato = { placeholder = "icon_packet_tomato", w = 12, h = 12 },
     icon_packet_corn = { placeholder = "icon_packet_corn", w = 12, h = 12 },
     icon_packet_herbs = { placeholder = "icon_packet_herbs", w = 12, h = 12 },
+    icon_packet_berries = { placeholder = "icon_packet_berries", w = 12, h = 12 },
+    icon_packet_apple = { placeholder = "icon_packet_apple", w = 12, h = 12 },
     -- One icon per fish species (same painter, tinted per species)
     icon_creek_chub = { placeholder = "fish_icon", w = 12, h = 12 },
     icon_sunfish = { placeholder = "fish_icon", w = 12, h = 12 },

@@ -315,6 +315,8 @@ local CROP_LOOKS = {
   tomato = { kind = "bush", fruit = { 0.86, 0.20, 0.16 } },
   corn = { kind = "tall", fruit = { 0.95, 0.82, 0.30 } },
   herbs = { kind = "rosette", fruit = { 0.55, 0.36, 0.68 } },
+  berries = { kind = "bush", fruit = { 0.34, 0.22, 0.62 } }, -- D183: the perennials
+  apple = { kind = "bush", fruit = { 0.82, 0.16, 0.14 } },
 }
 
 local function laterCrop(look)

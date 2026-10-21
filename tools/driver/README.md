@@ -75,6 +75,10 @@ Also `shelf` (D73, D74: an out-of-date save planted in the in-memory store, list
 
 Also `wardrobe` (D154: the Wardrobe menu, its preview, locked hints, the dawn rule and keyboard focus), `wardrobe_unlock` (D155: the unlock toast, the New clothes stamp, the dot on a new tile and tab, the recovery scene's clothes row, the Wardrobe opened from recovery, and the next run dressed in the choice) and `wardrobe_sandbox` (D155: a Sandbox slot owns every garment, with no dots, stamp or toast), and `wardrobe_presets` (D156: the Warm and Cold chips empty, a cold outfit saved with Save then a chip, an outfit loaded whole from a chip, Auto switched on and a winter dawn on which it dresses the Cold preset with its toast, a manual Wear turning Auto off).
 
+Also `quality` (D182, #368: the Pantry and the Load list showing the tiers of stocked produce, the town's load paying them and listing them, and the tile card of a growing crop reading its grade and the tended mark; the stock is set through the sim; desktop, phone and landscape).
+
+Also `perennials` (D183, #369: a sapling, a young plant and a ripe tree on the field with their tile cards (stage, fruiting season, what the young plant draws, resting), a tap sending the homesteader to pick the ripe tree, and the new seed packets in the tray; desktop, phone and landscape).
+
 On narrow views some toolbar buttons live in the Tools or More palette: `d:pick(label)` presses a toolbar button wherever it is (it opens the palette when needed), `d:press` only sees what is on screen.
 
 First-time tip cards (D69) are off in every scenario by default so they never cover a screenshot; `d:newGame({ tips = true })` starts the slot with them on.

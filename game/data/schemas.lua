@@ -79,7 +79,8 @@ return {
     waterAppetite = "number", -- multiplier on how fast a watering dries (1 = the base rate)
     fertilityDraw = "number", -- share of a tile's fertility a harvest draws; negative adds (legumes); read by D2
     family = "string", -- rotation family, one of tuning.farming.families; read by D3
-    qualitySensitivity = "number", -- 0..1 how strongly quality follows fertility, weeding and tending; read by D7
+    qualitySensitivity = "number", -- 0..1 how strongly quality follows fertility, weeding and tending (quality.lua, D182)
+    perennial = "table?", -- planted once and bears every year (D183): { fruitSeason = season id, vulnerable = { animal ids a young plant draws } }; see crops.lua
   },
   fish = {
     name = "string",

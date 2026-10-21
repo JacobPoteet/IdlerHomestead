@@ -238,6 +238,7 @@ return {
     destroyCrop = "The %s is lost: %s Nothing is refunded.", -- %s: crop name; %s: growth state
     destroyCropGrowing = "it is %d%% grown.", -- %d: percent
     destroyCropRipe = "it is ripe and its harvest is lost.",
+    destroyPerennial = "it is a %s plant and years of crops go with it.", -- %s: stage (sapling, first, mature)
     destroyBatch = "The %d %s in it are lost.", -- a station's running or waiting batch (%d count, %s output name)
     destroyCharge = "Its %.1f kWh of stored charge is lost.",
     destroyGoods = "Storage drops: %s no longer fit and are lost.", -- %s: "12 stone, 3 hens"

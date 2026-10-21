@@ -304,6 +304,9 @@ end
 --- Would a crop planted today be sown in this season and ripen before the freeze (a hardy one just overwinters),
 --- with a day of slack for watering lag?
 function Base:canMature(world, crop)
+  if crop.perennial then
+    return false -- the orchard feature plans and buys these (features.lua, D183); the field planner leaves them alone
+  end
   if not Crops.canPlantNow(world, crop) then
     return false -- frozen, or the crop is not sown in this season (D177)
   end
@@ -422,6 +425,9 @@ end
 --- The morning routine, run on every new day.
 function Base:daily(world)
   self:trip(world)
+  if self.features.orchard then
+    Features.orchard(world) -- before the other buying: a perennial pays only if it goes in early (D183)
+  end
   self:buy(world)
   self:place(world)
   Features.daily(world, self.features)

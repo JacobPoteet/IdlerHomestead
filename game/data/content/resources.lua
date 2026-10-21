@@ -28,6 +28,8 @@ return {
   { id = "seed_tomato", name = "Tomato seedlings", category = "seed" },
   { id = "seed_corn", name = "Corn seeds", category = "seed" },
   { id = "seed_herbs", name = "Herb seeds", category = "seed" },
+  { id = "seed_berries", name = "Berry canes", category = "seed" }, -- D183: perennials are planted from canes and saplings
+  { id = "seed_apple", name = "Apple saplings", category = "seed" },
   { id = "bait", name = "Bait", category = "supply" },
 
   -- Stored water (GDD §5.3): pumped into cisterns, drawn by buckets and drip lines. Capacity comes
@@ -64,6 +66,9 @@ return {
   { id = "squash", name = "Squash", category = "food", calories = 700, value = 3, keepsForWinter = true },
   { id = "garlic", name = "Garlic", category = "food", calories = 60, value = 6 },
   { id = "herbs", name = "Herbs", category = "food", value = 6 },
+  -- D183 (#369): the perennials' fruit. value is $ per unit (first guesses for M9).
+  { id = "berries", name = "Berries", category = "food", calories = 100, value = 6 },
+  { id = "apple", name = "Apple", category = "food", calories = 150, value = 5, keepsForWinter = true },
   -- Eggs (GDD §7.7, D63): laid by hens, collected from the coop's nest box. Capacity is a base cap
   -- (a full store holds the eggs in the nest instead of losing them, D59).
   { id = "egg", name = "Egg", category = "food", calories = 90, value = 2, capacity = 40 },
