@@ -816,6 +816,22 @@ function Crops.isRipeAt(world, i)
   return crop ~= nil and Crops.isMature(crop)
 end
 
+--- Has blight marked the crop on tile i (its harvest will be spoiled, D185)?
+function Crops.isBlighted(world, i)
+  local crop = world.state.crops[i]
+  return crop ~= nil and crop.blighted == true
+end
+
+--- Mark the crop on tile i as blighted. Returns true when it was newly marked.
+function Crops.blight(world, i)
+  local crop = world.state.crops[i]
+  if not crop or crop.blighted then
+    return false
+  end
+  crop.blighted = true
+  return true
+end
+
 --- Knock the crop on tile i back by `setback` of its growth (a ripe crop has to ripen again).
 --- Returns true if there was a crop. Emits "crop.damaged" { crop, tile, cause }.
 function Crops.setBack(world, i, setback, cause)

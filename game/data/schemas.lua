@@ -216,7 +216,7 @@ return {
     counter = "string", -- catalog id of the countermeasure (its modifiers name the guard stat)
     strike = "table?", -- weather-driven: { chance = per day before weather, weatherPower = exponent on Weather.threat }; strikes once
     damage = "table?", -- { share = 0..1 of crops hit at strength 1, kill = true, setback = growth lost, ripe = hits ripe crops, unripe = hits growing crops }
-    spread = "table?", -- disease: { seedChance = first-infection chance on a rainy day, dryFactor = its share (and spreading's) on a dry day, spreadChance = per infected neighbour a day, pressureWeight = extra chance per 1.0 of the target's pest pressure, setback = growth lost a day, killDays = days until the crop dies }
+    blight = "table?", -- disease (D185): { chance = per day, per crop on a tile at full pest pressure, that a rainy day marks it so its harvest is spoiled, dryFactor = its share on a dry day }
     drought = "table?", -- { dryRate = extra drying multiplier at strength 1, witherHours = in-game hours dry before a crop withers }
   },
   task_categories = {

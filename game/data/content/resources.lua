@@ -84,8 +84,8 @@ return {
   { id = "goat", name = "Goat", category = "animal", capacity = 0, housing = "pen" },
   { id = "hay", name = "Hay", category = "supply", capacity = 40 },
 
-  -- Compost (PLAN_DEPTH 8.4, D181): manure is raked from the hen house and the pen by the Tend chores and hauled to a
-  -- compost bin; compost is what the bin makes, spread on worn field tiles by the Fertilize task. Neither is sold or eaten.
+  -- Compost (PLAN_DEPTH 8.4, D181): manure is raked from the hen house and the pen by the Tend chores and drawn by a
+  -- compost bin on its own (D185); compost is what the bin makes, spread on worn field tiles by the Fertilize task. Neither is sold or eaten.
   { id = "manure", name = "Manure", category = "supply", capacity = 24 },
   { id = "compost", name = "Compost", category = "supply", capacity = 30 },
 

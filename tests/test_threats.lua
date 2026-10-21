@@ -7,7 +7,10 @@ local serialize = require("src.core.serialize")
 local World = require("src.sim.world")
 local Crops = require("src.sim.systems.crops")
 local Grid = require("src.sim.grid")
+local Actors = require("src.sim.systems.actors")
 local Inventory = require("src.sim.systems.inventory")
+local Ledger = require("src.sim.systems.ledger")
+local Tasks = require("src.sim.systems.tasks")
 local Journal = require("src.sim.systems.journal")
 local Threats = require("src.sim.systems.threats")
 local Weather = require("src.sim.systems.weather")
@@ -418,7 +421,7 @@ T.test("threats: content is consistent (counters guard their threat, icons exist
     T.truthy(counter.equipment and counter.modifiers[d.guard], d.id .. ": its counter carries " .. d.guard)
     T.truthy(sprites[d.icon], d.id .. " icon")
     T.truthy(sprites["icon_" .. d.counter], d.counter .. " icon")
-    local effects = (d.damage and 1 or 0) + (d.drought and 1 or 0) + (d.spread and 1 or 0)
+    local effects = (d.damage and 1 or 0) + (d.drought and 1 or 0) + (d.blight and 1 or 0)
     T.eq(effects, 1, d.id .. " has exactly one effect")
     local noteFound = false
     for _, note in ipairs(reg:all("notes")) do
@@ -432,7 +435,7 @@ T.test("threats: content is consistent (counters guard their threat, icons exist
   end
 end)
 
--- Blight (#154, D179) -----------------------------------------------------------------------------------
+-- Blight (#154, D179, D185) -----------------------------------------------------------------------------------
 
 local BLIGHT_START = YEAR + 1 -- year 2 spring day 1: strength 0.8, past blight's minYear
 
@@ -478,42 +481,63 @@ local function blightEntry(world, days)
   return e
 end
 
-T.test("blight: it breaks out on a wet day, spreads only to neighbours, and says so once", function()
+--- Put every tile of `tiles` at full pest pressure (or the given level).
+local function pressurize(world, tiles, level)
+  for _, i in ipairs(tiles) do
+    world.state.soil.pressure[i] = level or 1
+  end
+end
+
+T.test("blight: it marks only crops on tiles at full pressure, on a wet day, and says so once", function()
   local broke
   for seed = 1, 12 do
     local world = newWorld(seed)
     local e = blightEntry(world)
     local tiles = block(world, 5, 5)
+    local pressured = {}
+    for n = 1, #tiles, 2 do
+      pressured[tiles[n]] = true
+    end
+    for i in pairs(pressured) do
+      world.state.soil.pressure[i] = 1
+    end
     local struck = collect(world, "threat.struck")
     blightDays(world, "rain", 1)
     local sick = Threats.blightTiles(world)
     if e.struck then
       broke = true
       T.eq(#struck, 1, "the strike is announced once, for the journal note")
-      T.eq(#sick, 1, "one crop first")
-      T.truthy(Threats.blightAt(world, sick[1]))
-      -- the next day it has reached only the four neighbours of the first
-      blightDays(world, "rain", 1)
-      local grid = world.state.grid
-      local x0, y0 = Grid.coords(grid, sick[1])
-      for _, i in ipairs(Threats.blightTiles(world)) do
-        local x, y = Grid.coords(grid, i)
-        T.truthy(math.abs(x - x0) + math.abs(y - y0) <= 1, "one step at a time")
+      for _, i in ipairs(sick) do
+        T.truthy(pressured[i], "only a tile at full pressure")
+        T.truthy(Threats.blightAt(world, i))
       end
-      T.truthy(#tiles == 25)
+      blightDays(world, "rain", 1)
+      T.eq(#struck, 1, "still once")
       break
     end
   end
   T.truthy(broke, "an outbreak on some wet day")
 end)
 
+T.test("blight: a field with no pest pressure is never touched", function()
+  for seed = 1, 10 do
+    local world = newWorld(seed)
+    local e = blightEntry(world, 5)
+    block(world, 4, 4)
+    pressurize(world, Crops.plantedTiles(world), 0.9)
+    blightDays(world, "rain", 5)
+    T.falsy(e.struck)
+    T.eq(#Threats.blightTiles(world), 0)
+  end
+end)
+
 T.test("blight: rain brings it far more often than dry weather", function()
   local function outbreaks(kind)
     local n = 0
-    for seed = 1, 40 do
+    for seed = 1, 80 do
       local world = newWorld(seed)
       local e = blightEntry(world)
-      block(world, 4, 4)
+      pressurize(world, { block(world, 1, 1)[1] }) -- one crowded bed, so the odds read plainly
       blightDays(world, kind, 1)
       n = n + (e.struck and 1 or 0)
     end
@@ -524,63 +548,49 @@ T.test("blight: rain brings it far more often than dry weather", function()
   T.truthy(wet > 0)
 end)
 
-T.test("blight: infected crops are knocked back and die after killDays; the blight ends with its span", function()
-  local cfgB = reg:get("threats", "blight").spread
+T.test("blight: a marked crop is not set back, does not die, and spreads to nothing", function()
   local world = newWorld(2)
   local e = blightEntry(world, 5)
   local tiles = block(world, 3, 3)
-  world.state.threats.blight[tiles[5]] = 0
-  e.struck = true -- start from an outbreak in the middle
-  blightDays(world, "clear", 1)
+  Crops.blight(world, tiles[5]) -- the middle crop is marked; its neighbours sit at no pressure
+  e.struck = true
+  blightDays(world, "rain", 5)
   local crop = world.state.crops[tiles[5]]
-  T.near(crop.growth, 0.3 - cfgB.setback, 1e-6, "an infected unripe crop loses growth a day")
-  T.eq(world.state.threats.blight[tiles[5]], 1)
-  blightDays(world, "clear", cfgB.killDays)
-  T.eq(world.state.crops[tiles[5]], nil, "dead after killDays")
-  T.truthy(e.lost >= 1)
+  T.truthy(crop, "still alive")
+  T.eq(crop.growth, 0.3, "not set back")
+  T.eq(#Threats.blightTiles(world), 1, "nothing caught it from the middle")
+  T.eq(e.lost, 0)
   run(world, BLIGHT_START + 6, 8, 3)
   T.eq(e.status, "done")
-  T.eq(next(world.state.threats.blight), nil, "the infection goes with the span")
+  T.truthy(Threats.blightAt(world, tiles[5]), "the mark stays until the harvest")
 end)
 
-T.test("blight: pulling an infected crop ends its infection, and it spreads nowhere from there", function()
+T.test("blight: a spoiled harvest gives no produce but keeps the seeds, and the mark is gone with the crop", function()
+  local world = newWorld(5)
+  local i = block(world, 1, 1, 1)[1]
+  Crops.blight(world, i)
+  world.state.fields.tilled[i] = true
+  local before = Ledger.get(world, "radish")
+  local seen
+  world.events:on("crop.harvested", function(e)
+    seen = e
+  end)
+  Tasks.get(world, "harvest").complete(world, Actors.homesteader(world), i)
+  T.eq(Ledger.get(world, "radish"), before, "no produce")
+  T.eq(seen.amount, 0)
+  T.truthy(seen.blighted)
+  T.eq(world.state.crops[i], nil)
+  T.falsy(Threats.blightAt(world, i))
+end)
+
+T.test("blight: pulling a marked crop ends the mark", function()
   local world = newWorld(3)
-  local e = blightEntry(world, 5)
-  local tiles = block(world, 3, 1)
-  e.struck = true
-  world.state.threats.blight[tiles[1]] = 0
+  local tiles = block(world, 2, 1)
+  Crops.blight(world, tiles[1])
   T.truthy(Threats.blightAt(world, tiles[1]))
   Crops.destroy(world, tiles[1], "pulled")
   T.falsy(Threats.blightAt(world, tiles[1]), "no crop, no blight")
-  blightDays(world, "rain", 3)
-  T.eq(next(world.state.threats.blight), nil, "nothing left to carry it")
-  T.truthy(world.state.crops[tiles[2]] and world.state.crops[tiles[3]], "the others were never touched")
-end)
-
-T.test("blight: ripe crops are not set back (but still die if left), and pest pressure speeds the spread", function()
-  local world = newWorld(2)
-  local e = blightEntry(world, 5)
-  local tiles = block(world, 1, 1, 1)
-  e.struck = true
-  world.state.threats.blight[tiles[1]] = 0
-  blightDays(world, "clear", 1)
-  T.eq(world.state.crops[tiles[1]].growth, 1, "ripe stays ripe")
-  -- pressure: with the same rolls, a pressured target is caught at least as often
-  local function caught(pressure)
-    local n = 0
-    for seed = 1, 30 do
-      local w = newWorld(seed)
-      local en = blightEntry(w, 5)
-      local t = block(w, 2, 1)
-      en.struck = true
-      w.state.threats.blight[t[1]] = 0
-      w.state.soil.pressure[t[2]] = pressure
-      blightDays(w, "rain", 1)
-      n = n + (w.state.threats.blight[t[2]] and 1 or 0)
-    end
-    return n
-  end
-  T.truthy(caught(1) > caught(0), "pest pressure makes a bed easier to catch it")
+  T.eq(#Threats.blightTiles(world), 0)
 end)
 
 T.test("blight: copper spray turns part of it aside without changing the rolls", function()
@@ -590,36 +600,34 @@ T.test("blight: copper spray turns part of it aside without changing the rolls",
     if guarded then
       Inventory.addEquipment(world, "copper_spray")
     end
-    local tiles = block(world, 6, 6)
-    e.struck = true
-    world.state.threats.blight[tiles[1]] = 0
-    blightDays(world, "rain", 2)
+    pressurize(world, block(world, 6, 6))
+    blightDays(world, "rain", 1)
     return e.damaged, e.saved
   end
   local d0, s0 = run1(false)
   local d1, s1 = run1(true)
   T.eq(s0, 0)
-  T.truthy(d1 < d0 and s1 > 0, "fewer infections, some saved")
-  T.eq(d1 + s1, d0, "the same spread was rolled")
+  T.truthy(d1 < d0 and s1 > 0, "fewer marked, some saved")
+  T.eq(d1 + s1, d0, "the same rolls were made")
 end)
 
-T.test("blight: with nothing in the ground it comes and goes harmlessly, and the summary reads well", function()
+T.test("blight: with nothing at full pressure it comes and goes harmlessly, and the summary reads well", function()
   local world = newWorld(1)
   local e = blightEntry(world, 4)
   local ended = collect(world, "threat.ended")
+  block(world, 3, 3)
   for n = 0, 5 do
     force(world, "rain")
     run(world, BLIGHT_START + n, 8, 3)
   end
   T.eq(e.status, "done")
-  T.falsy(e.struck, "no crop to infect, no outbreak")
+  T.falsy(e.struck, "no crowded bed, no outbreak")
   T.eq(#ended, 1)
   local Forecast = require("src.ui.forecast")
   T.truthy(Forecast.threatSummary(world, ended[1]):find("none broke out"), "the summary says none broke out")
-  e.struck, e.damaged, e.lost = true, 3, 1
   T.truthy(
-    Forecast.threatSummary(world, { threat = "blight", struck = true, lost = 1, damaged = 3, saved = 0 })
-      :find("3 crops infected")
+    Forecast.threatSummary(world, { threat = "blight", struck = true, lost = 0, damaged = 3, saved = 0 })
+      :find("3 crops spoiled")
   )
 end)
 

@@ -341,11 +341,11 @@ T.test("perennials: fruit is graded like any harvest and sells for its price", f
   local i = plant(world, "apple")
   local crop = world.state.crops[i]
   world.state.grid.fertility[i] = 1
-  crop.stage, crop.winters, crop.growth, crop.rest, crop.tends = "mature", 1, 1, false, 1
+  crop.stage, crop.winters, crop.growth, crop.rest = "mature", 1, 1, false
   local e = harvest(world, i)
-  T.eq(e.quality, "excellent")
-  T.eq(Quality.counts(world, "apple").excellent, e.amount)
-  T.truthy(Market.tierPrice(world, "apple", "excellent") > Market.sellPrice(world, "apple"))
+  T.eq(e.quality, "fine")
+  T.eq(Quality.counts(world, "apple").fine, e.amount)
+  T.truthy(Market.tierPrice(world, "apple", "fine") > Market.sellPrice(world, "apple"))
 end)
 
 -- Save --------------------------------------------------------------------------------------------------------------------------

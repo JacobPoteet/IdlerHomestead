@@ -34,7 +34,6 @@
 
 local Calendar = require("src.sim.systems.calendar")
 local Crops = require("src.sim.systems.crops")
-local Grid = require("src.sim.grid")
 local Soil = require("src.sim.systems.soil")
 local Stats = require("src.sim.stats")
 local Weather = require("src.sim.systems.weather")
@@ -263,15 +262,14 @@ local FULL_PRESSURE = 1 -- the top of the 0..1 pest-pressure scale (a scale end,
 
 --- Is the crop on tile i marked by blight (its harvest will be spoiled)?
 function Threats.blightAt(world, i)
-  local crop = world.state.crops[i]
-  return crop ~= nil and crop.blighted == true
+  return Crops.isBlighted(world, i)
 end
 
 --- Tiles with a blighted crop, ascending.
 function Threats.blightTiles(world)
   local tiles = {}
   for _, i in ipairs(Crops.plantedTiles(world)) do
-    if world.state.crops[i].blighted then
+    if Crops.isBlighted(world, i) then
       tiles[#tiles + 1] = i
     end
   end
@@ -288,11 +286,10 @@ local function blightDay(world, e, d)
   local guard = Threats.guard(world, e.id)
   local marked = false
   for _, i in ipairs(Crops.plantedTiles(world)) do
-    local crop = world.state.crops[i]
-    if not crop.blighted and Soil.pressure(world, i) >= FULL_PRESSURE then
+    if not Crops.isBlighted(world, i) and Soil.pressure(world, i) >= FULL_PRESSURE then
       local roll = rng:float()
       if roll < chance * (1 - guard) then
-        crop.blighted = true
+        Crops.blight(world, i)
         e.damaged = e.damaged + 1
         marked = true
       elseif roll < chance then
@@ -302,7 +299,10 @@ local function blightDay(world, e, d)
   end
   if marked and not e.struck then
     e.struck = true
-    world.events:emit("threat.struck", { threat = e.id, hit = e.damaged, lost = e.lost, damaged = e.damaged, saved = e.saved })
+    world.events:emit(
+      "threat.struck",
+      { threat = e.id, hit = e.damaged, lost = e.lost, damaged = e.damaged, saved = e.saved }
+    )
   end
 end
 

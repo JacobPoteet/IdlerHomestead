@@ -5,12 +5,12 @@ local Quality = require("src.sim.systems.quality")
 
 local QualityText = {}
 
---- "excellent" -> "Excellent" and so on.
+--- "fine" -> "Fine".
 function QualityText.name(tier)
   return tier:sub(1, 1):upper() .. tier:sub(2)
 end
 
---- "2 excellent, 1 good" for a { [tier] = units } table (the best tier first, normal left out), or nil when every unit
+--- "2 fine" for a { [tier] = units } table (the best tier first, normal left out), or nil when every unit
 --- is normal.
 function QualityText.tiers(world, counts)
   local ids = Quality.tiers(world)
@@ -32,16 +32,16 @@ function QualityText.stock(world, id)
   return QualityText.tiers(world, Quality.counts(world, id))
 end
 
---- The tile card's line for the crop on tile `i`: the tier it would be graded now and the tended mark, so the player
---- sees what hand watering and weeding do. Nil when there is no crop or it is a resting perennial.
+--- The tile card's line for the crop on tile `i`: the tier it would be graded now, so the player sees what weeding
+--- and watering do. Nil when there is no crop or it is a resting perennial.
 function QualityText.cropLine(world, i)
   local crop = world.state.crops[i]
   if not crop or (crop.rest and crop.growth < 1) then
     return nil
   end
   local def = world.registry:get("crops", crop.id)
-  local tier, _, tended = Quality.grade(world, i, crop, def)
-  return string.format("Quality: %s%s", tier, tended and " (tended)" or "")
+  local tier = Quality.grade(world, i, crop, def)
+  return string.format("Quality: %s", tier)
 end
 
 return QualityText

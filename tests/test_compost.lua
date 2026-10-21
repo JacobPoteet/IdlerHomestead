@@ -1,6 +1,6 @@
--- Compost and the manure loop (PLAN_DEPTH 8.4, D181, issue #367): hens and goats make muck, the Tend chores rake it
--- into the ledger as manure, a haul task carries it to a bin, residue and spoiled food feed the bin on their own, the
--- bin makes compost on a timer, and the Fertilize task spreads it on worn tiles.
+-- Compost and the manure loop (PLAN_DEPTH 8.4, D181, D185, issue #367): hens and goats make muck, the Tend chores rake
+-- it into the ledger as manure, a bin draws it from the ledger on its own (no haul task), residue and spoiled food feed
+-- the bin too, the bin makes compost on a timer, and the Fertilize task spreads it on the worst worn tile.
 local T = require("harness")
 local tuningLoader = require("src.core.tuning")
 local Registry = require("src.core.registry")
@@ -192,48 +192,37 @@ T.test("compost: raking stops at the ledger's room for manure", function()
   T.eq(Compost.rake(world, "hens"), 0, "full: nothing more is raked")
 end)
 
--- Hauling ----------------------------------------------------------------------------------------------
+-- Drawing manure ----------------------------------------------------------------------------------------
 
-T.test("compost: the haul task carries manure to the bin, the routine only from haulAt, a tap any amount", function()
+T.test("compost: there is no haul task, and a bin draws the ledger's manure on its own", function()
   local world, bin = binWorld()
-  local haul = Tasks.get(world, "haul_manure")
-  local hs = Actors.homesteader(world)
-  T.eq(haul.category, "maintenance")
-  Ledger.add(world, "manure", 1, "test")
-  local offered = {}
-  local function offers()
-    offered = {}
-    haul.candidates(world, hs, function(i)
-      offered[#offered + 1] = i
-    end)
-    return #offered
-  end
-  T.eq(offers(), 0, "one forkful is not worth a trip")
-  T.falsy(haul.canDo(world, hs, bin, nil))
-  T.truthy(haul.canDo(world, hs, bin, {}), "a tap hauls what there is")
-  Ledger.add(world, "manure", cfg.haulAt - 1, "test")
-  T.eq(offers(), 1)
-  T.eq(offered[1], bin)
-  T.truthy(haul.canDo(world, hs, bin, nil))
+  T.errors(function()
+    Tasks.get(world, "haul_manure")
+  end)
+  T.errors(function()
+    return cfg.haulAt
+  end)
+  Ledger.add(world, "manure", 5, "test")
   local fed = collect(world, "compost.fed")
-  haul.complete(world, hs, bin)
+  run(world, STEP * 2)
   T.eq(Ledger.get(world, "manure"), 0)
-  T.eq(Compost.raw(world, bin), cfg.haulAt)
+  T.truthy(Compost.batch(world, bin), "five raw units start a batch")
   T.eq(fed[1].cause, "manure")
-  T.eq(fed[1].amount, cfg.haulAt)
+  T.eq(fed[1].amount, 5)
 end)
 
-T.test("compost: a haul stops at the bin's room and the haul batch", function()
+T.test("compost: a bin draws manure only as far as its room, and with no bin the manure stays", function()
   local world, bin = binWorld()
   local cap = reg:get("objects", "compost_bin").compost.raw
   Ledger.add(world, "manure", 20, "test")
-  Compost.haul(world, bin)
-  T.eq(Compost.raw(world, bin), math.min(20, cfg.haulBatch), "one trip carries at most haulBatch")
-  world.state.compost.bins[bin].raw = cap - 3
-  Compost.haul(world, bin)
-  T.eq(Compost.raw(world, bin), cap, "and never more than the bin has room for")
-  T.falsy(Tasks.get(world, "haul_manure").canDo(world, Actors.homesteader(world), bin, {}), "a full bin refuses")
-  T.eq(Compost.room(world, bin), 0)
+  world.state.compost.bins[bin] = { raw = cap - 3, batch = { count = 1, remaining = 1e9 } } -- busy, so it takes no batch
+  run(world, STEP)
+  T.eq(Compost.raw(world, bin), cap, "never more than the bin has room for")
+  T.eq(Ledger.get(world, "manure"), 17, "the rest waits in the ledger")
+  local bare = newWorld()
+  Ledger.add(bare, "manure", 4, "test")
+  run(bare, STEP * 3)
+  T.eq(Ledger.get(bare, "manure"), 4)
 end)
 
 -- Feeding the bin --------------------------------------------------------------------------------------
@@ -371,7 +360,7 @@ T.test("compost: Fertilize spreads one unit on a worn field tile, raising its fe
   fertilize.candidates(world, hs, function(t)
     offered[#offered + 1] = t
   end)
-  T.same(offered, { i }, "the routine goes to tiles under fertilizeBelow")
+  T.same(offered, { i }, "the routine goes to a tile under fertilizeBelow")
   T.truthy(fertilize.canDo(world, hs, i, nil))
   T.falsy(fertilize.canDo(world, hs, j, nil), "the routine leaves a middling tile")
   T.truthy(fertilize.canDo(world, hs, j, {}), "a tap spreads on any tile under fertilizeMax")
@@ -384,6 +373,29 @@ T.test("compost: Fertilize spreads one unit on a worn field tile, raising its fe
   T.falsy(fertilize.canDo(world, hs, i, {}), "a full tile gains nothing")
   local grass = spotFor(world, "compost_bin") -- open ground, not part of the farm
   T.falsy(fertilize.canDo(world, hs, grass, {}), "only farmland takes it")
+end)
+
+T.test("compost: the routine is offered only the lowest-fertility worn tile, ties to the lower index", function()
+  local world = newWorld()
+  setTime(world, SUMMER + 3)
+  local a = fieldTile(world)
+  local b = fieldTile(world, a)
+  local c = fieldTile(world, a, b)
+  for _, i in ipairs({ a, b, c }) do
+    world.state.grid.fertility[i] = 0.5
+  end
+  Soil.add(world, a, -0.2, "test") -- 0.3
+  Soil.add(world, b, -0.4, "test") -- 0.1
+  Soil.add(world, c, -0.4, "test") -- 0.1
+  Ledger.add(world, "compost", 5, "test")
+  local fertilize = Tasks.get(world, "fertilize")
+  local hs = Actors.homesteader(world)
+  local offered = {}
+  fertilize.candidates(world, hs, function(t)
+    offered[#offered + 1] = t
+  end)
+  T.same(offered, { math.min(b, c) }, "one candidate: the worst tile, the lower index on a tie")
+  T.truthy(fertilize.canDo(world, hs, a, {}), "a tap still spreads on any tile under fertilizeMax")
 end)
 
 T.test("compost: the idle routine walks over, spreads the compost and the fertility rises", function()
@@ -416,12 +428,10 @@ T.test("compost: hens to manure to bin to compost to a worn field, through the r
   end
   Tasks.get(world, "tend_coop").complete(world, hs, coop)
   local manure = Ledger.get(world, "manure")
-  T.truthy(manure >= cfg.haulAt, "a week of hens is a haul")
-  local haul = Tasks.get(world, "haul_manure")
-  T.truthy(haul.canDo(world, hs, bin, nil))
-  haul.complete(world, hs, bin)
-  T.truthy(Compost.raw(world, bin) >= cfg.startAt)
-  run(world, STEP * 2)
+  T.truthy(manure >= cfg.startAt, "a week of hens is enough for a batch")
+  run(world, STEP * 2) -- the bin draws it by itself
+  T.eq(Ledger.get(world, "manure"), 0)
+  T.truthy(Compost.raw(world, bin) + (Compost.batch(world, bin) and 1 or 0) > 0)
   T.truthy(Compost.batch(world, bin), "the bin is cooking")
   run(world, hoursToSeconds(cfg.hours) + 1)
   local made = Ledger.get(world, "compost")
@@ -432,7 +442,6 @@ T.test("compost: hens to manure to bin to compost to a worn field, through the r
   Tasks.get(world, "fertilize").complete(world, hs, tile)
   T.near(Soil.fertility(world, tile), 0.2 + cfg.compostFertility, 0.001)
   T.eq(Ledger.get(world, "compost"), made - 1)
-  T.eq(world.state.compost.hauled, manure)
   T.eq(world.state.compost.spread, 1)
 end)
 

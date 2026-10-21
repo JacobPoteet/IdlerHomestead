@@ -1,7 +1,7 @@
--- Compost and the manure loop (PLAN_DEPTH 8.4, D181). Every number is a reasoned first guess for the M9 balance pass.
--- Hens and goats make muck in their house; the Tend chores rake it into the ledger as manure, a haul task carries it
--- to a compost bin, crop residue and spoiled food go into the bin on their own, the bin turns raw material into
--- compost over days, and a Fertilize task spreads compost on worn field tiles (Soil.add).
+-- Compost and the manure loop (PLAN_DEPTH 8.4, D181, D185). Every number is a reasoned first guess for the M9 balance pass.
+-- Hens and goats make muck in their house; the Tend chores rake it into the ledger as manure, a compost bin draws it
+-- from the ledger on its own (no haul task), crop residue and spoiled food go into the bin too, the bin turns raw
+-- material into compost over days, and a Fertilize task spreads compost on the worst worn field tile (Soil.add).
 return {
   henMuck = 0.4, -- manure units one hen makes a game day (a flock of six: about two and a half)
   goatMuck = 1.5, -- manure units one goat makes a game day (three goats: about four and a half)
@@ -12,11 +12,8 @@ return {
   batchRaw = 12, -- most raw units one batch takes
   yield = 0.5, -- compost units made per raw unit (whole units: a batch of 12 makes 6)
   hours = 48, -- in-game hours a batch takes (two days)
-  haulAt = 4, -- manure units in the ledger at which the idle routine makes a haul trip (a player tap hauls any amount)
-  haulBatch = 12, -- most manure units one haul trip carries into a bin
-  haulTime = 2, -- seconds of work to haul manure into a bin at 1x efficiency
   compostFertility = 0.3, -- 0..1 fertility one compost unit adds to the tile it is spread on (fast, but under a full recovery: two units rebuild a worn tile)
-  fertilizeBelow = 0.55, -- fertility under which the idle routine spreads compost on a field tile
+  fertilizeBelow = 0.55, -- fertility under which the idle routine spreads compost on a field tile (it takes the lowest-fertility one first)
   fertilizeMax = 0.95, -- fertility from which a player tap no longer spreads compost (a full tile gains nothing)
   fertilizeTime = 2.5, -- seconds of work to spread one unit of compost at 1x efficiency
 }

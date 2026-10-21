@@ -1,6 +1,6 @@
 -- Crop quality (D182, #368): the Pantry and the truck's Load list show the tier of stocked produce, the town's load
--- lists the tiers it sells at their price, and the tile card of a growing crop names the grade it would get now and
--- the tended mark. Stock and crop state are set through the sim (a scenario cannot wait for harvests).
+-- lists the tiers it sells at their price, and the tile card of a growing crop names the grade it would get now (D185: normal or fine).
+-- Stock and crop state are set through the sim (a scenario cannot wait for harvests).
 local Grid = require("src.sim.grid")
 local Land = require("src.sim.systems.land")
 local Ledger = require("src.sim.systems.ledger")
@@ -23,12 +23,11 @@ return function(d)
   local scene = d:scene()
   d:advance(1)
 
-  -- Stock: radishes of three tiers, potatoes of two.
+  -- Stock: radishes and potatoes of both tiers.
   Ledger.add(world, "radish", 40)
-  Quality.add(world, "radish", "good", 12)
-  Quality.add(world, "radish", "excellent", 6)
+  Quality.add(world, "radish", "fine", 12)
   Ledger.add(world, "potato", 20)
-  Quality.add(world, "potato", "good", 5)
+  Quality.add(world, "potato", "fine", 5)
   d:frames(3)
 
   d:pick("Pantry")
@@ -66,18 +65,22 @@ return function(d)
   d:press("Drive home")
   d:frames(3)
 
-  -- The tile card of a crop: its grade now, then tended.
+  -- The tile card of a crop: its grade now, then neglected.
   local x, y = d:freeTileNear(2, 2)
   local i = Grid.index(world.state.grid, x, y)
   world.state.fields.tilled[i] = true
   world.state.grid.fertility[i] = 0.95
-  world.state.crops[i] = { id = "carrot", growth = 0.5, moisture = 1, thirst = 0, tends = 0 }
-  assert(hasLine(scene:tileInfo(i), "Quality: good"), "untended rich ground grades good")
-  world.state.crops[i].tends = 1
-  assert(hasLine(scene:tileInfo(i), "Quality: excellent (tended)"), "tended it grades excellent")
+  world.state.crops[i] = { id = "carrot", growth = 0.5, moisture = 1, thirst = 0 }
+  assert(hasLine(scene:tileInfo(i), "Quality: fine"), "rich ground grades fine")
+  world.state.grid.fertility[i] = 0.1
+  world.state.soil.weeds[i] = 0.9
+  assert(hasLine(scene:tileInfo(i), "Quality: normal"), "worn, weedy ground grades normal")
+  world.state.grid.fertility[i] = 0.95
+  world.state.soil.weeds[i] = nil
+  assert(hasLine(scene:tileInfo(i), "Quality: fine"), "and fine again once it is cleaned")
   scene.selected = i
   d:frames(12)
-  d:shot("tile_card_tended")
+  d:shot("tile_card_fine")
   scene.selected = nil
   d:frames(4)
 end

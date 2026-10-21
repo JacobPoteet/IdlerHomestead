@@ -4326,7 +4326,7 @@ function Homestead:tileInfo(i)
       )
     end
     if Threats.blightAt(world, i) then
-      lines[#lines + 1] = "Blight: pull it before it spreads"
+      lines[#lines + 1] = "Blight: this harvest will be spoiled"
     end
     if Land.hasWaterTable(world, i) and not world.occupancy[i] then
       local shallow = Land.waterTable(world, i) >= world.tuning.water.table.shallow

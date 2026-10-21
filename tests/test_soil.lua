@@ -141,11 +141,35 @@ T.test("soil: yield scales with fertility between the floor and the full multipl
   local full = Soil.yieldMultiplier(world, i)
   T.near(full, tun.farming.soilYieldMax, 0.0001, "full fertility leaves the soil-quality multiplier as it was")
   world.state.grid.fertility[i] = 0
-  T.near(Soil.yieldMultiplier(world, i), tun.farming.soilYieldMax * cfg.soilFloor, 0.0001, "none leaves the floor")
+  T.near(
+    Soil.yieldMultiplier(world, i),
+    tun.farming.soilYieldMax * tun.farming.minSoilMultiplier,
+    0.0001,
+    "none leaves the combined floor (D185)"
+  )
   world.state.grid.fertility[i] = 0.5
   local mid = Soil.yieldMultiplier(world, i)
-  T.truthy(mid > full * cfg.soilFloor and mid < full, "and it rises between")
+  T.truthy(mid > full * tun.farming.minSoilMultiplier and mid < full, "and it rises between")
   T.near(Soil.expectedYield(world, "potato", i), reg:get("crops", "potato").yield * mid, 0.0001)
+end)
+
+T.test("soil: fertility, pest pressure and weeds together never cut a yield below the combined floor (D185)", function()
+  local world = newWorld()
+  local i = freeTile(world)
+  world.state.grid.soil[i] = 1
+  local floor = tun.farming.minSoilMultiplier
+  T.truthy(floor > 0 and floor < 1)
+  world.state.grid.fertility[i] = 1
+  local clean = Soil.upkeepFactor(world, i)
+  T.near(clean, 1, 1e-9, "a clean, rich, uncrowded tile loses nothing")
+  world.state.soil.weeds[i] = 1
+  local weedy = Soil.upkeepFactor(world, i)
+  T.near(weedy, 1 - cfg.weedCut, 1e-9, "weeds alone cost their cut, about 15 percent")
+  T.truthy(weedy > floor, "and that is above the floor")
+  world.state.grid.fertility[i] = 0
+  world.state.soil.pressure[i] = 1
+  T.near(Soil.upkeepFactor(world, i), floor, 1e-9, "everything at its worst stops at the floor")
+  T.near(Soil.yieldMultiplier(world, i), tun.farming.soilYieldMax * floor, 1e-9)
 end)
 
 T.test("soil: dead land is never dead (the floor) and a harvest there still gives something", function()
@@ -153,7 +177,7 @@ T.test("soil: dead land is never dead (the floor) and a harvest there still give
   local i = freeTile(world)
   world.state.grid.soil[i] = 0
   world.state.grid.fertility[i] = 0
-  T.truthy(Soil.yieldMultiplier(world, i) >= tun.farming.soilYieldMin * cfg.soilFloor - 1e-9)
+  T.truthy(Soil.yieldMultiplier(world, i) >= tun.farming.soilYieldMin * tun.farming.minSoilMultiplier - 1e-9)
   T.truthy(Soil.yieldMultiplier(world, i) > 0)
   local before = Ledger.get(world, "radish")
   harvest(world, i, "radish")
