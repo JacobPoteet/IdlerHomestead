@@ -13,6 +13,7 @@ return {
   "actors",
   "farming",
   "soil",
+  "compost",
   "water",
   "needs",
   "sandbox",

@@ -60,6 +60,7 @@ local STATE_OWNERS = {
   nightly = "nightly",
   calendar = "calendar",
   cat = "cat",
+  compost = "compost",
   condition = "needs",
   crops = "crops",
   events = "events",

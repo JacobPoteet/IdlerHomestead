@@ -79,6 +79,11 @@ return {
   { id = "goat", name = "Goat", category = "animal", capacity = 0, housing = "pen" },
   { id = "hay", name = "Hay", category = "supply", capacity = 40 },
 
+  -- Compost (PLAN_DEPTH 8.4, D181): manure is raked from the hen house and the pen by the Tend chores and hauled to a
+  -- compost bin; compost is what the bin makes, spread on worn field tiles by the Fertilize task. Neither is sold or eaten.
+  { id = "manure", name = "Manure", category = "supply", capacity = 24 },
+  { id = "compost", name = "Compost", category = "supply", capacity = 30 },
+
   -- Preserved food (keeps all winter; sells for more than fresh, GDD §6.2)
   { id = "smoked_fish", name = "Smoked fish", category = "preserved", calories = 700, value = 10 },
   { id = "cheese", name = "Cheese", category = "preserved", calories = 700, value = 12 },

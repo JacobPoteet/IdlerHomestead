@@ -5,7 +5,7 @@
 //
 // dataMap has one texel per tile. Power: r = source pools, g = sink bands, b = sinks short of power.
 // Water: r = water table, g = irrigation coverage, b = ground a well or pump can go on, a = dry coverage.
-// Soil: r = fertility, g = part of the farm, a = farmable ground.
+// Soil: r = fertility, g = part of the farm, b = weeds, a = farmable ground.
 // Connections, reach rings and gauges are drawn by the renderer over this pass.
 
 uniform Image dataMap;       // one texel per tile, nearest filtered
@@ -32,6 +32,8 @@ uniform vec3 cSpot;
 uniform vec3 cLine;
 uniform vec3 cRich;          // soil: fertile ground
 uniform vec3 cPoor;          // soil: worn ground
+uniform vec3 cWeed;          // soil: weeds (D180)
+uniform float weedDensity;   // 0..1 stipple density of the thickest weeds
 uniform float soilMin;       // 0..1 stipple level of the poorest ground
 uniform float wildShare;     // 0..1 share of the stipple density that ground outside the farm gets
 uniform float soilDensity;   // 0..1 stipple density of the richest farm ground
@@ -97,6 +99,11 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
             float share = d.g > 0.0 ? 1.0 : wildShare;
             float m = ditherMask(soilDensity * q * share, cell + vec2(5.0, 2.0), dither);
             c = mix(c, col * mix(0.7, 1.0, d.r) * dim, m * alpha);
+            if (d.b > 0.0) {
+                // weeds: a second, coarser stipple of its own colour over the fertility, thicker as they grow
+                float w = ditherMask(weedDensity * (0.4 + 0.6 * d.b), cell + vec2(11.0, 6.0), dither);
+                c = mix(c, cWeed * dim, w * alpha);
+            }
         }
     } else if (mode < 1.5) {
         vec4 d = smoothAt(t);

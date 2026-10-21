@@ -64,6 +64,7 @@ return {
     chop = "boolean?", -- an axe (chopSpeed) speeds up clearing it
     storage = "table?", -- resource -> extra storage capacity while placed
     pen = "table?", -- goat pen (D71): { pail = milk held, manger = hay units held, trough = water units held, guard = 0..1 chance a night raid is turned back }; see src/sim/systems/animals.lua
+    compost = "table?", -- compost bin (D181): { raw = units of raw material (manure, residue, spoiled food) it holds }; see src/sim/systems/compost.lua
     coop = "table?", -- hen house: { nest = eggs held, feeder = feed units held, waterer = water units held, guard = 0..1 chance a night raid is turned back }; see src/sim/systems/animals.lua
   },
   crops = {

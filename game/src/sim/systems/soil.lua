@@ -18,10 +18,19 @@
 -- yield, so never to zero) and, from `pestAt`, invites a daily pest roll (own RNG stream "pests") that knocks the
 -- growing crop back (never kills it); the pestGuard stat (row covers) turns part of that aside.
 -- Emits "soil.pressure" { tile, from, to, cause } on every change and "pest.struck" { tile, crop, pressure, saved }.
+--
+-- Weeds (PLAN_DEPTH 8.3, D180):
+--   world.state.soil.weeds[i]      weed level 0..1, whole hundredths, only tiles above 0
+-- Each thawed day every field tile (tilled, planned or planted) rolls once (own RNG stream "weeds", drawn whatever
+-- the mulch) to sprout `weedStart`; a tile that has weeds grows them `weedRate` a day. The Straw mulch equipment
+-- (stat weedGuard) scales both down. Weeds cut yield by up to `weedCut` (a share of the yield, so never to zero)
+-- until the `weed` task (crops.lua) pulls the tile clear. A tile that leaves the field drops its weeds.
+-- Emits "soil.weeds" { tile, from, to, cause } on every change ("sprout", "grow", "pull", "field").
 
 local Grid = require("src.sim.grid")
 local Noise = require("src.sim.noise")
 local Stats = require("src.sim.stats")
+local Weather = require("src.sim.systems.weather")
 
 local Soil = {}
 
@@ -75,12 +84,22 @@ function Soil.fertilityFactor(world, i)
   return floor + (1 - floor) * Soil.fertility(world, i)
 end
 
+--- Weed level on tile i, 0..1.
+function Soil.weeds(world, i)
+  return world.state.soil.weeds[i] or 0
+end
+
+--- Yield multiplier from weeds: 1 clean, down to 1 - `weedCut` at full weeds (never zero).
+function Soil.weedFactor(world, i)
+  return 1 - world.tuning.soil.weedCut * Soil.weeds(world, i)
+end
+
 --- Yield multiplier of tile i: soil quality (tuning.farming.soilYieldMin..Max) times the fertility factor
---- times the pest-pressure factor.
+--- times the pest-pressure factor times the weed factor.
 function Soil.yieldMultiplier(world, i)
   local farming = world.tuning.farming
   local quality = farming.soilYieldMin + (farming.soilYieldMax - farming.soilYieldMin) * world.state.grid.soil[i]
-  return quality * Soil.fertilityFactor(world, i) * Soil.pressureFactor(world, i)
+  return quality * Soil.fertilityFactor(world, i) * Soil.pressureFactor(world, i) * Soil.weedFactor(world, i)
 end
 
 --- Harvest a crop would give on tile i today, before the harvest's own rounding roll (the Plan readout).
@@ -207,17 +226,93 @@ function Soil.pests(world)
   end
 end
 
+local function setWeeds(world, i, to, cause)
+  local weeds = world.state.soil.weeds
+  local from = weeds[i] or 0
+  to = whole(to)
+  if to == from then
+    return
+  end
+  weeds[i] = to > 0 and to or nil
+  world.events:emit("soil.weeds", { tile = i, from = from, to = to, cause = cause })
+end
+
+--- Tiles with weeds, ascending (a small set: only weedy tiles are stored).
+function Soil.weedTiles(world)
+  local tiles = {}
+  for i in pairs(world.state.soil.weeds) do
+    tiles[#tiles + 1] = i
+  end
+  table.sort(tiles)
+  return tiles
+end
+
+--- Tiles a harvest drew below the fallow ceiling whose fertility is under `below`, ascending: the worn
+--- farmland the idle routine spreads compost on (D181). Only worked tiles are visited.
+function Soil.worn(world, below)
+  local fertility = world.state.grid.fertility
+  local tiles = {}
+  for i in pairs(world.state.soil.worked) do
+    if fertility[i] < below then
+      tiles[#tiles + 1] = i
+    end
+  end
+  table.sort(tiles)
+  return tiles
+end
+
+--- Pull the weeds on tile i clear. Returns the level pulled (0 when there were none).
+--- Emits "soil.weeds" (cause "pull") and "weed.pulled" { tile, level }.
+function Soil.pull(world, i)
+  local level = Soil.weeds(world, i)
+  if level <= 0 then
+    return 0
+  end
+  setWeeds(world, i, 0, "pull")
+  world.events:emit("weed.pulled", { tile = i, level = level })
+  return level
+end
+
+--- One game day of weeds: tiles that left the field drop theirs; while the ground is thawed every field tile
+--- (in tile order) rolls once to sprout, and a tile that already has weeds grows them. The roll is drawn
+--- whatever the mulch (weedGuard), so mulch changes the outcome and not the stream.
+function Soil.weedDay(world)
+  local Crops = require("src.sim.systems.crops") -- here, not at the top: crops reads soil too
+  local cfg = world.tuning.soil
+  for _, i in ipairs(Soil.weedTiles(world)) do
+    if not Crops.tileInUse(world, i) then
+      setWeeds(world, i, 0, "field")
+    end
+  end
+  if Weather.isFrozen(world) then
+    return
+  end
+  local keep = 1 - math.min(world.tuning.threats.maxGuard, Stats.modifier(world, "weedGuard"))
+  local rng = world:rng("weeds")
+  for _, i in ipairs(Crops.fieldTiles(world)) do
+    local roll = rng:float()
+    local level = Soil.weeds(world, i)
+    if level > 0 then
+      setWeeds(world, i, math.min(1, level + cfg.weedRate * keep), "grow")
+    elseif roll < cfg.weedSeedChance * keep then
+      setWeeds(world, i, cfg.weedStart, "sprout")
+    end
+  end
+end
+
 function Soil.init(world)
   local state = world.state
   state.soil = state.soil or { worked = {} }
   state.soil.family = state.soil.family or {}
   state.soil.pressure = state.soil.pressure or {}
+  state.soil.weeds = state.soil.weeds or {}
   if not state.grid.fertility then
     generate(world)
   end
   world.events:on("calendar.newDay", function()
     Soil.fallow(world)
     Soil.pests(world)
+    Soil.weedDay(world)
   end)
 end
 

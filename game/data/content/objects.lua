@@ -342,6 +342,16 @@ return {
     placeable = true,
     station = "cheese_press",
   },
+  -- Compost bin (PLAN_DEPTH 8.4, D181). `compost`: raw material (manure, residue, spoiled food) waits in it up to
+  -- `raw` units, and a batch of it becomes compost over days (tuning.compost); see src/sim/systems/compost.lua.
+  {
+    id = "compost_bin",
+    name = "Compost bin",
+    blocks = true,
+    clearable = false,
+    placeable = true,
+    compost = { raw = 24 },
+  },
   {
     id = "drip_line",
     name = "Drip line",

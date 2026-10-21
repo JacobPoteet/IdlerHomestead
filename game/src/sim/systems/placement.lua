@@ -20,6 +20,7 @@
 -- "placement.cancelled" { object, tile, reason }, "placement.done" { object, tile }.
 
 local Actors = require("src.sim.systems.actors")
+local Compost = require("src.sim.systems.compost")
 local Crops = require("src.sim.systems.crops")
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
@@ -339,6 +340,7 @@ function Placement.destroy(world, anchor)
   local id = world.state.grid.objects[anchor].id
   dropMoves(world, anchor, "pickedup")
   Processing.scrap(world, anchor)
+  Compost.scrap(world, anchor)
   lift(world, anchor)
   Power.forget(world, anchor)
   Inventory.refreshStorage(world)
@@ -396,6 +398,7 @@ local function relocate(world, from, to)
   grid.objects[to].tilled = was
   Power.relocate(world, from, to)
   Processing.relocate(world, from, to)
+  Compost.relocate(world, from, to)
   Inventory.refreshStorage(world)
   Power.refresh(world)
   world.events:emit("object.moved", { object = id, from = from, tile = to })
