@@ -8,6 +8,19 @@ Why this exists: playtest feedback says the base systems are in but the loop is 
 
 **Design review (D168).** A game-design review amended this plan (GDD decision D168). A Footing slip forgives instead of freezing (3.2); the levy and the bailiff are bounded (11.3); wake events never freeze time and ignore is always safe (6.2 to 6.5); mercy rules key on Footing state and reserves (6.5); there is one tiredness mechanism (5.2, 7, 10.4); guards cover only some threats (6.1, 10.3); every cadence is in days (3, 8.5); Careful respects keep targets (6.4); phone UI has an attention budget (4, 14); and section 17 is re-sequenced. Eight questions the review raised are left open (section 16, Q8 to Q15).
 
+## Depth trim (D184)
+
+The owner found M8 too deep for the cozy and idle pillars (GDD §3: "Idle anytime, active is better"), and a design review agreed: the plan answered "the loop is thin" with meters and timers, and the idle player pays for each. The trimmed plan below is adopted entirely. Where a section later in this document disagrees with this one, **this section wins**; the cut and deferred slices stay in the text for the record, marked with their fate and issue number.
+
+- **Cut** (closed): wear F1 #375, maintenance items F2 #376, mule and sleep debt F5 #379 (sleep debt already is Tired), land levy G2 #381, recurring costs G4 #383, stove fire and soot C6 #360, windstorm and power outage C5 #213. Damage comes only from events, capped by the mercy rules (6.5).
+- **Deferred** to milestone **M10: Post-launch depth**: processing E3 #373, hired hand F4 #378, owned land G1 #380, charters H2 #385, ascension H4 #387, wolves and coyotes (split out of C4 #358).
+- **Merged**: E4 #374 into E1 #371, B10 #354 into H5 #388, C3 #357 into C2 #356, #114 into #356, D8 #370 into the D-simplify issue #430.
+- **Simplified**: threats shrink to mice, fox, raccoon, deer and rabbits, bear, dog, cold front with pipe freeze, and the lantern (no skunk, trip line or bell); home and land event packs lose their wear and tier dependencies; tiers run I to III; contracts have no reputation levels and no miss penalty; the workload meter becomes a bottleneck line; the wake costs only that night's study.
+- **Rule: defaults ON, neglect is soft.** Every upkeep task is ON in the default routine, and skipping it costs a share of yield, never a loss or a death. The idle policy has to finish every upkeep task inside an idle day (a test in #430).
+- **The soil stack is clamped**: fertility, pest pressure and weeds together never cut a yield below `farming.minSoilMultiplier` (about 0.6).
+- **D-simplify (#430)** reworks what D1 to D7 built: two quality tiers (normal, fine x1.3) with no tended mark, fine earned from healthy soil; no perennial death roll or hand prune; blight only on a tile at full pressure and never spreading; a lower weed cut (about 15 percent alone); compost drawn from the ledger with no haul task.
+- **Build order**: 18 steps instead of about 40 (section 17). M9 makes idle at 40 to 60 percent of active its primary target, with no further depth work.
+
 Time facts used throughout (from `data/tuning/time.lua`, GAMEPLAY_LOOP.md; **slice T0 may change the real-time length of a day**, which changes how much work a day holds): a day is 320 s, **a season is 7 days, a year is 28 days**, the first winter starts on day 22. Every rate below is per night or per day, so "about 0.3 a night" means about one event every three nights (two a season) and about eight a year. Every cadence in this plan is stated in days. All numbers are first guesses, they live in tuning (never in system code), and the M9 balance pass tunes them.
 
 ---
@@ -336,15 +349,23 @@ A **market day** on the last day of each season: stand traffic doubles, the truc
 
 ## 10. Labour, wear and upkeep
 
+> **Depth trim (D184):** wear (10.1) and its maintenance items are **cut** (#375, #376). The workload meter (10.2) shrinks to the bottleneck line (#377). The hired hand (10.3) is **deferred** to M10 (#378), the mule is **cut** (#379), and the dog is kept with food from the ledger (#358). Sleep debt (10.4) stays as the Tired status.
+
 ### 10.1 Wear
+
+**Cut (D184, #375, #376).** Kept below for the record.
 
 A **wear** meter (0..100) on durable things: solar panels (dust: output down until cleaned), the pump (filter), the stove (soot, fire risk), fences (damage after raids), canvas and roofs, tools (dulling: sharpened at a whetstone for speed), the truck (service interval). Wear is shown as a status light in the world, like power. The existing `maintenance` task category (GDD §7.4) becomes real: maintenance tasks appear on the task board by urgency; the routine does them in priority order (default after harvest and water, before clearing), and the player can pull them forward.
 
 ### 10.2 Workload
 
+**Simplified (D184, #377):** only the "what's limiting you" line on the Progress panel, with no meter.
+
 A **workload meter** compares work waiting (task board, scored in seconds) with hours of work left in the day. When the day is overbooked, the routine's priority list decides what is dropped, and the meter says what ("watering is falling behind"). This makes the priority list matter and shows the player what to automate next. The "what's limiting you" line names the current bottleneck.
 
 ### 10.3 Helpers
+
+**D184:** the dog is kept (#358, eats from the food ledger, no separate feed cost); the mule is cut (#379); the hired hand is deferred to M10 (#378).
 
 - **Farm dog:** covers some night threats, not all (6.1, D168); a stray-dog event; daily feed cost is its upkeep. Other guards have their own: fence wear from raids, lantern fuel.
 - **Mule or donkey:** carry capacity and a haul chore.
@@ -353,21 +374,31 @@ A **workload meter** compares work waiting (task board, scored in seconds) with 
 
 ### 10.4 Sleep debt
 
+**D184:** unchanged. The wake penalty (#411) costs only that night's study; Tired comes only from an option the player picks.
+
 Sleep debt **is** the Tired status (D168), not a separate counter: waking and "stay up" apply or raise it (work speed down a little, study slower). It is the carry-over cost of wake events and late nights; the wake itself costs only that night's study and recovery (5.2).
 
 ---
 
 ## 11. Money sinks, land and tiers
 
+> **Depth trim (D184):** tiers (11.1) run I to III with no upkeep (#382). Owned land (11.2) is **deferred** to M10 (#380). The levy (11.3) is **cut** (#381, Q3: no levy). Recurring costs (11.4) are **cut** (#383).
+
 ### 11.1 Tiered upgrades
+
+**D184:** tiers I to III, catalog only, no upkeep. This is the money sink.
 
 Convert one-shot items to tiers (I to V, exponential cost): the rod, bucket, axe, stove, cistern, smoker, panel array, stand, coop and pen. Each tier is a Journal node or a reputation gate. Money keeps meaning. Existing "replaces predecessor" items map onto tier I and II.
 
 ### 11.2 Owned land (opens at Footing)
 
+**Deferred to M10 (D184, #380).** It touches placement, generation and gathering rules (Q12), and the levy was its main reason to exist.
+
 The generated map is larger than the starting area. The homesteader begins with a **core area**; the rest is bought in chunks, prices rising with distance and with chunk quality (biome, water, trees). Only owned tiles are buildable. This gives a land goal, makes placement matter, and ties to run variety (plot traits, section 12).
 
 ### 11.3 Land levy
+
+**Cut (D184, #381).** Q3 asked whether it should exist: it should not. It brought a bailiff, debt, liens and a reputation hit, a yearly punishment with three ways to fail. Tiers cover "money has no destination" without a penalty. Kept below for the record.
 
 At the end of each autumn (before winter) a **levy** is due. It is announced at the start of autumn with its amount, so it is never a surprise. It scales with owned land, and with buildings only by footprint or tier, never with machines (D168), so adding panels, pumps or devices never raises it. Year 1 is exempt (the grace is announced). The levy is the year-end crunch the economy lacks.
 
@@ -377,6 +408,8 @@ At the end of each autumn (before winter) a **levy** is due. It is announced at 
 - **An unpaid levy is a penalty, never a run end:** the shortfall becomes one of debt carried into spring, a lien on a land chunk (locked until the debt is paid), or a reputation hit. The player is offered the options that apply; the default is debt.
 
 ### 11.4 Recurring costs
+
+**Cut (D184, #383).** With no wear, lantern fuel or dog feed purchase, nothing recurs. A "spent this season by category" line on the season card is the most that is left, if wanted. #118 is re-scoped to the cat and dog eating from the ledger.
 
 Feed, fuel, jars, medicine, replacement parts: small, regular, visible in a ledger of upkeep so the player can see where money goes.
 
@@ -415,6 +448,8 @@ A new Journal page of strategy nodes: first-aid, tracking, rotation, trapping, b
 
 ## 13. How the systems interact
 
+> **Depth trim (D184):** the Upkeep and Land rows and columns below no longer exist (wear, the levy and owned land are cut or deferred), and the Charter column is deferred. Three compounding risks go with them: the work stack (statuses slow work while chores add tasks), recurring drains, and hidden `startsOff` toggles. The soil stack is clamped by `farming.minSoilMultiplier`, and the risk loop loses its upkeep leg.
+
 | | Night | Events | Status | Soil | Market | Upkeep | Land | Charter |
 |---|---|---|---|---|---|---|---|---|
 | **Night** | | threats wake events | tired | raiders hit crops | spoiled stores | stove soot | exposure | winter stakes |
@@ -426,7 +461,7 @@ A new Journal page of strategy nodes: first-aid, tracking, rotation, trapping, b
 
 Three loops this creates:
 1. **Safety loop:** reserves -> Footing -> open goals -> money -> better shelter and guards -> safer nights.
-2. **Land loop:** fertility and rotation -> quality -> contract rewards -> reputation -> better tiers and land -> more to tend -> workload -> helpers.
+2. **Land loop:** fertility and rotation -> quality -> contract rewards -> reputation -> better tiers (land and helpers deferred, D184).
 3. **Risk loop:** exposure from growth -> more threats -> choices with costs -> statuses -> slower work -> reserves slip -> back to the safety loop.
 
 ## 14. Technical shape
@@ -470,15 +505,15 @@ Targets move with real human play.
 |---|---|---|
 | Q1 | ~~Is a 28-day year too short for rotation and perennials to feel real?~~ | **Settled (D168):** keep the 28-day year; perennials are stated in days: a first yield the next season, a full yield after one winter (8.5) |
 | Q2 | Do wake events annoy players who sleep at 8x speed? | At most one per 3 nights; time never freezes, ignore is safe, the window has a real-seconds floor (6.3); skippable via standing orders |
-| Q3 | Should the levy exist at all, or is the land goal enough? | Include; soft failure only |
+| Q3 | ~~Should the levy exist at all, or is the land goal enough?~~ | **Settled (D184): no levy.** G2 #381 is cut and owned land is deferred to M10 |
 | Q4 | Should Footing be shown as a number to the player? | Yes, a clear checklist, not hidden |
-| Q5 | Do hired hands break the "sparse characters" pillar (GDD §7.8)? | Keep them unnamed and unseen-in-dialogue, an actor type (see also Q11) |
+| Q5 | ~~Do hired hands break the "sparse characters" pillar (GDD §7.8)?~~ | **Moot (D184):** the hired hand is deferred to M10 (#378) |
 | Q6 | Are events too many for phone play? | Cap the daily budget; Careful standing orders |
 | Q7 | Content volume | Ship packs; each pack is data only |
 | Q8 | Auto-load against market saturation: does the routine's auto-load dump goods into a saturated price, and should the stand and the truck share one town demand, so selling through both does not double the room? | **Settled (D170):** Shared town demand across stand and truck; auto-load sees saturation and spreads a load to avoid dumping into a saturated price |
 | Q9 | Charter minuses that are free picks: if the player owns nothing a minus touches (no helpers, no stand), it costs nothing. Should the minus depend on what is owned? | **Settled (D170):** Charters are drafted only when their minus touches something the player owns (or is about to); the harness logs the win rate per charter |
 | Q10 | A post-Footing grace of N nights before events start: events begin on day 3, Footing comes about day 7 to 10, so the first events land on a fragile run. | **Settled (D170):** No bad events before Footing is earned or day 10, whichever comes first (cutoff day in tuning); mild luck events may still run from day 3 |
-| Q11 | The hired hand: capped, unavailable while slipped, or the paid way out of a slip? | **Settled (D170):** Hiring is available while slipped as a paid way out of a slip (ongoing food and wages), capped at one per season; the hand eats from the ledger and counts in the food days |
+| Q11 | The hired hand: capped, unavailable while slipped, or the paid way out of a slip? | **Moot (D184):** the hired hand is deferred to M10 (#378). D170's answer (a paid way out of a slip, one per season, eats from the ledger) stands for when it returns |
 | Q12 | Does the land mask (G1) let players chop, clear or fish unowned tiles? It is the best lever for winter wood and early money, and without it owned land alone gates the winter. | **Settled (D170):** Gathering (chop, forage, fish) is allowed on any reachable unowned tile; building and planting only on owned land |
 | Q13 | Which meta state survives a rescue (reputation, land, contracts, charter progress, Techniques, loadouts), and how early may Footing come by run 5? | **Settled (D170):** Only knowledge survives a rescue: Journal, Techniques, wardrobe and unlocked charters and loadouts. Reputation, land, contracts and money reset with the run |
 | Q14 | Plot preview (12.1) on run 1: a first strategic choice before the player knows what a trait means? | **Settled (D170):** Plot preview starts on run 2; run 1 keeps the fixed first-time experience |
@@ -487,6 +522,29 @@ Targets move with real human play.
 Risks: scope (this is a large milestone); event fatigue; compounding statuses. Mitigations: slice order (section 17), the mercy rules, the budget, and harness gates before each phase merges.
 
 ## 17. Milestone and slices (M8: Homestead depth)
+
+**Depth trim (D184).** Slices below marked **CUT**, **DEFERRED** or **MERGED** are not built in M8; the fate and issue number are on each line. Simplified slices carry a `DEPTH TRIM` block at the top of their issue body, which wins over the slice text here. The build order is now:
+
+1. **D-simplify (#430)**, which absorbs D8 (#370): two quality tiers, no perennial death, combined yield floor, compost without the haul task, lower weed cut, routine defaults ON and the idle-day chore test.
+2. **#410**: human policy, idle gates, paired events report.
+3. **C1 #355**: threat framework; mice and fox move in; exposure as a word on the Tonight card.
+4. **C2 + C3 #356 / #357**: raccoon, deer and rabbits, bear and bear box.
+5. **C4 #358**: the dog, eating from the ledger.
+6. **C5 #359**: cold front plus pipe freeze (folds in #91, #211).
+7. **C7 #361**: the lantern.
+8. **B7 #351**: five home events, no wear dependency.
+9. **B8 #352**: three land events.
+10. **B9 #353**: visitors and luck, with the peddler and the stray dog.
+11. **#411**: wake costs study only.
+12. **E1 + E4 #371 / #374**: saturation plus market day.
+13. **E2 #372**: contracts board, no penalties.
+14. **G3 #382**: tiers I to III.
+15. **H5 + B10 #388 / #354**: Techniques and the first-aid kit.
+16. **H1 #384, H3 #386**: plot preview, loadouts.
+17. **I1a #389, I2 to I5 #390 to #393**.
+18. **M9** balance pass.
+
+The older order below is kept for the record.
 
 Issues are written to be done by an agent alone: each states its goal, design reference, scope, out of scope, likely files, acceptance, tests and docs. Labels: `enhancement` plus a topic label; `balance` where numbers move. Order (re-sequenced, D168): T0 first, then A. Then **B3, B4 and B6 ship together with a small first events pack** (B6, trimmed to events that need no later system). **C1 is designed together with B3** (shared exposure, nightly budget and slot rules, 5), and **C8 (#362) comes right after B3** (winter wood as a stockpile problem). Each later pack lands after the systems it uses: home events (B7) after F1 wear and G3 tiers; land events (B8) after D and possibly G1; C6 stove fire after F1; H2 charters after E, F and G. D and E can run in parallel, then F and G, then H, then I. The event-choice harness policies (careful, bold, ignore, random) move out of I1a into B3 and B5, with the spiral metrics, a degraded `human` policy and paired events-on/off seeds (15).
 
@@ -507,65 +565,65 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - B4 (#348) **Done (D172).** Event card UI: two options, costs, risks, ignore line, touch and keyboard, phone layout. **Amended (D168):** ships with B3 and B6; one card at a time in the ranked notice queue (principle 8).
 - B5 (#349) Standing orders (Ask, Careful, Bold) and the "Rules of thumb" perk. **Amended (D168):** Careful respects keep targets and falls back to ignore with a morning-report line (6.4); carries the careful/bold/random harness policies.
 - B6 (#350) **Done (D173).** Body events pack. **Amended (D168):** the first events pack, shipped with B3 and B4; ignore outcomes are safe and non-escalating (6.2); Fever never fires on a night that already cost cold damage.
-- B7 (#351) Home events pack. **Amended (D168):** lands after F1 wear and G3 tiers.
-- B8 (#352) Land events pack. **Amended (D168):** lands after D, and possibly G1.
-- B9 (#353) Visitors and luck events pack.
-- B10 (#354) First-aid kit and Techniques notes for body events.
+- B7 (#351) Home events pack. **Amended (D168):** lands after F1 wear and G3 tiers. **Simplified (D184):** no wear or tier dependency; keeps roof leak, tarp torn, frozen pump, tool breaks and flue clogged; cuts truck fault and power surge.
+- B8 (#352) Land events pack. **Amended (D168):** lands after D, and possibly G1. **Simplified (D184):** late frost, storm-felled tree and livestock in the field; cuts hornets and washout; no G1 dependency.
+- B9 (#353) Visitors and luck events pack. **Kept (D184);** absorbs the peddler (E4) and the stray dog (C4).
+- B10 (#354) First-aid kit and Techniques notes for body events. **MERGED (D184)** into H5 #388; the kit stays one catalog consumable.
 
 **Phase C: Night threats**
 - C1 (#355) Night threat framework; move mice and fox into it; dusk signs; wake hook. **Amended (D168):** designed with B3 (shared exposure units 0 to 10, nightly slot, turned-away threats use the slot and the pity timer); per-guard `covers` and upkeep.
-- C2 (#356) Raccoon, skunk, deer and rabbits.
-- C3 (#357) Black bear and the bear box.
-- C4 (#358) Wolves and coyotes; the dog companion.
-- C5 (#359) Weather nights: cold front, windstorm, pipe freeze, power outage.
-- C6 (#360) Stove fire and soot (links to F2). **Amended (D168):** lands after F1 wear; no stove loss while slipped.
-- C7 (#361) Night gear: lantern, trip line, bell.
+- C2 (#356) Raccoon, skunk, deer and rabbits. **Simplified (D184):** raccoon and deer with rabbits; no skunk. Absorbs C3 and #114.
+- C3 (#357) Black bear and the bear box. **MERGED (D184)** into C2 #356 (one PR).
+- C4 (#358) Wolves and coyotes; the dog companion. **Simplified (D184):** the dog only, eating from the food ledger. **Wolves and coyotes DEFERRED** to M10.
+- C5 (#359) Weather nights: cold front, windstorm, pipe freeze, power outage. **Simplified (D184):** cold front plus pipe freeze (folds in #91, #211); windstorm and power outage are **CUT** (#213 closed).
+- C6 (#360) Stove fire and soot (links to F2). **Amended (D168):** lands after F1 wear; no stove loss while slipped. **CUT (D184, closed).** The flue-clogged event in B7 takes the smoke.
+- C7 (#361) Night gear: lantern, trip line, bell. **Simplified (D184):** the lantern alone, a one-time buy with no fuel; trip line and bell cut. #274 becomes guard purchase rules.
 - C8 (#362) **Done (D171).** Winter wood is a stockpile problem, not an on-demand chop (tracked with #65, #202, #251). **Amended (D168):** pulled forward to right after B3. Unowned tiles can be chopped (Q12, D170). Built as a per-season allowance on wood from trees (`tuning.wood.fellAllowance`, winter 24, first guess), shown on the Tonight and readiness cards; the keep logic and the balance numbers of #202 and #251 are unchanged (M9).
 
 **Phase D: Fields and soil**
 - D1 (#363) Crop schema and 8 new crops (content, journal pages, seed items).
 - D2 (#364) Soil fertility and the overlay.
-- D3 (#365) Rotation families and pest pressure.
-- D4 (#366) Weeds, weeding task, mulch.
-- D5 (#367) Compost bin and manure loop.
-- D6 (#368) Quality tiers and tended marks. **Done (D182).**
-- D7 (#369) Perennials: berries and orchard. **Done (D183).**
-- D8 (#370) Routine categories and conditions for the new tasks.
+- D3 (#365) Rotation families and pest pressure. **Simplified (D184, #430):** blight on full-pressure tiles only, never spreads.
+- D4 (#366) Weeds, weeding task, mulch. **Simplified (D184, #430):** lower weed cut, pulled by default.
+- D5 (#367) Compost bin and manure loop. **Simplified (D184, #430):** no haul task; the bin draws from the ledger.
+- D6 (#368) Quality tiers and tended marks. **Done (D182).** **Simplified (D184, #430):** two tiers, no tended mark.
+- D7 (#369) Perennials: berries and orchard. **Done (D183).** **Simplified (D184, #430):** no death roll or hand prune.
+- D8 (#370) Routine categories and conditions for the new tasks. **MERGED (D184)** into D-simplify #430: every upkeep task ON by default, plus the idle-day chore test.
 
 **Phase E: Market**
-- E1 (#371) Saturation model for truck and stand.
-- E2 (#372) Reputation and the contracts board; standing orders.
-- E3 (#373) Processing recipes and stations.
-- E4 (#374) Market day and the peddler.
+- E1 (#371) Saturation model for truck and stand. **Kept (D184);** absorbs E4 and #106; the cap shows on the truck screen only.
+- E2 (#372) Reputation and the contracts board; standing orders. **Simplified (D184):** 3 contracts every 7 days, reputation is a count of contracts finished, a missed one just expires, no quality tiers; the repeating standing contract stays.
+- E3 (#373) Processing recipes and stations. **DEFERRED (D184)** to M10.
+- E4 (#374) Market day and the peddler. **MERGED (D184)** into E1 #371 (the last day of a season gives a stand and truck bonus); the peddler goes to B9.
 
 **Phase F: Labour and upkeep**
-- F1 (#375) Wear system and the maintenance task category.
-- F2 (#376) Maintenance items: dust, filters, fences, tools, truck.
-- F3 (#377) Workload meter and bottleneck line.
-- F4 (#378) Hired hand actor.
-- F5 (#379) Mule and sleep debt.
+- F1 (#375) Wear system and the maintenance task category. **CUT (D184, closed).** #145 reopens only if auto-harvester wear is still wanted.
+- F2 (#376) Maintenance items: dust, filters, fences, tools, truck. **CUT (D184, closed).**
+- F3 (#377) Workload meter and bottleneck line. **Simplified (D184):** the bottleneck line only, no meter.
+- F4 (#378) Hired hand actor. **DEFERRED (D184)** to M10.
+- F5 (#379) Mule and sleep debt. **CUT (D184, closed).** Sleep debt already is Tired (B1).
 
 **Phase G: Money and land**
-- G1 (#380) Owned-area mask and land purchase.
-- G2 (#381) Land levy with soft failure.
-- G3 (#382) Tiered upgrade framework; convert existing items.
-- G4 (#383) Recurring costs and the upkeep ledger.
+- G1 (#380) Owned-area mask and land purchase. **DEFERRED (D184)** to M10.
+- G2 (#381) Land levy with soft failure. **CUT (D184, closed).** Q3: no levy.
+- G3 (#382) Tiered upgrade framework; convert existing items. **Simplified (D184):** tiers I to III, catalog only, no upkeep.
+- G4 (#383) Recurring costs and the upkeep ledger. **CUT (D184, closed).** #118 becomes the cat and dog eating from the ledger.
 
 **Phase H: Run variety**
 - H1 (#384) Plot preview.
-- H2 (#385) Year charters. **Amended (D168):** lands after E, F and G; no draft while slipped.
+- H2 (#385) Year charters. **Amended (D168):** lands after E, F and G; no draft while slipped. **DEFERRED (D184)** to M10.
 - H3 (#386) Starting loadouts.
-- H4 (#387) Ascension mutators.
-- H5 (#388) Journal Techniques page.
+- H4 (#387) Ascension mutators. **DEFERRED (D184)** to M10.
+- H5 (#388) Journal Techniques page. **Kept (D184);** absorbs B10 #354.
 
 **Phase I: Integration**
-- I1a (#389) Harness policies for the new systems (smoke testing only). **Amended (D168):** the event-choice policies moved to B3 and B5. The full balance pass is I1b (#396) in M9.
+- I1a (#389) Harness policies for the new systems (smoke testing only). **Amended (D168):** the event-choice policies moved to B3 and B5. The full balance pass is I1b (#396) in M9. **Shrunk (D184)** to the surviving systems; #410 adds idle gates and is promoted.
 - I2 (#390) FTUE and tip updates for each phase.
 - I3 (#391) Merge into GDD, wiki and decision log.
 - I4 (#392) Perf and save-size check.
 - I5 (#393) Driver scenarios and screenshots.
 
-Status: milestone **M8: Homestead depth** and issues #340 to #393 are created (one per slice, titled `[M8 <id>]`). Slice C8 (winter wood as a stockpile problem) was added during the issue review and is tracked by #65 with #202 and #251.
+Status (D184): trimmed to 18 build steps; five slices and wolves moved to milestone **M10: Post-launch depth**, seven cut, five merged, new issue #430. Original status: milestone **M8: Homestead depth** and issues #340 to #393 are created (one per slice, titled `[M8 <id>]`). Slice C8 (winter wood as a stockpile problem) was added during the issue review and is tracked by #65 with #202 and #251.
 
 **Existing issues folded in** (review of the open backlog):
 
