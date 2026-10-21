@@ -9,6 +9,7 @@ local Power = require("src.sim.systems.power")
 local Buttons = require("src.ui.buttons")
 local ItemCard = require("src.ui.item_card")
 local Panel = require("src.ui.panel")
+local QualityText = require("src.ui.quality_text")
 local ScrollList = require("src.ui.scroll_list")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
@@ -206,11 +207,18 @@ function Truck:layout()
   )
   local lines = Market.loadQuote(world)
   local loadTop = b.y + 52
+  -- A good with units above normal takes a second line for its tiers (D182), so every row of the list is that tall then.
+  self.loadRowH = LOAD_ROW_H
+  for _, line in ipairs(lines) do
+    if QualityText.tiers(world, line.tiers) then
+      self.loadRowH = LOAD_ROW_H * 2
+    end
+  end
   self.loadList:fit(
     { x = b.x + 8, y = loadTop, w = b.w / 2 - 16, h = b.y + b.h - 64 - loadTop },
-    #lines * LOAD_ROW_H,
+    #lines * self.loadRowH,
     ui.scrollHintHeight,
-    LOAD_ROW_H
+    self.loadRowH
   )
   local barRoom = self.shop.overflow and ui.scrollBarWidth + 2 or 0
   for n, item in ipairs(known) do
@@ -367,11 +375,17 @@ function Truck:draw()
     })
     self.loadList:begin(self.app.view.scale)
     for n, line in ipairs(lines) do
-      local y = self.loadList:origin() + (n - 1) * LOAD_ROW_H
-      if self.loadList:visible(y, LOAD_ROW_H) then
+      local y = self.loadList:origin() + (n - 1) * self.loadRowH
+      if self.loadList:visible(y, self.loadRowH) then
         local res = world.registry:get("resources", line.id)
         Panel.icon(Panel.resourceIcon(line.id), b.x + 12, y)
-        Text.draw(string.format("%s  %d x $%d", res.name, line.units, line.price), b.x + 28, y + 1, { size = "small" })
+        local tiers = QualityText.tiers(world, line.tiers)
+        local text = tiers and string.format("%s  %d for $%d", res.name, line.units, line.worth)
+          or string.format("%s  %d x $%d", res.name, line.units, line.price)
+        Text.draw(text, b.x + 28, y + 1, { size = "small" })
+        if tiers then
+          Text.draw(tiers, b.x + 28, y + LOAD_ROW_H, { size = "small", color = theme.colors.accent })
+        end
       end
     end
     self.loadList:finish()

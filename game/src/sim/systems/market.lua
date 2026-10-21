@@ -29,6 +29,7 @@ local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
 local Land = require("src.sim.systems.land")
 local Power = require("src.sim.systems.power")
+local Quality = require("src.sim.systems.quality")
 local Sandbox = require("src.sim.systems.sandbox")
 local Spoilage = require("src.sim.systems.spoilage")
 local Stats = require("src.sim.stats")
@@ -96,6 +97,33 @@ function Market.sellPrice(world, id)
     return 0
   end
   return math.max(1, math.floor(res.value * (world.state.market.prices[id] or 1) + 0.5))
+end
+
+--- Sale price of one unit of a resource at a quality tier this week (D182). Normal is the whole-dollar `sellPrice`; a
+--- better tier is the unrounded price times the tier's multiplier (never under the normal price), so a $1 radish is worth
+--- $1.25 or $1.60 and a line of units rounds once, in `Market.worth`, instead of every unit rounding the bonus away.
+function Market.tierPrice(world, id, tier)
+  local res = world.registry:get("resources", id)
+  if not res.value then
+    return 0
+  end
+  local normal = Market.sellPrice(world, id)
+  if tier == world.tuning.quality.tiers[1] then
+    return normal
+  end
+  local mult = world.tuning.quality.priceMult[tier]
+  return math.max(normal, res.value * (world.state.market.prices[id] or 1) * mult)
+end
+
+--- What `n` units of a resource sell for, best (a truck sale) or worst (the stand) units first, each at its tier's
+--- price, rounded once to whole dollars: returns the money and the tiers taken ({ [tier] = units }).
+function Market.worth(world, id, n, order)
+  local picked = Quality.pick(world, id, n, order)
+  local total = 0
+  for tier, units in pairs(picked) do
+    total = total + units * Market.tierPrice(world, id, tier)
+  end
+  return math.floor(total + 0.5), picked
 end
 
 function Market.itemPrice(world, id)
@@ -532,15 +560,18 @@ function Market.autoLoad(world)
   return added
 end
 
---- What selling the load would do: list of { id, units, price } in content order, total $, units.
+--- What selling the load would do: list of { id, units, price, worth, tiers } in content order, total $, units. The best
+--- units of a good are the ones sold (D182): `price` is the normal unit price, `worth` what the line pays with its tiers,
+--- `tiers` the units at each tier.
 function Market.loadQuote(world)
   local lines, total, units = {}, 0, 0
   for _, res in ipairs(world.registry:all("resources")) do
     local n = math.min(Market.loaded(world, res.id), Ledger.get(world, res.id))
     if n > 0 then
-      local price = Market.sellPrice(world, res.id)
-      lines[#lines + 1] = { id = res.id, units = n, price = price }
-      total = total + n * price
+      local worth, tiers = Market.worth(world, res.id, n, "best")
+      lines[#lines + 1] =
+        { id = res.id, units = n, price = Market.sellPrice(world, res.id), worth = worth, tiers = tiers }
+      total = total + worth
       units = units + n
     end
   end
@@ -554,6 +585,7 @@ function Market.sellLoad(world)
   end
   local lines, total, units = Market.loadQuote(world)
   for _, line in ipairs(lines) do
+    Quality.take(world, line.id, line.units, "best") -- the best units go to town; the ledger then drops the count
     Ledger.remove(world, line.id, line.units, "sold")
   end
   Market.clearLoad(world)

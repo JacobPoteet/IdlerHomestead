@@ -190,6 +190,8 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
       weedyDays = 0,
       compostMade = 0,
       compostSpread = 0,
+      qualityGood = 0, -- crop quality (D182): harvests graded good and excellent (the rest are normal)
+      qualityExcellent = 0,
       rainDays = 0,
       cloudyDays = 0,
       brownouts = 0,
@@ -268,6 +270,8 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
     c.pressureCut = c.pressureCut + tuning.soil.pressureCut * e.pressure
     c.zeroYields = c.zeroYields + (e.amount < 1 and 1 or 0)
     c.weedCut = c.weedCut + tuning.soil.weedCut * e.weeds
+    c.qualityGood = c.qualityGood + (e.quality == "good" and 1 or 0)
+    c.qualityExcellent = c.qualityExcellent + (e.quality == "excellent" and 1 or 0)
   end)
   events:on("weed.pulled", function()
     result.counters.weedsPulled = result.counters.weedsPulled + 1
@@ -1281,6 +1285,13 @@ function Balance.printFeatures(summary, years)
       q("weedyDays").mean,
       q("compostMade").mean,
       q("compostSpread").mean
+    )
+  )
+  line(
+    string.format(
+      "Quality per run (mean): %.0f%% of harvests good, %.0f%% excellent (the routine cannot reach excellent, D182)",
+      100 * q("qualityGood").mean / harvests,
+      100 * q("qualityExcellent").mean / harvests
     )
   )
   line(

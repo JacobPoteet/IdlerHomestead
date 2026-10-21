@@ -87,6 +87,7 @@ local STATE_OWNERS = {
   priorities = "tasks",
   routine = "routine",
   processing = "processing",
+  quality = "quality",
   soil = "soil",
   spoilage = "spoilage",
   stand = "stand",

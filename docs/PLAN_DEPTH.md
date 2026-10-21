@@ -528,7 +528,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - D3 (#365) Rotation families and pest pressure.
 - D4 (#366) Weeds, weeding task, mulch.
 - D5 (#367) Compost bin and manure loop.
-- D6 (#368) Quality tiers and tended marks.
+- D6 (#368) Quality tiers and tended marks. **Done (D182).**
 - D7 (#369) Perennials: berries and orchard.
 - D8 (#370) Routine categories and conditions for the new tasks.
 

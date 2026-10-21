@@ -9,6 +9,7 @@ return {
   "established", -- D117: the Great Winter's thaw marks the slot; listens to the calendar after weather
   "land",
   "soil", -- D178: fertility per tile (grid.fertility); before crops, which read it at harvest
+  "quality", -- D182: the tiers of stocked produce (a tally that follows the ledger); after soil, which it grades by
   "tasks",
   "crops",
   "inventory",

@@ -17,6 +17,7 @@ local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
 local Land = require("src.sim.systems.land")
 local Ledger = require("src.sim.systems.ledger")
+local Quality = require("src.sim.systems.quality")
 local Soil = require("src.sim.systems.soil")
 local Tasks = require("src.sim.systems.tasks")
 local Weather = require("src.sim.systems.weather")
@@ -432,6 +433,23 @@ function Crops.waterTile(world, i)
   return false
 end
 
+--- A hand order tended the crop on tile i (it was watered, or its tile weeded, by the player's own tap or a policy's
+--- order, never by the routine): one more tend towards the tended mark (D182). Returns true if there was a crop.
+function Crops.tend(world, i, order)
+  local crop = world.state.crops[i]
+  if not crop or not order then
+    return false
+  end
+  crop.tends = (crop.tends or 0) + 1
+  return true
+end
+
+--- Does the crop on tile i carry the tended mark?
+function Crops.isTendedAt(world, i)
+  local crop = world.state.crops[i]
+  return crop ~= nil and Quality.isTended(world, crop)
+end
+
 local function anyCropNeedsWater(world)
   for _, crop in pairs(world.state.crops) do
     if Crops.needsWater(crop) then
@@ -496,6 +514,7 @@ local function registerTasks(world)
       local rng = w:rng("farming")
       local mult = Soil.yieldMultiplier(w, i) -- soil quality, fertility and pest pressure (D178, D179), read before the harvest changes them
       local pressure, repeated, weeds = Soil.pressure(w, i), Soil.repeats(w, i, def), Soil.weeds(w, i)
+      local tier, penalty, tended = Quality.grade(w, i, crop, def) -- fertility, weeds, thirst and the tended mark (D182), read before the harvest changes them
       local amount = math.max(1, math.floor(def.yield * mult + rng:float()))
       local seeds = rng:int(def.seedReturn[1], def.seedReturn[2])
       w.state.crops[i] = nil
@@ -503,7 +522,8 @@ local function registerTasks(world)
       -- canDo is re-checked every tick of the job, so a store that fills mid-job drops it and the
       -- crop stays put; the rolled amounts never exceed what harvestShortage checked. Overflow
       -- here is only a same-tick safety net and is announced, never silent.
-      Ledger.addOrOverflow(w, def.produce, amount, "harvest")
+      local stored = Ledger.addOrOverflow(w, def.produce, amount, "harvest")
+      Quality.add(w, def.produce, tier, stored)
       Ledger.addOrOverflow(w, def.seed, seeds, "harvest")
       local harvest = {
         crop = def.id,
@@ -513,6 +533,9 @@ local function registerTasks(world)
         pressure = pressure,
         repeated = repeated,
         weeds = weeds,
+        quality = tier,
+        penalty = penalty,
+        tended = tended,
       }
       w.events:emit("crop.harvested", harvest)
     end,
@@ -543,8 +566,9 @@ local function registerTasks(world)
     workTime = function(w)
       return w.tuning.soil.weedPullTime
     end,
-    complete = function(w, _, i)
+    complete = function(w, _, i, order)
       Soil.pull(w, i)
+      Crops.tend(w, i, order)
     end,
   })
 
@@ -574,10 +598,11 @@ local function registerTasks(world)
     workTime = function(w)
       return w.tuning.farming.waterTime
     end,
-    complete = function(w, actor, i)
+    complete = function(w, actor, i, order)
       local crop = w.state.crops[i]
       crop.moisture = 1
       actor.bucket = actor.bucket - 1
+      Crops.tend(w, i, order)
     end,
   })
 
@@ -609,7 +634,7 @@ local function registerTasks(world)
         return
       end
       fields.plan[i] = cropId
-      w.state.crops[i] = { id = cropId, growth = 0, moisture = 0 }
+      w.state.crops[i] = { id = cropId, growth = 0, moisture = 0, thirst = 0, tends = 0 }
       w.events:emit("crop.planted", { crop = cropId, tile = i })
     end,
   })
@@ -783,10 +808,14 @@ function Crops.tick(world, dt)
     if raining then
       crop.moisture = 1
     end
-    if crop.growth < 1 and crop.moisture > 0 then
-      local def = world.registry:get("crops", crop.id)
-      crop.growth = math.min(1, crop.growth + dt / (def.growDays * dayLength))
-      crop.moisture = math.max(0, crop.moisture - dryRate * def.waterAppetite)
+    if crop.growth < 1 then
+      if crop.moisture > 0 then
+        local def = world.registry:get("crops", crop.id)
+        crop.growth = math.min(1, crop.growth + dt / (def.growDays * dayLength))
+        crop.moisture = math.max(0, crop.moisture - dryRate * def.waterAppetite)
+      else
+        crop.thirst = (crop.thirst or 0) + dt / dayLength -- game days stood dry, graded at harvest (D182)
+      end
     end
   end
 end

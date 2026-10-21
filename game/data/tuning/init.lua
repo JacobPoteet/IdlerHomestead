@@ -13,6 +13,8 @@ return {
   "actors",
   "farming",
   "soil",
+  "quality",
+  "perennials",
   "compost",
   "water",
   "needs",

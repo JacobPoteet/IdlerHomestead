@@ -14,6 +14,7 @@ local Panel = require("src.ui.panel")
 local ScrollList = require("src.ui.scroll_list")
 local SpoilText = require("src.ui.spoil_text")
 local PantryLayout = require("src.ui.pantry_layout")
+local QualityText = require("src.ui.quality_text")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
@@ -67,6 +68,12 @@ function Pantry:goods()
 end
 
 -- The wood row's note: the nightly burn and the nights left (Needs.woodOutlook), then the store's room.
+-- How many note lines sit under a good's row: the spoilage (or wood) line, and the quality tiers of stock above normal (D182).
+function Pantry:noteLines(res)
+  local lines = (Spoilage.info(self.world, res.id) or res.heat) and 1 or 0
+  return lines + (QualityText.stock(self.world, res.id) and 1 or 0)
+end
+
 function Pantry:woodLine()
   local world = self.world
   local o = Needs.woodOutlook(world)
@@ -138,7 +145,7 @@ function Pantry:layout()
   local keeps, autos = Food.keeps(world)
   local contentH = 0
   for _, res in ipairs(goods) do
-    contentH = contentH + ROW_H + ((Spoilage.info(world, res.id) or res.heat) and NOTE_H or 0)
+    contentH = contentH + ROW_H + self:noteLines(res) * NOTE_H
   end
   local top = self.headY + 14
   local viewH = math.max(ROW_H, b.y + b.h - 6 - self.footerH - top)
@@ -147,7 +154,7 @@ function Pantry:layout()
   local y = self.list:origin()
   for _, res in ipairs(goods) do
     local info = Spoilage.info(world, res.id)
-    local h = ROW_H + ((info or res.heat) and NOTE_H or 0)
+    local h = ROW_H + self:noteLines(res) * NOTE_H
     if y + h > top and y < top + viewH then
       local keep, auto = keeps[res.id] or 0, autos[res.id] == true
       local stock = Ledger.get(world, res.id)
@@ -293,14 +300,20 @@ function Pantry:draw()
       -- (a note sits under the row's buttons, never beside them, so a narrow page cannot run it under one, #296)
       Text.draw(self:woodLine(), b.x + 28, row.y + ROW_H, { size = "small", color = dim })
     end
+    local noteY = row.y + ROW_H -- notes sit under the buttons, never beside them (#296)
     if info then
       -- The "!" keeps the warning readable without relying on colour.
       Text.draw(
         (warn and "! " or "") .. SpoilText.ageLine(info),
         b.x + 28,
-        row.y + ROW_H, -- under the buttons, never beside them (#296)
+        noteY,
         { size = "small", color = warn and theme.colors.danger or dim }
       )
+      noteY = noteY + NOTE_H
+    end
+    local tiers = QualityText.stock(world, res.id)
+    if tiers then
+      Text.draw("Quality: " .. tiers, b.x + 28, noteY, { size = "small", color = theme.colors.accent })
     end
   end
   self.rowButtons:draw()

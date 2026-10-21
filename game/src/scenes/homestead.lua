@@ -42,6 +42,7 @@ local Journal = require("src.sim.systems.journal")
 local Weather = require("src.sim.systems.weather")
 local Nightly = require("src.sim.systems.nightly")
 local AlertText = require("src.ui.alert_text")
+local QualityText = require("src.ui.quality_text")
 local Forecast = require("src.ui.forecast")
 local NightText = require("src.ui.night_text")
 local Dusk = require("src.sim.systems.dusk")
@@ -4518,6 +4519,7 @@ function Homestead:tileInfo(i)
         string.format("%s: %d%%%s", def.name, math.floor(crop.growth * 100), crop.moisture > 0 and "" or ", thirsty")
     end
     lines[#lines + 1] = AlertText.cropFrostLine(world, crop) -- days to the freeze (D70, #165)
+    lines[#lines + 1] = QualityText.cropLine(world, i) -- the tier it would be graded now (D182)
   elseif world.state.fields.plan[i] then
     local planned = world.state.fields.plan[i]
     lines[#lines + 1] = "Planned: " .. world.registry:get("crops", planned).name
