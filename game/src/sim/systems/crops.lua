@@ -12,11 +12,9 @@
 -- the seasons of its `plantSeasons`.
 -- Perennials (PLAN_DEPTH 8.5, D183): a crop whose definition has `perennial` is planted once and stays. Its state adds
 --   stage ("sapling" planted this season, "first" bearing its small first crop, "mature" after one winter), seasons and
---   winters passed since planting, rest (nothing to ripen: it takes no water and does not grow), fruited (this year's crop
---   is picked), pruneDue (picked, so the plant wants pruning), unpruned (it went into this fruiting season unpruned: a
---   smaller crop) and wrapped (young, wrapped against this winter's freeze). It ripens only inside its fruitSeason and
---   only once a year; a harvest resets it instead of removing it. A young plant that is not wrapped may die at the
---   freeze (own RNG stream "orchard"), and is data for the deer and bears of phase C (`Crops.vulnerableTo`).
+--   winters passed since planting, rest (nothing to ripen: it takes no water and does not grow) and fruited (this
+--   year's crop is picked). It ripens only inside its fruitSeason and only once a year; a harvest resets it instead of
+--   removing it. A young plant is data for the deer and bears of phase C (`Crops.vulnerableTo`).
 -- Emits "crop.planted" { crop, tile }, "crop.harvested" { crop, tile, amount, seeds } and
 -- "crop.frosted" { crop, tile }. "crop.harvested" also carries the tile's `pressure`, whether the harvest `repeated` its family, and its `weeds`.
 
@@ -26,7 +24,6 @@ local Land = require("src.sim.systems.land")
 local Ledger = require("src.sim.systems.ledger")
 local Quality = require("src.sim.systems.quality")
 local Soil = require("src.sim.systems.soil")
-local Stats = require("src.sim.stats")
 local Tasks = require("src.sim.systems.tasks")
 local Weather = require("src.sim.systems.weather")
 
@@ -80,7 +77,7 @@ function Crops.isPerennial(crop)
   return crop.stage ~= nil
 end
 
---- Is the plant young, not yet through a winter? Wrapping and the animals concern only these.
+--- Is the plant young, not yet through a winter? The animals concern only these.
 function Crops.isYoung(crop)
   return crop.stage == "sapling" or crop.stage == "first"
 end
@@ -100,15 +97,13 @@ function Crops.vulnerableTo(world, i, animal)
   return false
 end
 
---- Share of its full crop a perennial gives now: the first-year share while it is young, less the unpruned cut.
---- Annuals give 1.
+--- Share of its full crop a perennial gives now: the first-year share while it is young, Annuals give 1.
 function Crops.yieldShare(world, crop)
   if not crop.stage then
     return 1
   end
   local cfg = world.tuning.perennials
-  local share = crop.stage == "mature" and 1 or cfg.firstYieldShare
-  return crop.unpruned and share * (1 - cfg.unprunedCut) or share
+  return crop.stage == "mature" and 1 or cfg.firstYieldShare
 end
 
 --- Should the plant be ripening now: past the sapling stage, in its fruiting season and not yet picked this year?
@@ -116,8 +111,8 @@ local function ripening(world, crop, def, season)
   return crop.stage ~= "sapling" and season == def.perennial.fruitSeason and not crop.fruited
 end
 
--- A new season begins: every perennial counts it, a winter that has ended makes it older (and unwraps it), it starts
--- ripening in its fruiting season (carrying whether it was pruned in time) and an unripe crop at the end of it is lost.
+-- A new season begins: every perennial counts it, a winter that has ended makes it older, it starts
+-- ripening in its fruiting season and an unripe crop at the end of it is lost.
 local function seasonBegins(world, season)
   local seasons = world.tuning.time.seasons
   local at = 1
@@ -133,12 +128,11 @@ local function seasonBegins(world, season)
     if def.perennial then
       crop.seasons = crop.seasons + 1
       if leftWinter then
-        crop.winters, crop.wrapped = crop.winters + 1, nil
+        crop.winters = crop.winters + 1
       end
       crop.stage = crop.winters >= 1 and "mature" or crop.seasons >= 1 and "first" or "sapling"
       if season == def.perennial.fruitSeason then
         crop.fruited = nil -- a new year's crop
-        crop.unpruned = crop.pruneDue and true or nil
       elseif crop.growth < 1 then
         crop.growth = 0 -- the season ended before the fruit ripened
       end
@@ -606,13 +600,13 @@ local function registerTasks(world)
       local mult = Soil.yieldMultiplier(w, i) -- soil quality, fertility and pest pressure (D178, D179), read before the harvest changes them
       local pressure, repeated, weeds = Soil.pressure(w, i), Soil.repeats(w, i, def), Soil.weeds(w, i)
       local tier, penalty, tended = Quality.grade(w, i, crop, def) -- fertility, weeds, thirst and the tended mark (D182), read before the harvest changes them
-      local share = Crops.yieldShare(w, crop) -- a young or unpruned perennial gives less (D183)
+      local share = Crops.yieldShare(w, crop) -- a young perennial gives less (D183)
       local amount = math.max(1, math.floor(def.yield * mult * share + rng:float()))
       local seeds = rng:int(def.seedReturn[1], def.seedReturn[2])
       if def.perennial then
-        -- the plant stays: it rests until its next fruiting season and wants pruning
+        -- the plant stays: it rests until its next fruiting season
         crop.growth, crop.thirst, crop.tends = 0, 0, 0
-        crop.rest, crop.fruited, crop.unpruned, crop.pruneDue = true, true, nil, true
+        crop.rest, crop.fruited = true, true
       else
         w.state.crops[i] = nil
       end
@@ -668,68 +662,6 @@ local function registerTasks(world)
     complete = function(w, _, i, order)
       Soil.pull(w, i)
       Crops.tend(w, i, order)
-    end,
-  })
-
-  -- Pruning (D183): a picked perennial wants cutting back before its next fruiting season or that crop is smaller.
-  -- Upkeep, so the routine does it; the player's tap prunes any plant that wants it.
-  Tasks.register(world, {
-    id = "prune",
-    category = "maintenance",
-    verb = "Prune",
-    clickOrder = 36,
-    candidates = function(w, _, add)
-      for i, crop in pairs(w.state.crops) do
-        if crop.pruneDue then
-          add(i)
-        end
-      end
-    end,
-    canDo = function(w, _, i)
-      local crop = w.state.crops[i]
-      return crop ~= nil and crop.pruneDue == true and not fields.held[i]
-    end,
-    workTime = function(w)
-      return w.tuning.perennials.pruneTime
-    end,
-    complete = function(w, _, i)
-      local crop = w.state.crops[i]
-      crop.pruneDue = nil
-      w.events:emit("crop.pruned", { crop = crop.id, tile = i })
-    end,
-  })
-
-  -- Wrapping (D183): a young perennial wants wrapping before the freeze or it may die at it. The routine goes from
-  -- `wrapLead` days before the freeze; a tap wraps any young plant until the ground freezes. Upkeep.
-  Tasks.register(world, {
-    id = "wrap",
-    category = "maintenance",
-    verb = "Wrap",
-    clickOrder = 37,
-    candidates = function(w, _, add)
-      if Weather.isFrozen(w) or Weather.daysToFreeze(w) > w.tuning.perennials.wrapLead then
-        return
-      end
-      for i, crop in pairs(w.state.crops) do
-        if Crops.isYoung(crop) and not crop.wrapped then
-          add(i)
-        end
-      end
-    end,
-    canDo = function(w, _, i, order)
-      local crop = w.state.crops[i]
-      if not crop or not Crops.isYoung(crop) or crop.wrapped or fields.held[i] or Weather.isFrozen(w) then
-        return false
-      end
-      return order ~= nil or Weather.daysToFreeze(w) <= w.tuning.perennials.wrapLead
-    end,
-    workTime = function(w)
-      return w.tuning.perennials.wrapTime
-    end,
-    complete = function(w, _, i)
-      local crop = w.state.crops[i]
-      crop.wrapped = true
-      w.events:emit("crop.wrapped", { crop = crop.id, tile = i })
     end,
   })
 
@@ -948,22 +880,6 @@ function Crops.frost(world)
     if not Crops.survivesFrost(world, crop.id) then -- hardy crops sit the winter out dormant (D177)
       world.state.crops[i] = nil
       world.events:emit("crop.frosted", { crop = crop.id, tile = i })
-    end
-  end
-  -- A young perennial that is not wrapped may die at the freeze (D183). The roll is drawn for every young plant,
-  -- whatever the wrapping and the frost cloth (frostGuard), so they change the outcome and not the stream.
-  local cfg = world.tuning.perennials
-  local guard = math.min(world.tuning.threats.maxGuard, Stats.modifier(world, "frostGuard"))
-  local rng
-  for _, i in ipairs(tiles) do
-    local crop = world.state.crops[i]
-    if crop and Crops.isYoung(crop) then
-      rng = rng or world:rng("orchard")
-      local roll = rng:float()
-      if not crop.wrapped and roll < cfg.youngFrostKill and roll >= cfg.youngFrostKill * guard then
-        world.state.crops[i] = nil
-        world.events:emit("crop.frosted", { crop = crop.id, tile = i, young = true })
-      end
     end
   end
 end

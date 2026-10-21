@@ -77,7 +77,7 @@ Also `wardrobe` (D154: the Wardrobe menu, its preview, locked hints, the dawn ru
 
 Also `quality` (D182, #368: the Pantry and the Load list showing the tiers of stocked produce, the town's load paying them and listing them, and the tile card of a growing crop reading its grade and the tended mark; the stock is set through the sim; desktop, phone and landscape).
 
-Also `perennials` (D183, #369: a sapling, a young plant and a ripe tree on the field with their tile cards (stage, fruiting season, needs pruning, wrap it, wrapped, what the young plant draws), a tap sending the homesteader to prune and to wrap, and the new seed packets in the tray; desktop, phone and landscape).
+Also `perennials` (D183, #369: a sapling, a young plant and a ripe tree on the field with their tile cards (stage, fruiting season, what the young plant draws, resting), a tap sending the homesteader to pick the ripe tree, and the new seed packets in the tray; desktop, phone and landscape).
 
 On narrow views some toolbar buttons live in the Tools or More palette: `d:pick(label)` presses a toolbar button wherever it is (it opens the palette when needed), `d:press` only sees what is on screen.
 

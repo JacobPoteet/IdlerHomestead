@@ -39,7 +39,7 @@ Features.describe = {
   finds = "choose finds by need instead of the first option (#111)",
   weather = "active: no hauling water in the rain (#101)",
   rotate = "replant empty planned tiles with a family other than the one last harvested there, from the seeds in hand (D179)",
-  orchard = "learn, buy and plan berry canes and apple trees once money allows (a few of each); the routine prunes and wraps them (D183)",
+  orchard = "learn, buy and plan berry canes and apple trees once money allows (a few of each) (D183)",
 }
 
 --- Parse a `features=` value: nil/"all" is every feature, "none" is none, else a comma list.
@@ -456,7 +456,7 @@ function Features.rotate(world)
 end
 
 --- Perennials (D183): buy canes and saplings when they are learned and affordable (the dear item first in line), and plan
---- each one in hand on a free tillable tile near the spawn; the routine tills, plants, waters, prunes and wraps them.
+--- each one in hand on a free tillable tile near the spawn; the routine tills, plants and waters them.
 --- A plant counts once it is bought, planned or planted, so none is bought twice.
 function Features.orchard(world)
   local grid, fields = world.state.grid, world.state.fields

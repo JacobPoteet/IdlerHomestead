@@ -1,6 +1,5 @@
 -- Perennials (D183, #369): berry canes and an apple tree on the field. The tile card names the stage and when the
--- plant fruits, says to prune a picked plant and to wrap a young one before the freeze, and calls a resting plant
--- resting; a tap on a plant that wants pruning or wrapping sends the homesteader (the Prune and Wrap orders); a
+-- plant fruits, what a young plant draws, and calls a resting plant resting; a ripe tree is harvested by a tap; a
 -- sapling, a leafy young plant and a ripe tree look different on the ground. Plant state is set through the sim (a
 -- scenario cannot wait for seasons); the taps and the camera are real.
 local Crops = require("src.sim.systems.crops")
@@ -49,7 +48,6 @@ return function(d)
   assert(hasLine(scene:tileInfo(sapling), "Sapling: small first crop in summer"), "a sapling says when it fruits")
   assert(hasLine(scene:tileInfo(sapling), "Berry canes: resting"), "and rests")
   assert(hasLine(scene:tileInfo(sapling), "Draws deer while young"), "and names what it draws")
-  assert(hasLine(scene:tileInfo(sapling), "Wrap it before the first frost"), "and says to wrap it")
   assert(
     hasLine(scene:tileInfo(young), "Young: 40% crop in autumn, full after winter"),
     "a young plant says what it gives"
@@ -61,9 +59,7 @@ return function(d)
   d:frames(12)
   d:shot("sapling_card")
 
-  -- A picked plant wants pruning: the card says so, a tap sends the homesteader and the plant is pruned.
-  world.state.crops[tree].growth, world.state.crops[tree].rest, world.state.crops[tree].pruneDue = 0, true, true
-  assert(hasLine(scene:tileInfo(tree), "Needs pruning"), "a picked plant wants pruning")
+  -- A tap on the ripe tree sends the homesteader to pick it; the plant stays and rests.
   local x, y = Grid.coords(world.state.grid, tree)
   scene.selected = nil
   d:frames(2)
@@ -73,22 +69,11 @@ return function(d)
   d:advance(25)
   d:setSpeed(0)
   d:frames(4)
-  assert(not world.state.crops[tree].pruneDue, "the homesteader pruned it")
-  assert(not hasLine(scene:tileInfo(tree), "Needs pruning"), "and the card no longer asks")
-
-  -- Wrapping: a tap on a young plant wraps it before the freeze, and the card says wrapped.
-  local wx, wy = Grid.coords(world.state.grid, young)
-  d:clickTile(wx, wy)
-  d:frames(4)
-  d:setSpeed(1)
-  d:advance(25)
-  d:setSpeed(0)
-  d:frames(4)
-  assert(world.state.crops[young].wrapped, "the homesteader wrapped it")
-  assert(hasLine(scene:tileInfo(young), "Wrapped against the frost"), "the card says so")
-  scene.selected = young
+  assert(world.state.crops[tree] and world.state.crops[tree].growth == 0, "the tree was picked and stays")
+  assert(hasLine(scene:tileInfo(tree), "Apple tree: resting"), "and rests until next autumn")
+  scene.selected = tree
   d:frames(12)
-  d:shot("wrapped_card")
+  d:shot("picked_card")
   scene.selected = nil
 
   -- The Hoe's packets list the new seeds once they are in the store.

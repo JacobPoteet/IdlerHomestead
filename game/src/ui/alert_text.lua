@@ -106,8 +106,8 @@ function AlertText.cropFrostLine(world, crop)
   return string.format("Frost in %dd", left)
 end
 
---- Lines for the tile card of a perennial in the ground (D183): its stage and when it fruits, then what it needs
---- (pruning, wrapping before the freeze). Empty for an annual.
+--- Lines for the tile card of a perennial in the ground (D183): its stage and when it fruits, then what a young plant
+--- draws. Empty for an annual.
 function AlertText.perennialLines(world, crop)
   local lines = {}
   if not crop.stage then
@@ -124,17 +124,7 @@ function AlertText.perennialLines(world, crop)
   else
     lines[#lines + 1] = string.format("Established: full crop in %s", season)
   end
-  if crop.pruneDue then
-    lines[#lines + 1] = "Needs pruning"
-  end
   if Crops.isYoung(crop) then
-    if crop.wrapped then
-      lines[#lines + 1] = "Wrapped against the frost"
-    elseif not Weather.isFrozen(world) then
-      local left = Weather.daysToFreeze(world)
-      lines[#lines + 1] = left <= world.tuning.perennials.wrapLead and string.format("Wrap it: frost in %dd", left)
-        or "Wrap it before the first frost"
-    end
     local animals = def.perennial.vulnerable
     if #animals > 0 then
       lines[#lines + 1] = "Draws " .. table.concat(animals, " and ") .. " while young"

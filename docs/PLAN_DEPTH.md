@@ -298,7 +298,7 @@ A **compost bin** takes crop residue, spoiled food and manure and returns compos
 
 ### 8.5 Perennials
 
-Berries and orchard trees cost a lot to start. In days (D168): planted in one season, they give a first, small yield in the *next* season and a full yield once they have come through one winter; then they pay for years. They are the long-term idle investment. They need pruning and frost care (upkeep, section 10), and are vulnerable to deer. A young orchard is a bear and deer target.
+Berries and orchard trees cost a lot to start. In days (D168): planted in one season, they give a first, small yield in the *next* season and a full yield once they have come through one winter; then they pay for years. They are the long-term idle investment. **Built basic (D183):** no pruning or frost care, only water; a young plant is a deer and bear target (a data hook until phase C).
 
 ### 8.6 Quality
 
