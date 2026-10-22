@@ -9,8 +9,16 @@
 -- confirmed (the reserve guard). In town, Sell the load sells exactly what is loaded; everything else
 -- stays home. Loaded goods are not offered at the roadside stand.
 --
+-- Saturation (D196, PLAN_DEPTH 9.1): the town's demand for each good is shared by the truck and the stand.
+-- `sat[id]` is the units sold lately; past tuning.economy.saturation.freeUnits each unit sold takes `step` off
+-- the price (never under `minMult`), and `recoveryPerDay` units are forgotten every morning. A load is priced
+-- unit by unit, so one crop in bulk earns less than a mix, and Auto-load picks the best next unit, so it mixes.
+-- Market day (D196, PLAN_DEPTH 9.4): on the last day of a season the truck pays `marketDay.truckPriceMult`
+-- more (the stand's traffic is doubled in stand.lua); `marketDay.enabled` switches it off.
+--
 -- State: world.state.market = { orders = { { item, arriveDay } }, prices = { [resourceId] = mult },
---                               specials = { [catalogId] = true }, week, inTown, load = { [id] = n } }
+--                               specials = { [catalogId] = true }, week, inTown, load = { [id] = n },
+--                               sat = { [id] = units } }
 -- Emits "market.ordered" { item }, "market.delivered" { item }, "market.sold" { earnings, units },
 --       "market.trip" {}, "market.tripReady" {} (the truck's charge reached a full trip's worth),
 --       "market.held" { item } (once per order, when a due delivery is waiting
@@ -71,9 +79,10 @@ end
 function Market.init(world)
   local state = world.state
   if not state.market then
-    state.market = { orders = {}, prices = {}, specials = {}, week = 1, inTown = false, load = {} }
+    state.market = { orders = {}, prices = {}, specials = {}, week = 1, inTown = false, load = {}, sat = {} }
     Market.rollWeek(world)
   end
+  state.market.sat = state.market.sat or {}
   world.events:on("ledger.changed", function(e)
     -- Eating, spoiling or the stand can leave less stock than is loaded: the load follows the stock.
     local load = state.market.load
@@ -82,6 +91,7 @@ function Market.init(world)
     end
   end)
   world.events:on("calendar.newDay", function(e)
+    Market.recover(world)
     local w = weekOf(world, e.day)
     if w ~= state.market.week then
       state.market.week = w
@@ -124,6 +134,61 @@ function Market.worth(world, id, n, order)
     total = total + units * Market.tierPrice(world, id, tier)
   end
   return math.floor(total + 0.5), picked
+end
+
+-- Saturation and market day ----------------------------------------------------------------------------
+
+--- Price multiplier (0..1) for the next unit of a good when `sat` units have been sold lately.
+local function satMult(world, sat)
+  local cfg = world.tuning.economy.saturation
+  return math.max(cfg.minMult, 1 - cfg.step * math.max(0, sat - cfg.freeUnits))
+end
+
+--- Units of a good sold lately (the town's saturation, shared by truck and stand).
+function Market.saturation(world, id)
+  return world.state.market.sat[id] or 0
+end
+
+--- Units of a good the town still takes at full price: where the price starts dropping.
+function Market.freeUnits(world, id)
+  return math.max(0, math.floor(world.tuning.economy.saturation.freeUnits - Market.saturation(world, id)))
+end
+
+--- Average price multiplier over the next `n` units of a good (1 when all fit under the free units).
+function Market.satFactor(world, id, n)
+  if n <= 0 then
+    return 1
+  end
+  local sat = Market.saturation(world, id)
+  local sum = 0
+  for k = 0, n - 1 do
+    sum = sum + satMult(world, sat + k)
+  end
+  return sum / n
+end
+
+--- Count `n` units sold of a good into the town's saturation.
+function Market.addSaturation(world, id, n)
+  local sat = world.state.market.sat
+  sat[id] = (sat[id] or 0) + n
+end
+
+--- Each morning the town forgets some of what it was sold.
+function Market.recover(world)
+  local sat = world.state.market.sat
+  local back = world.tuning.economy.saturation.recoveryPerDay
+  for id, n in pairs(sat) do
+    n = n - back
+    sat[id] = n > 0 and n or nil
+  end
+end
+
+--- Is today market day (the last day of the season, D196)?
+function Market.isMarketDay(world)
+  if not world.tuning.economy.marketDay.enabled then
+    return false
+  end
+  return Calendar.now(world).dayOfSeason == world.tuning.time.daysPerSeason
 end
 
 function Market.itemPrice(world, id)
@@ -518,8 +583,9 @@ function Market.clearLoad(world)
   world.state.market.load = {}
 end
 
---- Auto-load: fill the free cargo with spare surplus, highest price per unit first, then the food that
---- spoils soonest, then content order. Never loads into a keep target. Returns the units added.
+--- Auto-load: fill the free cargo with spare surplus one unit at a time, always the unit that would sell
+--- for the most now (saturation counted, D196, so a big crop is not loaded alone), then the food that spoils
+--- soonest, then content order. Never loads into a keep target. Returns the units added.
 function Market.autoLoad(world)
   if world.state.market.inTown then
     return 0
@@ -533,13 +599,14 @@ function Market.autoLoad(world)
       list[#list + 1] = {
         id = res.id,
         spare = spare,
-        price = Market.sellPrice(world, res.id),
+        base = Market.sellPrice(world, res.id),
+        sat = Market.saturation(world, res.id) + Market.loaded(world, res.id),
         days = info and info.daysLeft or math.huge,
         index = index,
       }
     end
   end
-  table.sort(list, function(a, b)
+  local function better(a, b)
     if a.price ~= b.price then
       return a.price > b.price
     end
@@ -547,21 +614,31 @@ function Market.autoLoad(world)
       return a.days < b.days
     end
     return a.index < b.index
-  end)
+  end
   local added = 0
-  for _, entry in ipairs(list) do
-    local n = math.min(entry.spare, Market.cargoLeft(world))
-    if n <= 0 then
+  while Market.cargoLeft(world) > 0 do
+    local best
+    for _, entry in ipairs(list) do
+      if entry.spare > 0 then
+        entry.price = entry.base * satMult(world, entry.sat)
+        if not best or better(entry, best) then
+          best = entry
+        end
+      end
+    end
+    if not best then
       break
     end
-    world.state.market.load[entry.id] = Market.loaded(world, entry.id) + n
-    added = added + n
+    best.spare, best.sat = best.spare - 1, best.sat + 1
+    world.state.market.load[best.id] = Market.loaded(world, best.id) + 1
+    added = added + 1
   end
   return added
 end
 
 --- What selling the load would do: list of { id, units, price, worth, tiers } in content order, total $, units. The best
---- units of a good are the ones sold (D182): `price` is the normal unit price, `worth` what the line pays with its tiers,
+--- units of a good are the ones sold (D182): `price` is the normal unit price, `worth` what the line pays with its tiers, saturation and market day,
+--- `factor` the price multiplier on the line (under 1 when the town is saturated),
 --- `tiers` the units at each tier.
 function Market.loadQuote(world)
   local lines, total, units = {}, 0, 0
@@ -569,8 +646,19 @@ function Market.loadQuote(world)
     local n = math.min(Market.loaded(world, res.id), Ledger.get(world, res.id))
     if n > 0 then
       local worth, tiers = Market.worth(world, res.id, n, "best")
-      lines[#lines + 1] =
-        { id = res.id, units = n, price = Market.sellPrice(world, res.id), worth = worth, tiers = tiers }
+      local factor = Market.satFactor(world, res.id, n)
+      if Market.isMarketDay(world) then
+        factor = factor * world.tuning.economy.marketDay.truckPriceMult
+      end
+      worth = math.floor(worth * factor + 0.5)
+      lines[#lines + 1] = {
+        id = res.id,
+        units = n,
+        price = Market.sellPrice(world, res.id),
+        worth = worth,
+        tiers = tiers,
+        factor = factor,
+      }
       total = total + worth
       units = units + n
     end
@@ -587,6 +675,7 @@ function Market.sellLoad(world)
   for _, line in ipairs(lines) do
     Quality.take(world, line.id, line.units, "best") -- the best units go to town; the ledger then drops the count
     Ledger.remove(world, line.id, line.units, "sold")
+    Market.addSaturation(world, line.id, line.units)
   end
   Market.clearLoad(world)
   if units == 0 then

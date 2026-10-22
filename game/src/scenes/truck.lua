@@ -380,7 +380,7 @@ function Truck:draw()
         local res = world.registry:get("resources", line.id)
         Panel.icon(Panel.resourceIcon(line.id), b.x + 12, y)
         local tiers = QualityText.tiers(world, line.tiers)
-        local text = tiers and string.format("%s  %d for $%d", res.name, line.units, line.worth)
+        local text = (tiers or line.factor ~= 1) and string.format("%s  %d for $%d", res.name, line.units, line.worth)
           or string.format("%s  %d x $%d", res.name, line.units, line.price)
         Text.draw(text, b.x + 28, y + 1, { size = "small" })
         if tiers then
@@ -403,7 +403,7 @@ function Truck:draw()
       )
     end
     Text.draw(
-      string.format("Total $%d", total),
+      string.format("Total $%d%s", total, Market.isMarketDay(world) and " (market day)" or ""),
       b.x + 12,
       b.y + b.h - 50,
       { size = "small", color = theme.colors.accent }
