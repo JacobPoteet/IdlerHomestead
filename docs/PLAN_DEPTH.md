@@ -441,6 +441,8 @@ Feed, fuel, jars, medicine, replacement parts: small, regular, visible in a ledg
 
 At each new run, three plots are offered with visible traits (soil, water, wood, sun, a hazard) and a reward or risk tag. The choice is the run's first strategic decision.
 
+> **Built (D200, #384, H1):** `src/sim/plots.lua` summarises a seed's land on a bare world (about 11 ms), `Run.offerPlots` stores three in `meta.recovery.plots`, and a **Choose land** button on the recovery screen opens the Plots scene. Traits are levels 1 to 3 (soil, water, wood, sun) plus at most one hazard; a hazard plot comes with a small starting bonus (`run.startBonus`), which is the reward in the trade (the open question: the safest plot is not always the pick). Optional: Head out takes the first plot. Runs from run 2 (Q14, D170). Starting loadouts (12.3) reuse `run.startBonus`.
+
 ### 12.2 Year charters (opens at Footing)
 
 At the start of each spring after Footing the player drafts one of three **charters**, each a trade-off for the year. The draft is an offer, so it is not made while Footing is slipped (3.2); the year then runs with no charter until Footing is regained. For example:

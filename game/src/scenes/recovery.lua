@@ -3,6 +3,8 @@
 
 local Character = require("src.render.character")
 local Journal = require("src.sim.systems.journal")
+local PlotsScene = require("src.scenes.plots")
+local PlotText = require("src.ui.plot_text")
 local Preview = require("src.render.wardrobe_preview")
 local Wardrobe = require("src.sim.systems.wardrobe")
 local WardrobeScene = require("src.scenes.wardrobe")
@@ -38,6 +40,7 @@ function Recovery:enter(slot, data)
   self.slot, self.data = slot, data
   self.metaWorld = Run.metaWorld(self.app.ctx, data.meta)
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
+  Run.offerPlots(data, self.metaWorld) -- the three plots for the next run (D200, #384); optional to look at
   self.app.ctx.store:write(slot, data) -- recovering survives a quit
   self.wardrobeCfg = self.app.ctx.tuning.ui.wardrobe
   Preview.setup(self.wardrobeCfg)
@@ -73,6 +76,17 @@ function Recovery:update()
   for _, outfit in ipairs(self.clothesOutfits or {}) do
     Preview.figure(self.app.ctx.registry, outfit, true)
   end
+end
+
+--- Look over the plots on offer (D200): the Plots scene over this one. Head out takes the chosen plot, else the first.
+function Recovery:choosePlot()
+  PlotsScene.open(self.app, {
+    data = self.data,
+    slot = self.slot,
+    onChange = function()
+      self:layout()
+    end,
+  })
 end
 
 function Recovery:headOut()
@@ -112,6 +126,20 @@ function Recovery:layout()
   self.shift = self.tableH + self.clothesH + math.max(0, math.ceil(height) - 12) -- the block starts at +108 and the study label sits at +132, both below the progress table
   local stacked = self.view.w < wcfg.recoveryStackWidth -- narrow views put Change clothes above Head out
   self.footerW = b.w - 24 - 136 - (stacked and 0 or 124 + 8)
+  -- Choose land (D200, #384) sits top right, level with the heading: it never competes with the footer buttons.
+  local words = ctx.tuning.plots.words
+  local plots = self.data.meta.recovery.plots
+  self.buttons:add({
+    x = b.x + b.w - 136,
+    y = b.y + 6,
+    w = 124,
+    h = 24,
+    label = plots and plots.chosen and string.format(words.landLine, PlotText.name(ctx.tuning, plots.chosen))
+      or words.chooseButton,
+    onPress = function()
+      self:choosePlot()
+    end,
+  })
   self.buttons:add({
     x = b.x + b.w - 136 - (stacked and 0 or 124 + 8),
     y = b.y + b.h - (stacked and 66 or 36),

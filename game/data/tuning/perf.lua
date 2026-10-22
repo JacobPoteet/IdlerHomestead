@@ -8,5 +8,6 @@ return {
   frameMs = 16.6, -- ms per frame to hold 60 fps (the target on a mid phone); 33.3 would be the floor (30 fps)
   testWindowDays = 5, -- in-game days the allocation test plays before it measures (a pass of the scripted policy)
   testAllocKbPerTick = 4, -- KB the sim may allocate per tick, averaged, in that test (measured about 0.6 after #132; 6.3 before)
+  testPlotPreviewMs = 400, -- ms the test machine may take to make the three-plot offer at recovery (D200; measured about 35 on desktop)
   testAllocKbWorstTick = 512, -- KB the worst single tick of that test may allocate (new-day and idle-search work)
 }

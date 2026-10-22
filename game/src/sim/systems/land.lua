@@ -1,5 +1,5 @@
 -- Land: generates the plot for a new run and keeps runtime lookups (occupancy) in sync.
--- Also hands out the run's starting resources once.
+-- Also hands out the run's starting resources once (plus the chosen plot's bonus, state.startBonus = { id = amount }).
 
 local Grid = require("src.sim.grid")
 local Landgen = require("src.sim.landgen")
@@ -27,6 +27,16 @@ function Land.init(world)
     table.sort(ids)
     for _, id in ipairs(ids) do
       Ledger.add(world, id, world.tuning.run.startingResources[id], "starting kit")
+    end
+    -- What the chosen plot comes with (D200, #384): set by the run start (Run.startNext), absent on a plain run.
+    local bonus = state.startBonus
+    ids = {}
+    for id in pairs(bonus or {}) do
+      ids[#ids + 1] = id
+    end
+    table.sort(ids)
+    for _, id in ipairs(ids) do
+      Ledger.add(world, id, bonus[id], "plot bonus")
     end
   end
 end
