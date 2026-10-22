@@ -83,6 +83,7 @@ function Recovery:choosePlot()
   PlotsScene.open(self.app, {
     data = self.data,
     slot = self.slot,
+    metaWorld = self.metaWorld,
     onChange = function()
       self:layout()
     end,

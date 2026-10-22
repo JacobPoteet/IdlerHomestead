@@ -366,8 +366,8 @@ function Inventory.place(world, id, i)
   return true
 end
 
--- Place starting objects on the nearest free tiles around the spawn.
-local function placeNearSpawn(world, id)
+--- Put a starting object on the nearest free tiles around the spawn (or leave it in the inventory when there is no room).
+function Inventory.placeNearSpawn(world, id)
   local grid = world.state.grid
   local sx, sy = Grid.coords(grid, Land.spawn(world))
   for r = 1, 6 do
@@ -398,7 +398,7 @@ function Inventory.init(world)
     Inventory.addEquipment(world, id)
   end
   for _, id in ipairs(world.tuning.run.startingObjects) do
-    placeNearSpawn(world, id)
+    Inventory.placeNearSpawn(world, id)
   end
 end
 

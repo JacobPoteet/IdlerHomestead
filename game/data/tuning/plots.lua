@@ -44,7 +44,15 @@ return {
   words = { -- text shown to the player (no units); level words run from level 1 to level 3
     title = "Choose your land",
     intro = "Three plots to start on. Look them over, or just head out: the first one is fine.",
-    footer = "Every plot has a creek, a road and the same old truck. Your knowledge comes with you.",
+    kitButton = "Starting kit", -- the Plots scene's button to the loadouts (D201, #386)
+    kitLine = "Kit: %s", -- the same button once a loadout is chosen
+    kitTitle = "Starting kit",
+    kitIntro = "Optional. A kit brings a bundle of gear for a small cost, and opens as the Journal teaches what it needs.",
+    kitNone = "Standard start",
+    kitNoneLine = "The usual gear and nothing taken away.",
+    kitChosen = "Chosen",
+    kitLocked = "Locked: learn %s in the Field Journal.", -- the name of the Journal node that opens it
+    kitCost = "Costs: %s", -- the loadout's penaltyLine
     done = "Done",
     plotNames = { "Plot A", "Plot B", "Plot C" },
     chosen = "Chosen",

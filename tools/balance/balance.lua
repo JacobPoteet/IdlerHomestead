@@ -28,6 +28,7 @@ local Save = require("src.core.save")
 local Status = require("src.sim.systems.status")
 local Session = require("src.session")
 local Weather = require("src.sim.systems.weather")
+local World = require("src.sim.world")
 
 local Balance = {}
 
@@ -680,10 +681,10 @@ end
 
 --- Play one seed. With `runs` > 1, a failed run is followed by recovery (the policy's free study)
 --- and a fresh run on new land with the knowledge kept (GDD §4.3); a run that survives the span
---- ends the career there. `outfit` ("light", "mid" or "heavy", optional) dresses the homesteader in the first
+--- ends the career there. `loadout` (a loadout id, optional) starts every run with that starting loadout (D201). `outfit` ("light", "mid" or "heavy", optional) dresses the homesteader in the first
 --- garment of that weight class in every slot at the start of each run (Balance.dress). Returns a list of run
 --- results.
-function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode, pair)
+function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode, pair, loadout)
   if pair then
     return Balance.playPair(ctx, policyName, seed, years, runs, features, outfit, eventMode)
   end
@@ -695,6 +696,10 @@ function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, 
   local results = {}
   for r = 1, runs or 1 do
     local runSeed = seed + (r - 1) * 7919
+    if loadout and not data.run then
+      data.run = World.newState(runSeed) -- a run that starts with a loadout (D201): the choice is run state
+      data.run.loadout = loadout
+    end
     local session = Session.new({
       store = store,
       slot = 1,

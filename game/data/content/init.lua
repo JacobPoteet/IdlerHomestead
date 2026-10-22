@@ -9,6 +9,7 @@ return {
   "notes",
   "catalog",
   "perks",
+  "loadouts",
   "finds",
   "threats",
   "chapters",

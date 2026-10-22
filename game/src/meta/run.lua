@@ -19,8 +19,9 @@
 -- A summary also carries hurt (optional, D167): the statuses that took hold this run, { { id, count } }, for the
 -- recovery scene.
 -- meta.recovery = { summary, finishedStudy = itemId?, freeStudyUsed = bool, plots = { base = seed, list = { plot summary, ... },
---                   chosen = index? } } while recovering. `plots` is the plot preview (D200, #384): made when the
+--                   chosen = index? }, loadout = id? } while recovering. `plots` is the plot preview (D200, #384): made when the
 -- recovery scene opens (Run.offerPlots) and optional to use; Run.startNext takes the chosen plot, else the first.
+-- `loadout` is the starting loadout chosen for the next run (D201, #386; Run.chooseLoadout), absent for the standard start.
 
 local Calendar = require("src.sim.systems.calendar")
 local Established = require("src.sim.systems.established")
@@ -292,6 +293,39 @@ function Run.pickedPlot(data)
   return plots and plots.list[plots.chosen or 1] or nil
 end
 
+--- The starting loadouts for the recovery screen, in content order: { { def, unlocked = bool, unlockName } }. A loadout
+--- is unlocked once the Journal node it names is known (D201, #386).
+function Run.loadouts(metaWorld)
+  local list = {}
+  for _, def in ipairs(metaWorld.registry:all("loadouts")) do
+    list[#list + 1] = {
+      def = def,
+      unlocked = Journal.isKnown(metaWorld, def.unlock),
+      unlockName = Journal.node(metaWorld, def.unlock).name,
+    }
+  end
+  return list
+end
+
+--- Choose the starting loadout for the next run, or nil for the standard start (the default). Returns true, or false +
+--- reason ("locked" until the Journal has taught what it needs, "unknown", "not recovering").
+function Run.chooseLoadout(data, metaWorld, id)
+  local recovery = data.meta.recovery
+  if not recovery then
+    return false, "not recovering"
+  end
+  if id ~= nil then
+    if not metaWorld.registry:has("loadouts", id) then
+      return false, "unknown"
+    end
+    if not Journal.isKnown(metaWorld, metaWorld.registry:get("loadouts", id).unlock) then
+      return false, "locked"
+    end
+  end
+  recovery.loadout = id
+  return true
+end
+
 --- Leave town for new land: the next run begins when the session sees the run state. With a plot offered
 --- (Run.offerPlots) the new run is that plot's seed and carries its bonus; otherwise the session draws a fresh seed.
 function Run.startNext(data)
@@ -299,15 +333,17 @@ function Run.startNext(data)
   career.runs = career.runs + 1
   Ftue.endForRun(data.meta) -- the tip cards are for the first run only (D69)
   local plot = Run.pickedPlot(data)
+  local loadout = data.meta.recovery and data.meta.recovery.loadout
   data.meta.recovery = nil
   data.run = nil
-  if plot then
-    data.run = World.newState(plot.seed)
-    if plot.bonus then
-      data.run.startBonus = {}
-      for id, amount in pairs(plot.bonus) do
-        data.run.startBonus[id] = amount
-      end
+  if plot or loadout then
+    data.run = World.newState(plot and plot.seed or Rng.freshSeed())
+    data.run.loadout = loadout
+  end
+  if plot and plot.bonus then
+    data.run.startBonus = {}
+    for id, amount in pairs(plot.bonus) do
+      data.run.startBonus[id] = amount
     end
   end
   if data.header then

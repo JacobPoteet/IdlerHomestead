@@ -19,6 +19,9 @@ Idler Homestead balance harness. Usage:  lovec tools/balance [key=value ...]
                                         its last, from the seeds in hand (D179). Policies: see docs/BALANCE.md
   outfit=light|mid|heavy                dress the homesteader in a whole outfit of one weight class
                                         (the wardrobe's grant and wear; default: the starter outfit, all mid)
+  loadout=<id>                          every run of the career starts with that starting loadout (angler,
+                                        gardener, herder, lumberjack, tinkerer; D201). The Journal unlock is skipped:
+                                        this measures the loadout, not the unlock. Default: the standard start
   jobs=N                                worker threads that play seeds in parallel (default: the
                                         CPU count, at most 16); jobs=1 plays them one after another
                                         in this thread. The report and out= files are identical.
@@ -99,9 +102,12 @@ function love.load(args)
       "outfit= must be light, mid or heavy"
     )
 
+    local loadout = opts.loadout
+    assert(loadout == nil or ctx.registry:has("loadouts", loadout), "loadout= must be a loadout id")
+
     io.write(
       string.format(
-        "balance: policies=%s seeds=%d (from %d) years=%d runs=%d features=%s%s%s\n",
+        "balance: policies=%s seeds=%d (from %d) years=%d runs=%d features=%s%s%s%s\n",
         table.concat(names, ","),
         seeds,
         seed0,
@@ -109,6 +115,7 @@ function love.load(args)
         runs,
         Features.label(features),
         outfit and (" outfit=" .. outfit) or "",
+        loadout and (" loadout=" .. loadout) or "",
         pair and (" paired events off/" .. opts.events) or "",
         #opts.sets > 0 and (" overrides: " .. table.concat(opts.sets, " ")) or ""
       )
@@ -143,6 +150,7 @@ function love.load(args)
         runs = runs,
         features = opts.features,
         outfit = outfit,
+        loadout = loadout,
         events = opts.events,
         pair = pair,
         sets = opts.sets,
@@ -161,12 +169,12 @@ function love.load(args)
       if played then
         return played[name][seed]
       end
-      return Balance.playSeed(ctx, name, seed, years, runs, features, outfit, opts.events, pair)
+      return Balance.playSeed(ctx, name, seed, years, runs, features, outfit, opts.events, pair, loadout)
     end
 
     local all, report =
       {}, {
-        config = { seeds = seeds, seed0 = seed0, years = years, runs = runs, overrides = opts.sets, features = Features.label(features), outfit = outfit, events = opts.events, pair = pair },
+        config = { seeds = seeds, seed0 = seed0, years = years, runs = runs, overrides = opts.sets, features = Features.label(features), outfit = outfit, loadout = loadout, events = opts.events, pair = pair },
         policies = {},
       }
     for _, name in ipairs(names) do
