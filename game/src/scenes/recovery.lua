@@ -1,5 +1,7 @@
 -- Recovery in town (GDD §4.3): review the run, take the one free study, then head out to new
--- land. Shown after the rescue, and on loading a slot that's still recovering.
+-- land. Shown after the rescue, and on loading a slot that's still recovering. Under what ended the run, a short summary
+-- of what came at the homestead (D202, #156: the night threats, the field threats, the bad events and the one that hurt
+-- most, from the summary's `faced`; words in src/ui/faced_text.lua).
 
 local Character = require("src.render.character")
 local Journal = require("src.sim.systems.journal")
@@ -13,6 +15,7 @@ local Run = require("src.meta.run")
 local StatusText = require("src.ui.status_text")
 local Buttons = require("src.ui.buttons")
 local Draw = require("src.ui.draw")
+local FacedText = require("src.ui.faced_text")
 local NodeView = require("src.ui.node_view")
 local Panel = require("src.ui.panel")
 local Text = require("src.ui.text")
@@ -31,6 +34,8 @@ local TABLE_ROW = 14 -- a table row (small text)
 local TABLE_H = 66 -- vertical space the two-row progress table takes; everything below moves down by it (plus a row when the Great Winter row shows, D117)
 local COL_LABEL_W = 138 -- row label column
 local COL_WIDTHS = { 124, 84, 84 } -- this run (cell and marker), previous run, slot best
+local FACED_GAP = 6 -- space above the "what came at you" summary, under the cause lines
+local FACED_GAP_COMPACT = 2 -- the same above its one-line form on a short view
 
 function Recovery.new()
   return setmetatable({}, Recovery)
@@ -124,8 +129,25 @@ function Recovery:layout()
     local def = ctx.registry:get("garments", id)
     self.clothesOutfits[n] = WardrobeText.outfitWith(Wardrobe.committed(self.metaWorld), def.slot, id) -- what is worn, with this garment on
   end
-  self.shift = self.tableH + self.clothesH + math.max(0, math.ceil(height) - 12) -- the block starts at +108 and the study label sits at +132, both below the progress table
   local stacked = self.view.w < wcfg.recoveryStackWidth -- narrow views put Change clothes above Head out
+  -- What came at the homestead (D202, #156), under the cause: none for a summary saved before it was recorded. Where the
+  -- whole of it would push the free study into the footer (a short view), only the "hurt most" line is kept.
+  local faced = recovery.summary.faced
+  local function shiftWith(facedH)
+    return self.tableH + self.clothesH + math.max(0, math.ceil(height + facedH) - 12) -- the block starts at +108 and the study label sits at +132, both below the progress table
+  end
+  local footerTop = b.y + b.h - (stacked and 66 or 36) - 4
+  local function fits(h)
+    return b.y + 150 + shiftWith(h) + self:studyHeight() <= footerTop
+  end
+  self.facedLines, self.facedTitled, self.facedH = self:facedBlock(faced, false)
+  if self.facedLines and not fits(self.facedH) then
+    self.facedLines, self.facedTitled, self.facedH = self:facedBlock(faced, true)
+  end
+  if self.facedLines and not fits(self.facedH) then
+    self.facedLines, self.facedTitled, self.facedH = nil, false, 0 -- the free study comes first
+  end
+  self.shift = shiftWith(self.facedH)
   self.footerW = b.w - 24 - 136 - (stacked and 0 or 124 + 8)
   -- Choose land (D200, #384) sits top right, level with the heading: it never competes with the footer buttons.
   local words = ctx.tuning.plots.words
@@ -190,6 +212,43 @@ function Recovery:layout()
     })
     y = y + rowH
   end
+end
+
+--- The "what came at you" block: its lines, whether it has the title, and its height; nil, false, 0 for a summary that
+--- has none (D202). `compact` keeps only the last line, untitled: what hurt most, or the quiet line when nothing came.
+function Recovery:facedBlock(faced, compact)
+  if not faced then
+    return nil, false, 0
+  end
+  local ctx = self.app.ctx
+  local cfg = ctx.tuning.ui.faced
+  local lines = FacedText.lines(cfg, ctx.registry, faced)
+  local h = FACED_GAP
+  if compact then
+    lines, h = { lines[#lines] }, FACED_GAP_COMPACT
+  else
+    h = h + Text.wrappedHeight(cfg.title, "small", self.causeW)
+  end
+  for _, line in ipairs(lines) do
+    h = h + Text.wrappedHeight(line.text, "small", self.causeW)
+  end
+  return lines, not compact, h
+end
+
+--- Height of the free study block under its label: the learned idea, the "no ideas" line or the idea rows.
+function Recovery:studyHeight()
+  local recovery = self.data.meta.recovery
+  if recovery.freeStudyUsed then
+    return Text.wrappedHeight("Ag", "body", self.box.w)
+  end
+  local h = 0
+  for n, def in ipairs(Journal.ideas(self.metaWorld)) do
+    if n > MAX_IDEAS then
+      break
+    end
+    h = h + math.max(ROW_H, 14 + Text.wrappedHeight(def.line, "small", self:textWidth(def)) + 2)
+  end
+  return h > 0 and h or Text.wrappedHeight("Ag", "small", self.box.w)
 end
 
 -- Width for an idea row's name and effect line: what's left between the icon and the stamps.
@@ -314,7 +373,24 @@ function Recovery:draw()
     cy = cy + Text.wrappedHeight(self.firstChange, "small", self.causeW)
   end
   if self.hurt then
-    Text.draw(self.hurt, b.x + 30, cy + 2, { size = "small", width = self.causeW, color = theme.colors.text })
+    cy = cy + 2
+    Text.draw(self.hurt, b.x + 30, cy, { size = "small", width = self.causeW, color = theme.colors.text })
+    cy = cy + Text.wrappedHeight(self.hurt, "small", self.causeW)
+  end
+  if self.facedLines then
+    if self.facedTitled then
+      local title = self.app.ctx.tuning.ui.faced.title
+      cy = cy + FACED_GAP
+      Text.draw(title, b.x + 30, cy, { size = "small", width = self.causeW, color = dim })
+      cy = cy + Text.wrappedHeight(title, "small", self.causeW)
+    else
+      cy = cy + FACED_GAP_COMPACT
+    end
+    for _, line in ipairs(self.facedLines) do
+      local ink = line.accent and theme.colors.accent or theme.colors.text
+      Text.draw(line.text, b.x + 30, cy, { size = "small", width = self.causeW, color = ink })
+      cy = cy + Text.wrappedHeight(line.text, "small", self.causeW)
+    end
   end
 
   Text.draw("One free study while you recover", b.x + 12, b.y + 132 + self.shift, { size = "small", color = dim })

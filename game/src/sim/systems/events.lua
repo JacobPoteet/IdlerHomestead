@@ -987,6 +987,19 @@ function Events.scheduled(world)
   return out
 end
 
+--- How often each event was offered this run, in content order: { { id, count, bad } } (events never offered are left
+--- out). The whole run, unlike Events.history; the recovery scene's run summary reads it (D202, #156).
+function Events.tally(world)
+  local done, out = state(world).done, {}
+  for _, d in ipairs(world.registry:all("events")) do
+    local n = done[d.id] or 0
+    if n > 0 then
+      out[#out + 1] = { id = d.id, count = n, bad = d.bad == true }
+    end
+  end
+  return out
+end
+
 --- What happened to the events this run, oldest first: { { day, id, how, option?, reason? } } (a plain copy).
 function Events.history(world)
   local out = {}

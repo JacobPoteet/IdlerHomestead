@@ -126,6 +126,31 @@ return {
     firstHunger = "Plant a field in the first days and keep a few days of food.",
     firstUnknown = "Spend the free study below, then plan the first week.",
   },
+  faced = { -- the recovery scene's run summary of what came at the homestead (D202, #156); words only. %s is a lower-case name unless noted
+    title = "What came at you",
+    quiet = "A quiet run: nothing came at the homestead.",
+    night = "Nights: %s.", -- the night threats, joined
+    nightItem = "%s %d", -- a night threat and how many nights it came
+    nightSome = "%s %d, %d got in", -- ... when only some of them got in
+    nightNone = "%s %d, all turned away", -- ... when none of them got in
+    field = "Field threats: %s.", -- the growing-season threats, joined
+    fieldPassed = "%s passed by", -- came and never struck
+    fieldStruck = "%s struck", -- struck once
+    fieldStruckTimes = "%s struck %d times",
+    fieldLost = "%d crops lost",
+    fieldDamaged = "%d knocked back",
+    fieldSaved = "%d saved",
+    events = "Misfortunes: %s.", -- the bad events, joined
+    eventItem = "%s x%d", -- an event that came more than once
+    join = "; ", -- between items on a line
+    detailJoin = ", ", -- between a field threat's figures
+    worst = "Hurt most: %s (%s).", -- %s: the name as written in content, then how much
+    worstNight = "%d nights", -- a night threat that got in more than once
+    worstNightOnce = "one night",
+    worstField = "%d crops", -- crops a field threat lost or knocked back
+    worstEvent = "%d times",
+    worstEventOnce = "once",
+  },
   greatWinter = { -- the Great Winter and the Established card (D117, #277); %s is a severity word (mild, hard, brutal)
     summaryHead = "the Great Winter (%s)", -- forecast pill: replaces "<severity> winter"
     news = "Warning: the Great Winter is coming, the hardest yet. Stock wood and food now.", -- toast when the full forecast is revealed, at the start of autumn

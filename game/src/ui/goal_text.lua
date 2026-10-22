@@ -165,14 +165,56 @@ local function sectionOf(title, rows, tag)
   return { title = title, rows = rows, tag = tag }
 end
 
+GoalText.limitTitle = "Limiting you"
+GoalText.limitNone = "Nothing is holding the homestead back right now."
+
+-- What helps, one dim line under each limit (D202): the rung of the ladder the player can buy or change.
+local LIMIT_HINTS = {
+  water = "A well or pump near the field saves trips; sprinklers and drip lines water for you.",
+  labour = "An auto-harvester takes a share of the work, or plant less than the day can tend.",
+  storage = "A bigger store from the Catalog, or sell or use some of what is in it.",
+  power = "More panels or a battery, or move it up the power list.",
+  market = "A stand, more cargo or a spread of crops: the town pays less for a good it has had a lot of.",
+}
+
+--- The "what is limiting you" rows (D202, #377): the limit with its figures (amber), then what helps (dim); one dim
+--- line when nothing holds. `limit` is Bottleneck.current (nil when nothing holds).
+function GoalText.limitRows(limit)
+  if not limit then
+    return { { text = GoalText.limitNone, dim = true } }
+  end
+  local text
+  if limit.id == "water" then
+    text = string.format("Water: %d of %d crops are dry.", limit.dry, limit.growing)
+  elseif limit.id == "labour" then
+    local parts = {}
+    if limit.ripe > 0 then
+      parts[#parts + 1] = plural(limit.ripe, "ripe crop")
+    end
+    if limit.weeds > 0 then
+      parts[#parts + 1] = plural(limit.weeds, "weedy bed")
+    end
+    text = "Labour: the work is outrunning you (" .. table.concat(parts, ", ") .. " waiting)."
+  elseif limit.id == "storage" then
+    text = string.format("Storage: the %s store is full (%s).", limit.name:lower(), whole(limit.capacity))
+  elseif limit.id == "power" then
+    text = string.format("Power: %s ran short today.", limit.name:lower())
+  elseif limit.good then
+    text = string.format("Market: the town pays %d%% for %s now.", math.floor(limit.factor * 100), limit.name:lower())
+  else
+    text = string.format("Market: %d spare goods wait, more than the truck carries (%d).", limit.spare, limit.cargo)
+  end
+  return { { text = text, level = 1 }, { text = LIMIT_HINTS[limit.id], dim = true } }
+end
+
 local function seasonName(id)
   return SEASON_NAMES[id] or id
 end
 
 --- The panel as sections: { { title, tag (a short word beside the title or nil), rows = { { text, level, mark, dim } } } }.
 --- `mark` is "done" | "todo" | "open" | "lock" (a box the scene draws) or nil. `milestones` is Milestones.list,
---- `tally` = { done, total }, `gates` is Goal.gates.
-function GoalText.panel(goal, milestones, tally, gates)
+--- `tally` = { done, total }, `gates` is Goal.gates, `limit` is Bottleneck.current (nil: nothing holds).
+function GoalText.panel(goal, milestones, tally, gates, limit)
   local sections = {}
 
   -- The pressing goal, whole.
@@ -181,6 +223,9 @@ function GoalText.panel(goal, milestones, tally, gates)
     now[#now + 1] = { text = s.text, level = s.level }
   end
   sections[#sections + 1] = sectionOf("Now", now)
+
+  -- What is limiting the homestead (D202): one line and what helps.
+  sections[#sections + 1] = sectionOf(GoalText.limitTitle, GoalText.limitRows(limit))
 
   -- The year and the winter ahead.
   local s, w, g = goal.season, goal.winter, goal.great

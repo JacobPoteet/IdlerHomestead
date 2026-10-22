@@ -82,7 +82,7 @@ local function emittedEvents()
     local fh = assert(io.open("game/src/sim/systems/" .. name .. ".lua", "r"))
     local text = fh:read("*a")
     fh:close()
-    for event in text:gmatch('emit%("([%w_.]+)"') do
+    for event in text:gmatch('emit%(%s*"([%w_.]+)"') do -- (a long call is wrapped after the parenthesis)
       found[event] = true
     end
   end
@@ -584,4 +584,71 @@ T.test("ftue tips list: geometry comes from tuning.ftue, not literals in the sce
     local code = line:gsub("%-%-.*$", ""):gsub('"[^"]*"', '""')
     T.falsy(code:find("[^%w_.]%d%d+[^%w_.]") or code:find("[^%w_.]%d%d+$"), "numeric literal in tips.lua: " .. line)
   end
+end)
+
+-- The homestead-depth tips (D202, #390) ------------------------------------------------------------------------------
+
+-- A world past the welcome and chip cards, so the step a test is about is the one it looks for.
+local function depthWorld(seed)
+  local world = newWorld({ seed = seed })
+  Ftue.dismiss(world, "welcome")
+  world.events:emit("hud.chipOpened", {})
+  pastGap(world)
+  return world
+end
+
+T.test("ftue depth tips: each comes from its own event, once, in the first run", function()
+  local cases = {
+    { id = "tonight", event = "hud.tonightOpened", payload = {} },
+    { id = "event", event = "event.offered", payload = { id = "sprained_ankle", class = "body", bad = true, day = 4 } },
+    { id = "night_threat", event = "nightthreat.resolved", payload = { id = "fox", outcome = "turned", lost = {} } },
+    { id = "status", event = "status.applied", payload = { id = "ankle_1" } },
+    { id = "footing_slipped", event = "footing.slipped", payload = { day = 9, fuel = 0, food = 0 } },
+    { id = "soil", event = "crop.harvested", payload = { crop = "radish", tile = 1, amount = 1, repeated = true } },
+    { id = "weeds", event = "soil.weeds", payload = { tile = 1, from = 0, to = 0.1, cause = "sprout" } },
+    { id = "contracts", event = "contract.offered", payload = { id = 1, def = "radish", standing = false } },
+  }
+  for n, c in ipairs(cases) do
+    local world = depthWorld(20 + n)
+    T.falsy(contains(drain(world), c.id), c.id .. " is not due before its event")
+    world.events:emit(c.event, c.payload)
+    run(world, reg:get("ftue", c.id).delay or 0) -- (a step with a long delay is not due inside drain's first gap)
+    T.truthy(contains(drain(world), c.id), c.id .. " comes after " .. c.event)
+    world.events:emit(c.event, c.payload)
+    T.falsy(contains(drain(world), c.id), c.id .. " comes once")
+  end
+end)
+
+T.test("ftue depth tips: the soil and weeds tips match their payloads", function()
+  local world = depthWorld(31)
+  world.events:emit("crop.harvested", { crop = "radish", tile = 1, amount = 1, repeated = false })
+  world.events:emit("soil.weeds", { tile = 1, from = 0.2, to = 0.3, cause = "grow" })
+  local shown = drain(world)
+  T.falsy(contains(shown, "soil"), "a harvest that rotated its family says nothing")
+  T.falsy(contains(shown, "weeds"), "weeds growing on are not the first sprout")
+end)
+
+T.test("ftue depth tips: what limits you comes a while after Footing is gained, and points at the goal line", function()
+  local world = depthWorld(32)
+  world.events:emit("footing.gained", { day = 7 })
+  run(world, reg:get("ftue", "bottleneck").delay - 1)
+  T.falsy(currentId(world) == "bottleneck", "the Footing card is read first")
+  T.truthy(contains(drain(world), "bottleneck"))
+  T.eq(reg:get("ftue", "bottleneck").highlight, "button:goal")
+end)
+
+T.test("ftue depth tips: nested tuning tokens read the Footing numbers", function()
+  local world = newWorld()
+  local text = Ftue.text(world, reg:get("ftue", "tonight"))
+  T.truthy(text:find(tostring(tun.night.footing.streakNights) .. " good nights", 1, true), text)
+  text = Ftue.text(world, reg:get("ftue", "footing_slipped"))
+  T.truthy(text:find(tostring(tun.night.footing.regainNights) .. " good nights", 1, true), text)
+end)
+
+T.test("ftue depth tips: none of them come in a later run", function()
+  local world, meta = newWorld({ seed = 33 })
+  Ftue.endForRun(meta)
+  world.events:emit("hud.tonightOpened", {})
+  world.events:emit("footing.slipped", { day = 9, fuel = 0, food = 0 })
+  T.eq(#drain(world), 0)
 end)

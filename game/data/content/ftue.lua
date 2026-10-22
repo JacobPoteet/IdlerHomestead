@@ -13,7 +13,8 @@
 --            "button:<id>", "seeds", "chip:<id>" or "tile:truck". Render only; a target that is not on
 --            screen shows no outline.
 --   replay   "spoil": the Tips list shows the live spoilage explanation instead of `text`.
--- Text may hold {domain.key} tokens, read from tuning at show time so a retuned number stays true.
+-- Text may hold {domain.key} tokens (or a nested {domain.table.key}), read from tuning at show time so a retuned
+-- number stays true.
 return {
   {
     id = "welcome",
@@ -162,5 +163,69 @@ return {
     title = "A threat is coming",
     trigger = "threat.warned",
     text = "The forecast shows when it hits. The Journal learns a counter after the first strike.",
+  },
+  -- The homestead-depth systems (M8, D202, #390): each told once, the first time it comes up in the first run. The
+  -- Tonight card raises hud.tonightOpened when it comes up by itself at dusk (the homestead scene).
+  {
+    id = "tonight",
+    title = "Tonight",
+    trigger = "hud.tonightOpened",
+    text = "Before dark the Tonight card checks warmth, food and water for the night. A short row has a button that fixes it in one tap. {night.footing.streakNights} good nights in a row, with a few days in stock, earn Footing.",
+  },
+  {
+    id = "event",
+    title = "Something happened",
+    trigger = "event.offered",
+    text = "Pick an option, or let it be: time keeps running, and if you do nothing the free, safe outcome at the bottom of the card happens by itself.",
+  },
+  {
+    id = "night_threat",
+    title = "Night visitors",
+    trigger = "nightthreat.resolved",
+    text = "Animals and weather come after dark. The Tonight card names the sign at dusk, and guards (the cat, a dog, a lantern) turn some away. The Journal learns a counter after the first one.",
+  },
+  {
+    id = "status",
+    title = "You are hurt",
+    trigger = "status.applied",
+    text = "A status shows under your health with the days it has left. Tap it (or press H) to see what it slows. Most pass on their own.",
+  },
+  {
+    id = "footing_slipped",
+    title = "Footing slipped",
+    trigger = "footing.slipped",
+    text = "Wood or food ran low. Nothing is lost: the Tonight card leads again, no bad events come, and {night.footing.regainNights} good nights in a row win Footing back.",
+  },
+  {
+    -- Comes a while after the one-time Footing card, so that card is read first.
+    id = "bottleneck",
+    highlight = "button:goal",
+    title = "What limits you",
+    trigger = "footing.gained",
+    delay = 40,
+    text = "With Footing held, the season leads. Tap the goal line (or press P): the Progress panel names what is limiting the homestead now (water, labour, storage, power or the market) and what helps.",
+  },
+  {
+    id = "soil",
+    title = "Rotate your beds",
+    trigger = "crop.harvested",
+    match = { repeated = true },
+    text = "The same crop family twice in a row on a bed builds pests and cuts the harvest. Plant another family there next. With the Plan tool in hand the Soil lens shows each bed's fertility and pests.",
+  },
+  {
+    id = "weeds",
+    title = "Weeds",
+    trigger = "soil.weeds",
+    match = { cause = "sprout" },
+    text = "Weeds came up in a bed. They cut the harvest until pulled; the Routine weeds for you while Upkeep is on, or tap the bed.",
+  },
+  {
+    -- The board opens when Footing is gained, so this one waits until after the Footing card and the tip above.
+    id = "contracts",
+    highlight = "tile:truck",
+    title = "Contracts",
+    trigger = "contract.offered",
+    delay = 60,
+    text = "The town posts orders on its contracts board each week. Fill one from your spare goods: it pays above the market price, and a missed one just expires. Tap the truck to see the board.",
   },
 }

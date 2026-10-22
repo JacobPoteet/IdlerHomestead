@@ -2282,7 +2282,11 @@ function Homestead:updateTonight(dt)
   end
   local due, leads = Readiness.tonightDue(self.world)
   local asleep = Actors.homesteader(self.world).asleep == true
+  local wasOpen = self.tonight.open
   self.tonight:sync(due, leads, self:tonightDay(), asleep)
+  if self.tonight.open and not wasOpen then
+    self.world.events:emit("hud.tonightOpened", {}) -- the card came up by itself at dusk: the Tonight tip (D202, #390)
+  end
   -- The one-time Footing card (D162): a panel in the Tonight card's place, up once it is earned, awake and on top.
   if Footing.cardDue(self.world) and not asleep and self.app:top() == self then
     Footing.cardShown(self.world)
