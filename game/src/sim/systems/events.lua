@@ -40,6 +40,13 @@
 -- player set, under the wood still needed to reach the end of winter, or under a day's drinking water (Events.orderFloor); an unaffordable or keep-blocked option adds a line to the morning
 -- report ("event.orderFallback"). Until the perk is known every order reads as Ask me, so nothing changes without it.
 --
+-- KNOWLEDGE AND THE KIT CHANGE THE OPTIONS (H5 + B10, #388, #354, D199, PLAN_DEPTH 12.5). Besides its two base options an event may
+-- carry `known = { [perk id] = { cost?, effect?, risk?, label? } }` on an option (the option reads as that, once the Techniques perk
+-- is known: a cost cut, a lost hour spared) and `extras`, further options that appear while their `requires` hold
+-- ({ known = perk id?, have = resource id? }: the technique is known, the item is in stock). Events.options is the one list the card,
+-- the standing orders and Events.choose all read, so an extra is option 3, 4 ... A standing order never picks one (they carry neither
+-- flag). A technique is never required: the base options and the ignore outcome are always there.
+--
 -- Event bus: "event.offered" { id, class, bad, wake, day, night (the night number; a wake costs that night's study, D195) }, "event.chosen" { id, option, label, class, bad, order? (true when a
 -- standing order chose it) }, "event.ignored" { id, reason ("expired" | "ignored" | "order"), label, class, bad },
 -- "event.orderFallback" { id, class, mode, why ("keep" | "short"), resource } (an order fell back to ignoring because of the cost),
@@ -648,7 +655,7 @@ resolve = function(world, option, reason)
   local s, c = state(world), cfg(world)
   local entry = table.remove(s.pending, 1)
   local d = def(world, entry.id)
-  local outcome = option and d.options[option] or d.ignore
+  local outcome = option and Events.options(world, d)[option] or d.ignore
   applyEffect(world, outcome.effect, entry.depth, d.id)
   if d.bad then
     s.coolUntil = Calendar.now(world).day + c.badCooldownNights
@@ -663,6 +670,60 @@ resolve = function(world, option, reason)
     payload.reason = reason
     world.events:emit("event.ignored", payload)
   end
+end
+
+-- Options now ------------------------------------------------------------------------------------------
+
+local VARIANT_KEYS = { "label", "cost", "effect", "risk", "trade", "meal" }
+
+--- An option as the player's knowledge reads it: the option itself, or a copy with the `known` overrides of every Techniques perk
+--- known now laid over it (perks in id order, so the result never depends on the order they were learned).
+function Events.variant(world, o)
+  if not o.known then
+    return o
+  end
+  local out
+  for _, perk in ipairs(sortedKeys(o.known)) do
+    if Journal.isKnown(world, perk) then
+      if not out then
+        out = {}
+        for k, v in pairs(o) do
+          if k ~= "known" then
+            out[k] = v
+          end
+        end
+      end
+      for _, key in ipairs(VARIANT_KEYS) do
+        if o.known[perk][key] ~= nil then
+          out[key] = o.known[perk][key]
+        end
+      end
+    end
+  end
+  return out or o
+end
+
+--- Does an extra option's `requires` hold ({ known = perk id?, have = resource id? })?
+local function extraHolds(world, x)
+  local r = x.requires or {}
+  if r.known and not Journal.isKnown(world, r.known) then
+    return false
+  end
+  return not r.have or Ledger.get(world, r.have) > 0
+end
+
+--- The options the card offers for event `d` now, in order: the base options as knowledge reads them, then the extras that hold.
+function Events.options(world, d)
+  local list = {}
+  for i, o in ipairs(d.options) do
+    list[i] = Events.variant(world, o)
+  end
+  for _, x in ipairs(d.extras or {}) do
+    if extraHolds(world, x) then
+      list[#list + 1] = x
+    end
+  end
+  return list
 end
 
 -- A hiker's supper: the cheapest stocked food (by value) that covers tuning.events.visitors.mealCalories, as { id = units }.
@@ -689,7 +750,9 @@ end
 -- The peddler's price: the catalog price of the item times tuning.events.visitors.peddlerPrice, paid in money or in units of a
 -- resource at this week's market price (Market.itemPrice, Market.sellPrice), as { id = units }.
 local function tradeCost(world, trade)
-  local price = Market.itemPrice(world, trade.item) * cfg(world).visitors.peddlerPrice
+  -- Haggling (a Techniques perk, D199) takes its share off the peddler's price.
+  local haggle = math.max(0, 1 - Stats.modifier(world, "peddlerDiscount"))
+  local price = Market.itemPrice(world, trade.item) * cfg(world).visitors.peddlerPrice * haggle
   local unit = trade.pay == "money" and 1 or Market.sellPrice(world, trade.pay)
   return { [trade.pay] = math.max(1, math.ceil(price / math.max(1, unit))) }
 end
@@ -720,8 +783,7 @@ local function lacking(world, cost)
   return nil
 end
 
-local function optionView(world, d, index)
-  local o = d.options[index]
+local function optionView(world, o, index)
   local cost = costOf(world, o)
   local missing = lacking(world, cost)
   return {
@@ -737,6 +799,14 @@ local function optionView(world, d, index)
   }
 end
 
+local function optionViews(world, d)
+  local out = {}
+  for i, o in ipairs(Events.options(world, d)) do
+    out[i] = optionView(world, o, i)
+  end
+  return out
+end
+
 local function view(world, entry)
   local d = def(world, entry.id)
   return {
@@ -746,7 +816,7 @@ local function view(world, entry)
     class = d.class,
     bad = d.bad,
     wake = d.wake == true,
-    options = { optionView(world, d, 1), optionView(world, d, 2) },
+    options = optionViews(world, d),
     ignore = { label = d.ignore.label, risk = d.ignore.risk, effect = d.ignore.effect },
     hoursLeft = entry.hoursLeft,
     realLeft = entry.realLeft,
@@ -754,7 +824,7 @@ local function view(world, entry)
 end
 
 --- The open card, as a read-only view, or nil: { id, title, line, class, bad, wake, options = { { index, label, cost, risk,
---- careful, bold, effect, affordable, lacking } x2 }, ignore = { label, risk, effect }, hoursLeft, realLeft }. `effect` is the
+--- careful, bold, effect, affordable, lacking } x2 or more }, ignore = { label, risk, effect }, hoursLeft, realLeft }. `effect` is the
 --- content's own table (read-only), so the card (B4, src/ui/event_text.lua) can say it in plain words.
 function Events.pending(world)
   local entry = state(world).pending[1]
@@ -814,7 +884,8 @@ end
 --- cannot pay, "keep": paying would drop a stock under its keep target) + the resource that stopped it.
 local function orderChoice(world, d, mode)
   local index
-  for i, o in ipairs(d.options) do
+  local options = Events.options(world, d)
+  for i, o in ipairs(options) do
     if o[mode] == true then
       index = i
       break
@@ -823,7 +894,7 @@ local function orderChoice(world, d, mode)
   if not index then
     return nil, "none"
   end
-  local cost = costOf(world, d.options[index])
+  local cost = costOf(world, options[index])
   local missing = lacking(world, cost)
   if missing then
     return nil, "short", missing
@@ -851,7 +922,7 @@ function Events.answerByOrder(world, d)
   end
   local index, why, resource = orderChoice(world, d, mode)
   if index then
-    local cost = costOf(world, d.options[index])
+    local cost = costOf(world, Events.options(world, d)[index])
     if cost then
       Ledger.spend(world, cost, "event")
     end
@@ -872,7 +943,7 @@ function Events.choose(world, index)
   if not entry then
     return false, "no event"
   end
-  local o = def(world, entry.id).options[index]
+  local o = Events.options(world, def(world, entry.id))[index]
   if not o then
     return false, "no such option"
   end
@@ -1080,10 +1151,46 @@ function Events.audit(world)
     if #d.options ~= 2 then
       bad(id, "needs exactly two options")
     end
-    local outcomes = { d.options[1], d.options[2], d.ignore }
+    -- Every outcome the card can show: the base options, each laid over by every perk it names, the extras, then the ignore.
+    local outcomes, wheres = {}, {}
+    local function add(o, where)
+      outcomes[#outcomes + 1] = o
+      wheres[#wheres + 1] = where
+    end
+    for n, base in ipairs(d.options) do
+      add(base, "option " .. n)
+      for _, perk in ipairs(sortedKeys(base.known or {})) do
+        if not reg:has("perks", perk) then
+          bad(id, "option " .. n .. " names the unknown perk " .. perk)
+        else
+          local over = {}
+          for k, v in pairs(base) do
+            over[k] = v
+          end
+          for k, v in pairs(base.known[perk]) do
+            over[k] = v
+          end
+          add(over, "option " .. n .. " as " .. perk .. " reads it")
+        end
+      end
+    end
+    for n, x in ipairs(d.extras or {}) do
+      local r = x.requires or {}
+      if not (r.known or r.have) then
+        bad(id, "extra " .. n .. " needs a requires")
+      end
+      if r.known and not reg:has("perks", r.known) then
+        bad(id, "extra " .. n .. " requires the unknown perk " .. r.known)
+      end
+      if r.have and not reg:has("resources", r.have) then
+        bad(id, "extra " .. n .. " requires the unknown resource " .. r.have)
+      end
+      add(x, "extra " .. n)
+    end
+    add(d.ignore, "ignore")
     local worst = { severity = 0, condition = 0 }
     for n, o in ipairs(outcomes) do
-      local where = n == 3 and "ignore" or ("option " .. n)
+      local where = wheres[n]
       if type(o.label) ~= "string" or type(o.risk) ~= "string" or type(o.effect) ~= "table" then
         bad(id, where .. " needs label, risk and effect")
       else
@@ -1168,7 +1275,7 @@ function Events.audit(world)
           end
         end
         local r = reach(o.effect, { [id] = true })
-        if n < 3 then
+        if n < #outcomes then
           worst.severity = math.max(worst.severity, r.severity)
           worst.condition = math.max(worst.condition, r.condition)
         else

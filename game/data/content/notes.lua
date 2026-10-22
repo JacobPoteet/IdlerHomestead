@@ -27,6 +27,35 @@ return {
     event = "market.tier",
     match = { tier = 2 },
   },
+  -- Techniques notes (H5, #388, D199): the first-aid kit, a splint made and a deal struck write what the Techniques perks need.
+  -- Seeing an injury is enough for some; none is required to play (a technique is only ever a better option).
+  {
+    id = "kit_bought",
+    name = "First-aid kit",
+    line = "A kit of dressings, kept for a bad day.",
+    hint = "Buy a first-aid kit",
+    icon = "icon_status_wound",
+    event = "market.delivered",
+    match = { item = "first_aid_kit" },
+  },
+  {
+    id = "splint_made",
+    name = "A splint",
+    line = "Bound a sprained ankle with wood.",
+    hint = "Splint a sprained ankle",
+    icon = "icon_status_ankle",
+    event = "event.chosen",
+    match = { id = "sprained_ankle", option = 1 },
+  },
+  {
+    id = "peddler_deal",
+    name = "A deal",
+    line = "Struck a bargain at the door.",
+    hint = "Buy from a traveling peddler",
+    icon = "icon_money",
+    event = "event.chosen",
+    match = { id = "peddler" },
+  },
   {
     id = "first_catch",
     name = "First catch",

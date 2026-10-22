@@ -152,7 +152,8 @@ return {
     cooldown = "number?", -- days before it can come again
     once = "boolean?", -- at most once a run
     journalNote = "string?", -- note id written the first time it is offered (Journal.write)
-    options = "table", -- exactly two { label, cost?, meal?, trade?, effect, risk, careful?, bold? }
+    options = "table", -- exactly two { label, cost?, meal?, trade?, effect, risk, careful?, bold?, known? = { [perk id] = { label?, cost?, effect?, risk? } } }
+    extras = "table?", -- further options while their `requires` = { known? = perk id, have? = resource id } hold (Techniques and the first-aid kit, D199)
     ignore = "table", -- { label, effect, risk }: applies when nobody answers in the window; free, safe, never escalates
   },
   night_threats = { -- night threats (D187, #355); see the header of content/night_threats.lua

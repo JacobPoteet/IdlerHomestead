@@ -133,6 +133,7 @@ return {
     icon_berries = { placeholder = "icon_seed_berries", w = 12, h = 12 },
     icon_apple = { placeholder = "icon_seed_apple", w = 12, h = 12 },
     icon_canned_food = { placeholder = "icon_food", w = 12, h = 12 },
+    icon_first_aid_kit = { placeholder = "icon_status_wound", w = 12, h = 12 },
     -- Interface icons (GDD §9.4, D142): tools, verbs, signals, books, seed packets
     icon_tool_hand = { placeholder = "icon_tool_hand", w = 12, h = 12 },
     icon_tool_hoe = { placeholder = "icon_tool_hoe", w = 12, h = 12 },

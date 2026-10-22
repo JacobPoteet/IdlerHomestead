@@ -31,6 +31,10 @@
 --                    item's market price times tuning.events.visitors.peddlerPrice, in money or in units of `pay`; both are worked out
 --                    when the card opens, so the cost line is always the true one),
 --                    careful = true? (what Careful standing orders pick, B5), bold = true? (what Bold picks) }
+--   known            on an option: { [perk id] = { label?, cost?, effect?, risk? } }: the option reads as that once the Techniques perk is
+--                    known (a cost cut, a lost hour spared; H5, D199)
+--   extras           further options (the same fields as an option) that appear while `requires` = { known = perk id?, have = resource id? }
+--                    holds: a Techniques perk is known, an item (the first-aid kit) is in stock. Option 3 and on; standing orders never pick one
 --   ignore           { label, effect, risk }: applies when nobody answers in the window (tuning.events.ignoreHours,
 --                    never under ignoreMinSeconds of real time). Free, safe and non-escalating (6.2): no cost, no condition
 --                    loss, no status that can escalate, no chain, no lasting damage. A gamble is something the player picks.
@@ -54,10 +58,11 @@
 --   capital = true, lesser = {} an outcome that destroys capital (the stove, devices, livestock): while Footing is slipped, or
 --                               when a damage flag would pass the cap, `lesser` applies instead (a spoiled store, a damage flag)
 
--- BANDAGE STAND-IN (B10, #354). The plan's cleaning options cite "1 bandage or an hour of work". The first-aid kit does not
--- exist yet, so those options cost the hour of work (the `tending` status, a day of slightly slower work) and the water.
--- When the kit lands, B10 adds the bandage as the second way to pay and this stays as the price without a kit.
+-- THE KIT AND THE HOUR OF WORK (B10, #354, D199). The plan's cleaning options cite "1 bandage or an hour of work". Without
+-- a bandage they cost the hour of work (the `tending` status, a day of slightly slower work) and the water; the first-aid kit is
+-- the third option that spends no hour, and the Bandaging technique spares the hour on a cut (`known`).
 local HOUR_OF_WORK = "tending"
+local KIT = "first_aid_kit"
 
 return {
   {
@@ -94,6 +99,22 @@ return {
         bold = true,
       },
     },
+    extras = {
+      {
+        label = "Strap it with a proper splint",
+        cost = { wood = 1 },
+        effect = {},
+        risk = "Safe. Held firm, and no slow day.",
+        requires = { known = "splinting" },
+      },
+      {
+        label = "Use a first-aid kit",
+        cost = { [KIT] = 1 },
+        effect = {},
+        risk = "Safe. Wrapped tight, and no slow day.",
+        requires = { have = KIT },
+      },
+    },
     ignore = {
       label = "Limp on",
       effect = { status = "limp", note = "limped_on" },
@@ -118,6 +139,7 @@ return {
       {
         label = "Splint it hard",
         cost = { wood = 3, canned_food = 1 }, -- the broth for the days off your feet
+        known = { splinting = { cost = { wood = 2 } } }, -- a good splint needs no broth to hold
         effect = { status = "ankle_3b" },
         risk = "Safe. Two slow days, then it is mended.",
         careful = true,
@@ -127,6 +149,15 @@ return {
         effect = { status = "ankle_3", condition = -15 },
         risk = "Hard. It hurts, and it keeps you slow for three days.",
         bold = true,
+      },
+    },
+    extras = {
+      {
+        label = "Use a first-aid kit",
+        cost = { [KIT] = 1 },
+        effect = { status = "ankle_3b" },
+        risk = "Safe. Two slow days, then it is mended.",
+        requires = { have = KIT },
       },
     },
     ignore = {
@@ -155,6 +186,7 @@ return {
       {
         label = "Clean and bandage",
         cost = { water = 1 },
+        known = { bandaging = { effect = {}, risk = "Safe. Dressed in a moment, and no infection." } },
         effect = { status = HOUR_OF_WORK },
         risk = "Safe. An hour of work lost, and no infection.",
         careful = true,
@@ -164,6 +196,15 @@ return {
         effect = { later = { days = 2, hour = 8, chance = "festerInfection", effect = { status = "infection" } } },
         risk = "Risky. It may turn infected in two days.",
         bold = true,
+      },
+    },
+    extras = {
+      {
+        label = "Use a first-aid kit",
+        cost = { [KIT] = 1 },
+        effect = {},
+        risk = "Safe. A clean dressing, and no hour lost.",
+        requires = { have = KIT },
       },
     },
     ignore = {
@@ -240,6 +281,15 @@ return {
         bold = true,
       },
     },
+    extras = {
+      {
+        label = "Use a first-aid kit",
+        cost = { [KIT] = 1 },
+        effect = {},
+        risk = "Safe. A strapped back, and no lost hours.",
+        requires = { have = KIT },
+      },
+    },
     ignore = {
       label = "Stretch it out",
       effect = { status = "stiff" },
@@ -272,6 +322,15 @@ return {
         effect = { status = "burn" },
         risk = "Risky. Your hand is slow for two days.",
         bold = true,
+      },
+    },
+    extras = {
+      {
+        label = "Use a first-aid kit",
+        cost = { [KIT] = 1 },
+        effect = {},
+        risk = "Safe. Salve and a dressing; it does not sting.",
+        requires = { have = KIT },
       },
     },
     ignore = {

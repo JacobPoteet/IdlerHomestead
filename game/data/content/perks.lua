@@ -106,4 +106,34 @@ return {
     studyNights = 2,
     modifiers = { forecastLead = 2 },
   },
+  -- Techniques (H5, #388, D199, PLAN_DEPTH 12.5): knowledge that changes the options of an event, never required.
+  -- Their effects are read by the event engine (data/content/events.lua `known` and `extras`; the modifier by Events).
+  {
+    id = "bandaging",
+    name = "Bandaging",
+    page = "techniques",
+    icon = "icon_status_wound",
+    line = "A cut is dressed without losing the hour.",
+    needs = { "festering_cut", "kit_bought" },
+    studyNights = 2,
+  },
+  {
+    id = "splinting",
+    name = "Splinting",
+    page = "techniques",
+    icon = "icon_status_ankle",
+    line = "A third way to treat an ankle; splints cost less.",
+    needs = { "ankle_sprain", "splint_made" },
+    studyNights = 2,
+  },
+  {
+    id = "haggling",
+    name = "Haggling",
+    page = "techniques",
+    icon = "icon_money",
+    line = "The peddler's price comes down a fifth.",
+    needs = { "peddler_deal" },
+    studyNights = 2,
+    modifiers = { peddlerDiscount = 0.2 }, -- share off the peddler's price (a first guess, M9)
+  },
 }
