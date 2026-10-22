@@ -39,6 +39,12 @@ local function clearAnkles(world)
   for _, id in ipairs({ "ankle_1", "ankle_2", "ankle_3", "limp" }) do
     Status.clear(world, id)
   end
+  local delayed = world.state.events.delayed
+  for i = #delayed, 1, -1 do
+    if delayed[i].from == "sprained_ankle" then
+      table.remove(delayed, i) -- a Power through still waiting for its morning
+    end
+  end
 end
 
 return function(d)
@@ -98,7 +104,10 @@ return function(d)
   d:key("return")
   d:frames(3)
   assert(Events.waiting(world) == 0, "Enter answers it")
-  assert(Status.active(world)[1].id == "ankle_2", "Power through: Strained ankle")
+  local delayed = world.state.events.delayed
+  local strained = delayed[#delayed]
+  assert(#Status.active(world) == 0, "Power through: nothing today")
+  assert(strained and strained.effect.status == "ankle_2", "and a Strained ankle waits for tomorrow (D173)")
   d:frames(10)
   quiet(d)
   clearAnkles(world)
