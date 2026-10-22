@@ -43,6 +43,7 @@ local Power = require("src.sim.systems.power")
 local Quality = require("src.sim.systems.quality")
 local Sandbox = require("src.sim.systems.sandbox")
 local Spoilage = require("src.sim.systems.spoilage")
+local Tiers = require("src.sim.systems.tiers")
 local Stats = require("src.sim.stats")
 
 local Market = {}
@@ -197,7 +198,7 @@ end
 function Market.itemPrice(world, id)
   local item = world.registry:get("catalog", id)
   local mult = world.state.market.specials[id] and world.tuning.economy.specialDiscount or 1
-  return math.max(1, math.floor(item.price * mult + 0.5))
+  return math.max(1, math.floor(Tiers.price(world, item) * mult + 0.5))
 end
 
 --- True if some resource in the item's `gives` is more than its store could hold even when empty
@@ -266,6 +267,11 @@ function Market.cannotBuy(world, id, pickup)
   if not cheat and not Footing.isOpen(world, item) then
     return "needs Footing"
   end
+  -- A tier past the first needs the town's reputation (contracts finished, D197, D198); cheat mode skips it.
+  local needDone = Tiers.minDone(world, item)
+  if not cheat and Contracts.reputation(world) < needDone then
+    return "needs contracts"
+  end
   -- Purchase limits (D114): equipment and `unique` items are one per run. Owned counts the inventory, the
   -- land and the orders still on their way; a better tier already owned (or on its way) makes the lower one
   -- unavailable too (D115).
@@ -280,7 +286,7 @@ function Market.cannotBuy(world, id, pickup)
       if order.item == id then
         return "ordered"
       end
-      if world.registry:get("catalog", order.item).replaces == id then
+      if Inventory.replaces(world, order.item, id) then
         return "replaced"
       end
     end
@@ -293,7 +299,7 @@ function Market.cannotBuy(world, id, pickup)
     end
   end
   -- Some goods ride on other equipment: goats need the trailer (D71).
-  if item.requires and not Inventory.hasEquipment(world, item.requires) then
+  if item.requires and not Inventory.owns(world, item.requires) then
     return "needs the " .. world.registry:get("catalog", item.requires).name:lower()
   end
   -- Goods that could never fit in their store, even empty, must not be sold (D60).
@@ -334,6 +340,9 @@ local function deliver(world, id)
     Inventory.addEquipment(world, id)
   end
   world.events:emit("market.delivered", { item = id })
+  if item.tier then
+    world.events:emit("market.tier", { item = id, tier = item.tier }) -- opens the next tier's ideas (notes tier_one, tier_two, D198)
+  end
   return true
 end
 

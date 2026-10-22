@@ -152,9 +152,10 @@ function Catalog:layout()
       y = y,
       w = 74,
       h = ROW_H - 2,
-      label = (reason == "needs Footing" and world.tuning.progress.gate.short) or REASONS[reason] or (Market.cheatOn(
-        world
-      ) and ui.catalogCheat.row or ("Order $" .. (Market.itemPrice(world, item.id) + fee))),
+      label = (reason == "needs Footing" and world.tuning.progress.gate.short)
+        or REASONS[reason]
+        or (reason == "needs contracts" and world.tuning.progress.gate.short) -- a tier's reputation gate (D198)
+        or (Market.cheatOn(world) and ui.catalogCheat.row or ("Order $" .. (Market.itemPrice(world, item.id) + fee))),
       enabled = reason == nil,
       style = world.state.market.specials[item.id] and "accent" or nil,
       onPress = function()

@@ -163,6 +163,7 @@ return {
     clearable = false,
     placeable = true,
     heatSource = { efficiency = 1.6 },
+    tierStat = "stoveHeat", -- the stove tiers (D198) multiply the heat it gets from wood by 1 + this stat
     light = {
       on = "heat",
       radius = 30,
@@ -183,6 +184,7 @@ return {
     placeable = true,
     footprintW = 2,
     source = { curve = "solar", peak = 3 }, -- kW in full sun; 3.75x the folding panel
+    tierStat = "solarOutput", -- the array tiers (D198) multiply its output by 1 + this stat
   },
   {
     id = "battery_bank",
@@ -279,6 +281,7 @@ return {
     clearable = false,
     placeable = true,
     footprintW = 2,
+    tierStat = "cisternStore", -- the cistern tiers (D198) multiply the store by 1 + this stat
     storage = { water = 60 }, -- cistern units (one bucket slot, or two drip waterings, each)
     waterSource = { fillTime = 0.4, stored = true }, -- turn the tap; the stock is shared by every cistern
   },
@@ -316,6 +319,7 @@ return {
     placeable = true,
     footprintW = 2,
     offRoad = true,
+    tierStat = "coopSize", -- the coop tiers (D198) multiply the hens it houses by 1 + this stat
     storage = { hen = 6 },
     coop = { nest = 12, feeder = 12, waterer = 4, guard = 0.6 },
   },
@@ -331,6 +335,7 @@ return {
     footprintW = 2,
     footprintH = 2,
     offRoad = true,
+    tierStat = "penSize", -- the pen tiers (D198) multiply the goats and hay it holds by 1 + this stat
     storage = { goat = 3, hay = 20 },
     pen = { pail = 8, manger = 18, trough = 6, guard = 0.5 },
   },

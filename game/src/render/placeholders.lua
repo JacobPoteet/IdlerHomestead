@@ -1554,19 +1554,6 @@ function P.stand_cooler_look(p)
   p:rect(20, 13, 9, 1, { 0.40, 0.58, 0.74 })
 end
 
--- Display rack: a two-shelf stand of produce along the front of the table.
-function P.stand_display_look(p)
-  p:rect(2, 10, 1, 8, C.barkDark)
-  p:rect(29, 10, 1, 8, C.barkDark)
-  p:rect(2, 10, 28, 1, C.bark)
-  p:rect(4, 8, 4, 2, C.radish)
-  p:rect(9, 8, 4, 2, C.leaf)
-  p:rect(14, 8, 4, 2, C.leafLight)
-  p:rect(19, 8, 4, 2, C.radish)
-  p:rect(24, 8, 4, 2, C.leaf)
-  p:rect(3, 18, 26, 1, C.barkDark)
-end
-
 function P.icon_roadside_stand(p)
   p:rect(1, 1, 10, 3, { 0.74, 0.28, 0.24 })
   p:rect(3, 1, 2, 3, { 0.92, 0.88, 0.76 })

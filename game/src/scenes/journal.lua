@@ -14,6 +14,7 @@ local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
+local Tiers = require("src.sim.systems.tiers")
 local Buttons = require("src.ui.buttons")
 local Focus = require("src.ui.journal_focus")
 local Layout = require("src.ui.journal_layout")
@@ -389,7 +390,7 @@ function JournalScene:layoutButtons()
       or ORDER_REASONS[reason]
       or ("Order $" .. (Market.itemPrice(world, id) + world.tuning.economy.deliveryFee))
     btn.enabled = reason == nil
-    btn.style = Market.itemPrice(world, id) < def.price and "accent" or nil
+    btn.style = Market.itemPrice(world, id) < Tiers.price(world, def) and "accent" or nil
     btn.onPress = function()
       if Market.order(world, id) and self.onToast then
         self.onToast("Ordered " .. def.name .. " · arrives tomorrow")
@@ -923,7 +924,7 @@ function JournalScene:drawCard()
     if kind == "catalog" and Footing.gated(def) and not Footing.isOpen(world, def) then
       parts[#parts + 1] = world.tuning.progress.gate.reason -- shown but locked, with the reason (D164)
     elseif kind == "catalog" then
-      parts[#parts + 1] = "$" .. (status == "known" and Market.itemPrice(world, id) or def.price)
+      parts[#parts + 1] = "$" .. (status == "known" and Market.itemPrice(world, id) or Tiers.price(world, def))
     else
       parts[#parts + 1] = "perk"
     end

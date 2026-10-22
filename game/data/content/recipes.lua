@@ -11,6 +11,7 @@ return {
     fuel = { wood = 2 },
     output = "smoked_fish",
     hours = 6,
+    speedStat = "smokerSpeed", -- tiers of the smoker shorten the batch (Stats.timeFactor, D198)
   },
   {
     id = "make_cheese",

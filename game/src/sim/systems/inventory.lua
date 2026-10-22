@@ -10,6 +10,7 @@ local Crops = require("src.sim.systems.crops")
 local Grid = require("src.sim.grid")
 local Land = require("src.sim.systems.land")
 local Ledger = require("src.sim.systems.ledger")
+local Stats = require("src.sim.stats")
 
 local Inventory = {}
 
@@ -47,11 +48,29 @@ end
 --- bought again and its modifiers no longer count (D115): the sturdy rod is the basic rod, upgraded.
 function Inventory.supersededBy(world, id)
   for _, item in ipairs(world.registry:all("catalog")) do
-    if item.replaces == id and Inventory.owns(world, item.id) then
-      return item.id
+    if item.replaces == id then
+      if Inventory.owns(world, item.id) then
+        return item.id
+      end
+      local deeper = Inventory.supersededBy(world, item.id) -- a tier III also covers tier I (D198)
+      if deeper then
+        return deeper
+      end
     end
   end
   return nil
+end
+
+--- Does catalog item `itemId` replace `id`, directly or down the chain of tiers (D198)?
+function Inventory.replaces(world, itemId, id)
+  local item = world.registry:get("catalog", itemId)
+  while item.replaces do
+    if item.replaces == id then
+      return true
+    end
+    item = world.registry:get("catalog", item.replaces)
+  end
+  return false
 end
 
 --- Keep a piece of equipment for the run. An upgrade drops the equipment it replaces (so both tiers never add
@@ -63,10 +82,15 @@ function Inventory.addEquipment(world, id)
   if Inventory.supersededBy(world, id) then
     return
   end
-  if item.replaces then
-    equipment[item.replaces] = nil
+  local below = item.replaces
+  while below do -- the whole ladder below it goes (a tier III bought straight over a tier I leaves neither, D198)
+    equipment[below] = nil
+    below = world.registry:get("catalog", below).replaces
   end
   equipment[id] = true
+  if world.state.grid then
+    Inventory.refreshStorage(world) -- tiers can size a store (cistern, coop, pen)
+  end
 end
 
 function Inventory.addObject(world, id, count)
@@ -102,8 +126,10 @@ end
 function Inventory.refreshStorage(world)
   local extra = {}
   for _, obj in pairs(world.state.grid.objects) do
-    for res, amount in pairs(world.registry:get("objects", obj.id).storage or {}) do
-      extra[res] = (extra[res] or 0) + amount
+    local def = world.registry:get("objects", obj.id)
+    local scale = Stats.scale(world, def) -- a tier of the cistern, coop or pen sizes its store (D198)
+    for res, amount in pairs(def.storage or {}) do
+      extra[res] = (extra[res] or 0) + math.floor(amount * scale + 0.5)
     end
   end
   for _, res in ipairs(world.registry:all("resources")) do

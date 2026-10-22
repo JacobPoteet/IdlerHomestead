@@ -44,14 +44,16 @@ function Stand.cap(world)
   return math.min(cfg.maxCap, cfg.baseCap + Stats.modifier(world, "standCap"))
 end
 
---- The stand's tiers (D116): the catalog equipment whose `upgrades` names the stand, in catalog order, as a list
+--- The stand's tiers (D116): the catalog equipment of the stand's family above tier I, in catalog order, as a list
 --- of { id, name, owned }. The stand is one fixed building; owning a tier changes how it looks (the item's
 --- `overlay` sprite, drawn by the renderer) and raises its cap (the `standCap` modifier).
 function Stand.tiers(world)
   local list = {}
   for _, item in ipairs(world.registry:all("catalog")) do
-    if item.upgrades then
-      list[#list + 1] = { id = item.id, name = item.name, owned = Inventory.hasEquipment(world, item.id) }
+    if item.family == "roadside_stand" and item.tier > 1 then
+      -- Owned also when a higher tier has replaced it (D198).
+      local owned = Inventory.hasEquipment(world, item.id) or Inventory.supersededBy(world, item.id) ~= nil
+      list[#list + 1] = { id = item.id, name = item.name, owned = owned }
     end
   end
   return list

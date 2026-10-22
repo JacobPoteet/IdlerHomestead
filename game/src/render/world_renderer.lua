@@ -598,10 +598,13 @@ function Renderer:draw(alpha, visible, daylight)
   for k = 1, Inventory.fillEquipmentIds(world, equipmentScratch) do
     local id = equipmentScratch[k]
     local item = registry:get("catalog", id)
-    if item.upgrades and item.overlay then
-      looks = looks or {}
-      looks[item.upgrades] = looks[item.upgrades] or {}
-      table.insert(looks[item.upgrades], Assets.sprite(item.overlay))
+    while item do -- a higher tier keeps the looks of the tiers it replaced (D198)
+      if item.family and item.overlay then
+        looks = looks or {}
+        looks[item.family] = looks[item.family] or {}
+        table.insert(looks[item.family], Assets.sprite(item.overlay))
+      end
+      item = item.replaces and registry:get("catalog", item.replaces)
     end
   end
   for anchor, obj in pairs(grid.objects) do

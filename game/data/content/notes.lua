@@ -8,6 +8,25 @@
 --   match: event field -> value that must be equal, or { min = n } / { max = n } for numbers.
 --   count: matching events needed before the note is written (default 1).
 return {
+  -- Tiered upgrades (D198, #382): the first tier I purchase opens the tier II ideas, the first tier II opens tier III.
+  {
+    id = "tier_one",
+    name = "Good gear",
+    line = "Bought gear that can be bettered.",
+    hint = "Buy a tool or building",
+    icon = "icon_rod",
+    event = "market.tier",
+    match = { tier = 1 },
+  },
+  {
+    id = "tier_two",
+    name = "Better gear",
+    line = "Bought the better kind.",
+    hint = "Upgrade a tool or building",
+    icon = "icon_rod",
+    event = "market.tier",
+    match = { tier = 2 },
+  },
   {
     id = "first_catch",
     name = "First catch",

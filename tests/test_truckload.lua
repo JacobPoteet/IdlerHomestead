@@ -100,18 +100,16 @@ T.test("load: limited by cargo and by stock", function()
   T.eq(Market.setLoad(world, "seed_radish", 1), 0, "goods with no value can't be loaded")
 end)
 
-T.test("load: equipment with a cargo modifier raises the limit", function()
+T.test("load: the bed rack and the trailers raise the limit, one tier at a time (#199, D198)", function()
   local world = newWorld()
   T.eq(Market.cargoCapacity(world), CARGO)
-  local found
-  for _, item in ipairs(reg:all("catalog")) do
-    if item.equipment and item.modifiers and item.modifiers.cargo then
-      found = item
-    end
-  end
-  if found then
-    Inventory.addEquipment(world, found.id)
-    T.eq(Market.cargoCapacity(world), CARGO + found.modifiers.cargo)
+  local last = 0
+  for _, id in ipairs({ "bed_rack", "utility_trailer", "box_trailer" }) do
+    local item = reg:get("catalog", id)
+    Inventory.addEquipment(world, id)
+    T.eq(Market.cargoCapacity(world), CARGO + item.modifiers.cargo, id .. " replaces the tier below")
+    T.truthy(item.modifiers.cargo > last, id .. " carries more")
+    last = item.modifiers.cargo
   end
 end)
 

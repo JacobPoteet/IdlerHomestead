@@ -20,4 +20,9 @@ return {
     standTrafficMult = 2, -- multiplier on the stand's daily cap
     truckPriceMult = 1.25, -- multiplier on what the truck load sells for in town
   },
+  tiers = { -- tiered upgrades (D198, #382, PLAN_DEPTH 11.1): the catalog's money sink, tiers I to III, no upkeep
+    max = 3, -- highest tier any family has (D184 trim: I to III, not I to V)
+    growth = 2.5, -- price multiplier per tier: tier n costs round(tier I price x growth^(n-1)); tier I of the bucket has no item, its reference price is the item's `tierBase`
+    minDone = { [3] = 2 }, -- contracts finished (the town's reputation, D197) a tier needs before it can be bought, by tier; absent = none. Tier III is the rep-gated one
+  },
 }

@@ -406,6 +406,8 @@ Sleep debt **is** the Tired status (D168), not a separate counter: waking and "s
 
 **D184:** tiers I to III, catalog only, no upkeep. This is the money sink.
 
+> **Built, simplified (D198, G3, #382):** `systems/tiers.lua`, `family` and `tier` on catalog items, eleven ladders (the ten above plus the truck bed: bed rack, utility trailer, box trailer; #199). Cost is `tier I x 2.5^(n-1)`; each tier replaces and requires the one below (the minimal prerequisite gate, #264); tier III also needs 2 contracts finished (reputation, D197). Building tiers scale every building of the kind through the object's `tierStat`. The stand's display rack is removed (the ladder is I to III). Trailer hitching (#258) is not built.
+
 Convert one-shot items to tiers (I to V, exponential cost): the rod, bucket, axe, stove, cistern, smoker, panel array, stand, coop and pen. Each tier is a Journal node or a reputation gate. Money keeps meaning. Existing "replaces predecessor" items map onto tier I and II.
 
 ### 11.2 Owned land (opens at Footing)

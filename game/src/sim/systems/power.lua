@@ -34,6 +34,7 @@ local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
 local Shelter = require("src.sim.systems.shelter")
+local Stats = require("src.sim.stats")
 local Weather = require("src.sim.systems.weather")
 
 local Power = {}
@@ -161,9 +162,9 @@ end
 function Power.peak(world)
   local total = 0
   for _, obj in pairs(world.state.grid.objects) do
-    local src = world.registry:get("objects", obj.id).source
-    if src then
-      total = total + src.peak
+    local def = world.registry:get("objects", obj.id)
+    if def.source then
+      total = total + def.source.peak * Stats.scale(world, def) -- a solar tier raises it (D198)
     end
   end
   return total
@@ -403,7 +404,7 @@ function Power.sourceList(world)
       id = def.id,
       name = def.name,
       curve = def.source.curve,
-      peak = def.source.peak,
+      peak = def.source.peak * Stats.scale(world, def),
       output = state(world).flow.sources[anchor] or 0,
       enabled = Power.isEnabled(world, anchor),
     }
@@ -600,13 +601,14 @@ local function solve(world, hours, commit)
   local gens, left = clear(scratchGens), clear(scratchLeft)
   local generation = 0
   for _, anchor in ipairs(sources) do
-    local src = defAt(world, anchor).source
+    local def = defAt(world, anchor)
+    local src = def.source
     if src.curve == "fuel" then
       gens[#gens + 1] = anchor
       left[anchor] = src.peak
       flow.sources[anchor] = 0
     else
-      local out = sourceOutput(world, src, now, env)
+      local out = sourceOutput(world, src, now, env) * Stats.scale(world, def)
       flow.sources[anchor] = out
       generation = generation + out
     end

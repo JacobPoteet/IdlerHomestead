@@ -22,7 +22,7 @@ return function(d)
   d:advance(1)
   -- A few ideas learned and some money, as if earned, so the list has gear, buildings and a refusal.
   local known = world.meta.journal.known
-  for _, id in ipairs({ "smoker", "axe", "goat_pen", "goats", "auto_harvester" }) do
+  for _, id in ipairs({ "smoker", "axe", "goat_pen", "goats", "auto_harvester", "broad_axe" }) do
     known[id] = true
   end
   Ledger.add(world, "money", 60)
@@ -43,6 +43,14 @@ return function(d)
   d:shot("card_axe")
   d:press("Close")
   assert(not scene.card:isOpen(), "Close left the card open")
+
+  -- A tier (D198, #382): the card names its tier and the next one with its price; tier III is locked behind the axe
+  -- below it and the reputation (contracts finished).
+  scene:showCard(world.registry:get("catalog", "broad_axe"))
+  d:frames(2)
+  assert(scene.card:isOpen(), "the tier III card did not open")
+  d:shot("card_tier_three_locked")
+  d:press("Close")
 
   -- A long-press (or right click) shows the same card; this one is not affordable or housed yet.
   local row = rowFor(scene, "goats")
