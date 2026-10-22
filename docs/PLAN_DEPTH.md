@@ -341,6 +341,8 @@ Seed saving and heirloom lines, a greenhouse (extends season windows, GDD §5.3 
 
 Each good has a **saturation** per channel. Every unit sold lowers its price by `saturationStep`, and it recovers `recoveryPerDay` toward base. The weekly price drift (`economy.lua`) stays. A load of 40 radishes sells poorly; a mixed load sells well. The Truck and Pantry screens show the price curve in one line ("radish: price drops after 12"). The stand uses the same model at its 60 percent rate.
 
+> **Built (D196, E1, #371):** one shared town demand per good for the truck and the stand (`market.lua`, `tuning/economy.lua` `saturation`): free units, a step per unit, a floor, a daily recovery; Auto-load picks the best next unit (Q8); the cap shows on the Load screen as "drops after N". The Pantry line is not built (the cap shows on the truck screen only). #106: the stand stays idle, no new control.
+
 ### 9.2 Reputation and the contracts board (opens at Footing)
 
 - **Reputation** with the town, levels 0 to 5, earned by finished contracts and visitors' help.
@@ -356,6 +358,8 @@ Processing gains margin and decisions, with shelf-life and fuel trade-offs: jam 
 ### 9.4 Market day and visitors
 
 A **market day** on the last day of each season: stand traffic doubles, the truck trip sells at a bonus, a peddler may visit. It gives the week a rhythm and a reason to stock up (an active-play window the routine can partly use).
+
+> **Built, trimmed (D196, #374):** one rule on the last day of the season: the stand's cap doubles and the truck pays x1.25 (`economy.marketDay`, switch `enabled`). No forecast pill; the peddler stays the visitor card of D194.
 
 ---
 
