@@ -15,6 +15,7 @@
 
 local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
+local Home = require("src.sim.systems.home")
 local Ledger = require("src.sim.systems.ledger")
 local Power = require("src.sim.systems.power")
 local Sandbox = require("src.sim.systems.sandbox")
@@ -99,7 +100,7 @@ function Needs.heatEfficiency(world)
       world.registry:get("objects", objects[anchor].id).heatSource.efficiency * Shelter.heatReach(world, anchor)
     )
   end
-  return best
+  return best * Home.stoveFactor(world) -- a clogged flue (B7, D192)
 end
 
 --- The id of the fuel resource (wood).

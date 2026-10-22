@@ -536,8 +536,22 @@ function Weather.thawPipes(world)
 end
 
 --- Do the pipes have anything to freeze: a well, a pump or a cistern placed?
-local function hasPipes(world)
+function Weather.hasPipes(world)
   return #Grid.anchorsWith(world, "pump") > 0 or #Grid.anchorsWith(world, "waterSource") > 0
+end
+local hasPipes = Weather.hasPipes
+
+--- Freeze the pipes now until the thaw hour (the frozen-pump event's "wait for the sun", B7): today if the thaw hour is still
+--- ahead, tomorrow otherwise. Nothing happens without pipes or when lagging or the shelter keeps them.
+function Weather.freezePipes(world)
+  if not hasPipes(world) or Weather.pipesGuarded(world) then
+    return false
+  end
+  local now = Calendar.now(world)
+  local thaw = world.tuning.weather.pipeFreeze.thawHour
+  state(world).pipes = { day = now.day + (now.hour < thaw and 0 or 1), hour = thaw }
+  world.events:emit("weather.pipesFroze", {})
+  return true
 end
 
 --- Are the pipes kept from freezing: pipe lagging (the `pipeGuard` stat) or a shelter of rank `pipeFreeze.shelterRank` or better?

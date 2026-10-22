@@ -1,6 +1,6 @@
 -- Misfortune events (D169, #347, docs/PLAN_DEPTH.md §6.2): something that happens to a person living alone, answered with
 -- a choice between two options that have a real trade-off, or ignored. Content only: src/sim/systems/events.lua draws,
--- offers and applies them. The body pack (B6, D173) is below; the other packs (B7 on) add more by data alone.
+-- offers and applies them. The body pack (B6, D173) and the home pack (B7, D192) are below; the other packs add more by data alone.
 --
 --   title, line      the card's title and one sentence
 --   class            "body" | "home" | "land" | "visitors": the standing-order class (B5, #349)
@@ -14,7 +14,9 @@
 --                    noColdNight = true, placed = { object ids (heat sources) }, coldNight = bool (tonight asks at least
 --                    tuning.events.body.coldNightNeed), thirsty = bool (under tuning.events.body.thirstyDays of water),
 --                    feet = weight class of the boots ("light" | "mid" | "heavy"), outfit = which way the clothes lean
---                    (same words, GDD 7.8)
+--                    (same words, GDD 7.8), shelter = { ids of the best shelter placed ("camp", "shack") },
+--                    noDamage = { damage flags that must not be open }, pipesOpen = bool (pipes that can freeze, neither frozen
+--                    nor kept by lagging or a shack)
 --   drawConditions   the same keys, checked only when the dusk draw picks (not again when the card is offered): the trigger
 --                    of an event whose cause has passed by the time it comes (a fall while Strained, a cold night)
 --   fall             the weight is multiplied by the fall chance of the statuses (a bad ankle makes a fall likelier)
@@ -36,6 +38,8 @@
 --   damage = { names }          lasting damage flags opened (torn canvas, clogged flue), capped by mercy.maxOpenDamage; Events.repair
 --   lockTiles = { count, days } planted tiles locked from work for the days; Events.tileLocked (the land packs read it)
 --   damageTiles = { count, setback }  planted tiles knocked back (Crops.setBack)
+--   repair = { names }          lasting damage flags mended (what a `later` outcome does to the damage that opened them)
+--   freezePipes = true          the pumps and pipes freeze now until the thaw hour (Weather.freezePipes)
 --   note = id                   Journal.write: a Field Journal note
 --   later = { days, hour? | hours, chance?, effect }   an outcome that lands later: `hours` on, or `days` on at `hour` (default the
 --                               hour it was chosen); `chance` names a key of tuning.events.chances (absent = certain), and the
@@ -342,6 +346,190 @@ return {
       label = "Chew on the other side",
       effect = { status = "tooth_nag" },
       risk = "Safe. Study is a little harder for two nights.",
+    },
+  },
+
+  -- Home pack (B7, #351, D192). The damage flags are read through systems/home.lua and mend themselves (a `later` repair), so
+  -- neglect costs a few days of warmth and never more (D184). Pipe freezing itself is the weather night (D190): this is the
+  -- choice event for a frozen pump in the morning.
+  {
+    id = "roof_leak",
+    title = "Roof leak",
+    line = "Rain finds a hole in the roof and drips onto the bed.",
+    class = "home",
+    when = "night",
+    bad = true,
+    wake = true,
+    conditions = { weather = { "rain", "storm" }, shelter = { "camp", "shack" } },
+    weight = 1,
+    exposure = 0.5, -- a poor shelter leaks more
+    cooldown = 8,
+    journalNote = "roof_leak",
+    options = {
+      {
+        label = "Patch it now",
+        cost = { wood = 1, scrap = 1 },
+        effect = {},
+        risk = "Safe. The drip stops for good.",
+        careful = true,
+      },
+      {
+        label = "Set a pot",
+        effect = { status = "leaky" },
+        risk = "Risky. A colder, restless night.",
+        bold = true,
+      },
+    },
+    ignore = {
+      label = "Move the bed",
+      effect = { status = "damp" },
+      risk = "Safe. A damp night, and no worse.",
+    },
+  },
+  {
+    id = "tarp_torn",
+    title = "Tarp torn",
+    line = "The wind gets under the camp canvas and tears a seam.",
+    class = "home",
+    when = "night",
+    bad = true,
+    wake = false,
+    conditions = { shelter = { "camp" }, noDamage = { "torn_canvas" } },
+    weight = 1,
+    terms = {
+      { weather = { "windy", "storm" }, mult = 2 },
+    },
+    cooldown = 8,
+    journalNote = "tarp_torn",
+    options = {
+      {
+        label = "Mend it tonight",
+        cost = { wood = 1, scrap = 1 },
+        effect = {},
+        risk = "Safe. The canvas holds again.",
+        careful = true,
+      },
+      {
+        label = "Sleep cold",
+        effect = {
+          status = "draughty",
+          damage = { "torn_canvas" },
+          later = { days = 3, hour = 8, effect = { repair = { "torn_canvas" } } },
+          lesser = { status = "draughty" },
+        },
+        risk = "Risky. Colder nights for a few days, until you patch it.",
+        bold = true,
+      },
+    },
+    ignore = {
+      label = "Hang a blanket",
+      effect = { status = "draughty" },
+      risk = "Safe. One draughty night, and no worse.",
+    },
+  },
+  {
+    id = "frozen_pump",
+    title = "Frozen pump",
+    line = "The pump handle will not move: the line is frozen solid.",
+    class = "home",
+    when = "morning",
+    bad = true,
+    wake = false,
+    seasons = { winter = 1 },
+    conditions = { frozen = true, pipesOpen = true },
+    weight = 0.8,
+    cooldown = 6,
+    journalNote = "frozen_pump",
+    options = {
+      {
+        label = "Thaw it",
+        cost = { wood = 2 },
+        effect = {},
+        risk = "Safe. Water flows again at once.",
+        careful = true,
+      },
+      {
+        label = "Wait for the sun",
+        effect = { freezePipes = true },
+        risk = "Safe. No pumped water until noon, and the wood stays.",
+        bold = true,
+      },
+    },
+    ignore = {
+      label = "Use the canteen",
+      effect = { freezePipes = true },
+      risk = "Safe. No pumped water until noon.",
+    },
+  },
+  {
+    id = "tool_breaks",
+    title = "Tool breaks",
+    line = "A handle splits in the middle of the job.",
+    class = "home",
+    when = "day",
+    bad = true,
+    wake = false,
+    weight = 1,
+    cooldown = 6,
+    journalNote = "tool_breaks",
+    options = {
+      {
+        label = "Mend it with wood",
+        cost = { wood = 1 },
+        effect = { status = HOUR_OF_WORK },
+        risk = "Safe. An hour of work lost, and the same tool.",
+        careful = true,
+      },
+      {
+        label = "Make do",
+        effect = { status = "bare_hands" },
+        risk = "Risky. Slower work for two days.",
+        bold = true,
+      },
+    },
+    ignore = {
+      label = "Bind it with twine",
+      effect = { status = "twine" },
+      risk = "Safe. A little slower for a day.",
+    },
+  },
+  {
+    id = "flue_clogged",
+    title = "Flue clogged",
+    line = "Smoke rolls back out of the stove and into the room.",
+    class = "home",
+    when = "night",
+    bad = true,
+    wake = true,
+    seasons = { spring = 0.5, autumn = 1, winter = 1.5 },
+    conditions = { placed = { "wood_stove" }, noDamage = { "clogged_flue" } },
+    weight = 0.8,
+    cooldown = 8,
+    journalNote = "flue_clogged",
+    options = {
+      {
+        label = "Douse the fire",
+        cost = { water = 1 },
+        effect = { lose = { wood = 2 } }, -- the fuel in the firebox is wasted
+        risk = "Safe. Some wood is wasted, and the flue is clear.",
+        careful = true,
+      },
+      {
+        label = "Burn it out",
+        effect = {
+          damage = { "clogged_flue" },
+          status = "smoke",
+          later = { days = 3, hour = 8, effect = { repair = { "clogged_flue" } } },
+          lesser = { status = "smoke" },
+        },
+        risk = "Risky. Smoky air, and the stove draws badly until it clears.",
+        bold = true,
+      },
+    },
+    ignore = {
+      label = "Open the windows",
+      effect = { status = "airing" },
+      risk = "Safe. A chillier night, and no worse.",
     },
   },
 }

@@ -10,6 +10,7 @@
 -- Other systems read the numbers only through these functions.
 
 local Grid = require("src.sim.grid")
+local Home = require("src.sim.systems.home")
 local Wardrobe = require("src.sim.systems.wardrobe")
 
 local Shelter = {}
@@ -54,7 +55,7 @@ end
 --- Multiplier on the night's warmth need (D82).
 function Shelter.insulation(world)
   local _, d = Shelter.best(world)
-  return d and d.insulation or world.tuning.shelter.defaultInsulation
+  return (d and d.insulation or world.tuning.shelter.defaultInsulation) * Home.insulationFactor(world, d and d.id)
 end
 
 --- Multiplier on the night's warmth need from the bed and the clothes together (D82, D149): the shelter's
