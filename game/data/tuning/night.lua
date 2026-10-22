@@ -34,6 +34,7 @@ return {
     coolingScale = 0.5, -- multiplier (0..1) on a threat's chance while the post-bad cooldown runs (tuning.events.badCooldownNights after a threat that landed or a bad event): a landed threat is not followed by another at once
     history = 12, -- nights of resolved threats kept in the run state (older ones are dropped)
   },
+  wakePenalty = 1, -- share (0..1) of the rest of a night's study lost when a wake event wakes the homesteader (D195): 1 = the night's study is gone; Tired never comes from the wake itself, only from an option the player picks
   fix = { -- the one-tap fix actions: ordinary orders, no new automation
     maxMarks = 6, -- most trees or logs one "Chop" tap marks; a larger gap marks this many and the card offers the rest next time
   },

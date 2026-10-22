@@ -7,8 +7,10 @@ local Save = require("src.core.save")
 local Session = require("src.session")
 local Calendar = require("src.sim.systems.calendar")
 local Actors = require("src.sim.systems.actors")
+local Events = require("src.sim.systems.events")
 local Journal = require("src.sim.systems.journal")
 local Sleep = require("src.sim.systems.sleep")
+local Status = require("src.sim.systems.status")
 local World = require("src.sim.world")
 local serialize = require("src.core.serialize")
 
@@ -134,6 +136,31 @@ T.test("study: a night in bed yields the same whether fast or at 1x (per in-bed 
   local expected = 1 / nights -- a spring night is tuning.study.nightHours in bed
   T.near(night(FRAME), expected, 0.01)
   T.near(night(0.2), expected, 0.01)
+end)
+
+T.test("study: a wake event costs that night's study and nothing more (D195)", function()
+  local function night(wake, penalty)
+    local session = inBed(1, 0)
+    local world = session.world
+    world.tuning.night.wakePenalty = penalty or world.tuning.night.wakePenalty
+    world.meta.journal.notes.first_catch = { day = 1 }
+    world.meta.journal.notes.fish_spoil = { day = 1 }
+    Journal.study(world, "smoker")
+    if wake then
+      world.state.events.budget.day = 0
+      T.truthy(Events.force(world, "lost_hiker"), "the wake card opens")
+    end
+    wakeFast(session, FRAME)
+    return Journal.progress(world, "smoker"), world
+  end
+  local kept = night(false)
+  local lost, world = night(true)
+  T.truthy(kept > 0)
+  T.near(lost, 0, 0.001, "the woken night adds no study")
+  T.eq(Status.has(world, "tired"), false, "the wake itself never makes you Tired")
+  local half = night(true, 0.5)
+  T.near(half, kept / 2, 0.01)
+  T.near(night(false, 0.5), kept, 0.01, "a night with no wake is untouched by the penalty")
 end)
 
 T.test("sleep speed: saving and loading mid-sleep keeps sleeping fast and wakes on time", function()

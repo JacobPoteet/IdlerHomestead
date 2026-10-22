@@ -400,6 +400,13 @@ function Journal.init(world)
   j.progress = j.progress or {}
   world.meta.journal = j
   listen(world)
+  -- A wake event (D195): the night it woke the homesteader loses its study (see Journal.tick). Read off the bus, so the
+  -- journal never reaches into the event engine.
+  world.events:on("event.offered", function(e)
+    if e.wake then
+      journal(world).wokeNight = e.night
+    end
+  end)
 end
 
 function Journal.tick(world, dt)
@@ -410,9 +417,14 @@ function Journal.tick(world, dt)
   end
   local cfg = world.tuning.study
   local hours = dt / Calendar.hourLength(world)
+  -- A wake costs only that night's study (D195, tuning.night.wakePenalty: the share of the rest of the night lost).
+  local now = Calendar.now(world)
+  local night = now.hour < Calendar.daylight(world) and now.day - 1 or now.day
+  local kept = j.wokeNight == night and 1 - world.tuning.night.wakePenalty or 1
   local rate = (1 + Stats.modifier(world, "studySpeed") + Power.effect(world, "studySpeed") + Shelter.studySpeed(world))
     * Stats.factor(world, "studySpeed") -- a status (D166) slows study as a whole
     / cfg.nightHours -- a powered lamp helps, and so does a desk (D82)
+    * kept
   j.progress[head] = (j.progress[head] or 0) + hours * rate
   if j.progress[head] >= item(world, head).studyNights - cfg.finishSlack then
     learn(world, head)

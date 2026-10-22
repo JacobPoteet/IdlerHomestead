@@ -671,8 +671,8 @@ return {
         label = "Share a meal and a fire",
         meal = true,
         cost = { wood = 3 },
-        effect = { gain = { money = 6 }, note = "kind_stranger" },
-        risk = "Safe. A supper and some firewood, and a thank-you in coin.",
+        effect = { gain = { money = 6 }, note = "kind_stranger", status = "tired" },
+        risk = "Mostly safe. A supper, some firewood and a thank-you in coin, and a short night: run down until you rest.",
         careful = true,
       },
       {

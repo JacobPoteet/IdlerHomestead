@@ -40,7 +40,7 @@
 -- player set, under the wood still needed to reach the end of winter, or under a day's drinking water (Events.orderFloor); an unaffordable or keep-blocked option adds a line to the morning
 -- report ("event.orderFallback"). Until the perk is known every order reads as Ask me, so nothing changes without it.
 --
--- Event bus: "event.offered" { id, class, bad, wake, day }, "event.chosen" { id, option, label, class, bad, order? (true when a
+-- Event bus: "event.offered" { id, class, bad, wake, day, night (the night number; a wake costs that night's study, D195) }, "event.chosen" { id, option, label, class, bad, order? (true when a
 -- standing order chose it) }, "event.ignored" { id, reason ("expired" | "ignored" | "order"), label, class, bad },
 -- "event.orderFallback" { id, class, mode, why ("keep" | "short"), resource } (an order fell back to ignoring because of the cost),
 -- "event.later" { id, hit } (a delayed outcome came due: it landed, or the chance missed).
@@ -612,7 +612,10 @@ local function offer(world, d, depth)
   if d.journalNote then
     Journal.write(world, d.journalNote) -- the first time it is offered; later calls do nothing
   end
-  world.events:emit("event.offered", { id = d.id, class = d.class, bad = d.bad, wake = d.wake == true, day = now.day })
+  world.events:emit(
+    "event.offered",
+    { id = d.id, class = d.class, bad = d.bad, wake = d.wake == true, day = now.day, night = nightOf(world) }
+  )
   Events.answerByOrder(world, d)
 end
 
