@@ -77,7 +77,7 @@ return function(d)
   assert(d:scene().name == "progress", "the line opens the Progress panel")
   d:shot("panel_tonight")
   local panel = d:scene()
-  panel.list.offset = panel.list.contentH -- the bottom of the list: milestones and the gates
+  panel:action("listEnd") -- the bottom of the list (clamped): milestones and the gates
   d:frames(3)
   d:shot("panel_gates")
   d:press("Close")
@@ -125,7 +125,7 @@ return function(d)
   d:frames(4)
   d:shot("panel_winter")
   panel = d:scene()
-  panel.list.offset = panel.list.contentH
+  panel:action("listEnd")
   d:frames(3)
   d:shot("panel_winter_gates")
   d:key("escape")

@@ -1,6 +1,8 @@
 # Plan: homestead depth (the core loop)
 
-Status: approved; milestone and issues created (section 17). Nothing here is built. When approved it becomes milestone **M8: Homestead depth** (section 17), and the GDD (§4, §5, §6, §7, §8, §9, §11) and the decision log take the parts that are built, one slice at a time.
+**Status (D203, #391): M8 is built**, except the slices the depth trim moved to M10 (processing, hired hand, owned land, charters, ascension, wolves) or cut (wear, maintenance items, mule and sleep debt, levy, recurring costs, stove fire, windstorm and power outage). The built parts are folded into the GDD (§4.2, §4.4, §6.3, §6.4, §7.3, §7.9, §8.2, §8.4, §11, §13); the "Built" callouts and the "Done" marks in section 17 say what each slice became. This document is now a record; the GDD wins where they differ.
+
+Original status: approved; milestone and issues created (section 17). Nothing here was built yet. When approved it becomes milestone **M8: Homestead depth** (section 17), and the GDD (§4, §5, §6, §7, §8, §9, §11) and the decision log take the parts that are built, one slice at a time.
 
 Why this exists: playtest feedback says the base systems are in but the loop is thin. Once the player has seeds they steamroll, there is little to manage, and the idle loop has nothing to do. A read of the design, content and balance notes agrees (section 1).
 
@@ -583,15 +585,15 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - A1 (#340) Dusk check: the Tonight card and a `Readiness.tonight` accessor. **Done (D161).**
 - A2 (#341) Footing state machine (earned, slipped, regained), events, save. **Done (D162).**
 - A3 (#342) Goal ladder in the HUD and Progress panel: the pressing goal line, locked gates. **Done (D163).**
-- A4 (#343) Gate framework: a `requiresFooting` flag in content, read by Catalog, Contracts, Land, Charters.
+- A4 (#343) Gate framework: a `requiresFooting` flag in content, read by Catalog, Contracts, Land, Charters. **Done (D164).**
 - A5 (#344) Harness: Footing metrics and an early-game pacing report. **Done (D165).**
 
 **Phase B: Status and events**
-- B1 (#345) Status system (sim) and stat-modifier integration.
-- B2 (#346) Status chips and detail UI.
+- B1 (#345) Status system (sim) and stat-modifier integration. **Done (D166).**
+- B2 (#346) Status chips and detail UI. **Done (D167).**
 - B3 (#347) **Done (D169).** Event engine: content schema, scheduler, exposure, mercy rules, pending queue, ignore window, `event` RNG stream, journal note on first. **Amended (D168):** designed with C1 (one exposure, one nightly slot, 5); mercy rules key on Footing and reserves (6.5); ignore window has a real-seconds floor and time never freezes (6.3); ships with the event-choice harness policies (careful, bold, ignore, random), the spiral metrics, a `human` policy and paired events-on/off seeds; C8 follows it.
 - B4 (#348) **Done (D172).** Event card UI: two options, costs, risks, ignore line, touch and keyboard, phone layout. **Amended (D168):** ships with B3 and B6; one card at a time in the ranked notice queue (principle 8).
-- B5 (#349) Standing orders (Ask, Careful, Bold) and the "Rules of thumb" perk. **Amended (D168):** Careful respects keep targets and falls back to ignore with a morning-report line (6.4); carries the careful/bold/random harness policies.
+- B5 (#349) Standing orders (Ask, Careful, Bold) and the "Rules of thumb" perk. **Amended (D168):** Careful respects keep targets and falls back to ignore with a morning-report line (6.4); carries the careful/bold/random harness policies. **Done (D176).**
 - B6 (#350) **Done (D173).** Body events pack. **Amended (D168):** the first events pack, shipped with B3 and B4; ignore outcomes are safe and non-escalating (6.2); Fever never fires on a night that already cost cold damage.
 - B7 (#351) Home events pack. **Amended (D168):** lands after F1 wear and G3 tiers. **Simplified (D184):** no wear or tier dependency; keeps roof leak, tarp torn, frozen pump, tool breaks and flue clogged; cuts truck fault and power surge. **Done (D192).**
 - B8 (#352) Land events pack. **Amended (D168):** lands after D, and possibly G1. **Simplified (D184):** late frost, storm-felled tree and livestock in the field; cuts hornets and washout; no G1 dependency. **Done (D193).**
@@ -609,8 +611,8 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - C8 (#362) **Done (D171).** Winter wood is a stockpile problem, not an on-demand chop (tracked with #65, #202, #251). **Amended (D168):** pulled forward to right after B3. Unowned tiles can be chopped (Q12, D170). Built as a per-season allowance on wood from trees (`tuning.wood.fellAllowance`, winter 24, first guess), shown on the Tonight and readiness cards; the keep logic and the balance numbers of #202 and #251 are unchanged (M9).
 
 **Phase D: Fields and soil**
-- D1 (#363) Crop schema and 8 new crops (content, journal pages, seed items).
-- D2 (#364) Soil fertility and the overlay.
+- D1 (#363) Crop schema and 8 new crops (content, journal pages, seed items). **Done (D177).**
+- D2 (#364) Soil fertility and the overlay. **Done (D178).**
 - D3 (#365) Rotation families and pest pressure. **Simplified (D184, #430), done (D185):** blight marks crops on full-pressure tiles only (`blight = { chance, dryFactor }` in threats content), spoils only that harvest, never spreads. Pressure shows only on the tile card.
 - D4 (#366) Weeds, weeding task, mulch. **Simplified (D184, #430), done (D185):** `weedCut` 0.4 to 0.15, `maintenance` moved above planting in the default routine.
 - D5 (#367) Compost bin and manure loop. **Simplified (D184, #430), done (D185):** no haul task; the bin draws from the ledger and the routine fertilizes the lowest-fertility worn tile.
@@ -619,8 +621,8 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - D8 (#370) Routine categories and conditions for the new tasks. **MERGED (D184)** into D-simplify #430: every upkeep task ON by default, plus the idle-day chore test.
 
 **Phase E: Market**
-- E1 (#371) Saturation model for truck and stand. **Kept (D184);** absorbs E4 and #106; the cap shows on the truck screen only.
-- E2 (#372) Reputation and the contracts board; standing orders. **Simplified (D184):** 3 contracts every 7 days, reputation is a count of contracts finished, a missed one just expires, no quality tiers; the repeating standing contract stays.
+- E1 (#371) Saturation model for truck and stand. **Kept (D184);** absorbs E4 and #106; the cap shows on the truck screen only. **Done (D196).**
+- E2 (#372) Reputation and the contracts board; standing orders. **Simplified (D184):** 3 contracts every 7 days, reputation is a count of contracts finished, a missed one just expires, no quality tiers; the repeating standing contract stays. **Done (D197).**
 - E3 (#373) Processing recipes and stations. **DEFERRED (D184)** to M10.
 - E4 (#374) Market day and the peddler. **MERGED (D184)** into E1 #371 (the last day of a season gives a stand and truck bonus); the peddler goes to B9.
 
@@ -634,22 +636,22 @@ Issues are written to be done by an agent alone: each states its goal, design re
 **Phase G: Money and land**
 - G1 (#380) Owned-area mask and land purchase. **DEFERRED (D184)** to M10.
 - G2 (#381) Land levy with soft failure. **CUT (D184, closed).** Q3: no levy.
-- G3 (#382) Tiered upgrade framework; convert existing items. **Simplified (D184):** tiers I to III, catalog only, no upkeep.
+- G3 (#382) Tiered upgrade framework; convert existing items. **Simplified (D184):** tiers I to III, catalog only, no upkeep. **Done (D198).**
 - G4 (#383) Recurring costs and the upkeep ledger. **CUT (D184, closed).** #118 becomes the cat and dog eating from the ledger.
 
 **Phase H: Run variety**
-- H1 (#384) Plot preview.
+- H1 (#384) Plot preview. **Done (D200).**
 - H2 (#385) Year charters. **Amended (D168):** lands after E, F and G; no draft while slipped. **DEFERRED (D184)** to M10.
-- H3 (#386) Starting loadouts.
+- H3 (#386) Starting loadouts. **Done (D201).**
 - H4 (#387) Ascension mutators. **DEFERRED (D184)** to M10.
 - H5 (#388) Journal Techniques page. **Kept (D184);** absorbs B10 #354. **Done (D199):** three techniques (Bandaging, Splinting, Haggling).
 
 **Phase I: Integration**
 - I1a (#389) Harness policies for the new systems (smoke testing only). **Amended (D168):** the event-choice policies moved to B3 and B5. The full balance pass is I1b (#396) in M9. **Shrunk (D184)** to the surviving systems; #410 adds idle gates and is promoted. **Done (D203):** harness features `guards` (night guards and night-threat counters) and `threats` (field-threat counters, a warned threat's first, #153), on in `all`; trips go for a fillable contract; a report line counts answers bought and contracts filled. Loadouts were already playable (`loadout=`, D201); the plot preview is left to the default plot.
 - I2 (#390) FTUE and tip updates for each phase. **Done (D202):** nine first-run tips (Tonight, an event, night visitors, a status, a Footing slip, what limits you, rotation, weeds, contracts), none for the cut or deferred upkeep, levy and land; and the recovery summary (#156) lists the night threats, field threats and bad events of the run and names what hurt most (one line on a short view).
-- I3 (#391) Merge into GDD, wiki and decision log.
+- I3 (#391) Merge into GDD, wiki and decision log. **Done:** folded into the GDD; the wiki follows at the next release tag.
 - I4 (#392) Perf and save-size check. **Done (D203):** inside the budget; 64x48 mean 0.022 ms a tick, 0.75 KB a tick, save 116 KB (fertility 8 KB of it); default 128x80 0.070 ms, 0.78 KB, 307 KB, of which objects 118 KB (#248). No M8 hot spot; docs/PERF.md.
-- I5 (#393) Driver scenarios and screenshots.
+- I5 (#393) Driver scenarios and screenshots. **Done:** the `tonight`, `footing`, `eventcard`, `status`, `contracts`, `goal` and `rescue` scenarios cover the built screens; the upkeep ledger, land purchase and charter draft were cut or deferred.
 
 Status (D184): trimmed to 18 build steps; five slices and wolves moved to milestone **M10: Post-launch depth**, seven cut, five merged, new issue #430. Original status: milestone **M8: Homestead depth** and issues #340 to #393 are created (one per slice, titled `[M8 <id>]`). Slice C8 (winter wood as a stockpile problem) was added during the issue review and is tracked by #65 with #202 and #251.
 
