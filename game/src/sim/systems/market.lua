@@ -26,10 +26,13 @@
 --       "market.cancelled" { item, amount } (player cancelled a held order, refunded),
 --       "market.refunded" { item, amount } (an order that could never fit its store, refunded).
 -- Orders: { item, arriveDay, paid (money charged), held (due but no room) }.
+-- Contracts (D197): the truck sale first fills the open contracts from the surplus (Market.fillContracts), so the default Auto-load
+-- trip serves the board with no input; a contract's goods are not sold to the market.
 -- Debug cheat mode (D126): `world.debugCheat` (a runtime flag, never saved) lists every catalog item and makes
 -- Market.debugGrant hand an item over free and at once; it spends and earns nothing and emits no sale event.
 
 local Calendar = require("src.sim.systems.calendar")
+local Contracts = require("src.sim.systems.contracts")
 local Ledger = require("src.sim.systems.ledger")
 local Food = require("src.sim.systems.food")
 local Footing = require("src.sim.systems.footing")
@@ -666,11 +669,45 @@ function Market.loadQuote(world)
   return lines, total, units
 end
 
---- Sell the truck load (in town). Returns money earned. Everything not loaded stays home.
+--- Fill contracts in town (D197): open contract `id`, or every one the surplus covers when `id` is nil. The goods come
+--- off the surplus, and what a contract takes comes off the load too, so the load never grows into a keep target.
+--- Returns the list of { item, amount, reward } filled (empty at home, or when nothing could be).
+function Market.fillContracts(world, id)
+  local m = world.state.market
+  if not m.inTown then
+    return {}
+  end
+  local before = {}
+  for good, n in pairs(m.load) do
+    before[good] = n
+  end
+  local filled = {}
+  if id then
+    local c = Contracts.find(world, id)
+    local reward = c and Contracts.fill(world, id)
+    if reward then
+      filled[1] = { item = c.item, amount = c.amount, reward = reward }
+    end
+  else
+    filled = Contracts.fillAll(world)
+  end
+  for _, f in ipairs(filled) do
+    before[f.item] = before[f.item] and math.max(0, before[f.item] - f.amount) or nil
+  end
+  for good, n in pairs(before) do
+    local left = math.min(n, Ledger.get(world, good))
+    m.load[good] = left > 0 and left or nil
+  end
+  return filled
+end
+
+--- Sell the truck load (in town). Returns money earned. Everything not loaded stays home. Open contracts are filled first
+--- (D197): they pay above the market and put nothing into its saturation.
 function Market.sellLoad(world)
   if not world.state.market.inTown then
     return 0
   end
+  Market.fillContracts(world)
   local lines, total, units = Market.loadQuote(world)
   for _, line in ipairs(lines) do
     Quality.take(world, line.id, line.units, "best") -- the best units go to town; the ledger then drops the count

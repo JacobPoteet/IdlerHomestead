@@ -1,5 +1,5 @@
 -- Sales income per game year (GDD D117, #275): the late-game number to beat. Money earned from sales
--- counts (the truck trip and the roadside stand); spending, refunds, starting money and anything else
+-- counts (the truck trip, the roadside stand and the contracts board, D197); spending, refunds, starting money and anything else
 -- that moves the money chip do not. It listens to the sale events, so the markets never know it exists.
 --
 -- State: world.state.income = { year = game year `current` belongs to, current = sales income so far
@@ -38,6 +38,9 @@ function Income.init(world)
   end)
   world.events:on("stand.sold", function(e)
     add(world, e.earned)
+  end)
+  world.events:on("contract.done", function(e)
+    add(world, e.reward)
   end)
 end
 

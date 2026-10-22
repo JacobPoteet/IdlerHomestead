@@ -168,6 +168,14 @@ return {
     wake = "string?", -- id of a night event offered once it has resolved
     journalNote = "string?", -- note id written the first time it lands
   },
+  contracts = { -- the town's board (D197, #372); see the header of content/contracts.lua
+    name = "string", -- who asks (<= ~4 words)
+    item = "string", -- resource id asked for
+    min = "number", -- fewest units an offer asks
+    max = "number", -- most units an offer asks
+    minDone = "number?", -- contracts finished before this one is offered (reputation, a count); absent = from the start
+    standing = "boolean?", -- the repeating weekly order: one at a time, renewed each week, the idle income
+  },
   chapters = {
     name = "string", -- region title on the journal map
     pages = "table", -- node `page` values that belong to this chapter

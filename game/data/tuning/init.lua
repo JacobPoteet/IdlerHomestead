@@ -30,6 +30,7 @@ return {
   "power",
   "machines",
   "economy",
+  "contracts",
   "stand",
   "finds",
   "cat",

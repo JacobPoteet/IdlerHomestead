@@ -3,6 +3,7 @@
 -- "Load the truck" and "Drive to town". In town: sell the load, buy (no delivery fee, pickup-only
 -- items allowed), then drive home. Anything not loaded stays home.
 
+local Contracts = require("src.sim.systems.contracts")
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Power = require("src.sim.systems.power")
@@ -19,7 +20,7 @@ Truck.__index = Truck
 
 local ROW_H = 22
 local LOAD_ROW_H = 14 -- one line of the load list in town
-local HOME_H = 196 -- panel height at home: status, bar, load lines, power line, two buttons
+local HOME_H = 228 -- panel height at home: status, bar, load lines, power line, the contracts button, two buttons
 
 --- "about 5 hours", "under an hour", "about 2 days" for in-game hours (the truck charges by the sun).
 function Truck.duration(hours)
@@ -113,6 +114,26 @@ function Truck:drive()
   end
 end
 
+--- The contracts board button (D197): opens the board; locked, with the reason, until Footing is held.
+function Truck:addBoardButton(x, y, w, h, short)
+  local world = self.world
+  local open = Contracts.isOpen(world)
+  local n = #Contracts.list(world)
+  self.buttons:add({
+    x = x,
+    y = y,
+    w = w,
+    h = h or 26,
+    label = not open and ("Contracts: " .. world.tuning.progress.gate.reason:lower())
+      or n > 0 and not short and string.format("Contracts (%d open)", n)
+      or "Contracts",
+    enabled = open,
+    onPress = function()
+      self.app:push(require("src.scenes.contracts").new(world, self.onToast))
+    end,
+  })
+end
+
 function Truck:layout()
   local b, world = self.box, self.world
   self.buttons:clear()
@@ -120,6 +141,7 @@ function Truck:layout()
     Panel.closeButton(self.buttons, b, function()
       self.app:pop()
     end)
+    self:addBoardButton(b.x + 12, b.y + b.h - 66, b.w - 24)
     local half = (b.w - 24 - 6) / 2
     self.buttons:add({
       x = b.x + 12,
@@ -171,6 +193,7 @@ function Truck:layout()
       self.app:pop()
     end,
   })
+  self:addBoardButton(b.x + b.w - 100 - 6 - 92, b.y + 6, 92, 22, true)
   local _, total, units = Market.loadQuote(world)
   self.buttons:add({
     x = b.x + 12,

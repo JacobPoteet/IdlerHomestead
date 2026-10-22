@@ -21,4 +21,5 @@ return {
   "statuses",
   "events",
   "night_threats",
+  "contracts",
 }
