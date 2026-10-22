@@ -206,7 +206,13 @@ local function tonightExposure(world)
   for _, id in ipairs(e.parts.stores) do
     stores[#stores + 1] = world.registry:get("resources", id).name:lower()
   end
-  return { word = e.word, stores = stores, animals = e.parts.animals, shelter = e.parts.shelter }
+  local guards = {} -- the guards that lower it (D189: the dog), by catalog name
+  for _, id in ipairs(e.parts.guards) do
+    if world.registry:has("catalog", id) then
+      guards[#guards + 1] = world.registry:get("catalog", id).name:lower()
+    end
+  end
+  return { word = e.word, stores = stores, animals = e.parts.animals, shelter = e.parts.shelter, guards = guards }
 end
 
 -- The risks the night ahead carries that the player has been told about: { { id = "snap", days }, { id = "storm", kind },
@@ -257,7 +263,7 @@ end
 ---     water = { perDay, days, stock, cistern, canteen, thirstDays, level },
 ---     shelter = { id, name, insulation, heat (a heat source is placed) } (id nil with no shelter placed),
 ---     exposure = { word = "low" | "medium" | "high", stores (names in stock that attract animals), animals (kept),
----                  shelter = id } (the word only: the points stay inside Events.exposure, D187),
+---                  shelter = id, guards (names of the owned guards that lower it, such as the farm dog) } (the word only: the points stay inside Events.exposure, D187),
 ---     risks = { { id = "snap", days } | { id = "storm", kind } | { id = "sign", threat, line } }, gaps (rows at amber or worse) }
 function Readiness.tonight(world)
   local Alerts = require("src.sim.systems.alerts") -- here, not at load: Alerts reaches Food, which requires this file

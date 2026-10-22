@@ -25,7 +25,9 @@ return {
     stores = { smoked_fish = 1, cheese = 1, chicken_feed = 0.5, hay = 0.5 }, -- points added while any is in stock: stores that attract animals
     perAnimal = 0.25, -- points for each hen and goat kept
     maxLivestock = 2, -- points: ceiling on what livestock add
-    guards = {}, -- guard id -> { points = points subtracted while it is owned (equipment or in stock), covers = { threat ids it answers } }; only a covering guard lowers that threat's own chance, all of them lower the word on the card. Empty until the guard slices (dog, lantern) add theirs; the cat and the predator fence act inside their handlers' own odds
+    guards = { -- guard id -> { points = points subtracted while it is owned (equipment or in stock), covers = { threat ids it answers } }; only a covering guard lowers that threat's own chance, all of them lower the word on the card. The lantern (C7) adds its own; the cat and the predator fence act inside their handlers' own odds
+      farm_dog = { points = 1.5, covers = { "fox", "raccoon", "deer", "bear" } }, -- points (D189): a dog about the place; covers must list the threats of tuning.dog.guards (a test checks it)
+    },
   },
   threats = { -- the night threat framework (C1, D187, PLAN_DEPTH 6.1, 6.5). First guesses, not balanced (M9)
     coolingScale = 0.5, -- multiplier (0..1) on a threat's chance while the post-bad cooldown runs (tuning.events.badCooldownNights after a threat that landed or a bad event): a landed threat is not followed by another at once

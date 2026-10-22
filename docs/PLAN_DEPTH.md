@@ -148,6 +148,8 @@ A **night threat** is a content entry: `id`, `seasons`, `minDay`, `minYear`, `ex
 
 > **Built (D188, C2 and C3):** the raccoon, deer and rabbits, and the bear (`systems/raiders.lua`, `tuning/raiders.lua`). **Simplified:** no skunk; deer and rabbits mark a few edge crops that give a smaller harvest instead of destroying them; the bear strips one store (no wrecked smoker or door); counters are Lidded bins, Scarecrow and Bear box with a guard roll capped at 0.95; the lantern and dog join as guards in their slices. The mice-ruin-a-crop-tile half of #114 is dropped.
 
+> **Built (D189, C4):** the farm dog (`systems/dog.lua`, `tuning/dog.lua`): a guard added to the raiders' and the fox's guard roll, with the exposure word lowered for what it covers. It eats from the food ledger, not a feed purchase, above a two-day reserve. Wolves and coyotes and the strong pen stay deferred to M10.
+
 Rules: one threat per night at most; the dusk sign is shown when any threat is active that the player could still act on; a threat the player already countered (guard high enough) is reported as "turned away" so the work is visible (it uses the night slot, 5).
 
 **Guards cover only some threats (D168).** Each guard lists the threats it covers (`covers`, content) and carries its own upkeep or wear, so no single item answers everything. First guesses: the **dog** (feed every day, 10.3) covers raccoon, skunk, deer and rabbits, fox, and partly bear and wolves, not weather or fire; the **cat** covers mice and partly the fox; the **fence** covers deer and rabbits, fox and partly raccoon, and takes wear from raids (10.1); the **lantern** covers fox and raccoon and partly bear, and burns fuel each night; the **trip line and bell** only move the dusk sign earlier. A few threats need their own counter: the **bear box** for a bear's store raid, a **strong pen** for wolves. Weather and fire threats are answered by shelter, insulation and upkeep, not guards.
@@ -373,7 +375,7 @@ A **workload meter** compares work waiting (task board, scored in seconds) with 
 
 **D184:** the dog is kept (#358, eats from the food ledger, no separate feed cost); the mule is cut (#379); the hired hand is deferred to M10 (#378).
 
-- **Farm dog:** covers some night threats, not all (6.1, D168); a stray-dog event; daily feed cost is its upkeep. Other guards have their own: fence wear from raids, lantern fuel.
+- **Farm dog:** covers some night threats, not all (6.1, D168); a stray-dog event; daily feed cost is its upkeep. Other guards have their own: fence wear from raids, lantern fuel. **Built (D189, C4):** `systems/dog.lua`; it eats one food unit a day from the ledger above a two-day food reserve (a hungry dog guards half as well, never leaves), guards fox, raccoon, deer and partly bear, not the mice (the cat's), and the stray dog is a find.
 - **Mule or donkey:** carry capacity and a haul chore.
 - **Hired hand** (seasonal, costs money per day and food): an actor with its own priority list and a zone, using the existing actor framework; a limited number. **Eats from the ledger and counts in the Footing food days (D168)**, so hiring one cannot hide a food shortfall. Whether the hand is capped, unavailable while slipped, or the paid way out of a slip is open (Q11).
 - The mini-tractor and auto-harvester (GDD §5.3) fit the same actor model.
@@ -535,7 +537,7 @@ Risks: scope (this is a large milestone); event fatigue; compounding statuses. M
 2. **#410**: human policy, idle gates, paired events report. **Done (D186):** `human` policy, `pair=1`, spiral metrics and `gates=` in the harness; the idle gates are red on main and left to M9.
 3. **C1 #355**: threat framework; mice and fox move in; exposure as a word on the Tonight card. **Done (D187).**
 4. **C2 + C3 #356 / #357**: raccoon, deer and rabbits, bear and bear box. **Done (D188).**
-5. **C4 #358**: the dog, eating from the ledger.
+5. **C4 #358**: the dog, eating from the ledger. **Done (D189).**
 6. **C5 #359**: cold front plus pipe freeze (folds in #91, #211).
 7. **C7 #361**: the lantern.
 8. **B7 #351**: five home events, no wear dependency.
@@ -580,7 +582,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - C1 (#355) **Done (D187).** Night threat framework; move mice and fox into it; dusk signs; wake hook. **Amended (D168):** designed with B3 (shared exposure units 0 to 10, nightly slot, turned-away threats use the slot and the pity timer); per-guard `covers` and upkeep.
 - C2 (#356) Raccoon, skunk, deer and rabbits. **Simplified (D184):** raccoon and deer with rabbits; no skunk. Absorbs C3 and #114. **Done (D188);** the crop-tile half of #114 is dropped.
 - C3 (#357) Black bear and the bear box. **MERGED (D184)** into C2 #356 (one PR). **Done (D188).**
-- C4 (#358) Wolves and coyotes; the dog companion. **Simplified (D184):** the dog only, eating from the food ledger. **Wolves and coyotes DEFERRED** to M10.
+- C4 (#358) Wolves and coyotes; the dog companion. **Simplified (D184):** the dog only, eating from the food ledger. **Wolves and coyotes DEFERRED** to M10. **Done (D189):** the dog is built.
 - C5 (#359) Weather nights: cold front, windstorm, pipe freeze, power outage. **Simplified (D184):** cold front plus pipe freeze (folds in #91, #211); windstorm and power outage are **CUT** (#213 closed).
 - C6 (#360) Stove fire and soot (links to F2). **Amended (D168):** lands after F1 wear; no stove loss while slipped. **CUT (D184, closed).** The flue-clogged event in B7 takes the smoke.
 - C7 (#361) Night gear: lantern, trip line, bell. **Simplified (D184):** the lantern alone, a one-time buy with no fuel; trip line and bell cut. #274 becomes guard purchase rules.

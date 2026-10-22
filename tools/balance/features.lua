@@ -566,6 +566,9 @@ local FIND_SCORE = {
   stray_cat = function(world)
     return Inventory.hasEquipment(world, "shelter_cat") and 0 or 6
   end,
+  stray_dog = function(world)
+    return Inventory.hasEquipment(world, "farm_dog") and 0 or 3
+  end,
   dry_stack = function(world, h)
     return h.warmthDeficit(world) > 0 and nearWinter(world, 1) and 6 or 1
   end,

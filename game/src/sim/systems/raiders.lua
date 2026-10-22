@@ -14,13 +14,15 @@
 -- Streams: one per threat id (`raccoon`, `deer`, `bear`), so a raider never moves another threat's draws. A plan draws
 -- the hit, the guard roll and the pick rolls whatever the stores or the guard (so the stream does not depend on them);
 -- the picks are used at landing, so nothing is drawn at the hour. The guard is the catalog stat the threat's content
--- names (`raccoonGuard`, `cropGuard`, `bearGuard`), capped by `maxGuard`.
+-- names (`raccoonGuard`, `cropGuard`, `bearGuard`) plus the dog's own guard for the threat (systems/dog.lua), capped by
+-- `maxGuard`.
 --
 -- Emits "raider.stopped" { id } when a raid was turned back, and "raider.raided" { id, lost = { [resource] = n }?,
 -- units?, tiles? (crop tiles browsed) } when it landed.
 
 local Calendar = require("src.sim.systems.calendar")
 local Crops = require("src.sim.systems.crops")
+local Dog = require("src.sim.systems.dog")
 local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
 local Stats = require("src.sim.stats")
@@ -72,9 +74,9 @@ local function hasTarget(world, id, c)
   return total > 0
 end
 
--- The chance a raid is turned back: the catalog stat the content names, capped.
+-- The chance a raid is turned back: the catalog stat the content names plus the dog's guard for this threat (D189), capped.
 local function guardChance(world, plan, c)
-  return math.min(c.maxGuard, Stats.modifier(world, plan.guard))
+  return math.min(c.maxGuard, Stats.modifier(world, plan.guard) + Dog.guard(world, plan.id))
 end
 
 --- The in-game hour tonight's raid lands (the night threat framework calls Raiders.nightLand then).
