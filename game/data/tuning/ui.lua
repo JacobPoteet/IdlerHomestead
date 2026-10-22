@@ -165,6 +165,11 @@ return {
     needsItem = "the %s",
     needsHome = "a %s to live in",
     needsTown = "Bought on a truck trip",
+    tier = "Tier", -- the label of the tier line (D198, #382)
+    tierOf = "%s of %s", -- "II of III"
+    tierNumerals = { "I", "II", "III" }, -- tier numbers up to tuning.economy.tiers.max
+    nextTier = "Next tier", -- the label of the line naming the tier above (absent on the top tier)
+    nextTierItem = "%s, $%d", -- name and base price of the next tier
     replaces = "Replaces",
     replacesItem = "the %s",
     limit = "Limit",
@@ -179,6 +184,7 @@ return {
       ["too big for storage"] = "More than your storage can ever hold",
       ["not enough money"] = "Not enough money",
       ["no room"] = "No room in storage for it",
+      ["needs contracts"] = "Needs %d contracts filled first (the board opens at Footing)", -- a tier III item's reputation gate (D198); %d is tuning.economy.tiers.minDone
     },
     priceCheat = "Free in cheat mode (debug)", -- the price line while Market cheat mode is on (D126)
     nowCheat = "Cheat mode: free, and it goes straight to your inventory", -- the "Right now" line of a grantable item in cheat mode

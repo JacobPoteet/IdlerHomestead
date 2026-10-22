@@ -58,7 +58,6 @@ return {
     roadside_stand = { placeholder = "roadside_stand", w = 32, h = 24 },
     stand_sign_look = { placeholder = "stand_sign_look", w = 32, h = 24 },
     stand_cooler_look = { placeholder = "stand_cooler_look", w = 32, h = 24 },
-    stand_display_look = { placeholder = "stand_display_look", w = 32, h = 24 },
     chicken_coop = { placeholder = "chicken_coop", w = 32, h = 24 },
     goat_pen = { placeholder = "goat_pen", w = 32, h = 32 },
     cheese_press = { placeholder = "cheese_press", w = 16, h = 16 },
@@ -138,6 +137,8 @@ return {
     icon_tool_hand = { placeholder = "icon_tool_hand", w = 12, h = 12 },
     icon_tool_hoe = { placeholder = "icon_tool_hoe", w = 12, h = 12 },
     icon_tool_pail = { placeholder = "icon_tool_pail", w = 12, h = 12 },
+    icon_bucket = { placeholder = "icon_tool_pail", w = 12, h = 12 }, -- the bucket tiers (D198) share the pail
+    icon_truck_bed = { placeholder = "icon_tab_truck", w = 12, h = 12 }, -- the bed rack and trailers (D198) share the truck tab icon
     icon_tool_pail_big = { placeholder = "icon_tool_pail_big", w = 12, h = 12 },
     icon_tool_hatchet = { placeholder = "icon_tool_hatchet", w = 12, h = 12 },
     icon_tool_axe = { placeholder = "icon_tool_axe", w = 12, h = 12 },
@@ -246,7 +247,6 @@ return {
     icon_roadside_stand = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
     icon_stand_sign = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
     icon_stand_cooler = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
-    icon_stand_display = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
     icon_hen = { placeholder = "icon_hen", w = 12, h = 12 },
     icon_egg = { placeholder = "icon_egg", w = 12, h = 12 },
     icon_chicken_coop = { placeholder = "icon_chicken_coop", w = 12, h = 12 },

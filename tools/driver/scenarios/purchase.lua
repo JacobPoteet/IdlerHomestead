@@ -65,7 +65,6 @@ return function(d)
   d:frames(3)
   d:shot("stand_sign")
   Inventory.addEquipment(world, "stand_cooler")
-  Inventory.addEquipment(world, "stand_display")
   d:frames(3)
   d:shot("stand_full")
   scene.selected = nil

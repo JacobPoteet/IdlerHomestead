@@ -89,13 +89,13 @@ T.test("stand content: object, art, gated catalog nodes, upgrades are capped equ
   T.eq(item.object, "roadside_stand")
   T.truthy(#item.needs > 0, "unlocked by notes")
   local bonus = 0
-  for _, id in ipairs({ "stand_sign", "stand_cooler", "stand_display" }) do
+  for _, id in ipairs({ "stand_sign", "stand_cooler" }) do
     local up = reg:get("catalog", id)
     T.truthy(up.equipment and up.modifiers.standCap > 0 and #up.needs > 0, id)
     T.truthy(sprites["icon_" .. id], id .. " icon")
-    bonus = bonus + up.modifiers.standCap
+    bonus = math.max(bonus, up.modifiers.standCap) -- a tier replaces the one below (D198): the top tier alone counts
   end
-  T.eq(cfg.baseCap + bonus, cfg.maxCap, "all upgrades reach exactly the ceiling")
+  T.eq(cfg.baseCap + bonus, cfg.maxCap, "the top tier reaches exactly the ceiling")
   for _, flow in pairs(cfg.seasonFlow) do
     T.truthy(flow > 0 and flow <= 1)
   end
@@ -275,7 +275,6 @@ T.test("stand upgrades raise the cap and the ceiling holds", function()
   openUp(world)
   T.eq(sold[1].units, Stand.cap(world))
   Inventory.addEquipment(world, "stand_cooler")
-  Inventory.addEquipment(world, "stand_display")
   T.eq(Stand.cap(world), cfg.maxCap)
   setTime(world, SUMMER + 1, cfg.sellHour + 0.25)
   force(world, "clear")

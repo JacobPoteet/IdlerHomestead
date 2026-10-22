@@ -6,6 +6,7 @@ local Inventory = require("src.sim.systems.inventory")
 local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Sandbox = require("src.sim.systems.sandbox")
+local Tiers = require("src.sim.systems.tiers")
 
 local ItemText = {}
 
@@ -68,7 +69,7 @@ function ItemText.build(world, id, pickup)
   -- What it needs.
   local needs = {}
   if item.requires then
-    local have = Inventory.hasEquipment(world, item.requires)
+    local have = Inventory.owns(world, item.requires) or Inventory.supersededBy(world, item.requires) ~= nil -- a tier above it counts (D198)
     needs[#needs + 1] =
       { text = string.format(t.needsItem, world.registry:get("catalog", item.requires).name:lower()), met = have }
   end
@@ -87,6 +88,16 @@ function ItemText.build(world, id, pickup)
   end
   if #needs == 0 then
     add(t.needs, t.needsNothing, "dim")
+  end
+
+  -- Its place in a tier ladder (D198): "Tier II of III", and the next tier up with its price.
+  if item.family then
+    local numerals = t.tierNumerals
+    add(t.tier, string.format(t.tierOf, numerals[item.tier], numerals[world.tuning.economy.tiers.max]))
+    local nextItem = Tiers.nextTier(world, item)
+    if nextItem then
+      add(t.nextTier, string.format(t.nextTierItem, nextItem.name, Tiers.price(world, nextItem)), "dim")
+    end
   end
 
   -- What it replaces (an upgrade names the item it supersedes) and its cap.
@@ -112,6 +123,8 @@ function ItemText.build(world, id, pickup)
   local locked = reason == "needs Footing"
   if locked then
     add(t.now, world.tuning.progress.gate.reason, "warn") -- the gate's own words (D164), not a second copy
+  elseif reason == "needs contracts" then
+    add(t.now, string.format(t.reasons[reason], Tiers.minDone(world, item)), "warn") -- the tier's reputation gate (D198)
   elseif reason and reason ~= "unknown" then
     add(t.now, rawget(t.reasons, reason) or reason, "warn")
   elseif cheat then
@@ -125,6 +138,7 @@ function ItemText.build(world, id, pickup)
     reason = reason,
     owned = owned,
     locked = locked,
+    gated = reason == "needs contracts",
     cost = cheat and 0 or price + fee,
     cheat = cheat,
   }

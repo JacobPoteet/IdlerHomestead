@@ -608,7 +608,6 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
     "roadside_stand",
     "stand_sign",
     "stand_cooler",
-    "stand_display",
     "well",
     "cistern",
     "dc_pump",

@@ -66,7 +66,7 @@ local UNIQUE = {
   "big_bucket",
   "stand_sign",
   "stand_cooler",
-  "stand_display",
+  "bed_rack",
 }
 local REPEATABLE = {
   "woodshed",
@@ -360,11 +360,11 @@ T.test("stand tiers: each upgrade is a catalog tier with an overlay sprite and s
   local world = newWorld()
   local sprites = require("assets.manifest").sprites
   local tiers = Stand.tiers(world)
-  T.eq(#tiers, 3)
+  T.eq(#tiers, 2, "tiers II and III (D198)")
   for _, tier in ipairs(tiers) do
     T.falsy(tier.owned)
     local item = reg:get("catalog", tier.id)
-    T.eq(item.upgrades, "roadside_stand")
+    T.eq(item.family, "roadside_stand")
     T.truthy(sprites[item.overlay], tier.id .. " has an overlay sprite")
   end
   Inventory.addEquipment(world, "stand_cooler")
@@ -373,5 +373,6 @@ T.test("stand tiers: each upgrade is a catalog tier with an overlay sprite and s
     owned[tier.id] = tier.owned
   end
   T.truthy(owned.stand_cooler)
-  T.falsy(owned.stand_sign)
+  T.truthy(owned.stand_sign, "the lower tier counts as owned once a higher one has replaced it")
+  T.falsy(Inventory.hasEquipment(world, "stand_sign"), "but only the top tier's modifiers count")
 end)

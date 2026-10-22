@@ -13,6 +13,7 @@ return {
   "tasks",
   "crops",
   "inventory",
+  "tiers", -- D198: accessors only (the catalog's tier ladders: price curve, next tier); read by market and the item card
   "power",
   "perks",
   "food",

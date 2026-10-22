@@ -56,6 +56,7 @@ return {
     recovery = "number?", -- shelter: multiplier on the daily Condition recovery of a fed, warm day
     heaterRadius = "number?", -- shelter: tiles within which a heat source delivers its warmth in full (beyond it: tuning.shelter.farHeat)
     studySpeed = "number?", -- shelter: study speed added while resting there (a desk)
+    tierStat = "string?", -- the stat whose modifier (1 + it) sizes this building: the stove's heat, a store, a source's output (D198, Stats.scale)
     heatSource = "table?", -- burns wood for warmth (D104): { efficiency = share of the wood's heat that reaches the night; the best placed fire counts }
     light = "table?", -- night light (D84, shaders/light.glsl): { on = "heat" | "power" | "shelter", radius = art pixels, color, flicker = 0..1, at = { x, y } pixel on the sprite, windows? = { { x, y, w, h } } sprite pixels that glow }
     flat = "boolean?", -- lies on the ground, so it casts no shadow (drip lines, sprinklers)
@@ -104,6 +105,7 @@ return {
     yield = "number?", -- output units per input unit (default 1; cheese makes one from two milk)
     output = "string", -- resource produced (`yield` per input unit)
     hours = "number", -- in-game hours per load
+    speedStat = "string?", -- the stat whose modifier shortens the load (Stats.timeFactor, D198: the smoker tiers)
   },
   notes = {
     name = "string", -- journal map label (<= ~3 words)
@@ -188,10 +190,12 @@ return {
     replaces = "string?", -- catalog id of the item this one supersedes (D115): owning this makes that one unavailable ("Owned"), equipment drops the old one's modifiers, an object replaces the old one at placement (objects.replaces); the card says "Replaces the ..."
     replacesLabel = "string?", -- what an upgrade supersedes when that is not a catalog item (the plain bucket); the card says "Replaces the ..."
     unique = "boolean?", -- one ever (D114): a second purchase is refused while the first is owned (in the inventory, placed, or ordered); equipment is always unique
-    upgrades = "string?", -- object id of the building this equipment upgrades (the roadside stand, D116); with `overlay` it changes how that building looks
-    overlay = "string?", -- sprite id drawn over the upgraded building while this is owned (placeholder art until #107)
+    family = "string?", -- tier ladder this item belongs to (D198, #382): the rod, the stove, the roadside stand, ... Tiers.find / Tiers.nextTier read it
+    tier = "number?", -- 1 to tuning.economy.tiers.max within its family; a tier past I replaces and requires the one below
+    tierBase = "number?", -- the tier I reference price for the cost curve when tier I is not an item (the plain bucket)
+    overlay = "string?", -- sprite id drawn over the upgraded building while this is owned (placeholder art until #107); a higher tier keeps the lower tiers' looks
     page = "string", -- catalog page / journal chapter grouping
-    price = "number", -- $
+    price = "number?", -- $; omitted on a tier past I, whose price is the exponential curve (Tiers.price, D198)
     starter = "boolean?", -- known from the start; others are learned in the Field Journal
     needs = "table?", -- note ids that make this an idea (non-starter items)
     studyNights = "number?", -- nights of study to learn it (non-starter items)

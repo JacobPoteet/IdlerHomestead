@@ -49,6 +49,15 @@ function Stats.modifier(world, name)
   return total
 end
 
+--- The size multiplier tiered upgrades give a building (D198, #382): 1 + the modifier its object definition names in
+--- `tierStat` (the stove's heat, the cistern's store, ...), or 1 for an object with no tiers.
+function Stats.scale(world, def)
+  if def.tierStat then
+    return 1 + Stats.modifier(world, def.tierStat)
+  end
+  return 1
+end
+
 --- Work-time multiplier for a speed stat: 1 / (1 + modifier). A +1 bonus halves the time.
 function Stats.timeFactor(world, name)
   return 1 / (1 + Stats.modifier(world, name))

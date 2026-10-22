@@ -10,9 +10,14 @@ local Icons = {}
 local TOOL_TIERS = {
   hand = { { nil, "icon_tool_hand" } },
   hoe = { { nil, "icon_tool_hoe" } },
-  pail = { { "big_bucket", "icon_tool_pail_big" }, { nil, "icon_tool_pail" } },
-  axe = { { "axe", "icon_tool_axe" }, { nil, "icon_tool_hatchet" } },
-  rod = { { "sturdy_rod", "icon_tool_rod_sturdy" }, { nil, "icon_tool_rod" } },
+  pail = { { "water_yoke", "icon_tool_pail_big" }, { "big_bucket", "icon_tool_pail_big" }, { nil, "icon_tool_pail" } },
+  axe = {
+    { "broad_axe", "icon_tool_axe" },
+    { "felling_axe", "icon_tool_axe" },
+    { "axe", "icon_tool_axe" },
+    { nil, "icon_tool_hatchet" },
+  },
+  rod = { { "fine_rod", "icon_tool_rod_sturdy" }, { "sturdy_rod", "icon_tool_rod_sturdy" }, { nil, "icon_tool_rod" } },
   hammer = { { nil, "icon_tool_hammer" } },
 }
 

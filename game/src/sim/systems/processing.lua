@@ -12,6 +12,7 @@ local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
 local Food = require("src.sim.systems.food")
 local Market = require("src.sim.systems.market")
+local Stats = require("src.sim.stats")
 local Tasks = require("src.sim.systems.tasks")
 
 local Processing = {}
@@ -162,7 +163,10 @@ function Processing.init(world)
       w.state.processing[anchor] = {
         recipe = recipe.id,
         count = count,
-        remaining = recipe.hours * w.tuning.time.dayLength / 24,
+        remaining = recipe.hours * w.tuning.time.dayLength / 24 * (recipe.speedStat and Stats.timeFactor(
+          w,
+          recipe.speedStat
+        ) or 1), -- a tier of the station shortens the batch (D198)
       }
       w.events:emit("processing.started", { recipe = recipe.id, tile = anchor, count = count })
     end,

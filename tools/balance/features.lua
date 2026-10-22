@@ -174,7 +174,6 @@ local SHOPPING = {
     end,
   },
   { id = "stand_cooler", feature = "stand" },
-  { id = "stand_display", feature = "stand" },
   { id = "hand_pump", feature = "water" },
   { id = "chest_freezer", feature = "power" },
   {

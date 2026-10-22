@@ -79,6 +79,9 @@ function Panel.catalogIcon(item)
   if item.object then
     return "icon_" .. item.object
   end
+  if item.family and Assets.has("icon_" .. item.family) then
+    return "icon_" .. item.family -- a tier of a ladder (D198) wears its family's icon
+  end
   if item.modifiers and item.modifiers.rod then
     return "icon_rod"
   end
