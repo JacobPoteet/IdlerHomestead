@@ -179,6 +179,12 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
       foxStopped = 0,
       milk = 0, -- goats: milk collected, goats lost to predators / hunger / thirst
       goatsLost = 0,
+      raccoonLanded = 0, -- night raiders (D188): raids of each that landed, raids turned back, units of stores taken, crops browsed (the crops "lost" to deer: they still give part of a harvest)
+      deerLanded = 0,
+      bearLanded = 0,
+      raiderStopped = 0,
+      raiderLost = 0,
+      cropsBrowsed = 0,
       threats = 0, -- growing-season threats (D67): scheduled ones that ran, ones that struck, crops lost / knocked back
       threatsStruck = 0,
       threatLost = 0,
@@ -369,6 +375,16 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
     c.threatsStruck = c.threatsStruck + (e.struck and 1 or 0)
     c.threatLost = c.threatLost + e.lost
     c.threatDamaged = c.threatDamaged + e.damaged
+  end)
+  events:on("raider.raided", function(e)
+    local c = result.counters
+    local field = e.id .. "Landed"
+    c[field] = c[field] + 1
+    c.raiderLost = c.raiderLost + (e.units or 0)
+    c.cropsBrowsed = c.cropsBrowsed + (e.tiles or 0)
+  end)
+  events:on("raider.stopped", function()
+    result.counters.raiderStopped = result.counters.raiderStopped + 1
   end)
   events:on("animals.collected", function(e)
     result.counters.eggs = result.counters.eggs + e.count
@@ -1488,6 +1504,18 @@ function Balance.printFeatures(summary, years)
       q("threatsStruck").mean,
       q("threatLost").mean,
       q("threatDamaged").mean
+    )
+  )
+  line(
+    string.format(
+      "Night raiders per year (mean): raccoon raids %.2f, deer nights %.2f (%.2f crops browsed), bear raids %.2f, "
+        .. "stores taken %.1f units, raids turned back %.2f (policies buy no countermeasures)",
+      q("raccoonLanded").mean / years,
+      q("deerLanded").mean / years,
+      q("cropsBrowsed").mean / years,
+      q("bearLanded").mean / years,
+      q("raiderLost").mean / years,
+      q("raiderStopped").mean / years
     )
   )
   local harvests = math.max(1, q("harvests").mean)

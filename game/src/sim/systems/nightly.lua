@@ -12,7 +12,7 @@
 --             thirsty (shortfall sum), thirstLost (condition lost to thirst), drank (water units),
 --             cold (shortfall sum), warmthNeeded, electric, raided = { [id] = n }, caught (mice the cat
 --             caught), killed (hens lost to a fox), killedGoats (goats lost to one), stopped (fox raids turned back), orders ({ id, why, resource } standing orders that fell back to ignore), spoil = { lost, total }?,
---             threats = { { id, outcome ("turned" | "landed" | "spared" | "none"), lost = { [resource] = n } } } (night threats, D187),
+--             threats = { { id, outcome ("turned" | "landed" | "spared" | "none"), lost = { [resource] = n }, tiles? } } (night threats, D187; D188: a landed raider's loss),
 --             learned = { ids }, slept (game seconds), sleepAt (game seconds, set while in bed),
 --             study = { id, name, from, total }?, condition0? }
 --   ready = the closed ledger plus { day, hours, study = { id, name, from, to, total, learned }?,
@@ -171,7 +171,7 @@ function Nightly.init(world)
   ev:on("nightthreat.resolved", function(e)
     local acc = open(world)
     acc.threats = acc.threats or {}
-    acc.threats[#acc.threats + 1] = { id = e.id, outcome = e.outcome, lost = e.lost }
+    acc.threats[#acc.threats + 1] = { id = e.id, outcome = e.outcome, lost = e.lost, tiles = e.tiles }
   end)
   -- A standing order that fell back to ignoring because of the cost (B5, #349): the report says what was kept.
   ev:on("event.orderFallback", function(e)

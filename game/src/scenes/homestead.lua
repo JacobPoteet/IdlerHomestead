@@ -287,6 +287,18 @@ function Homestead:subscribe()
         self:queueToast(string.format("A fox got into the coop: lost %d hen%s", e.killed, e.killed == 1 and "" or "s"))
       end
     end),
+    -- The raccoon, deer and rabbits and the bear (D188): asleep it is in the morning report.
+    events:on("nightthreat.resolved", function(e)
+      local d = world.registry:get("night_threats", e.id)
+      if d.handler ~= "raiders" or self.session:sleeping() then
+        return
+      end
+      if e.outcome == "landed" then
+        self:queueToast(NightText.raided(world, e))
+      elseif e.outcome == "turned" then
+        self:queueToast(d.outcomes.turned.report)
+      end
+    end),
     events:on("animals.nestFull", function()
       self:queueToast("The nest box is full: the hens have stopped laying until you collect")
     end),
@@ -4327,6 +4339,9 @@ function Homestead:tileInfo(i)
     end
     if Threats.blightAt(world, i) then
       lines[#lines + 1] = "Blight: this harvest will be spoiled"
+    end
+    if Crops.isBrowsed(world, i) then
+      lines[#lines + 1] = "Browsed by deer: a smaller harvest"
     end
     if Land.hasWaterTable(world, i) and not world.occupancy[i] then
       local shallow = Land.waterTable(world, i) >= world.tuning.water.table.shallow

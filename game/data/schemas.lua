@@ -154,7 +154,7 @@ return {
   },
   night_threats = { -- night threats (D187, #355); see the header of content/night_threats.lua
     name = "string", -- label (<= ~3 words)
-    handler = "string", -- "cat" | "animals": the system whose nightPlan and nightLand draw and land it
+    handler = "string", -- "cat" | "animals" | "raiders": the system whose nightPlan and nightLand draw and land it
     seasons = "table?", -- list of season ids it can come in; absent = every season
     minDay = "number?", -- earliest day of the run
     minYear = "number?", -- earliest year

@@ -37,6 +37,14 @@ function NightText.bedtime(world)
   return string.format("Bedtime. Studying: %s, night %d of %d", study.name, night, study.total)
 end
 
+--- The line for a landed raider of the stores or the field (D188): the content line, with what it took.
+--- `threat` is { id, lost = { [resource] = n }?, tiles? } (a "nightthreat.resolved" event or a report entry).
+function NightText.raided(world, threat)
+  local d = world.registry:get("night_threats", threat.id)
+  local what = threat.tiles and plural(threat.tiles, "crop") or counts(world, threat.lost or {})
+  return string.format(d.outcomes.landed.report, what)
+end
+
 --- The morning report as lines of { text, color } (color nil = normal), and whether any line is
 --- about spoilage (the card then offers the Pantry).
 function NightText.morning(world, report)
@@ -117,6 +125,8 @@ function NightText.morning(world, report)
       add(d.outcomes.turned.report)
     elseif threat.outcome == "spared" then
       add(d.outcomes.landed.sparedReport, theme.colors.danger)
+    elseif threat.outcome == "landed" and d.outcomes.landed.report then
+      add(NightText.raided(world, threat), theme.colors.danger)
     end
   end
 

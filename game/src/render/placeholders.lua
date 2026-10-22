@@ -1395,6 +1395,65 @@ function P.icon_straw_mulch(p)
   p:rect(4, 2, 3, 2, C.leafLight)
 end
 
+-- Night raiders (C2 + C3, D188): the notes' stamps and the three counters' icons, 12x12 placeholders.
+local RACCOON_FUR = { 0.52, 0.52, 0.55 }
+local RACCOON_DARK = { 0.22, 0.22, 0.26 }
+local BEAR_FUR = { 0.30, 0.20, 0.15 }
+local DEER_FUR = { 0.70, 0.48, 0.28 }
+
+function P.icon_raccoon(p)
+  p:rect(2, 4, 8, 6, RACCOON_FUR)
+  p:rect(2, 3, 2, 2, RACCOON_FUR) -- ears
+  p:rect(8, 3, 2, 2, RACCOON_FUR)
+  p:rect(2, 5, 8, 2, RACCOON_DARK) -- the mask
+  p:px(4, 5, C.white)
+  p:px(7, 5, C.white)
+  p:rect(5, 8, 2, 1, RACCOON_DARK) -- nose
+end
+
+function P.icon_deer(p)
+  p:rect(3, 5, 6, 5, DEER_FUR)
+  p:rect(8, 3, 2, 3, DEER_FUR) -- head
+  p:rect(8, 1, 1, 3, C.barkLight) -- antlers
+  p:rect(10, 1, 1, 3, C.barkLight)
+  p:px(9, 4, C.tire)
+  p:rect(3, 10, 1, 2, C.bark) -- legs
+  p:rect(8, 10, 1, 2, C.bark)
+end
+
+function P.icon_bear(p)
+  p:rect(2, 4, 8, 7, BEAR_FUR)
+  p:rect(2, 2, 2, 3, BEAR_FUR) -- ears
+  p:rect(8, 2, 2, 3, BEAR_FUR)
+  p:rect(4, 7, 4, 3, C.barkLight) -- muzzle
+  p:px(4, 5, C.tire)
+  p:px(7, 5, C.tire)
+  p:px(5, 7, C.tire)
+  p:px(6, 7, C.tire)
+end
+
+function P.icon_lidded_bins(p)
+  p:rect(2, 4, 8, 7, C.metal) -- the bin
+  p:rect(1, 3, 10, 2, C.stoneDark) -- the lid
+  p:rect(5, 2, 2, 1, C.stoneDark) -- the handle
+  p:rect(2, 7, 8, 1, C.stoneDark)
+end
+
+function P.icon_scarecrow(p)
+  p:rect(5, 3, 2, 9, C.bark) -- the post
+  p:rect(1, 5, 10, 1, C.bark) -- the arms
+  p:rect(4, 1, 4, 3, STRAW) -- the head
+  p:rect(3, 1, 6, 1, C.shirtDark) -- the hat
+  p:rect(4, 6, 4, 3, C.shirt) -- the shirt
+end
+
+function P.icon_bear_box(p)
+  p:rect(1, 3, 10, 8, C.stoneDark) -- the steel box
+  p:rect(1, 3, 10, 1, C.metal)
+  p:rect(5, 6, 2, 3, C.gold) -- the latch
+  p:rect(2, 10, 8, 1, C.metal)
+end
+
 -- Roadside stand: a plank table under a striped awning, with crates of goods (32x24).
 function P.roadside_stand(p)
   local awningRed = { 0.74, 0.28, 0.24 }
