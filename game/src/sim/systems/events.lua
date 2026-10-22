@@ -162,7 +162,7 @@ end
 --- How much the homestead gives a night to work with: { points (0..10, 5 neutral), word ("low" | "medium" | "high"),
 --- multiplier (on the night's chance), parts = { shelter (id or nil), stores (ids in stock that attract animals),
 --- animals (hens and goats kept), guards (ids owned that count) } }. Shelter, stores that attract animals and livestock
---- raise it; each owned guard in tuning.night.exposure.guards lowers it by its points (C7 adds the guards). With a
+--- raise it; each owned guard in tuning.night.exposure.guards lowers it by its points (the dog, the lantern). With a
 --- `threatId` only the guards that cover that threat count (a guard lists the threats it covers, PLAN_DEPTH 6.1).
 function Events.exposure(world, threatId)
   local x = world.tuning.night.exposure

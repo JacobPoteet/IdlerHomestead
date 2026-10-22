@@ -462,6 +462,19 @@ return {
     equipment = true,
     unique = true,
   },
+  -- The lantern (C7, D191): equipment with no stat modifiers and no fuel; its guard per threat is in tuning.lantern
+  -- (src/sim/systems/lantern.lua). The trip line and the bell were cut (D184).
+  {
+    id = "lantern",
+    name = "Lantern",
+    line = "A light by the door: foxes, raccoons and bears think twice. Burns no fuel.",
+    page = "animals",
+    price = 8,
+    needs = { "fox_raid" },
+    studyNights = 1,
+    equipment = true,
+    unique = true,
+  },
   -- Chickens (GDD §7.7, D63). The coop comes with a first sack of feed; hens are pickup only (animals
   -- ride home in the truck) and need a placed coop with room. Feed refills and the fence are learned
   -- from what chickens teach: eggs, then a fox.

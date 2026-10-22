@@ -150,6 +150,8 @@ A **night threat** is a content entry: `id`, `seasons`, `minDay`, `minYear`, `ex
 
 > **Built (D189, C4):** the farm dog (`systems/dog.lua`, `tuning/dog.lua`): a guard added to the raiders' and the fox's guard roll, with the exposure word lowered for what it covers. It eats from the food ledger, not a feed purchase, above a two-day reserve. Wolves and coyotes and the strong pen stay deferred to M10.
 
+> **Built (D191, C7):** the lantern (`systems/lantern.lua`, `tuning/lantern.lua`): a one-time $8 buy taught by the fox note, with no fuel and no chore, that adds its guard to the same roll as the dog (fox, raccoon, partly bear) and lowers the exposure word. The trip line and the bell are cut. #274 becomes guard purchase rules (unique, one-time, journal-gated).
+
 > **Built (D190, C5):** the cold front and the pipe freeze (`systems/weather.lua`, `tuning/weather.lua`). **Simplified:** windstorm and power outage are cut; the front is a forecast miss on tonight's warmth need (weather sense reads it from a roll drawn the dusk before); the pipe freeze stops the pumps and the morning cistern drink until noon, costs two wood to thaw early, and is stopped for free by a shack or by Pipe lagging. No pump-house radius (#211).
 
 Rules: one threat per night at most; the dusk sign is shown when any threat is active that the player could still act on; a threat the player already countered (guard high enough) is reported as "turned away" so the work is visible (it uses the night slot, 5).

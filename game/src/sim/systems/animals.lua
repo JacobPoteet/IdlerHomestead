@@ -41,6 +41,7 @@ local Calendar = require("src.sim.systems.calendar")
 local Cat = require("src.sim.systems.cat")
 local Compost = require("src.sim.systems.compost")
 local Dog = require("src.sim.systems.dog")
+local Lantern = require("src.sim.systems.lantern")
 local Grid = require("src.sim.grid")
 local Ledger = require("src.sim.systems.ledger")
 local Stats = require("src.sim.stats")
@@ -144,7 +145,7 @@ function Animals.goatWaterNeed(world)
 end
 
 --- Chance (0..1) that a night's raid is turned back. Hens: the best coop door plus the fence, capped.
---- Goats: the best pen fence plus the fence and the herd's own toughness, capped. The dog (D189) adds its fox guard to both.
+--- Goats: the best pen fence plus the fence and the herd's own toughness, capped. The dog (D189) and the lantern (D191) add their fox guard to both.
 function Animals.guard(world, kind)
   local cfg = world.tuning.animals.predators
   local best = 0
@@ -158,7 +159,10 @@ function Animals.guard(world, kind)
       best = math.max(best, objDef(world, anchor).coop.guard)
     end
   end
-  return math.min(cfg.maxGuard, best + Stats.modifier(world, "predatorGuard") + Dog.guard(world, "fox"))
+  return math.min(
+    cfg.maxGuard,
+    best + Stats.modifier(world, "predatorGuard") + Dog.guard(world, "fox") + Lantern.guard(world, "fox")
+  )
 end
 
 --- Probability that a predator comes tonight (before the defences): season, weather, cat.

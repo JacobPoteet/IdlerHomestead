@@ -34,6 +34,7 @@ return {
   "finds",
   "cat",
   "dog",
+  "lantern",
   "animals",
   "study",
   "weather",

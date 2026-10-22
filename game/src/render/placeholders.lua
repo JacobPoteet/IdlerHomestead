@@ -471,6 +471,14 @@ function P.icon_dog(p)
   p:px(5, 10, C.heart)
 end
 
+function P.icon_lantern(p)
+  p:rect(5, 1, 2, 1, C.metal) -- the handle
+  p:rect(4, 2, 4, 1, C.metal)
+  p:rect(3, 3, 6, 6, C.glass) -- the glass
+  p:rect(5, 4, 2, 3, { 1.0, 0.85, 0.35 }) -- the flame
+  p:rect(3, 9, 6, 2, C.metal) -- the base
+end
+
 function P.icon_cat(p)
   p:rect(2, 4, 8, 7, CAT_FUR)
   p:rect(2, 1, 2, 3, CAT_FUR)
