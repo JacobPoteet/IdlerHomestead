@@ -2180,6 +2180,48 @@ P.icon_status_tooth = rows({
   "...ooo.ooo..",
 })
 
+-- Home event statuses (B7, D192): a drip, a draught, smoke and a split handle. Shared by the families that belong together.
+P.icon_status_drip = rows({
+  ".....oo.....",
+  "....oPPo....",
+  "...oPPPPo...",
+  "...oPPPPo...",
+  "...oPPPPo...",
+  "....oPPo....",
+  ".....oo.....",
+})
+
+P.icon_status_draught = rows({
+  "ooooo.......",
+  "PPPPPo..ooo.",
+  "ooooPo.oPPPo",
+  "....oPPPo.oo",
+  "ooooPo......",
+  "PPPPPo......",
+  "ooooo.......",
+})
+
+P.icon_status_smoke = rows({
+  "....oo......",
+  "...oPPo.oo..",
+  "..oPPPPoPPo.",
+  "...oPPPPPo..",
+  "....oooPo...",
+  "...oPPPo....",
+  "....ooo.....",
+})
+
+P.icon_status_tool = rows({
+  ".......oo...",
+  "......oaao..",
+  ".....oaao...",
+  "....oaao....",
+  "...oPPo.....",
+  "..oPPo......",
+  ".oPPo.......",
+  "..oo........",
+})
+
 -- The Wardrobe (D154): the decision stamp (a shirt on an amber round), the five slot tabs and the two presets.
 P.icon_signal_clothes = rows({
   "...oooooo...",

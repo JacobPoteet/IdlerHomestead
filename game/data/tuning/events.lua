@@ -31,6 +31,10 @@ return {
     coldNightNeed = 4, -- warmth units (needs.warmthPeak is 8): a coming night that asks at least this much is cold enough to bring a fever, half a deep-winter night
     thirstyDays = 2, -- days of drinking water in hand under which the homesteader counts as dry, which doubles the weight of heat exhaustion
   },
+  home = { -- the home events (PLAN_DEPTH 6.2, B7): what their lasting damage costs while it is open; both flags mend themselves
+    tornCanvasInsulation = 1.4, -- multiplier on a camp's warmth need while the tarp is torn (a first guess; the shack and truck are not affected; PLAN_DEPTH had x0.5 insulation, softened for the trim)
+    cloggedFlueStove = 0.7, -- multiplier (0..1) on the stove's warmth per log while the flue is clogged: more wood for the same night, never a cold stove
+  },
   ordersPerk = "rules_of_thumb", -- journal perk id: standing orders (Careful, Bold) apply only once it is known; until then every class reads as Ask me (PLAN_DEPTH 6.4, B5)
   historyLimit = 20, -- events remembered in the run state's history (older ones are dropped)
   mercy = { -- the rules that keep events from snowballing (PLAN_DEPTH 6.5)

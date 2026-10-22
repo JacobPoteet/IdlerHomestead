@@ -577,7 +577,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - B4 (#348) **Done (D172).** Event card UI: two options, costs, risks, ignore line, touch and keyboard, phone layout. **Amended (D168):** ships with B3 and B6; one card at a time in the ranked notice queue (principle 8).
 - B5 (#349) Standing orders (Ask, Careful, Bold) and the "Rules of thumb" perk. **Amended (D168):** Careful respects keep targets and falls back to ignore with a morning-report line (6.4); carries the careful/bold/random harness policies.
 - B6 (#350) **Done (D173).** Body events pack. **Amended (D168):** the first events pack, shipped with B3 and B4; ignore outcomes are safe and non-escalating (6.2); Fever never fires on a night that already cost cold damage.
-- B7 (#351) Home events pack. **Amended (D168):** lands after F1 wear and G3 tiers. **Simplified (D184):** no wear or tier dependency; keeps roof leak, tarp torn, frozen pump, tool breaks and flue clogged; cuts truck fault and power surge.
+- B7 (#351) Home events pack. **Amended (D168):** lands after F1 wear and G3 tiers. **Simplified (D184):** no wear or tier dependency; keeps roof leak, tarp torn, frozen pump, tool breaks and flue clogged; cuts truck fault and power surge. **Done (D192).**
 - B8 (#352) Land events pack. **Amended (D168):** lands after D, and possibly G1. **Simplified (D184):** late frost, storm-felled tree and livestock in the field; cuts hornets and washout; no G1 dependency.
 - B9 (#353) Visitors and luck events pack. **Kept (D184);** absorbs the peddler (E4) and the stray dog (C4).
 - B10 (#354) First-aid kit and Techniques notes for body events. **MERGED (D184)** into H5 #388; the kit stays one catalog consumable.

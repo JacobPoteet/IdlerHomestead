@@ -297,6 +297,23 @@ local function holds(world, cond)
   if cond.placed and not placedAny(world, cond.placed) then
     return false
   end
+  if cond.shelter and not contains(cond.shelter, Shelter.id(world)) then
+    return false
+  end
+  if cond.noDamage then
+    for _, name in ipairs(cond.noDamage) do
+      if state(world).damage[name] then
+        return false
+      end
+    end
+  end
+  if cond.pipesOpen ~= nil then
+    -- Pipes that can freeze and are neither frozen nor kept (lagging, a shack): the frozen-pump event's cause.
+    local open = Weather.hasPipes(world) and not Weather.pipesGuarded(world) and not Weather.pipesFrozen(world)
+    if open ~= cond.pipesOpen then
+      return false
+    end
+  end
   if cond.feet and Wardrobe.classOf(world, "feet") ~= cond.feet then
     return false
   end
@@ -382,7 +399,8 @@ end
 
 --- Is the damage flag `name` open?
 function Events.hasDamage(world, name)
-  return state(world).damage[name] == true
+  local s = state(world) -- nil until this system has set up (needs and shelter are asked earlier, at init)
+  return s ~= nil and s.damage[name] == true
 end
 
 --- Repair a damage flag (the mend task or item calls this). Returns whether it was open.
@@ -470,6 +488,12 @@ local function applyEffect(world, effect, depth, from)
   end
   for _, name in ipairs(effect.damage or {}) do
     s.damage[name] = true
+  end
+  for _, name in ipairs(effect.repair or {}) do
+    s.damage[name] = nil -- mended (a delayed outcome of the damage that opened it)
+  end
+  if effect.freezePipes then
+    Weather.freezePipes(world)
   end
   if effect.lockTiles then
     for _, tile in ipairs(pickTiles(world, effect.lockTiles.count)) do
@@ -919,6 +943,8 @@ local EFFECT_KEYS = {
   condition = true,
   flags = true,
   damage = true,
+  repair = true,
+  freezePipes = true,
   lockTiles = true,
   damageTiles = true,
   note = true,

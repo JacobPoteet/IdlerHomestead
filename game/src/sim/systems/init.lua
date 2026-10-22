@@ -36,6 +36,7 @@ return {
   "raiders", -- D188: the handler of the raccoon, deer and rabbits and the bear; accessors only, no state; before nightthreats, which asks it
   "threats",
   "nightthreats", -- D187: plans the night's threat at dusk and claims the night slot; after cat and animals (its handlers), before events (which draws at the same dusk)
+  "home", -- D192: accessors only (a torn tarp, a clogged flue); read by shelter and needs
   "shelter", -- D82: accessors only (insulation, heater slot, best bed); read by power, needs, sleep
   "needs",
   "status", -- D166: injury and condition statuses; after needs so a duration counts down once the night's draw is done (read through Stats.factor)

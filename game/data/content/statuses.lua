@@ -249,6 +249,78 @@ return {
     clearedBy = "time",
     modifiers = { studySpeed = 0.9 },
   },
+  -- Home events (B7, D192): the cost of a leak, a torn tarp, a smoky flue and a broken tool. Each family is its own, so the ignore
+  -- outcome of an event (the mild one) never lands on, or escalates, the one an option picks.
+  {
+    id = "leaky",
+    name = "Leaky roof",
+    line = "Colder night, studies 20% slower",
+    family = "leak",
+    severity = 1,
+    duration = 1, -- the night's pot and moved bed: one night
+    clearedBy = "time",
+    modifiers = { warmthNeed = 1.2, studySpeed = 0.8 },
+  },
+  {
+    id = "damp",
+    name = "Damp bed",
+    line = "Studies 10% slower",
+    family = "damp",
+    severity = 1,
+    duration = 1, -- the ignore outcome of a roof leak
+    clearedBy = "time",
+    modifiers = { studySpeed = 0.9 },
+  },
+  {
+    id = "draughty",
+    name = "Draughty bed",
+    line = "A slightly colder night",
+    family = "draught",
+    severity = 1,
+    duration = 1, -- the ignore outcome of a torn tarp, and the lesser form of the torn canvas
+    clearedBy = "time",
+    modifiers = { warmthNeed = 1.1 },
+  },
+  {
+    id = "smoke",
+    name = "Smoky air",
+    line = "Slower Condition recovery",
+    family = "smoke",
+    severity = 1,
+    duration = 2,
+    clearedBy = "time",
+    modifiers = { conditionRecovery = 0.85 },
+  },
+  {
+    id = "airing",
+    name = "Airing the room",
+    line = "A slightly colder night",
+    family = "airing",
+    severity = 1,
+    duration = 1, -- the ignore outcome of a clogged flue
+    clearedBy = "time",
+    modifiers = { warmthNeed = 1.1 },
+  },
+  {
+    id = "bare_hands",
+    name = "Making do",
+    line = "Work 15% slower",
+    family = "makedo",
+    severity = 1,
+    duration = 2, -- a broken tool worked around with the spare or bare hands
+    clearedBy = "time",
+    modifiers = { workSpeed = 0.85 },
+  },
+  {
+    id = "twine",
+    name = "Twine-bound tool",
+    line = "Work 10% slower",
+    family = "twine",
+    severity = 1,
+    duration = 1, -- the ignore outcome of a broken tool
+    clearedBy = "time",
+    modifiers = { workSpeed = 0.9 },
+  },
   {
     id = "tired",
     name = "Run down",

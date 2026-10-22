@@ -100,6 +100,16 @@ function EventText.effectWords(effect, env)
     end
     out[#out + 1] = "Leaves damage: " .. table.concat(names, ", ")
   end
+  if effect.repair then
+    local names = {}
+    for _, n in ipairs(effect.repair) do
+      names[#names + 1] = n:gsub("_", " ")
+    end
+    out[#out + 1] = "Mended: " .. table.concat(names, ", ")
+  end
+  if effect.freezePipes then
+    out[#out + 1] = "No pumped water until noon"
+  end
   return out
 end
 
