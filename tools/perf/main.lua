@@ -52,6 +52,7 @@ function love.load(args)
     local Features = require("features")
     local Finds = require("src.sim.systems.finds")
     local Policies = require("policies")
+    local Gridpack = require("src.core.gridpack")
     local Save = require("src.core.save")
     local Session = require("src.session")
     local serialize = require("src.core.serialize")
@@ -73,8 +74,13 @@ function love.load(args)
     local step = 1 / tuning.time.tickRate
     local policy = Policies.new(policyName, world, seed, Features.parse(nil))
     local decisionTicks = math.max(1, math.floor(tuning.idle.recheckInterval * tuning.time.tickRate + 0.5))
+    -- The policy's morning runs inside the calendar's tick (an event handler), as in the harness. Its time and allocation
+    -- are kept apart (`policyMs`, `policyKb`) and taken off the system it ran under, so the figures are the sim's own.
+    local policyMs, policyKb = 0, 0
     world.events:on("calendar.newDay", function()
+      local t0, a0 = now(), collectgarbage("count")
       policy:daily(world)
+      policyMs, policyKb = policyMs + (now() - t0), policyKb + (collectgarbage("count") - a0)
     end)
 
     local tickNo = 0
@@ -143,20 +149,21 @@ function love.load(args)
     end
     local function timed()
       local t0 = now()
+      policyMs = 0
       world.state.tick = world.state.tick + 1
       for i = 1, #systems do
         local tick = systems[i].tick
         if tick then
-          local s0 = now()
+          local s0, p0 = now(), policyMs
           tick(world, step)
-          local spent = now() - s0
+          local spent = now() - s0 - (policyMs - p0)
           perSystem[i] = perSystem[i] + spent
           if spent > perMax[i] then
             perMax[i] = spent
           end
         end
       end
-      totals[#totals + 1] = now() - t0
+      totals[#totals + 1] = now() - t0 - policyMs
     end
     for _ = 1, window do
       play(timed)
@@ -219,9 +226,9 @@ function love.load(args)
       for i = 1, #systems do
         local tick = systems[i].tick
         if tick then
-          local before = collectgarbage("count")
+          local before, p0 = collectgarbage("count"), policyKb
           tick(world, step)
-          local grew = collectgarbage("count") - before
+          local grew = collectgarbage("count") - before - (policyKb - p0)
           tickAlloc = tickAlloc + grew
           allocMax[i] = math.max(allocMax[i], grew)
         end
@@ -279,23 +286,35 @@ function love.load(args)
         saveReps
       )
     )
-    local run = data.run
-    local sections = {}
-    for key, value in pairs(run) do
-      sections[#sections + 1] = { key, #serialize.encode(value) }
-    end
-    table.sort(sections, function(a, b)
-      return a[2] > b[2]
-    end)
-    local big = {}
-    for k = 1, math.min(6, #sections) do
-      big[#big + 1] = string.format("%s %d", sections[k][1], sections[k][2])
-    end
-    io.write("  largest run sections (bytes, plain encode): " .. table.concat(big, ", ") .. "\n")
-    for _, key in ipairs({ "terrain", "soil", "waterTable", "objects" }) do
-      if type(grid[key]) == "table" then
-        io.write(string.format("  grid.%s: %d bytes\n", key, #serialize.encode(grid[key])))
+    -- The file's parts as written (the grid packed, as Save:write does).
+    local disk = Save.forDisk(data)
+    for _, part in ipairs({ "file", "run", "meta" }) do
+      local sections = {}
+      for key, value in pairs(part == "file" and disk or disk[part] or {}) do
+        sections[#sections + 1] = { key, #serialize.encode(value) }
       end
+      table.sort(sections, function(a, b)
+        return a[2] > b[2] or (a[2] == b[2] and a[1] < b[1])
+      end)
+      local big = {}
+      for k = 1, math.min(6, #sections) do
+        big[#big + 1] = string.format("%s %d", sections[k][1], sections[k][2])
+      end
+      io.write(string.format("  largest %s sections (bytes in the file): %s\n", part, table.concat(big, ", ")))
+    end
+    -- Each grid part over 1 KB, plain and as the file holds it (Gridpack packs terrain, soil, water table and
+    -- fertility; objects stay plain until #248).
+    local packed = Gridpack.pack(grid)
+    local keys = {}
+    for key, value in pairs(grid) do
+      if type(value) == "table" and #serialize.encode(value) > 1024 then
+        keys[#keys + 1] = key
+      end
+    end
+    table.sort(keys)
+    for _, key in ipairs(keys) do
+      local plainBytes, fileBytes = #serialize.encode(grid[key]), #serialize.encode(packed[key])
+      io.write(string.format("  grid.%s: %d bytes (%d in the file)\n", key, plainBytes, fileBytes))
     end
   end, debug.traceback)
   if not ok then
