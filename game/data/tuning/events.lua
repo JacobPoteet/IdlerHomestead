@@ -27,6 +27,7 @@ return {
     feverFlu = 0.3, -- a fever worked through turns into flu two mornings on (30 percent)
     heatCollapse = 0.35, -- pushing on in the heat ends in a collapse that afternoon (35 percent)
     lateFrost = 0.5, -- a late frost left to chance nips the rows at dawn (a coin flip: the forecast missed it, PLAN_DEPTH 6.2)
+    windfallStays = 0.5, -- a stash marked for later is still there the next day (a coin flip: someone else may have found it)
     fellingSlip = 0.1, -- bucking a whole felled tree ends in a slip an hour on (10 percent, PLAN_DEPTH 6.2)
   },
   body = { -- the triggers of the body events (PLAN_DEPTH 6.2, 7)
@@ -36,6 +37,12 @@ return {
   home = { -- the home events (PLAN_DEPTH 6.2, B7): what their lasting damage costs while it is open; both flags mend themselves
     tornCanvasInsulation = 1.4, -- multiplier on a camp's warmth need while the tarp is torn (a first guess; the shack and truck are not affected; PLAN_DEPTH had x0.5 insulation, softened for the trim)
     cloggedFlueStove = 0.7, -- multiplier (0..1) on the stove's warmth per log while the flue is clogged: more wood for the same night, never a cold stove
+  },
+  visitors = { -- the visitors and luck events (PLAN_DEPTH 6.2, B9)
+    mealCalories = 1000, -- calories: a supper for a guest (a third of a day's food, 3000); the cost is the cheapest stocked food worth this much
+    mealCategories = { "food", "fish" }, -- resource categories a supper is made of (preserved food is kept for the homesteader)
+    mealFallback = "canned_food", -- resource id: named as the missing food when nothing stocked makes a supper
+    peddlerPrice = 0.75, -- multiplier: the peddler sells at this share of the shop's price (a small treat for those who answer), paid in money or in goods at market value
   },
   ordersPerk = "rules_of_thumb", -- journal perk id: standing orders (Careful, Bold) apply only once it is known; until then every class reads as Ask me (PLAN_DEPTH 6.4, B5)
   historyLimit = 20, -- events remembered in the run state's history (older ones are dropped)

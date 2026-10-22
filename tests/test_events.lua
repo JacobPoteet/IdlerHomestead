@@ -214,12 +214,21 @@ T.test("events: the quiet start, and no bad event before Footing or the cutoff d
   setTime(world, 3, 21.5)
   tick(world)
   T.eq(#world.state.events.scheduled, 1, "from the third night a bad event may come once Footing is held")
-  -- Without Footing a bad event waits for the cutoff day.
+  -- Without Footing a bad event waits for the cutoff day (a mild luck event, the visitors pack, may come earlier).
+  local function badScheduled(w)
+    local n = 0
+    for _, item in ipairs(w.state.events.scheduled) do
+      n = n + (reg:get("events", item.id).bad and 1 or 0)
+    end
+    return n
+  end
   local bare = World.new({ registry = reg, tuning = tun }, World.newState(1))
   for day = 3, cfg.badFromDay - 1 do
     setTime(bare, day, 21.5)
     tick(bare)
-    T.eq(#bare.state.events.scheduled, 0, "no bad event on day " .. day .. " before Footing")
+    T.eq(badScheduled(bare), 0, "no bad event on day " .. day .. " before Footing")
+    bare.state.events.scheduled = {}
+    bare.state.events.slot = nil
   end
   setTime(bare, cfg.badFromDay, 21.5)
   tick(bare)

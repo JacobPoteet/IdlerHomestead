@@ -29,6 +29,16 @@ return {
     lacks = { equipment = "farm_dog" },
     effects = { equipment = { "farm_dog" } },
   },
+  -- The old radio (B9, D194) is the catalog's radio as equipment: it lets the far neighbor call.
+  {
+    id = "old_radio",
+    name = "Old radio",
+    line = "A hand-crank set that still works.",
+    icon = "icon_radio",
+    weight = 0.6,
+    lacks = { equipment = "radio" },
+    effects = { equipment = { "radio" } },
+  },
   {
     id = "heirloom_seeds",
     name = "Heirloom seeds",

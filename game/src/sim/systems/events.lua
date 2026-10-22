@@ -73,6 +73,7 @@ local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
 local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
+local Market = require("src.sim.systems.market")
 local Needs = require("src.sim.systems.needs")
 local Shelter = require("src.sim.systems.shelter")
 local Sleep = require("src.sim.systems.sleep")
@@ -317,6 +318,20 @@ local function holds(world, cond)
   if cond.planted ~= nil and (#Crops.plantedTiles(world) > 0) ~= cond.planted then
     return false
   end
+  if cond.equipment then
+    for _, id in ipairs(cond.equipment) do
+      if not Inventory.hasEquipment(world, id) then
+        return false
+      end
+    end
+  end
+  if cond.noEquipment then
+    for _, id in ipairs(cond.noEquipment) do
+      if Inventory.hasEquipment(world, id) then
+        return false
+      end
+    end
+  end
   if cond.feet and Wardrobe.classOf(world, "feet") ~= cond.feet then
     return false
   end
@@ -357,6 +372,9 @@ function Events.weight(world, id)
     return 0
   end
   if d.minYear and now.year < d.minYear then
+    return 0
+  end
+  if d.minDay and now.day < d.minDay then
     return 0
   end
   local weight = d.weight
@@ -508,6 +526,9 @@ local function applyEffect(world, effect, depth, from)
       Crops.setBack(world, tile, effect.damageTiles.setback, "event")
     end
   end
+  for _, id in ipairs(effect.equipment or {}) do
+    Inventory.addEquipment(world, id)
+  end
   if effect.note then
     Journal.write(world, effect.note)
   end
@@ -641,6 +662,51 @@ resolve = function(world, option, reason)
   end
 end
 
+-- A hiker's supper: the cheapest stocked food (by value) that covers tuning.events.visitors.mealCalories, as { id = units }.
+-- With none stocked it names the fallback food, which the card shows as lacking. Whole units of one kind, like the dog's meal.
+local function mealCost(world)
+  local v = cfg(world).visitors
+  local best, bestUnits, bestValue
+  for _, res in ipairs(world.registry:all("resources")) do
+    if contains(v.mealCategories, res.category) and (res.calories or 0) > 0 then
+      local units = math.ceil(v.mealCalories / res.calories)
+      local value = units * (res.value or 0)
+      if Ledger.get(world, res.id) >= units and (not best or value < bestValue) then
+        best, bestUnits, bestValue = res.id, units, value
+      end
+    end
+  end
+  if best then
+    return { [best] = bestUnits }
+  end
+  local fallback = world.registry:get("resources", v.mealFallback)
+  return { [fallback.id] = math.ceil(v.mealCalories / fallback.calories) }
+end
+
+-- The peddler's price: the catalog price of the item times tuning.events.visitors.peddlerPrice, paid in money or in units of a
+-- resource at this week's market price (Market.itemPrice, Market.sellPrice), as { id = units }.
+local function tradeCost(world, trade)
+  local price = Market.itemPrice(world, trade.item) * cfg(world).visitors.peddlerPrice
+  local unit = trade.pay == "money" and 1 or Market.sellPrice(world, trade.pay)
+  return { [trade.pay] = math.max(1, math.ceil(price / math.max(1, unit))) }
+end
+
+--- What an option costs now: its own `cost`, plus a supper (`meal`) or the peddler's price (`trade = { item, pay }`), which
+--- depend on the stores and the market. nil for a free option.
+local function costOf(world, o)
+  if not (o.meal or o.trade) then
+    return o.cost
+  end
+  local out = {}
+  for id, n in pairs(o.cost or {}) do
+    out[id] = n
+  end
+  for id, n in pairs(o.meal and mealCost(world) or tradeCost(world, o.trade)) do
+    out[id] = (out[id] or 0) + n
+  end
+  return out
+end
+
 --- Resources an option costs that are not in stock: the first such id, or nil.
 local function lacking(world, cost)
   for _, id in ipairs(sortedKeys(cost or {})) do
@@ -653,11 +719,12 @@ end
 
 local function optionView(world, d, index)
   local o = d.options[index]
-  local missing = lacking(world, o.cost)
+  local cost = costOf(world, o)
+  local missing = lacking(world, cost)
   return {
     index = index,
     label = o.label,
-    cost = o.cost or {},
+    cost = cost or {},
     risk = o.risk,
     careful = o.careful == true,
     bold = o.bold == true,
@@ -753,7 +820,7 @@ local function orderChoice(world, d, mode)
   if not index then
     return nil, "none"
   end
-  local cost = d.options[index].cost
+  local cost = costOf(world, d.options[index])
   local missing = lacking(world, cost)
   if missing then
     return nil, "short", missing
@@ -781,7 +848,7 @@ function Events.answerByOrder(world, d)
   end
   local index, why, resource = orderChoice(world, d, mode)
   if index then
-    local cost = d.options[index].cost
+    local cost = costOf(world, d.options[index])
     if cost then
       Ledger.spend(world, cost, "event")
     end
@@ -806,12 +873,13 @@ function Events.choose(world, index)
   if not o then
     return false, "no such option"
   end
-  local missing = lacking(world, o.cost)
+  local cost = costOf(world, o)
+  local missing = lacking(world, cost)
   if missing then
     return false, "lacks " .. missing
   end
-  if o.cost then
-    Ledger.spend(world, o.cost, "event")
+  if cost then
+    Ledger.spend(world, cost, "event")
   end
   resolve(world, index)
   return true
@@ -951,6 +1019,7 @@ local EFFECT_KEYS = {
   lockTiles = true,
   damageTiles = true,
   note = true,
+  equipment = true,
   chain = true,
   later = true,
   capital = true,
@@ -1037,6 +1106,22 @@ function Events.audit(world)
             bad(id, where .. " costs the unknown resource " .. rid)
           end
         end
+        for _, eid in ipairs(o.effect.equipment or {}) do
+          if not reg:has("catalog", eid) or not reg:get("catalog", eid).equipment then
+            bad(id, where .. " grants '" .. eid .. "', which is not catalog equipment")
+          end
+        end
+        if o.trade then
+          if not reg:has("catalog", o.trade.item) then
+            bad(id, where .. " trades the unknown item " .. tostring(o.trade.item))
+          end
+          if
+            not reg:has("resources", o.trade.pay)
+            or (o.trade.pay ~= "money" and not reg:get("resources", o.trade.pay).value)
+          then
+            bad(id, where .. " is paid in '" .. tostring(o.trade.pay) .. "', which has no market price")
+          end
+        end
         if o.effect.note and not reg:has("notes", o.effect.note) then
           bad(id, where .. " writes the unknown note " .. o.effect.note)
         end
@@ -1084,7 +1169,7 @@ function Events.audit(world)
           worst.severity = math.max(worst.severity, r.severity)
           worst.condition = math.max(worst.condition, r.condition)
         else
-          if o.cost then
+          if o.cost or o.trade or o.meal then
             bad(id, "ignore must be free")
           end
           for _, forbidden in ipairs({
@@ -1096,6 +1181,7 @@ function Events.audit(world)
             "lockTiles",
             "damageTiles",
             "lose",
+            "equipment",
           }) do
             if o.effect[forbidden] then
               bad(id, "ignore must not use " .. forbidden .. " (free, safe, non-escalating)")

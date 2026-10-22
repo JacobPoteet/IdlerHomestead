@@ -475,6 +475,18 @@ return {
     equipment = true,
     unique = true,
   },
+  -- The radio (B9, D194): equipment with no modifiers; owning it lets a far neighbor call (the radio_neighbor event). Also a find.
+  {
+    id = "radio",
+    name = "Hand-crank radio",
+    line = "Pulls in a far neighbor's voice now and then.",
+    page = "tools",
+    price = 20,
+    needs = { "first_trip" },
+    studyNights = 1,
+    equipment = true,
+    unique = true,
+  },
   -- Chickens (GDD §7.7, D63). The coop comes with a first sack of feed; hens are pickup only (animals
   -- ride home in the truck) and need a placed coop with room. Feed refills and the fence are learned
   -- from what chickens teach: eggs, then a fox.

@@ -42,6 +42,7 @@ Also `status` (D167: the status chips under the Condition meter, applied through
 Also `standing` (D176, #349: the Routine screen before the Rules of thumb perk is known (no standing-orders block), then with it, a tap on Careful for Body, and Tab then Enter on another button; desktop, phone and landscape).
 
 Also `eventcard` (D172, #348: the event card: an affordable choice (a tap on Splint it pays two wood and applies Hobbling), an option the player cannot pay (dimmed with "Needs wood: you have 0", a tap does nothing, Tab then Enter on the free option), an ignored event (a panel in front stops its window and hides the card, then the timer runs out at 4x into the free Limping outcome), and the one-card-at-a-time queue (Tonight open, the event waits behind it with an Event stamp, Close brings it up, a tap on the ignore block takes the free outcome); the event is offered through the `Events.force` debug path; desktop, phone and landscape).
+Also `visitors` (D194, #353: the visitors and luck cards: the peddler's two prices read from the market (a tap on Buy pays money and gives the canes), the hiker's supper and fire, and the stray dog (a tap on Feed it keeps the farm dog); offered through `Events.force`; desktop, phone and landscape).
 
 Also `storecard` (D107, D164: the store's item card, plus the gate: a test-only item flagged `requiresFooting` shown locked with "Opens at Footing" in the Catalog row, its card and the Journal card, then open once Footing is held; desktop, phone and landscape).
 

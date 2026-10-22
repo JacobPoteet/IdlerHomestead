@@ -1,6 +1,6 @@
 -- Misfortune events (D169, #347, docs/PLAN_DEPTH.md §6.2): something that happens to a person living alone, answered with
 -- a choice between two options that have a real trade-off, or ignored. Content only: src/sim/systems/events.lua draws,
--- offers and applies them. The body pack (B6, D173), the home pack (B7, D192) and the land pack (B8, D193) are below; the other packs add more by data alone.
+-- offers and applies them. The body pack (B6, D173), the home pack (B7, D192) and the land pack (B8, D193) and the visitors pack (B9, D194) are below; the other packs add more by data alone.
 --
 --   title, line      the card's title and one sentence
 --   class            "body" | "home" | "land" | "visitors": the standing-order class (B5, #349)
@@ -8,7 +8,7 @@
 --   bad              a misfortune: never drawn while Footing is slipped, Condition is low or the statuses are full (6.5)
 --   wake             may wake the homesteader; the card never freezes time (6.3)
 --   seasons          season id -> weight multiplier (absent = every season at 1; a season left out is 0)
---   minYear, cooldown (days), once (per run), weight, exposure (0..1, how much night exposure shapes the weight)
+--   minYear, minDay (day number of the run), cooldown (days), once (per run), weight, exposure (0..1, how much night exposure shapes the weight)
 --   conditions       all must hold, checked when drawn and again when offered:
 --                    weather = { kinds }, frozen = bool, status = { ids or families }, noStatus = { ids or families },
 --                    noColdNight = true, placed = { object ids (heat sources) }, coldNight = bool (tonight asks at least
@@ -16,7 +16,8 @@
 --                    feet = weight class of the boots ("light" | "mid" | "heavy"), outfit = which way the clothes lean
 --                    (same words, GDD 7.8), shelter = { ids of the best shelter placed ("camp", "shack") },
 --                    noDamage = { damage flags that must not be open }, pipesOpen = bool (pipes that can freeze, neither frozen
---                    nor kept by lagging or a shack), planted = bool (a crop is in the ground)
+--                    nor kept by lagging or a shack), planted = bool (a crop is in the ground),
+--                    equipment = { catalog equipment ids that must be owned }, noEquipment = { ids that must not be }
 --   drawConditions   the same keys, checked only when the dusk draw picks (not again when the card is offered): the trigger
 --                    of an event whose cause has passed by the time it comes (a fall while Strained, a cold night)
 --   fall             the weight is multiplied by the fall chance of the statuses (a bad ankle makes a fall likelier)
@@ -25,6 +26,10 @@
 --   options          exactly two: { label, cost = { resource = n }?, effect, risk (qualitative words, never odds; the card
 --                    (B4, D172) says the cost and the effect in plain words itself from `cost` and `effect`, so `risk` is
 --                    only how safe the choice is, e.g. "Safe. It passes by tomorrow."),
+--                    meal = true? (adds a supper to the cost: the cheapest stocked food worth tuning.events.visitors.mealCalories),
+--                    trade = { item = catalog id, pay = "money" | a resource with a market value }? (adds the peddler's price: the
+--                    item's market price times tuning.events.visitors.peddlerPrice, in money or in units of `pay`; both are worked out
+--                    when the card opens, so the cost line is always the true one),
 --                    careful = true? (what Careful standing orders pick, B5), bold = true? (what Bold picks) }
 --   ignore           { label, effect, risk }: applies when nobody answers in the window (tuning.events.ignoreHours,
 --                    never under ignoreMinSeconds of real time). Free, safe and non-escalating (6.2): no cost, no condition
@@ -40,6 +45,7 @@
 --   damageTiles = { count, setback }  planted tiles knocked back (Crops.setBack)
 --   repair = { names }          lasting damage flags mended (what a `later` outcome does to the damage that opened them)
 --   freezePipes = true          the pumps and pipes freeze now until the thaw hour (Weather.freezePipes)
+--   equipment = { ids }         catalog equipment kept for the run (Inventory.addEquipment): a dog that stays
 --   note = id                   Journal.write: a Field Journal note
 --   later = { days, hour? | hours, chance?, effect }   an outcome that lands later: `hours` on, or `days` on at `hour` (default the
 --                               hour it was chosen); `chance` names a key of tuning.events.chances (absent = certain), and the
@@ -643,6 +649,173 @@ return {
       label = "Leave it for now",
       effect = {},
       risk = "Safe. It lies there, and nothing is lost.",
+    },
+  },
+
+  -- Visitors and luck pack (B9, #353, D194). Cozy and optional: nothing here is a misfortune (`bad = false`), every ignore is a
+  -- free "they move on", and a player who never answers loses only a chance. The hiker is the one wake event.
+  {
+    id = "lost_hiker",
+    title = "Lost hiker",
+    line = "A knock at the door in the dark: a hiker who missed the trail, cold and hungry.",
+    class = "visitors",
+    when = "night",
+    bad = false,
+    wake = true,
+    minDay = 5,
+    weight = 1,
+    cooldown = 12,
+    journalNote = "lost_hiker",
+    options = {
+      {
+        label = "Share a meal and a fire",
+        meal = true,
+        cost = { wood = 3 },
+        effect = { gain = { money = 6 }, note = "kind_stranger" },
+        risk = "Safe. A supper and some firewood, and a thank-you in coin.",
+        careful = true,
+      },
+      {
+        label = "Point them down the road",
+        effect = { note = "turned_hiker" },
+        risk = "Safe. They go on, and it sits with you a little.",
+        bold = true,
+      },
+    },
+    ignore = {
+      label = "Let them knock",
+      effect = {},
+      risk = "Safe. They find the road by morning.",
+    },
+  },
+  {
+    id = "peddler",
+    title = "Traveling peddler",
+    line = "A peddler's cart creaks up the lane with a tray of canes and cuttings.",
+    class = "visitors",
+    when = "day",
+    bad = false,
+    wake = false,
+    seasons = { spring = 1.5, summer = 1, autumn = 1 },
+    weight = 1,
+    cooldown = 14,
+    journalNote = "peddler",
+    options = {
+      {
+        label = "Buy the berry canes",
+        trade = { item = "berries_seeds", pay = "money" },
+        effect = { gain = { seed_berries = 2 } },
+        risk = "Safe. A fair price, a little under the shop's.",
+        careful = true,
+      },
+      {
+        label = "Barter eggs for them",
+        trade = { item = "berries_seeds", pay = "egg" },
+        effect = { gain = { seed_berries = 2 } },
+        risk = "Safe. The same canes for eggs from the coop.",
+        bold = true,
+      },
+    },
+    ignore = {
+      label = "Wave them on",
+      effect = {},
+      risk = "Safe. The cart rolls on down the road.",
+    },
+  },
+  {
+    id = "radio_neighbor",
+    title = "Neighbor on the radio",
+    line = "The old radio crackles: a far neighbor asks if you could spare a hand with something.",
+    class = "visitors",
+    when = "day",
+    bad = false,
+    wake = false,
+    conditions = { equipment = { "radio" } },
+    weight = 1,
+    cooldown = 10,
+    journalNote = "radio_neighbor",
+    options = {
+      {
+        label = "Lend a hand",
+        effect = { status = HOUR_OF_WORK, gain = { money = 8 }, note = "radio_friend" },
+        risk = "Safe. An hour of work, and they pay you for it.",
+        careful = true,
+      },
+      {
+        label = "Say you cannot today",
+        effect = {},
+        risk = "Safe. They understand, and will call again.",
+        bold = true,
+      },
+    },
+    ignore = {
+      label = "Let it crackle",
+      effect = {},
+      risk = "Safe. Nothing lost.",
+    },
+  },
+  {
+    id = "stray_dog",
+    title = "Stray dog",
+    line = "A lean dog watches you from the tree line, and has been for a while.",
+    class = "visitors",
+    when = "day",
+    bad = false,
+    wake = false,
+    conditions = { noEquipment = { "farm_dog" } },
+    weight = 1,
+    once = true,
+    journalNote = "stray_dog_seen",
+    options = {
+      {
+        label = "Feed it and keep it",
+        meal = true,
+        effect = { equipment = { "farm_dog" } },
+        risk = "Safe. A meal, and a dog that stays and eats a little each day.",
+        careful = true,
+      },
+      {
+        label = "Shoo it off",
+        effect = {},
+        risk = "Safe. It slinks away.",
+        bold = true,
+      },
+    },
+    ignore = {
+      label = "Leave it be",
+      effect = {},
+      risk = "Safe. It wanders off on its own.",
+    },
+  },
+  {
+    id = "windfall",
+    title = "Windfall",
+    line = "Clearing out a collapsed shed up the track, you spot a stash someone left behind.",
+    class = "visitors",
+    when = "day",
+    bad = false,
+    wake = false,
+    weight = 0.5,
+    cooldown = 20,
+    journalNote = "windfall",
+    options = {
+      {
+        label = "Haul it now",
+        effect = { gain = { wood = 6, scrap = 3 }, status = HOUR_OF_WORK },
+        risk = "Safe. An hour of work for a good load.",
+        careful = true,
+      },
+      {
+        label = "Mark it for later",
+        effect = { later = { days = 1, chance = "windfallStays", effect = { gain = { wood = 6, scrap = 3 } } } },
+        risk = "Risky. It may still be there tomorrow, and it may not.",
+        bold = true,
+      },
+    },
+    ignore = {
+      label = "Leave it lie",
+      effect = {},
+      risk = "Safe. It stays where it is.",
     },
   },
 }
