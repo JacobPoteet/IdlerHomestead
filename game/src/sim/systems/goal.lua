@@ -129,8 +129,8 @@ end
 
 --- The gates that open at Footing, for the Progress panel: { open (Footing is held), items = { { id, name } } }.
 --- Every catalog definition carrying the content flag `requiresFooting` (the gate framework, D164, #343), then the
---- surfaces named in tuning.progress.surfaces: gated things that have no content definition yet (the contracts board,
---- land, charters, tiers). A slice that builds one of those flags its content and deletes its name from that list.
+--- surfaces named in tuning.progress.surfaces: things Footing opens that are gated in code, not by a content flag (the
+--- contracts board, D197). A later Footing-gated thing either flags its content or adds its name to that list.
 function Goal.gates(world)
   local items = {}
   for _, def in ipairs(world.registry:all("catalog")) do
