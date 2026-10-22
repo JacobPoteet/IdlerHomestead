@@ -1,11 +1,15 @@
 -- The goal ladder (D163, #342, #276): the pressing-goal line under the top bar (its own tappable line, no chip) and the
 -- Progress panel it opens: Tonight first, then Footing's checklist, then the winter and the Great Winter; the run's
--- milestones ticking; the gates locked ("opens at Footing") and then open. Tap and keyboard (P, Esc). The clock and the
--- stocks are set through the sim; the line, the taps and the keys are the real ones. At desktop and phone sizes.
+-- milestones ticking; the gates locked ("opens at Footing") and then open; the "Limiting you" line naming water once
+-- the beds are dry (D202, #377). Tap and keyboard (P, Esc). The clock and the stocks are set through the sim; the line,
+-- the taps and the keys are the real ones. At desktop and phone sizes.
+local Bottleneck = require("src.sim.systems.bottleneck")
+local Crops = require("src.sim.systems.crops")
 local Footing = require("src.sim.systems.footing")
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
 local Needs = require("src.sim.systems.needs")
+local Weather = require("src.sim.systems.weather")
 
 --- Jump the sim clock to a day and hour (the calendar's day marker with it, so no day is announced).
 local function jumpTo(world, day, hour)
@@ -124,6 +128,25 @@ return function(d)
   panel.list.offset = panel.list.contentH
   d:frames(3)
   d:shot("panel_winter_gates")
+  d:key("escape")
+  d:frames(3)
+
+  -- 6b. What is limiting the homestead (D202, #377): a bed of dry radishes, under a clear sky, names water, with the
+  -- figures and what helps, second on the panel under the goal.
+  Weather.force(world, "clear")
+  local radish = world.registry:get("crops", "radish")
+  for dx = 2, 6 do
+    local x, y = d:freeTileNear(dx, 2)
+    local i = Grid.index(world.state.grid, x, y)
+    world.state.fields.tilled[i] = true
+    local crop = Crops.newCrop(world, radish)
+    crop.moisture, crop.growth = 0, 0.3
+    world.state.crops[i] = crop
+  end
+  assert(Bottleneck.current(world).id == "water", "dry beds: water is the limit")
+  d:pressHud("goal")
+  d:frames(4)
+  d:shot("panel_limit")
   d:key("escape")
   d:frames(3)
 

@@ -295,7 +295,7 @@ T.test("goal text: the level is the worst of the line's parts", function()
   T.eq(GoalText.level(Goal.current(world)), 0)
 end)
 
-T.test("goal text: the panel has the five sections, with ticks and the locked gates", function()
+T.test("goal text: the panel has the six sections, with ticks and the locked gates", function()
   local world = autumnWorld(10)
   stock(world, true)
   world.events:emit("crop.harvested", { crop = "radish", amount = 1 })
@@ -306,21 +306,22 @@ T.test("goal text: the panel has the five sections, with ticks and the locked ga
     titles[i] = s.title
   end
   T.eq(titles[1], "Now")
-  T.eq(titles[2], "Year and season")
-  T.eq(titles[3], "Footing")
-  T.eq(titles[4], "Milestones")
-  T.eq(titles[5], "Opens at Footing")
-  T.eq(sections[4].tag, "1 of " .. total)
-  T.eq(#sections[3].rows, 1 + 4, "the status, then the four tests")
+  T.eq(titles[2], "Limiting you")
+  T.eq(titles[3], "Year and season")
+  T.eq(titles[4], "Footing")
+  T.eq(titles[5], "Milestones")
+  T.eq(titles[6], "Opens at Footing")
+  T.eq(sections[5].tag, "1 of " .. total)
+  T.eq(#sections[4].rows, 1 + 4, "the status, then the four tests")
   local marks = 0
-  for _, r in ipairs(sections[4].rows) do
+  for _, r in ipairs(sections[5].rows) do
     if r.mark == "done" then
       marks = marks + 1
     end
   end
   T.eq(marks, 1, "one milestone ticked")
-  T.truthy(#sections[5].rows >= 1)
-  for _, r in ipairs(sections[5].rows) do
+  T.truthy(#sections[6].rows >= 1)
+  for _, r in ipairs(sections[6].rows) do
     T.eq(r.mark, "lock")
     T.truthy(r.text:find("opens at Footing", 1, true), r.text)
   end
@@ -333,9 +334,9 @@ T.test("goal text: once Footing is held the gates read as open", function()
   local gates = Goal.gates(world)
   T.truthy(gates.open)
   local sections = GoalText.panel(Goal.current(world), Milestones.list(world), { 0, 8 }, gates)
-  T.eq(sections[5].title, "Opened by Footing")
-  T.eq(sections[5].rows[1].mark, "open")
-  T.truthy(sections[3].rows[1].text:find("Held since day 12", 1, true))
+  T.eq(sections[6].title, "Opened by Footing")
+  T.eq(sections[6].rows[1].mark, "open")
+  T.truthy(sections[4].rows[1].text:find("Held since day 12", 1, true))
 end)
 
 T.test("goal: a content flag `requiresFooting` lists a gate ahead of the named surfaces", function()

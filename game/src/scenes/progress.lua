@@ -1,8 +1,10 @@
--- The Progress panel (D163, #342, #276; docs/PLAN_DEPTH.md §3): where the run stands. The pressing goal, the year and
--- the winter ahead, the Footing checklist, the run's milestones and the gates that open at Footing, in one scrolling
--- list. A browse panel: it reads the sim (Goal, Milestones) and changes nothing. Opened by a tap on the goal line
--- under the top bar or by the P key; Close, Esc or P puts it away. Tap only, no hover.
+-- The Progress panel (D163, #342, #276; docs/PLAN_DEPTH.md §3): where the run stands. The pressing goal, what is limiting
+-- the homestead (D202, #377: water, labour, storage, power or the market, read from Bottleneck), the year and the winter
+-- ahead, the Footing checklist, the run's milestones and the gates that open at Footing, in one scrolling list. A browse
+-- panel: it reads the sim (Goal, Bottleneck, Milestones) and changes nothing. Opened by a tap on the goal line under the
+-- top bar or by the P key; Close, Esc or P puts it away. Tap only, no hover.
 
+local Bottleneck = require("src.sim.systems.bottleneck")
 local Buttons = require("src.ui.buttons")
 local Goal = require("src.sim.systems.goal")
 local GoalText = require("src.ui.goal_text")
@@ -31,7 +33,13 @@ end
 -- The panel's sections for the figures now.
 local function sectionsOf(world)
   local done, total = Milestones.tally(world)
-  return GoalText.panel(Goal.current(world), Milestones.list(world), { done, total }, Goal.gates(world))
+  return GoalText.panel(
+    Goal.current(world),
+    Milestones.list(world),
+    { done, total },
+    Goal.gates(world),
+    Bottleneck.current(world)
+  )
 end
 
 -- A string that changes when any word of the panel does, so a look that found nothing new costs no layout.

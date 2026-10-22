@@ -379,6 +379,8 @@ A **wear** meter (0..100) on durable things: solar panels (dust: output down unt
 
 **Simplified (D184, #377):** only the "what's limiting you" line on the Progress panel, with no meter.
 
+> **Built (D202, #377):** a "Limiting you" section second on the Progress panel, one amber line with its figures and one dim line of what helps, or "Nothing is holding the homestead back right now." `systems/bottleneck.lua` (accessors only) asks the ladder in order and names the first that holds: water (a share of the growing crops dry, not while it rains), labour (ripe crops with room in their store and weedy beds waiting on a share of the field), storage (a full store of a good the homestead makes), power (a sink tier short today, `Power.shortToday`) and market (spare produce past a truckload, or the town paying under a share of full price for the most plentiful spare good). Land is not asked while owned land is deferred (#380). The thresholds are first guesses in `tuning.progress.bottleneck`. No meter, no HUD readout, no save change; #7 (truck trip time) stays a separate decision.
+
 A **workload meter** compares work waiting (task board, scored in seconds) with hours of work left in the day. When the day is overbooked, the routine's priority list decides what is dropped, and the meter says what ("watering is falling behind"). This makes the priority list matter and shows the player what to automate next. The "what's limiting you" line names the current bottleneck.
 
 ### 10.3 Helpers
@@ -625,7 +627,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 **Phase F: Labour and upkeep**
 - F1 (#375) Wear system and the maintenance task category. **CUT (D184, closed).** #145 reopens only if auto-harvester wear is still wanted.
 - F2 (#376) Maintenance items: dust, filters, fences, tools, truck. **CUT (D184, closed).**
-- F3 (#377) Workload meter and bottleneck line. **Simplified (D184):** the bottleneck line only, no meter.
+- F3 (#377) Workload meter and bottleneck line. **Simplified (D184):** the bottleneck line only, no meter. **Done (D202).**
 - F4 (#378) Hired hand actor. **DEFERRED (D184)** to M10.
 - F5 (#379) Mule and sleep debt. **CUT (D184, closed).** Sleep debt already is Tired (B1).
 

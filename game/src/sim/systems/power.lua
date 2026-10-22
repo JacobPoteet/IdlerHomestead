@@ -302,6 +302,19 @@ function Power.tierName(world, id)
   return world.tuning.power.tierNames[id]
 end
 
+--- Sink tiers (not the charging tiers) served less than they wanted today, in priority order: { tier id, ... }.
+--- Read from the once-a-day brownout record, so it holds for the rest of the day (the bottleneck line, D202).
+function Power.shortToday(world)
+  local s, out = state(world), {}
+  local day = Calendar.now(world).day
+  for _, id in ipairs(s.order) do
+    if s.warned[id] == day and rawget(world.tuning.power.chargeTiers, id) == nil then
+      out[#out + 1] = id
+    end
+  end
+  return out
+end
+
 --- Ask for power for a "demand" sink (a machine with work, #42) from the next tick on, or stop
 --- asking. The request is saved with the power state, so a loaded game draws exactly as before.
 function Power.request(world, anchor, wants)

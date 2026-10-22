@@ -55,5 +55,6 @@ return {
   "milestones", -- D163: the run's checklist, ticked by world events
   "readiness", -- D70: accessors only
   "goal", -- D163: the pressing goal and its figures, accessors only (reads footing, readiness, weather)
+  "bottleneck", -- D202: what limits the homestead now (water, labour, storage, power, market), accessors only
   "dusk", -- D161: the Tonight card's one-tap fixes; issues orders through marks, tasks and actors, no state of its own
 }
