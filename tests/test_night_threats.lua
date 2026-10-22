@@ -23,6 +23,10 @@ local DPS = tun.time.daysPerSeason
 local AUTUMN = 2 * DPS + 1
 local mice, pred, catCfg = tun.cat.mice, tun.animals.predators, tun.cat.cat
 local RAID_HOUR = mice.raidHour
+-- This file is about mice and the fox: the raiders (tests/test_raiders.lua) are silenced so they never take the night slot.
+for _, id in ipairs({ "raccoon", "deer", "bear" }) do
+  tun.raiders[id].chancePerDay = 0
+end
 
 local function newWorld(seed)
   local world = World.new({ registry = reg, tuning = tun }, World.newState(seed or 1))
@@ -106,6 +110,9 @@ T.test("night threats: the content audit finds nothing, and mice and the fox are
   local world = newWorld()
   T.same(NightThreats.audit(world), {})
   T.truthy(reg:has("night_threats", "mice") and reg:has("night_threats", "fox"))
+  for _, id in ipairs({ "raccoon", "deer", "bear" }) do
+    T.eq(reg:get("night_threats", id).handler, "raiders")
+  end
   T.eq(reg:get("night_threats", "fox").outcomes.landed.capital, true)
 end)
 

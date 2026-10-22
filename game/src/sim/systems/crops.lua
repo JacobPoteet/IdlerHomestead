@@ -7,7 +7,9 @@
 -- A harvest draws the tile's fertility and yield scales with it; the same family twice in a row builds pest
 -- pressure that cuts yield, and weeds cut it until the `weed` task pulls them, all together floored by
 -- `farming.minSoilMultiplier` (soil.lua, D178, D179, D180, D185). A crop blight has marked (`crop.blighted`, set by
--- threats.lua on a tile at full pest pressure) gives no produce at its harvest, only seeds and residue.
+-- threats.lua on a tile at full pest pressure) gives no produce at its harvest, only seeds and residue. A crop deer
+-- and rabbits have browsed (`crop.browsed`, set by raiders.lua, D188) still ripens and gives a smaller harvest
+-- (`tuning.raiders.deer.browseCut` off the yield, never below one unit); it is never killed.
 -- Crops grow only while moist; one watering lasts tuning.farming.moistureDays. Nothing grows or
 -- can be planted while the ground is frozen, and the first frost kills whatever is still in the
 -- ground (GDD §4.1), except a `hardy` crop, which sits the winter out dormant (D177). A crop is sown only in
@@ -84,8 +86,8 @@ function Crops.isYoung(crop)
   return crop.stage == "sapling" or crop.stage == "first"
 end
 
---- Is the young plant on tile i drawn to `animal` ("deer", "bear"), by its definition? Data for the night threats of
---- phase C (PLAN_DEPTH 6.1); nothing in the sim acts on it yet.
+--- Is the young plant on tile i drawn to `animal` ("deer", "bear"), by its definition? Read by the night raiders
+--- (raiders.lua, D188): a young perennial the deer like is a target wherever it stands.
 function Crops.vulnerableTo(world, i, animal)
   local crop = world.state.crops[i]
   if not crop or not Crops.isYoung(crop) then
@@ -586,7 +588,9 @@ local function registerTasks(world)
       local pressure, repeated, weeds = Soil.pressure(w, i), Soil.repeats(w, i, def), Soil.weeds(w, i)
       local tier, penalty = Quality.grade(w, i, crop, def) -- fertility, weeds and thirst (D182), read before the harvest changes them
       local share = Crops.yieldShare(w, crop) -- a young perennial gives less (D183)
-      local amount = math.max(1, math.floor(def.yield * mult * share + rng:float()))
+      local browsed = crop.browsed == true -- deer and rabbits ate part of it (D188): a smaller harvest, never none
+      local cut = browsed and (1 - w.tuning.raiders.deer.browseCut) or 1
+      local amount = math.max(1, math.floor(def.yield * mult * share * cut + rng:float()))
       local seeds = rng:int(def.seedReturn[1], def.seedReturn[2])
       local blighted = crop.blighted == true
       if blighted then
@@ -594,7 +598,7 @@ local function registerTasks(world)
       end
       if def.perennial then
         -- the plant stays: it rests until its next fruiting season
-        crop.growth, crop.thirst, crop.blighted = 0, 0, nil
+        crop.growth, crop.thirst, crop.blighted, crop.browsed = 0, 0, nil, nil
         crop.rest, crop.fruited = true, true
       else
         w.state.crops[i] = nil
@@ -617,6 +621,7 @@ local function registerTasks(world)
         quality = tier,
         penalty = penalty,
         blighted = blighted,
+        browsed = browsed,
         stage = crop.stage,
       }
       w.events:emit("crop.harvested", harvest)
@@ -829,6 +834,53 @@ function Crops.blight(world, i)
     return false
   end
   crop.blighted = true
+  return true
+end
+
+--- Has deer and rabbits browsed the crop on tile i (its harvest will be smaller, D188)?
+function Crops.isBrowsed(world, i)
+  local crop = world.state.crops[i]
+  return crop ~= nil and crop.browsed == true
+end
+
+--- The tiles night raiders of the field can browse, ascending: an unripe crop nothing has browsed yet that stands on
+--- the field's edge (a 4-neighbour that is not part of the farm: tilled, planned or planted), and a young perennial
+--- the deer like wherever it stands. A resting perennial (nothing to ripen) is left alone.
+function Crops.edgeTiles(world)
+  local field = {}
+  for _, i in ipairs(Crops.fieldTiles(world)) do
+    field[i] = true
+  end
+  local grid = world.state.grid
+  local list = {}
+  for _, i in ipairs(Crops.plantedTiles(world)) do
+    local crop = world.state.crops[i]
+    if not crop.browsed and not crop.rest and not Crops.isMature(crop) then
+      local x, y = Grid.coords(grid, i)
+      local edge = false
+      for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+        local nx, ny = x + d[1], y + d[2]
+        if not Grid.inBounds(grid, nx, ny) or not field[Grid.index(grid, nx, ny)] then
+          edge = true
+          break
+        end
+      end
+      if edge or Crops.vulnerableTo(world, i, "deer") then
+        list[#list + 1] = i
+      end
+    end
+  end
+  return list
+end
+
+--- Mark the crop on tile i as browsed by deer and rabbits. Returns true when it was newly marked. Emits "crop.browsed" { crop, tile }.
+function Crops.browse(world, i)
+  local crop = world.state.crops[i]
+  if not crop or crop.browsed then
+    return false
+  end
+  crop.browsed = true
+  world.events:emit("crop.browsed", { crop = crop.id, tile = i })
   return true
 end
 

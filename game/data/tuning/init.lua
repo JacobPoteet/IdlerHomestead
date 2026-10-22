@@ -15,6 +15,7 @@ return {
   "soil",
   "quality",
   "perennials",
+  "raiders",
   "compost",
   "water",
   "needs",

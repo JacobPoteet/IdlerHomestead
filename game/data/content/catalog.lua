@@ -495,6 +495,41 @@ return {
     equipment = true,
     modifiers = { predatorGuard = 0.25 },
   },
+  -- Night raiders (C2 + C3, D188): each answer is equipment with one guard stat, taught by the note the raid writes. They
+  -- turn part of the raids back (no defence is perfect); an idle player who never buys one loses a share of a store.
+  {
+    id = "lidded_bins",
+    name = "Lidded bins",
+    line = "Latched lids keep raccoons out of the stores.",
+    page = "supplies",
+    price = 20,
+    needs = { "raccoon_raid" },
+    studyNights = 1,
+    equipment = true,
+    modifiers = { raccoonGuard = 0.8 },
+  },
+  {
+    id = "scarecrow",
+    name = "Scarecrow",
+    line = "Keeps deer and rabbits off the field's edge.",
+    page = "water_soil",
+    price = 15,
+    needs = { "deer_browse" },
+    studyNights = 1,
+    equipment = true,
+    modifiers = { cropGuard = 0.7 },
+  },
+  {
+    id = "bear_box",
+    name = "Bear box",
+    line = "A steel box the bear cannot open.",
+    page = "supplies",
+    price = 40,
+    needs = { "bear_raid" },
+    studyNights = 2,
+    equipment = true,
+    modifiers = { bearGuard = 0.9 },
+  },
   -- Goats (GDD §7.7, D71). Chickens come first (their notes gate all of this) and the first frost sets
   -- the player thinking of winter feed. The pen comes with a first stack of hay and the predator fence
   -- covers it as well as the coop; goats are pickup only and ride home on the trailer; hay refills and

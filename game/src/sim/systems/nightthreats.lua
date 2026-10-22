@@ -1,5 +1,5 @@
 -- The night threat framework (D187, #355, docs/PLAN_DEPTH.md §5, §6.1, §6.5): what comes at the homestead in the night.
--- The threats are content (data/content/night_threats.lua: mice and the fox so far); each names a handler (Cat, Animals)
+-- The threats are content (data/content/night_threats.lua: mice, the fox, the raccoon, deer and rabbits, the bear); each names a handler (Cat, Animals, Raiders)
 -- that owns its seeded stream and its effect through `nightPlan` and `nightLand`. This system decides which one comes,
 -- when, and how it is told.
 --
@@ -32,7 +32,8 @@
 --             "spared" | "none") } of the latest planned threat, or nil
 --   tally     id -> { turned, landed } lifetime counts
 --   history   { { day, id, outcome } } the last tuning.night.threats.history resolved threats }
--- Emits "nightthreat.resolved" { id, outcome, lost = { [resource] = n } } (lost: what a spared threat took instead).
+-- Emits "nightthreat.resolved" { id, outcome, lost = { [resource] = n }, tiles? } (lost: what a spared threat took instead, or
+-- what a landed raider of the stores took; tiles: crop tiles deer browsed, D188).
 
 local Calendar = require("src.sim.systems.calendar")
 local Animals = require("src.sim.systems.animals")
@@ -41,11 +42,13 @@ local Events = require("src.sim.systems.events")
 local Footing = require("src.sim.systems.footing")
 local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
+local Raiders = require("src.sim.systems.raiders")
 
 local NightThreats = {}
 
--- The handlers content names: each has nightHour(world), nightPlan(world, scale) and nightLand(world, plan, opts).
-local HANDLERS = { cat = Cat, animals = Animals }
+-- The handlers content names: each has nightHour(world, def), nightPlan(world, scale, def) and nightLand(world, plan, opts),
+-- def being the threat's content entry (a handler that serves several threats, such as the raiders, reads its id).
+local HANDLERS = { cat = Cat, animals = Animals, raiders = Raiders }
 
 -- What a handler's landing result means for the night.
 local TURNED = { caught = true, stopped = true }
@@ -103,7 +106,7 @@ local function plan(world)
   local roll = world:rng("night"):float() -- always drawn, so the stream never depends on the homestead
   local hits, total = {}, 0
   for _, d in ipairs(world.registry:all("night_threats")) do
-    local made = HANDLERS[d.handler].nightPlan(world, NightThreats.scale(world, d))
+    local made = HANDLERS[d.handler].nightPlan(world, NightThreats.scale(world, d), d)
     if made and open(world, d) then
       hits[#hits + 1] = { def = d, plan = made }
       total = total + d.weight
@@ -139,7 +142,7 @@ local function land(world)
   local d = def(world, t.id)
   local landed = d.outcomes.landed
   local spare = landed.capital == true and Footing.paused(world)
-  local result = HANDLERS[d.handler].nightLand(world, t.plan, { spare = spare })
+  local result, took = HANDLERS[d.handler].nightLand(world, t.plan, { spare = spare })
   local outcome = "landed"
   if result == nil then
     outcome = "none" -- what it came for was gone by the hour: the slot was still used
@@ -149,6 +152,9 @@ local function land(world)
     outcome = "spared"
   end
   local lost = {}
+  if outcome == "landed" and took and took.lost then
+    lost = took.lost -- what a raider of the stores took (D188); the fox and the mice report through their own events
+  end
   if outcome == "spared" and landed.lesser then
     for _, id in ipairs(sortedKeys(landed.lesser.lose or {})) do
       local amount = math.min(landed.lesser.lose[id], Ledger.get(world, id))
@@ -173,7 +179,7 @@ local function land(world)
     table.remove(s.history, 1)
   end
   Events.slotOutcome(world, (outcome == "landed" or outcome == "spared") and "landed" or "turned")
-  world.events:emit("nightthreat.resolved", { id = t.id, outcome = outcome, lost = lost })
+  world.events:emit("nightthreat.resolved", { id = t.id, outcome = outcome, lost = lost, tiles = took and took.tiles })
   if d.wake and outcome ~= "none" then
     Events.scheduleWake(world, d.wake)
   end
@@ -277,6 +283,12 @@ function NightThreats.audit(world)
     if d.counter and not reg:has("catalog", d.counter) then
       bad("unknown counter " .. d.counter)
     end
+    if d.guard and d.counter and reg:has("catalog", d.counter) then
+      local item = reg:get("catalog", d.counter)
+      if not (item.modifiers and item.modifiers[d.guard]) then
+        bad("counter " .. d.counter .. " does not carry the guard stat " .. d.guard)
+      end
+    end
     for id in pairs(landed and landed.lesser and landed.lesser.lose or {}) do
       if not reg:has("resources", id) then
         bad("lesser form names the unknown resource " .. id)
@@ -312,7 +324,7 @@ function NightThreats.tick(world)
   local s, now = state(world), Calendar.now(world)
   local t = s.tonight
   if t and t.status == "pending" then
-    local hour = HANDLERS[def(world, t.id).handler].nightHour(world)
+    local hour = HANDLERS[def(world, t.id).handler].nightHour(world, def(world, t.id))
     if t.day < now.day or now.hour >= hour then
       land(world)
     end
