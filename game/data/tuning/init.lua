@@ -8,6 +8,7 @@ return {
   "save",
   "world",
   "landgen",
+  "plots",
   "run",
   "idle",
   "actors",

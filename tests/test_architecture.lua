@@ -17,6 +17,7 @@ local function simFiles()
     "game/src/sim/grid.lua",
     "game/src/sim/pathfind.lua",
     "game/src/sim/landgen.lua",
+    "game/src/sim/plots.lua", -- the plot preview (D200): generates land on a bare world, no drawing
     "game/src/sim/noise.lua",
     "game/src/sim/stats.lua",
     "game/src/sim/routine_rules.lua",
@@ -96,6 +97,7 @@ local STATE_OWNERS = {
   stand = "stand",
   status = "status",
   startingKitGiven = "land",
+  startBonus = "land",
   threats = "threats",
   water = "water",
   weather = "weather",

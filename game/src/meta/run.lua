@@ -18,7 +18,9 @@
 -- slot's best keeps it as career.best.greatWinter (true once any run did).
 -- A summary also carries hurt (optional, D167): the statuses that took hold this run, { { id, count } }, for the
 -- recovery scene.
--- meta.recovery = { summary, finishedStudy = itemId?, freeStudyUsed = bool } while recovering.
+-- meta.recovery = { summary, finishedStudy = itemId?, freeStudyUsed = bool, plots = { base = seed, list = { plot summary, ... },
+--                   chosen = index? } } while recovering. `plots` is the plot preview (D200, #384): made when the
+-- recovery scene opens (Run.offerPlots) and optional to use; Run.startNext takes the chosen plot, else the first.
 
 local Calendar = require("src.sim.systems.calendar")
 local Established = require("src.sim.systems.established")
@@ -26,8 +28,11 @@ local Events = require("src.core.events")
 local Ftue = require("src.sim.systems.ftue")
 local Income = require("src.sim.systems.income")
 local Journal = require("src.sim.systems.journal")
+local Plots = require("src.sim.plots")
+local Rng = require("src.core.rng")
 local Status = require("src.sim.systems.status")
 local Wardrobe = require("src.sim.systems.wardrobe")
+local World = require("src.sim.world")
 
 local Run = {}
 
@@ -258,13 +263,53 @@ function Run.freeStudy(data, metaWorld, id)
   return ok, reason
 end
 
---- Leave town for new land: the next run begins when the session sees data.run == nil.
+--- The plots on offer for the next run (D200, #384): made once per recovery and kept in the slot, so quitting and
+--- coming back shows the same three. `baseSeed` is for tests; the game draws a fresh one. Returns the list, or nil when the
+--- slot is not recovering.
+function Run.offerPlots(data, metaWorld, baseSeed)
+  local recovery = data.meta.recovery
+  if not recovery then
+    return nil
+  end
+  if not recovery.plots then
+    local base = baseSeed or Rng.freshSeed()
+    recovery.plots = { base = base, list = Plots.offer(metaWorld.registry, metaWorld.tuning, base) }
+  end
+  return recovery.plots.list
+end
+
+--- Choose offered plot `index` for the next run (nil clears the choice, back to the first plot).
+function Run.choosePlot(data, index)
+  local plots = data.meta.recovery and data.meta.recovery.plots
+  if plots and (index == nil or plots.list[index]) then
+    plots.chosen = index
+  end
+end
+
+--- The offered plot the next run will use: the chosen one, else the first. Nil when no plots were offered.
+function Run.pickedPlot(data)
+  local plots = data.meta.recovery and data.meta.recovery.plots
+  return plots and plots.list[plots.chosen or 1] or nil
+end
+
+--- Leave town for new land: the next run begins when the session sees the run state. With a plot offered
+--- (Run.offerPlots) the new run is that plot's seed and carries its bonus; otherwise the session draws a fresh seed.
 function Run.startNext(data)
   local career = Run.career(data.meta)
   career.runs = career.runs + 1
   Ftue.endForRun(data.meta) -- the tip cards are for the first run only (D69)
+  local plot = Run.pickedPlot(data)
   data.meta.recovery = nil
   data.run = nil
+  if plot then
+    data.run = World.newState(plot.seed)
+    if plot.bonus then
+      data.run.startBonus = {}
+      for id, amount in pairs(plot.bonus) do
+        data.run.startBonus[id] = amount
+      end
+    end
+  end
   if data.header then
     data.header.recovering = nil
   end

@@ -12,7 +12,17 @@ return function(d)
 
   d:click(40, 40) -- a tap moves on
   d:frames(4)
-  d:shot("recovery") -- cause, next rung, first change, the free study below
+  d:shot("recovery") -- cause, next rung, first change, the free study below, and the Choose land button
+
+  d:press("Choose land") -- the plot preview (D200, #384): three plots, traits and a risk and reward tag
+  d:frames(4)
+  d:shot("plots")
+  d:press("Plot C")
+  d:frames(4)
+  d:shot("plots_chosen")
+  d:press("Done")
+  d:frames(4)
+  d:shot("recovery_chosen") -- the button names the chosen plot
 
   d:press("Head out")
   d:frames(4)
