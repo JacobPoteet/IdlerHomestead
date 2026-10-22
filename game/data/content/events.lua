@@ -1,6 +1,6 @@
 -- Misfortune events (D169, #347, docs/PLAN_DEPTH.md §6.2): something that happens to a person living alone, answered with
 -- a choice between two options that have a real trade-off, or ignored. Content only: src/sim/systems/events.lua draws,
--- offers and applies them. The body pack (B6, D173) and the home pack (B7, D192) are below; the other packs add more by data alone.
+-- offers and applies them. The body pack (B6, D173), the home pack (B7, D192) and the land pack (B8, D193) are below; the other packs add more by data alone.
 --
 --   title, line      the card's title and one sentence
 --   class            "body" | "home" | "land" | "visitors": the standing-order class (B5, #349)
@@ -16,7 +16,7 @@
 --                    feet = weight class of the boots ("light" | "mid" | "heavy"), outfit = which way the clothes lean
 --                    (same words, GDD 7.8), shelter = { ids of the best shelter placed ("camp", "shack") },
 --                    noDamage = { damage flags that must not be open }, pipesOpen = bool (pipes that can freeze, neither frozen
---                    nor kept by lagging or a shack)
+--                    nor kept by lagging or a shack), planted = bool (a crop is in the ground)
 --   drawConditions   the same keys, checked only when the dusk draw picks (not again when the card is offered): the trigger
 --                    of an event whose cause has passed by the time it comes (a fall while Strained, a cold night)
 --   fall             the weight is multiplied by the fall chance of the statuses (a bad ankle makes a fall likelier)
@@ -530,6 +530,119 @@ return {
       label = "Open the windows",
       effect = { status = "airing" },
       risk = "Safe. A chillier night, and no worse.",
+    },
+  },
+
+  -- Land pack (B8, #352, D193). Three mild choices about the fields and the woodlot. Nothing shrinks the farm (hornets and the
+  -- creek washout are cut, D184): the worst a crop suffers is a setback in growth, never its loss, and ignoring costs a day of
+  -- slightly slower work.
+  {
+    id = "livestock_in_field",
+    title = "Livestock in the field",
+    line = "A neighbor's cow has wandered through the fence and is eyeing the rows.",
+    class = "land",
+    when = "day",
+    bad = true,
+    wake = false,
+    seasons = { spring = 1, summer = 1, autumn = 1 },
+    conditions = { planted = true },
+    weight = 1,
+    cooldown = 8,
+    journalNote = "livestock_in_field",
+    options = {
+      {
+        label = "Chase it off",
+        effect = { status = HOUR_OF_WORK },
+        risk = "Safe. An hour of work lost, and the crops are untouched.",
+        careful = true,
+      },
+      {
+        label = "Let it graze",
+        effect = { damageTiles = { count = 2, setback = 0.25 } },
+        risk = "Risky. A couple of rows are nibbled back, and they grow again.",
+        bold = true,
+      },
+    },
+    ignore = {
+      label = "Shoo it with a shout",
+      effect = { status = "trampled" },
+      risk = "Safe. A little slower for a day while you mend the gap.",
+    },
+  },
+  {
+    id = "late_frost",
+    title = "Late frost",
+    line = "The sky clears at dusk and the air goes still: the forecast missed a frost.",
+    class = "land",
+    when = "night",
+    bad = true,
+    wake = false,
+    seasons = { spring = 1, autumn = 0.8 },
+    conditions = { planted = true },
+    terms = {
+      { weather = { "clear" }, mult = 1.5 }, -- clear skies lose their heat
+    },
+    weight = 1,
+    cooldown = 8,
+    journalNote = "late_frost",
+    options = {
+      {
+        label = "Light smudge fires",
+        cost = { wood = 2 },
+        effect = { status = HOUR_OF_WORK }, -- an hour of sitting up to feed the fires
+        risk = "Safe. An hour of work lost, and the smoke holds the frost off the rows.",
+        careful = true,
+      },
+      {
+        label = "Trust the sprouts",
+        effect = {
+          later = { days = 1, hour = 5, chance = "lateFrost", effect = { damageTiles = { count = 3, setback = 0.3 } } },
+        },
+        risk = "Risky. The frost may nip some rows back, and they grow again.",
+        bold = true,
+      },
+    },
+    ignore = {
+      label = "Throw sacks over a few",
+      effect = { status = "cold_fingers" },
+      risk = "Safe. Cold hands and a little slower work tomorrow.",
+    },
+  },
+  {
+    id = "storm_tree",
+    title = "Storm-felled tree",
+    line = "The wind brought a tree down at the edge of the clearing.",
+    class = "land",
+    when = "morning",
+    bad = false,
+    wake = false,
+    conditions = { noStatus = { "ankle" } },
+    drawConditions = { weather = { "windy", "storm" } }, -- the wind that felled it has passed by morning
+    weight = 1,
+    cooldown = 10,
+    journalNote = "storm_tree",
+    options = {
+      {
+        label = "Take the easy branches",
+        effect = { gain = { wood = 2 } },
+        risk = "Safe. A little wood, and no hard work.",
+        careful = true,
+      },
+      {
+        label = "Buck it whole",
+        effect = {
+          gain = { wood = 5 },
+          status = HOUR_OF_WORK,
+          later = { hours = 1, chance = "fellingSlip", effect = { status = "ankle_1" } },
+        },
+        risk = "Risky. Plenty of wood and an hour of work, and a slip may hurt your ankle.",
+        bold = true,
+      },
+    },
+    ignore = {
+      label = "Leave it for now",
+      effect = {},
+      risk = "Safe. It lies there, and nothing is lost.",
     },
   },
 }

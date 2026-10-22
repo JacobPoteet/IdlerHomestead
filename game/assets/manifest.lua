@@ -169,6 +169,8 @@ return {
     icon_status_smoke = { placeholder = "icon_status_smoke", w = 12, h = 12 },
     icon_status_makedo = { placeholder = "icon_status_tool", w = 12, h = 12 },
     icon_status_twine = { placeholder = "icon_status_tool", w = 12, h = 12 },
+    icon_status_gap = { placeholder = "icon_status_rest", w = 12, h = 12 },
+    icon_status_frost = { placeholder = "icon_status_draught", w = 12, h = 12 },
     icon_signal_clothes = { placeholder = "icon_signal_clothes", w = 12, h = 12 },
     icon_book_notebook = { placeholder = "icon_book_notebook", w = 12, h = 12 },
     icon_book_ledger = { placeholder = "icon_book_ledger", w = 12, h = 12 },

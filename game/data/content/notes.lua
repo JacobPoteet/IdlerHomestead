@@ -465,4 +465,28 @@ return {
     icon = "icon_status",
     event = "event.note",
   },
+  {
+    id = "livestock_in_field",
+    name = "Cow in the field",
+    line = "A neighbor's cow found the fence down.",
+    hint = "Find livestock among the crops",
+    icon = "icon_status",
+    event = "event.note",
+  },
+  {
+    id = "late_frost",
+    name = "Late frost",
+    line = "The forecast missed a frost.",
+    hint = "Meet a frost after the spring thaw",
+    icon = "icon_status",
+    event = "event.note",
+  },
+  {
+    id = "storm_tree",
+    name = "Felled tree",
+    line = "The wind left firewood on the ground.",
+    hint = "Find a tree felled by the wind",
+    icon = "icon_status",
+    event = "event.note",
+  },
 }

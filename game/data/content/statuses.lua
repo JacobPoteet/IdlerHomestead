@@ -321,6 +321,27 @@ return {
     clearedBy = "time",
     modifiers = { workSpeed = 0.9 },
   },
+  -- Land events (B8, D193): the ignore outcomes of a cow in the field and a late frost, each in a family of its own.
+  {
+    id = "trampled",
+    name = "Mending the gap",
+    line = "Work 5% slower",
+    family = "gap",
+    severity = 1,
+    duration = 1, -- the ignore outcome of livestock in the field
+    clearedBy = "time",
+    modifiers = { workSpeed = 0.95 },
+  },
+  {
+    id = "cold_fingers",
+    name = "Cold fingers",
+    line = "Work 5% slower",
+    family = "frost",
+    severity = 1,
+    duration = 1, -- the ignore outcome of a late frost
+    clearedBy = "time",
+    modifiers = { workSpeed = 0.95 },
+  },
   {
     id = "tired",
     name = "Run down",
