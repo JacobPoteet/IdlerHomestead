@@ -26,6 +26,7 @@ return {
   "processing",
   "market",
   "stand",
+  "contracts", -- D197: the town's board (reputation = contracts finished); fills from surplus stock; the truck sale auto-fills it
   "income", -- D117: sales income per game year; listens to the sale events
   "finds",
   "cat",

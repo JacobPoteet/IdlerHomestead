@@ -63,6 +63,7 @@ local STATE_OWNERS = {
   cat = "cat",
   dog = "dog",
   compost = "compost",
+  contracts = "contracts",
   condition = "needs",
   crops = "crops",
   events = "events",
