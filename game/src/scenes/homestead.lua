@@ -223,6 +223,9 @@ function Homestead:subscribe()
     events:on("cat.arrived", function()
       self:showToast("A cat has settled in")
     end),
+    events:on("dog.arrived", function()
+      self:showToast("A dog has moved in")
+    end),
     events:on("cat.petted", function(e)
       self:showToast(e.bond >= world.tuning.cat.cat.maxBond and "Purrrr. Best of friends" or "Purr")
     end),

@@ -8,6 +8,7 @@ local Grid = require("src.sim.grid")
 local Animals = require("src.sim.systems.animals")
 local Calendar = require("src.sim.systems.calendar")
 local Cat = require("src.sim.systems.cat")
+local Dog = require("src.sim.systems.dog")
 local Inventory = require("src.sim.systems.inventory")
 local Crops = require("src.sim.systems.crops")
 local Machines = require("src.sim.systems.machines")
@@ -780,6 +781,28 @@ function Renderer:draw(alpha, visible, daylight)
           math.floor(feetY - sprite.h + 0.5)
         )
         if cmode == "sleep" then
+          self:drawSleep(feetX, feetY - 8)
+        end
+      end,
+    }
+  end
+  local dx, dy, dmode = Dog.position(world)
+  if dx then
+    local feetX = (dx - 0.5) * tile
+    local feetY = (dy - 0.5) * tile + 6
+    local sprite = Assets.sprite(dmode == "sleep" and "dog_nap" or "dog")
+    self:castShadow(shadows, sprite, math.floor(feetX + 0.5), math.floor(feetY + 0.5), 1, true)
+    items[#items + 1] = {
+      feetY,
+      function()
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(
+          sprite.image,
+          sprite.quad,
+          math.floor(feetX - sprite.w / 2 + 0.5),
+          math.floor(feetY - sprite.h + 0.5)
+        )
+        if dmode == "sleep" then
           self:drawSleep(feetX, feetY - 8)
         end
       end,

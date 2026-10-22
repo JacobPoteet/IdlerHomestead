@@ -33,6 +33,7 @@ return {
   "stand",
   "finds",
   "cat",
+  "dog",
   "animals",
   "study",
   "weather",

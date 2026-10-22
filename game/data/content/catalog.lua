@@ -449,6 +449,19 @@ return {
     equipment = true,
     unique = true,
   },
+  -- The farm dog (C4, D189): equipment with no stat modifiers; owning it brings the dog (src/sim/systems/dog.lua), whose
+  -- guard per threat is in tuning.dog. It eats a unit of food a day from the ledger, so there is no feed to buy.
+  {
+    id = "farm_dog",
+    name = "Farm dog",
+    line = "Keeps watch at night; eats a little food a day.",
+    page = "supplies",
+    price = 30,
+    needs = { "raccoon_raid" },
+    studyNights = 1,
+    equipment = true,
+    unique = true,
+  },
   -- Chickens (GDD §7.7, D63). The coop comes with a first sack of feed; hens are pickup only (animals
   -- ride home in the truck) and need a placed coop with room. Feed refills and the fence are learned
   -- from what chickens teach: eggs, then a fox.

@@ -493,3 +493,17 @@ Reporting first, gates second; nothing here changes a run. Every limit lives in 
 
 Read: events cost the careful active and scripted players nothing in a year. The human policy fails 30% of its seeds with events off already (food: it skips the trip, the buy list and the seed orders on a quarter of mornings), so event-caused failure is a small share on top of an economy failure it does not need events to produce. The human knobs (`POLICY.humanReactionSeconds` 20, `humanSkipChance` 0.25, `humanIgnoreCard` 0.25, `humanFishSkill` 0.5) are untested guesses and may be harsher than a real first-year player; calibrating them against play is for M9.
 
+
+## The farm dog: smoke test (#358, D189)
+
+Policies buy no dog; a policy offered the stray dog find takes it (score 3), so the dog reaches runs only through that find, which also shifts the find draws, so every seed after the first offer differs from main. Smoke harness `policy=scripted,active,human seeds=5 years=3` ran twice on the branch with identical output (deterministic). Against main:
+
+| Run | Failed (main, branch) | Footing reached (main, branch) | Notes |
+|---|---|---|---|
+| scripted, 5 seeds | 1/5, 1/5 | 5/5, 5/5 | same winter Y3 cold death |
+| active, 5 seeds | 1/5, 0/5 | 5/5, 5/5 | raids turned back 0.00 to 1.27 per year (dogs from the find) |
+| human, 5 seeds | 4/5, 4/5 | 4/5, 4/5 | year-1 deaths 2 and 2 |
+| active, 12 seeds | 2/12, 2/12 | 12/12, 12/12 | thirst and hunger deaths unchanged in kind |
+| human, 12 seeds | 10/12, 9/12 | 11/12, 11/12 | year-1 deaths 2 to 3 (hunger), before-winter Footing 11 to 10 |
+
+The human and active failure counts do not move beyond seed noise (the find draws shifted); no new failure class, no crash, Footing stays reachable. The dog's own food (one unit a day, only above a two-day reserve) is not a cause of a death in these runs. Dead gates stay red as on main (D186). Numbers are first guesses for M9.

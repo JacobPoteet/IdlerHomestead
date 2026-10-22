@@ -130,6 +130,9 @@ local function exposureLine(e)
   if e.animals > 0 then
     drivers[#drivers + 1] = plural(e.animals, "animal") .. " kept"
   end
+  for _, name in ipairs(e.guards or {}) do
+    drivers[#drivers + 1] = name .. " on watch"
+  end
   local text = "Exposure: " .. e.word .. "."
   if #drivers > 0 then
     text = text .. " " .. (table.concat(drivers, ", "):gsub("^%l", string.upper)) .. "."

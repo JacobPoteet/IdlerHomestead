@@ -84,6 +84,8 @@ return {
     homesteader = { placeholder = "homesteader", w = 20, h = 22 },
     cat = { placeholder = "cat", w = 14, h = 10 },
     cat_nap = { placeholder = "cat_nap", w = 14, h = 10 },
+    dog = { placeholder = "dog", w = 16, h = 11 },
+    dog_nap = { placeholder = "dog_nap", w = 16, h = 11 },
     hen = { placeholder = "hen", w = 10, h = 9 },
     goat = { placeholder = "goat", w = 14, h = 11 },
 
@@ -228,6 +230,8 @@ return {
     icon_sprinkler = { placeholder = "icon_sprinkler", w = 12, h = 12 },
     icon_cat = { placeholder = "icon_cat", w = 12, h = 12 },
     icon_shelter_cat = { placeholder = "icon_cat", w = 12, h = 12 },
+    icon_dog = { placeholder = "icon_dog", w = 12, h = 12 },
+    icon_farm_dog = { placeholder = "icon_dog", w = 12, h = 12 },
     icon_roadside_stand = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
     icon_stand_sign = { placeholder = "icon_roadside_stand", w = 12, h = 12 },
     icon_stand_cooler = { placeholder = "icon_roadside_stand", w = 12, h = 12 },

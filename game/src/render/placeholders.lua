@@ -432,7 +432,44 @@ function P.cat_nap(p)
   p:rect(1, 7, 4, 1, CAT_DARK) -- tail wrapped round
 end
 
+local DOG_FUR = { 0.62, 0.45, 0.28 }
+local DOG_DARK = { 0.38, 0.26, 0.15 }
+
+-- The farm dog, 16x11, sitting up (facing right) and curled up asleep.
+function P.dog(p)
+  p:ellipse(8, 10, 6, 1, C.shadow)
+  p:rect(3, 4, 8, 6, DOG_FUR) -- body
+  p:rect(3, 7, 8, 1, DOG_DARK)
+  p:rect(10, 1, 5, 5, DOG_FUR) -- head
+  p:rect(14, 3, 2, 2, DOG_DARK) -- snout
+  p:rect(10, 0, 2, 3, DOG_DARK) -- ear
+  p:px(13, 2, C.tire) -- eye
+  p:rect(0, 4, 3, 2, DOG_FUR) -- tail
+  p:rect(4, 9, 2, 1, C.white) -- paws
+  p:rect(9, 9, 2, 1, C.white)
+end
+
+function P.dog_nap(p)
+  p:ellipse(8, 10, 7, 1, C.shadow)
+  p:ellipse(8, 7, 7, 3, DOG_FUR)
+  p:rect(2, 6, 11, 1, DOG_DARK)
+  p:rect(11, 5, 4, 4, DOG_FUR) -- head on its paws
+  p:rect(11, 4, 2, 2, DOG_DARK) -- ear
+  p:rect(13, 6, 2, 1, C.tire) -- closed eye
+  p:rect(1, 8, 4, 1, DOG_DARK) -- tail curled round
+end
+
 -- Icons ---------------------------------------------------------------------------------
+
+function P.icon_dog(p)
+  p:rect(2, 4, 8, 7, DOG_FUR)
+  p:rect(1, 2, 2, 5, DOG_DARK)
+  p:rect(9, 2, 2, 5, DOG_DARK)
+  p:px(4, 6, C.tire)
+  p:px(7, 6, C.tire)
+  p:rect(5, 8, 2, 2, DOG_DARK)
+  p:px(5, 10, C.heart)
+end
 
 function P.icon_cat(p)
   p:rect(2, 4, 8, 7, CAT_FUR)

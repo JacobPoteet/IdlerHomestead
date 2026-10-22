@@ -19,6 +19,16 @@ return {
     lacks = { equipment = "shelter_cat" },
     effects = { equipment = { "shelter_cat" } },
   },
+  -- The stray dog (C4, D189) is the catalog's farm dog as equipment; it is not offered once a dog is owned.
+  {
+    id = "stray_dog",
+    name = "Stray dog",
+    line = "A lean dog follows you home.",
+    icon = "icon_dog",
+    weight = 0.5,
+    lacks = { equipment = "farm_dog" },
+    effects = { equipment = { "farm_dog" } },
+  },
   {
     id = "heirloom_seeds",
     name = "Heirloom seeds",
