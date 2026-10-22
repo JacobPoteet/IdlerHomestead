@@ -26,6 +26,8 @@ return {
     festerInfection = 0.4, -- a cut left alone turns infected two mornings on (PLAN_DEPTH 6.2: 40 percent)
     feverFlu = 0.3, -- a fever worked through turns into flu two mornings on (30 percent)
     heatCollapse = 0.35, -- pushing on in the heat ends in a collapse that afternoon (35 percent)
+    lateFrost = 0.5, -- a late frost left to chance nips the rows at dawn (a coin flip: the forecast missed it, PLAN_DEPTH 6.2)
+    fellingSlip = 0.1, -- bucking a whole felled tree ends in a slip an hour on (10 percent, PLAN_DEPTH 6.2)
   },
   body = { -- the triggers of the body events (PLAN_DEPTH 6.2, 7)
     coldNightNeed = 4, -- warmth units (needs.warmthPeak is 8): a coming night that asks at least this much is cold enough to bring a fever, half a deep-winter night

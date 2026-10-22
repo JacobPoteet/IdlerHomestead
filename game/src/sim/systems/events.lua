@@ -314,6 +314,9 @@ local function holds(world, cond)
       return false
     end
   end
+  if cond.planted ~= nil and (#Crops.plantedTiles(world) > 0) ~= cond.planted then
+    return false
+  end
   if cond.feet and Wardrobe.classOf(world, "feet") ~= cond.feet then
     return false
   end
