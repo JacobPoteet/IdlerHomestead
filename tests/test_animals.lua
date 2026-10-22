@@ -334,7 +334,7 @@ T.test("animals: eggs are food and can be sold on the truck", function()
   T.eq(Food.surplus(world, "egg"), 30)
   Market.autoLoad(world)
   local _, total = Market.loadQuote(world)
-  T.eq(total, 30 * Market.sellPrice(world, "egg"))
+  T.eq(total, math.floor(30 * Market.sellPrice(world, "egg") * Market.satFactor(world, "egg", 30) + 0.5))
 end)
 
 T.test("animals: a full egg store holds eggs in the nest box instead of losing them (D59)", function()

@@ -312,6 +312,15 @@ function Load:draw()
       row.y + 6,
       { size = "small" }
     )
+    if row.spare > Market.freeUnits(world, res.id) then
+      -- the town stops paying full price past this many (saturation, D196)
+      Text.draw(string.format("drops after %d", Market.freeUnits(world, res.id)), b.x + 12, row.y + 6, {
+        size = "small",
+        width = b.w - COL.minus - 18,
+        align = "right",
+        color = theme.colors.textDim,
+      })
+    end
     Text.draw(
       string.format("%d spare · keep %d · $%d each", row.spare, row.keep, Market.sellPrice(world, res.id)),
       b.x + 28,

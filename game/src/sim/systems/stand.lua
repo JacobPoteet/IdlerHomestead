@@ -6,6 +6,10 @@
 -- equipment), never above tuning.stand.maxCap, scaled down by season and weather. Cheapest goods
 -- go first so the valuable ones wait for the truck. One stand counts; extra ones add nothing.
 --
+-- The stand shares the town's demand with the truck (D196, see market.lua): units it sells count toward each
+-- good's saturation and its price follows. Market day (last day of a season) multiplies its cap. The stand
+-- needs no input: cheapest-first plus the "not at the stand" pin is the whole control (#106, D196).
+--
 -- State: world.state.stand = { lastDay = day of the last sale run,
 --                              last = { day, units, earned, cap } or nil, total = { units, earned } }
 -- Emits "stand.sold" { day, units, earned, cap } (only when something sold).
@@ -57,7 +61,8 @@ end
 function Stand.todayCap(world)
   local cfg = world.tuning.stand
   local flow = cfg.seasonFlow[Calendar.now(world).season] * cfg.weatherFlow[Weather.kind(world)]
-  return math.floor(Stand.cap(world) * flow + 0.5)
+  local day = Market.isMarketDay(world) and world.tuning.economy.marketDay.standTrafficMult or 1
+  return math.floor(Stand.cap(world) * flow * day + 0.5)
 end
 
 --- What the stand pays for one unit of a resource (fractional dollars).
@@ -127,7 +132,10 @@ function Stand.sell(world)
     if n > 0 then
       taken[#taken + 1] = { id = entry.id, n = n }
       -- the stand sells the worst units (the ledger drops them first) at the tier's price (D182)
-      raw = raw + Stand.unitPrice(world, entry.id) * Quality.worth(world, entry.id, n, "worst")
+      raw = raw
+        + Stand.unitPrice(world, entry.id)
+          * Quality.worth(world, entry.id, n, "worst")
+          * Market.satFactor(world, entry.id, n)
       units = units + n
     end
   end
@@ -136,6 +144,7 @@ function Stand.sell(world)
   end
   for _, line in ipairs(taken) do
     Ledger.remove(world, line.id, line.n, "stand")
+    Market.addSaturation(world, line.id, line.n)
   end
   local earned = math.floor(raw + 0.5)
   Ledger.add(world, "money", earned, "stand")
