@@ -217,8 +217,20 @@ return {
     studyNights = "number", -- nights of study to learn it
     startingResources = "table?", -- resource -> amount added at the start of every run
     startingEquipment = "table?", -- catalog equipment ids owned at the start of every run
+    startingObjects = "table?", -- placeable object ids put beside the truck at the start of every run (#215)
     truckCharge = "number?", -- kWh in the truck battery at the start of every run
     modifiers = "table?", -- stat -> bonus while known (see src/sim/stats.lua)
+  },
+  loadouts = { -- starting loadouts (D201, #386); see the header of content/loadouts.lua
+    name = "string", -- the card's title (<= ~2 words)
+    line = "string", -- what it brings (<= ~8 words)
+    penaltyLine = "string", -- what it costs, in words (<= ~6 words)
+    unlock = "string", -- Journal node id (catalog item or perk) that must be known
+    startingResources = "table?", -- resource -> amount added to the starting stock
+    penalty = "table", -- resource -> amount taken off the starting stock (never below zero)
+    startingEquipment = "table?", -- catalog equipment ids owned at the start
+    startingObjects = "table?", -- placeable object ids put beside the truck
+    truckCharge = "number?", -- kWh in the truck battery at the start
   },
   finds = {
     name = "string", -- card title (<= ~3 words)

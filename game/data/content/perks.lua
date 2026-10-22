@@ -2,7 +2,7 @@
 -- entries (needs + studyNights); once known they apply to every future run.
 --   page: journal chapter. icon: sprite id. line: what it does (<= ~8 words).
 --   Run-start effects (applied when a new run begins): startingResources, startingEquipment
---   (catalog equipment ids), truckCharge (kWh in the truck battery).
+--   (catalog equipment ids), startingObjects (placeable objects put beside the truck), truckCharge (kWh in the truck battery).
 --   modifiers: stat -> bonus, always on (see src/sim/stats.lua): idleTakeover (seconds sooner),
 --   idleEfficiency (added to the idle work multiplier), forecastLead (days earlier).
 return {
@@ -25,6 +25,16 @@ return {
     needs = { "felled_tree", "cold_night" },
     studyNights = 2,
     startingEquipment = { "axe" },
+  },
+  {
+    id = "pack_camp",
+    name = "Pack a camp",
+    page = "shelter",
+    icon = "icon_camp",
+    line = "Start each run with a camp beside the truck.", -- #215, D201
+    needs = { "truck_cold", "first_fire" },
+    studyNights = 2,
+    startingObjects = { "camp" },
   },
   {
     id = "seed_tin",

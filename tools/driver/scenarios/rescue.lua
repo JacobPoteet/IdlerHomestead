@@ -5,6 +5,8 @@
 return function(d)
   d:newGame({ tips = true })
   local world = d:world()
+  world.meta.journal.known.sturdy_rod = true -- two loadouts unlocked, three still locked (D201)
+  world.meta.journal.known.axe = true
   world.events:emit("needs.depleted", { hunger = 0, cold = 0.7, shelter = "truck" })
   d:frames(4)
   d:frames(150, 1 / 30) -- the lights and the words fade in
@@ -20,6 +22,15 @@ return function(d)
   d:press("Plot C")
   d:frames(4)
   d:shot("plots_chosen")
+  d:press("Starting kit") -- starting loadouts (D201, #386): the Journal has taught the rod and the axe, so two are open
+  d:frames(4)
+  d:shot("kits")
+  d:press("Angler")
+  d:frames(4)
+  d:shot("kits_chosen")
+  d:press("Done")
+  d:frames(4)
+  d:shot("plots_kit") -- the Starting kit button names the kit
   d:press("Done")
   d:frames(4)
   d:shot("recovery_chosen") -- the button names the chosen plot

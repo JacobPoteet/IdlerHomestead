@@ -1,9 +1,10 @@
 -- The plot preview (D200, #384, docs/PLAN_DEPTH.md 12.1): three plots offered for the next run, opened from the recovery
 -- scene's Choose land button. Each card shows the plot's traits and its risk and reward; tapping one chooses it, and
--- Done goes back. Entirely optional: Head out without a choice takes the first plot, so skipping this is a fine run.
+-- Done goes back; Starting kit opens the loadouts (D201, #386). Entirely optional: Head out without a choice takes the first plot, so skipping this is a fine run.
 -- The offer lives in the slot (Run.offerPlots), so it is the same three when the game is quit and reopened.
 
 local Run = require("src.meta.run")
+local LoadoutsScene = require("src.scenes.loadouts")
 local PlotText = require("src.ui.plot_text")
 local Buttons = require("src.ui.buttons")
 local Panel = require("src.ui.panel")
@@ -18,7 +19,7 @@ local TOP = 56 -- virtual pixels from the panel top to the first card
 local CARD_GAP = 6
 local PAD = 8 -- inside a card
 
---- opts: { data = slot data, onChange = function() }. The offer must already exist (Run.offerPlots).
+--- opts: { data = slot data, slot, metaWorld, onChange = function() }. The offer must already exist (Run.offerPlots).
 function Plots.new(opts)
   return setmetatable({ opts = opts }, Plots)
 end
@@ -93,7 +94,28 @@ function Plots:layout()
       self.app:pop()
     end,
   })
-  self.footerW = b.w - 24 - 92
+  local words = tuning.plots.words
+  local chosen = self.opts.data.meta.recovery.loadout
+  self.buttons:add({
+    x = b.x + 12,
+    y = b.y + b.h - 36,
+    w = 150,
+    h = 26,
+    label = chosen and string.format(words.kitLine, registry:get("loadouts", chosen).name) or words.kitButton,
+    onPress = function()
+      LoadoutsScene.open(self.app, {
+        data = self.opts.data,
+        slot = self.opts.slot,
+        metaWorld = self.opts.metaWorld,
+        onChange = function()
+          self:layout()
+          if self.opts.onChange then
+            self.opts.onChange()
+          end
+        end,
+      })
+    end,
+  })
 end
 
 function Plots:drawCard(card, btn)
@@ -147,12 +169,6 @@ function Plots:draw()
   Panel.frame(self.app.view, b, words.title)
   Text.draw(words.intro, b.x + 12, b.y + 24, { size = "small", width = b.w - 24 - 58, color = theme.colors.textDim })
   self.buttons:draw()
-  Text.draw(
-    words.footer,
-    b.x + 12,
-    b.y + b.h - 34,
-    { size = "small", width = self.footerW, color = theme.colors.textDim }
-  )
 end
 
 return Plots

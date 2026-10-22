@@ -32,7 +32,8 @@ local ok, err = xpcall(function()
       features,
       config.outfit or nil,
       config.events or nil,
-      config.pair or nil
+      config.pair or nil,
+      config.loadout or nil
     )
     done:push("ok\t" .. name .. "\t" .. seed .. "\t" .. Parallel.encode(results))
   end
