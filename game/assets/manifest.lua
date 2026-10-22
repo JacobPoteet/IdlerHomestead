@@ -230,6 +230,7 @@ return {
     icon_sprinkler = { placeholder = "icon_sprinkler", w = 12, h = 12 },
     icon_cat = { placeholder = "icon_cat", w = 12, h = 12 },
     icon_shelter_cat = { placeholder = "icon_cat", w = 12, h = 12 },
+    icon_lantern = { placeholder = "icon_lantern", w = 12, h = 12 },
     icon_dog = { placeholder = "icon_dog", w = 12, h = 12 },
     icon_farm_dog = { placeholder = "icon_dog", w = 12, h = 12 },
     icon_roadside_stand = { placeholder = "icon_roadside_stand", w = 12, h = 12 },

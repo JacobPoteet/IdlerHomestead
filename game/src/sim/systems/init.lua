@@ -30,6 +30,7 @@ return {
   "finds",
   "cat",
   "dog", -- D189: the farm dog; eats from the food ledger; its guard is read by raiders and animals
+  "lantern", -- D191: accessors only (the lantern's guard); read by raiders and animals
   "animals",
   "compost", -- D181: the bins, the manure loop and the Fertilize task; after animals, whose Tend chores rake into it
   "raiders", -- D188: the handler of the raccoon, deer and rabbits and the bear; accessors only, no state; before nightthreats, which asks it

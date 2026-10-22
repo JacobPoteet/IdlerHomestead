@@ -23,6 +23,7 @@
 local Calendar = require("src.sim.systems.calendar")
 local Crops = require("src.sim.systems.crops")
 local Dog = require("src.sim.systems.dog")
+local Lantern = require("src.sim.systems.lantern")
 local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
 local Stats = require("src.sim.stats")
@@ -74,9 +75,12 @@ local function hasTarget(world, id, c)
   return total > 0
 end
 
--- The chance a raid is turned back: the catalog stat the content names plus the dog's guard for this threat (D189), capped.
+-- The chance a raid is turned back: the catalog stat the content names plus the dog's and the lantern's guard for this threat (D189, D191), capped.
 local function guardChance(world, plan, c)
-  return math.min(c.maxGuard, Stats.modifier(world, plan.guard) + Dog.guard(world, plan.id))
+  return math.min(
+    c.maxGuard,
+    Stats.modifier(world, plan.guard) + Dog.guard(world, plan.id) + Lantern.guard(world, plan.id)
+  )
 end
 
 --- The in-game hour tonight's raid lands (the night threat framework calls Raiders.nightLand then).
