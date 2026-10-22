@@ -120,6 +120,7 @@ The game is **endless**: there is no hard win state, only "until you fail" (D117
 - **Headline metric: years survived.** The recovery screen shows the run's years against the slot's best and the last run.
 - **Late-game metric: best year's income.** Money earned from sales in one game year, spending ignored. It is shown against the slot's best, so a run that has outgrown dying still has a number to beat.
 - **Run milestones.** A short checklist per run (first winter, power, a shack, fed for a year), from existing events and notes, shown on a Progress panel. *Built (#342, D163):* eight milestones in `data/content/milestones.lua`, run state, ticked on the panel the goal line under the top bar opens (P key).
+- **What is limiting you (D202).** The Progress panel's second section names the first limit that holds, in the order water, field labour, storage, market (`systems/bottleneck.lua`, accessors only), with its figures and one line of what helps, or says nothing is holding the homestead back. It replaced the planned workload meter. The panel's last section, **Opened by Footing**, lists what Footing opens: the contracts board (§6.4) and any catalog item flagged `requiresFooting` (none ships yet).
 - **The Great Winter and "Established".** Winter of year N (a tuning value, 3 to start) is the hardest the run has seen, and is announced early. Surviving it to the thaw fires a one-time "Established" card and marks the slot. Play then continues as before. It has no mechanical reward.
 - **Journal completion %** shows on the slot screen as the long-term meta bar.
 
@@ -213,6 +214,8 @@ Defaults are sensible, so a new player never has to touch this. The Pantry shows
 - **Order anytime, it gets delivered.** Deliveries arrive after a delay (e.g. next morning) at the **drop-off point** where your road meets the plot. Where you build storage relative to the road matters. Small delivery fee. Snow can delay winter deliveries.
 - **Pickup only:** animals and oversized items (and trailer-dependent ones) must be collected on a truck trip.
 - **Purchase limits (D114, D115):** every item is **unique** (one ever: the stand, buildings like the woodshed and stove, gear), an **upgrade** that replaces its predecessor (camp -> shack, basic -> sturdy rod, plain -> big bucket, the stand's sign, cooler and rack), **repeatable** (pens, cisterns, power gear, auto-harvester, pumps) or a **consumable**. An item you already own stays in the list labelled **Owned**; the full table is in D114.
+- **Tiers I to III (D198).** Eleven ladders (rod, bucket, axe, stove, cistern, smoker, solar array, stand, coop, goat pen, truck bed) are the catalog's money sink. Tier I is the plain item; each later tier costs 2.5 times the one below, replaces it and requires it owned. The first tier I purchase opens the tier II ideas and the first tier II the tier III ones; tier III also needs contracts finished (reputation, §6.4). Tiers have no upkeep, and no tier is needed for Footing.
+- **Night guards (D203).** The lantern, the farm dog and the bear box are unique equipment, each learned from the note its own threat writes (fox, raccoon, bear). An order for equipment the run already holds, or holds a better tier of, by the time it arrives is refunded.
 - **Random specials:** a few discounted or rare items each week. Some are **in-store only** (a reason to drive).
 
 ### 6.4 Selling
@@ -253,6 +256,8 @@ Prices vary week to week. Some goods are in demand. Preserved goods sell for mor
 - **Free placement on the grid:** fields are tile areas. Buildings have footprints and placement rules. Objects go on any buildable tile (grass or tilled soil; roads and water never), subject to their own rules; trees, rocks, logs, brush and crops in the way are cleared or removed first (D79).
 - **Walking distance matters.**
 - Buildings are composed from **components**: `Producer`, `Consumer`, `Storage`, `PowerSource`, `PowerSink`, `Battery`, `Upgradeable`, `Freezable`, `HeatSource`, `AreaOfEffect`, `Processor`, `Shop` (roadside stand)...
+
+*Built (M8, D177 to D185): fields and soil.* Eleven annual crops carry a plant window, tender or hardy frost, a water appetite, a fertility draw and a rotation family (`data/content/crops.lua`); berry canes and an apple tree are perennials that give a first small crop the season after planting and a full one after a winter (D183). Each field tile has a **fertility** that a harvest draws down and a fallow restores (the Soil lens on the Plan field tool shows it), a **pest pressure** that grows when a family repeats and falls when you rotate, and **weeds** that sprout on a timer and are pulled by a routine task or held off by straw mulch. Blight touches only a crop on a tile at full pressure and spoils that harvest, never spreading. A compost bin turns hen and goat manure (raked by the Tend chores) into compost the routine spreads on the most worn tile. Together these never cut a yield below `farming.minSoilMultiplier` (0.6), and healthy soil grades a harvest **fine** (x1.3 price) instead of normal. Every upkeep task is ON in the default routine, so neglect costs a share of yield and never a loss (D185).
 
 ### 7.4 Tasks, actors & priorities (the systemic core)
 
@@ -338,6 +343,8 @@ The **cat**. **Town** (text only, via the truck and catalog). **Search & rescue*
 - **Early frost**: one autumn morning kills a share of unripe crops; ripe ones are fine. Counter: **Frost cloth**.
 - Each threat is announced a few days ahead (toast and a forecast pill), and ends with a summary toast ("Locusts passed: 4 crops lost, 3 saved by row covers"). Its first strike writes a Field Journal note that makes its countermeasure an idea, so the knowledge carries into the next run. The countermeasures are equipment bought once a run. With nothing in the ground a threat comes and goes without effect; the routine replants lost crops.
 
+*Built (M8, D169 to D195, D203): nights and misfortune events.* One night slot a night is shared by the event engine and the night threats, and one **exposure** (shown on the Tonight card as a word, low, medium or high, with what drives it) scales both. **Night threats** are planned at dusk and land at 23:00: mice, the fox, the raccoon, deer and rabbits (a browsed crop gives less, it never dies), the black bear, the cold front (a forecast miss) and the pipe freeze. The farm dog, the lantern and the bear box add guards to one guard roll, each covering some threats, not all (§4.2, D187 to D191). **Misfortune events** are two-option cards with a safe, non-escalating ignore outcome, answered on the event card (D172): eight body events, five home events (damage mends itself), three land events (crops are set back, never lost) and five visitor and luck cards (never a misfortune; D173, D192 to D194). A **wake** event costs only that night's study, and Tired comes only from an option the player picks (D195). Mercy rules key on Footing and reserves (D169, D175); standing orders answer events for the idle player (D176); Techniques add options (§8.2, D199).
+
 ### 7.10 Fishing
 
 A **headline activity**: a satisfying skill toy and a collection.
@@ -394,6 +401,7 @@ A **headline activity**: a satisfying skill toy and a collection.
   - **Habits** (idle): shorter idle takeover, better idle efficiency, more priority options.
   - **Weather sense**: earlier or more accurate forecasts.
   - **Discoveries**: new crops, fish, animals, events in future runs.
+  - **Techniques** (D199): knowledge that changes what an event offers. **Bandaging** spares the hour a cut costs, **Splinting** adds a third option on a sprain and a cheaper splint on a tear, **Haggling** takes a fifth off the peddler's prices. The first-aid kit is one starter-catalog consumable that adds a third option to five body events while one is in stock.
 - *Built (M3):* perks are content (`data/content/perks.lua`) sharing one id space with the catalog as journal nodes. Run-start effects (`startingResources`, `startingEquipment`, `truckCharge`) are handed out once per run by `src/sim/systems/perks.lua`; `modifiers` (`idleTakeover`, `idleEfficiency`, `forecastLead`, ...) apply through `src/sim/stats.lua` like equipment. Discoveries are not in yet.
 
 ### 8.3 Journal UI: a visual map, not text
@@ -424,6 +432,8 @@ The journal is a **knowledge map**, not pages of prose. It's an interactive layo
 Land (§7.3), forecast and threat order, weekly catalog specials, "pick 1 of 3" finds, random events. All randomness uses a **seeded RNG per run** (reproducible for testing and bug reports).
 
 *Built (M5, #38): finds* (`src/sim/systems/finds.lua`, content `data/content/finds.lua`, knobs `data/tuning/finds.lua`, modal `src/scenes/finds.lua`, D53). A daily seeded roll queues an offer, shown as a modal of three distinct finds when the homesteader is not resting or fishing; pick one and its data effects apply.
+
+*Built (M8, D200, D201): choosing the next run.* From run 2 the recovery screen offers, both optional, **Choose land** (three real plots from the next seeds, each with trait levels and a risk and reward tag; skipping takes the first) and a **Starting kit** (five loadouts, each a bundle of existing items with one small penalty, each opened by a Journal node). Year charters and ascension mutators are deferred to M10 (D184).
 
 ---
 
@@ -576,6 +586,8 @@ Tap or keyboard focus **previews**; hover never does. The draft is kept for the 
 
 The **first run is meant to fail**, ideally while still feeling close. Runs 3–5 should be the first to clear Year 1.
 
+Since M8 the first nights have a goal of their own: the Tonight card at dusk names what is short for the night, and **Footing** (a shelter with a fire and wood, food and water stocked, five nights in a row, §4.2) moves the goal to the season and opens the contracts board. Night threats and misfortune events start mild and lean on the mercy rules while Footing is not held. These are first guesses; the M9 balance pass paces them.
+
 ---
 
 ## 12. Technical architecture (modularity pillar)
@@ -659,7 +671,7 @@ Headless sim tests, plus a **balance harness** that simulates years with scripte
 | **M5** | Power network (array, battery), well + pump, cat & mice, roadside stand, weekly specials, finds. | Hands-on → hands-off. |
 | **M6** | Chickens & goats, Year 2+ threats, auto-harvester, priority thresholds. | Second half of the game. |
 | **M7** | Cattle, mini-tractor, more content, art pass, audio. | Depth and feel. |
-| **M8** | **Homestead depth, trimmed (D184)**: Footing and the Tonight card, statuses and events, night threats (mice, fox, raccoon, deer, bear, dog, cold front, lantern), fields and soil, market saturation and contracts, tiers I to III, plot preview, loadouts, Techniques. 18 build steps, see [docs/PLAN_DEPTH.md](PLAN_DEPTH.md) §17. | A core loop with something to manage and no upkeep chores. |
+| **M8** | **Homestead depth, trimmed (D184)**: Footing and the Tonight card, statuses and events, night threats (mice, fox, raccoon, deer, bear, dog, cold front, lantern), fields and soil, market saturation and contracts, tiers I to III, plot preview, loadouts, Techniques. 18 build steps, see [docs/PLAN_DEPTH.md](PLAN_DEPTH.md) §17. **Built** (D159 to D203), folded into §4 to §8 and §11. | A core loop with something to manage and no upkeep chores. |
 | **M9** | **Balance and pacing**: idle at 40 to 60 percent of active is the primary target. | The loop is paced for idle and active play. |
 | **M10** | **Post-launch depth (D184)**: processing, hired hand, owned land, charters, ascension, wolves. | Depth the cozy and idle pillars did not need before launch. |
 
