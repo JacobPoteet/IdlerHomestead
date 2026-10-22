@@ -151,6 +151,8 @@ local function riskLines(risks)
     elseif r.id == "snap" then
       lines[#lines + 1] = r.days == 0 and "A cold snap tonight: the fire burns more."
         or string.format("A cold snap in %s.", plural(r.days, "day"))
+    elseif r.id == "front" then
+      lines[#lines + 1] = "A cold front is forecast tonight: the fire will burn more."
     else
       lines[#lines + 1] =
         string.format("%s tonight: more risk to the animals and the fields.", (r.kind:gsub("^%l", string.upper)))

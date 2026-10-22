@@ -1491,6 +1491,15 @@ function P.icon_bear_box(p)
   p:rect(2, 10, 8, 1, C.metal)
 end
 
+function P.icon_pipe_lagging(p)
+  p:rect(5, 1, 2, 10, C.metal) -- the pipe
+  p:rect(3, 3, 6, 2, STRAW) -- the wrapping
+  p:rect(3, 6, 6, 2, STRAW)
+  p:rect(3, 9, 6, 2, STRAW)
+  p:rect(3, 5, 6, 1, C.bark) -- the twine
+  p:rect(3, 8, 6, 1, C.bark)
+end
+
 -- Roadside stand: a plank table under a striped awning, with crates of goods (32x24).
 function P.roadside_stand(p)
   local awningRed = { 0.74, 0.28, 0.24 }

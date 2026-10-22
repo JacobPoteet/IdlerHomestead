@@ -15,7 +15,8 @@
 --   revealed = { [year] = forecast pieces revealed (0..#forecastDays) },
 --   holes = { [tile] = true }, snap = bool,
 --   sky = { first = calendar day of days[1], days = { kind, ... } today first, last/spell/left =
---           the spell being laid out } }
+--           the spell being laid out },
+--   front, frontRoll, pipes (weather nights, D190: see "Weather nights" below; absent until first needed) }
 -- Day-to-day weather (D51): clear, cloudy, rain, windy and storm spells, rolled ahead from the
 -- "sky" RNG stream (so winters are unchanged) and weighted by season. Rain waters crops and fills a
 -- cistern (crops.lua, water.lua), clouds and wind scale power (powerInputs), fish activity scales
@@ -24,6 +25,7 @@
 --       "weather.thawed" {}, "weather.changed" { kind, previous } (each morning the kind differs).
 
 local Calendar = require("src.sim.systems.calendar")
+local Grid = require("src.sim.grid")
 local Stats = require("src.sim.stats")
 
 local Weather = {}
@@ -130,8 +132,8 @@ function Weather.isColdSnap(world)
   return day >= winter.snapStart and day < winter.snapStart + winter.snapDays
 end
 
---- Multiplier on the season's warmth need: the winter's severity, more during the cold snap.
-function Weather.warmthMultiplier(world)
+-- The season's multiplier before any cold front: the winter's severity, more during the cold snap.
+local function seasonMultiplier(world)
   if not Weather.isFrozen(world) then
     return 1
   end
@@ -140,6 +142,27 @@ function Weather.warmthMultiplier(world)
     mult = mult * world.tuning.weather.snapMultiplier
   end
   return mult
+end
+
+--- Is a cold front on tonight (D190)? From the dusk it was drawn until the midnight draw has used it.
+function Weather.frontTonight(world)
+  local f = state(world).front
+  return f ~= nil and Calendar.now(world).day <= f.day + 1
+end
+
+--- The factor a cold front puts on the warmth need right now (1 with none): `coldFront.warmthMultiplier`, but never lifting
+--- the combined multiplier past the mercy ceiling (PLAN_DEPTH 6.5 rule 4; a night already past it takes no more).
+function Weather.frontFactor(world)
+  if not Weather.frontTonight(world) then
+    return 1
+  end
+  local ceiling = world.tuning.events.mercy.maxWarmthMultiplier
+  return math.max(1, math.min(world.tuning.weather.coldFront.warmthMultiplier, ceiling / seasonMultiplier(world)))
+end
+
+--- Multiplier on the season's warmth need: the winter's severity, more during the cold snap, more on a cold front's night.
+function Weather.warmthMultiplier(world)
+  return seasonMultiplier(world) * Weather.frontFactor(world)
 end
 
 --- The year's seasonal warmth curve (D104) at the night of `dayOfSeason` in `season`: warmth needed at
@@ -452,6 +475,140 @@ function Weather.waterTarget(world, i)
   return true
 end
 
+-- Weather nights (C5, D190) ---------------------------------------------------------------------
+
+-- The handler behind the cold front and the pipe freeze of data/content/night_threats.lua (handler "weather"): the night threat
+-- framework (nightthreats.lua) asks it to plan at dusk and to land at the hour, as it does the raiders. Weather is
+-- attracted by nothing (content exposure 0), so the framework's mercy scales are all that shape its chance.
+--
+--   cold_front  A forecast miss. Tonight's warmth need rises by `coldFront.warmthMultiplier` from the dusk it is drawn until the
+--               midnight draw has used it (`Weather.warmthNeed`, so the Tonight card, the electric heater's thermostat and the
+--               draw agree; `expectedWarmthNeed` leaves it out, as a forecast would). The night's roll is drawn the dusk
+--               before and kept (`state.frontRoll`), which is what weather sense reads: `Weather.frontForecast`.
+--   pipe_freeze A hard winter frost freezes the pumps and pipes from the landing hour until `pipeFreeze.thawHour` (state.pipes).
+--               A shack or pipe lagging stops it (`Weather.pipesGuarded`). While frozen the pumps idle and the wells, the
+--               hand pump and the cistern refuse a bucket (water.lua) and the morning drink cannot take the cistern stock
+--               (needs.lua), which thaws the line for `pipeFreeze.thawWood` wood when the fire can spare it.
+--
+-- Streams: `front` (two draws a dusk: tonight's roll if none was kept, and tomorrow's) and `pipes` (one), so neither
+-- moves another threat's draws. State, inside world.state.weather: front = { day } (the dusk the front was drawn),
+-- frontRoll = { day, u } (the roll for the night of `day`), pipes = { day, hour } (frozen until that hour of that day).
+-- Emits "weather.front" {} when the front is reported landed, "weather.pipesFroze" {} and "weather.pipesStopped" {}.
+
+local function frontCfg(world)
+  return world.tuning.weather.coldFront
+end
+
+-- The chance of a cold front on the night of `now`'s day, before the framework's scale; 0 on a cold-snap night.
+local function frontChance(world, now)
+  local c = frontCfg(world)
+  if now.day < c.firstDay or Weather.isColdSnap(world) then
+    return 0
+  end
+  return c.chance[now.season] or 0
+end
+
+--- Is a cold front forecast for tonight by the weather-sense stat (the front is not drawn yet; once it is, the dusk sign
+--- says so)? `scale` is the framework's scale for the threat (NightThreats.scale), so a night the mercy rules will spare is
+--- not forecast.
+function Weather.frontForecast(world, scale)
+  local now = Calendar.now(world)
+  local roll = state(world).frontRoll
+  if Stats.modifier(world, "forecastLead") < frontCfg(world).senseLead or Weather.frontTonight(world) then
+    return false
+  end
+  return roll ~= nil and roll.day == now.day and roll.u < frontChance(world, now) * (scale or 1)
+end
+
+--- Are the pumps and pipes frozen right now (D190)? From the freeze at night until the thaw hour of the next day.
+function Weather.pipesFrozen(world)
+  local p = state(world).pipes
+  if not p then
+    return false
+  end
+  local now = Calendar.now(world)
+  return now.day < p.day or (now.day == p.day and now.hour < p.hour)
+end
+
+--- Thaw the pipes at once (the morning drink burned wood for it, needs.lua).
+function Weather.thawPipes(world)
+  state(world).pipes = nil
+end
+
+--- Do the pipes have anything to freeze: a well, a pump or a cistern placed?
+local function hasPipes(world)
+  return #Grid.anchorsWith(world, "pump") > 0 or #Grid.anchorsWith(world, "waterSource") > 0
+end
+
+--- Are the pipes kept from freezing: pipe lagging (the `pipeGuard` stat) or a shelter of rank `pipeFreeze.shelterRank` or better?
+function Weather.pipesGuarded(world)
+  if Stats.modifier(world, "pipeGuard") >= 1 then
+    return true
+  end
+  local Shelter = require("src.sim.systems.shelter") -- here, not at load (it reaches the wardrobe, which reads this system)
+  local anchor = Shelter.best(world)
+  return anchor ~= nil and Shelter.rank(world, anchor) >= world.tuning.weather.pipeFreeze.shelterRank
+end
+
+--- The in-game hour tonight's weather night lands (the framework calls Weather.nightLand then).
+function Weather.nightHour(world, d)
+  return d.id == "cold_front" and frontCfg(world).hour or world.tuning.weather.pipeFreeze.hour
+end
+
+local function planFront(world, scale)
+  local now, s = Calendar.now(world), state(world)
+  local rng = world:rng("front")
+  local kept = s.frontRoll and s.frontRoll.day == now.day and s.frontRoll.u or nil
+  local roll = kept or rng:float()
+  s.frontRoll = { day = now.day + 1, u = rng:float() } -- tomorrow night's roll, kept for weather sense to read
+  if roll < frontChance(world, now) * (scale or 1) then
+    return { id = "cold_front" }
+  end
+  return nil
+end
+
+local function planPipes(world, scale)
+  local c, now = world.tuning.weather.pipeFreeze, Calendar.now(world)
+  local chance = c.chance * (Weather.isColdSnap(world) and c.snapScale or 1)
+  local hit = world:rng("pipes"):chance(math.min(1, chance * (scale or 1)))
+  if hit and now.day >= c.firstDay and Weather.isFrozen(world) and hasPipes(world) then
+    return { id = "pipe_freeze" }
+  end
+  return nil
+end
+
+--- Plan tonight's weather night for the threat `d` (the framework calls this at dusk): a plan ({ id }) when it comes, or nil.
+--- `scale` multiplies the chance (the mercy rules, 1 = unchanged).
+function Weather.nightPlan(world, scale, d)
+  if d.id == "cold_front" then
+    return planFront(world, scale)
+  end
+  return planPipes(world, scale)
+end
+
+--- The framework drew this plan and claimed the night for it: a cold front starts acting now, at dusk.
+function Weather.nightPlanned(world, plan)
+  if plan.id == "cold_front" then
+    state(world).front = { day = Calendar.now(world).day }
+  end
+end
+
+--- Land a planned weather night: a cold front is always "landed" (its effect has been on since dusk); a pipe freeze is
+--- "stopped" when the pipes are kept (shelter or lagging) and "froze" when it freezes them until the thaw hour.
+function Weather.nightLand(world, plan)
+  if plan.id == "cold_front" then
+    world.events:emit("weather.front", {})
+    return "landed"
+  end
+  if Weather.pipesGuarded(world) then
+    world.events:emit("weather.pipesStopped", {})
+    return "stopped"
+  end
+  state(world).pipes = { day = Calendar.now(world).day + 1, hour = world.tuning.weather.pipeFreeze.thawHour }
+  world.events:emit("weather.pipesFroze", {})
+  return "froze"
+end
+
 function Weather.init(world)
   world.state.weather = world.state.weather or { winters = {}, revealed = {}, holes = {}, snap = false }
   -- A fresh run rolls its sky from today.
@@ -470,7 +627,15 @@ function Weather.init(world)
       world.events:emit("weather.thawed", {})
     end
   end)
+  -- The night's draw has used a cold front's extra need: it is over (D190).
+  world.events:on("needs.warmed", function()
+    state(world).front = nil
+  end)
   world.events:on("calendar.newDay", function()
+    local p = state(world).pipes
+    if p and Calendar.now(world).day > p.day then
+      state(world).pipes = nil -- thawed by the sun a day ago: nothing to keep
+    end
     syncSky(world)
     revealForecast(world)
     local snap = Weather.isColdSnap(world)

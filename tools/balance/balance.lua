@@ -185,6 +185,10 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
       raiderStopped = 0,
       raiderLost = 0,
       cropsBrowsed = 0,
+      coldFronts = 0, -- weather nights (D190): cold fronts that came, pipe freezes that landed and that a shack or lagging stopped, wood burned to thaw the pipes
+      pipeFreezes = 0,
+      pipesStopped = 0,
+      thawWood = 0,
       threats = 0, -- growing-season threats (D67): scheduled ones that ran, ones that struck, crops lost / knocked back
       threatsStruck = 0,
       threatLost = 0,
@@ -385,6 +389,18 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
   end)
   events:on("raider.stopped", function()
     result.counters.raiderStopped = result.counters.raiderStopped + 1
+  end)
+  events:on("weather.front", function()
+    result.counters.coldFronts = result.counters.coldFronts + 1
+  end)
+  events:on("weather.pipesFroze", function()
+    result.counters.pipeFreezes = result.counters.pipeFreezes + 1
+  end)
+  events:on("weather.pipesStopped", function()
+    result.counters.pipesStopped = result.counters.pipesStopped + 1
+  end)
+  events:on("needs.thawed", function(e)
+    result.counters.thawWood = result.counters.thawWood + e.wood
   end)
   events:on("animals.collected", function(e)
     result.counters.eggs = result.counters.eggs + e.count
@@ -1516,6 +1532,16 @@ function Balance.printFeatures(summary, years)
       q("bearLanded").mean / years,
       q("raiderLost").mean / years,
       q("raiderStopped").mean / years
+    )
+  )
+  line(
+    string.format(
+      "Weather nights per year (mean): cold fronts %.2f, pipe freezes %.2f (%.2f stopped by a shack or lagging), "
+        .. "wood burned to thaw %.1f (policies buy no lagging)",
+      q("coldFronts").mean / years,
+      q("pipeFreezes").mean / years,
+      q("pipesStopped").mean / years,
+      q("thawWood").mean / years
     )
   )
   local harvests = math.max(1, q("harvests").mean)

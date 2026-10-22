@@ -521,6 +521,20 @@ return {
     equipment = true,
     modifiers = { raccoonGuard = 0.8 },
   },
+  -- Pipe lagging (C5, D190): a one-time purchase that keeps the pumps and pipes from freezing on any shelter (a shack does it
+  -- for free). Taught by the note the first freeze writes.
+  {
+    id = "pipe_lagging",
+    name = "Pipe lagging",
+    line = "Straw and sacking round the pump and pipes: no more hard-frost freezes.",
+    page = "shelter",
+    price = 12,
+    needs = { "pipe_freeze" },
+    studyNights = 1,
+    equipment = true,
+    unique = true,
+    modifiers = { pipeGuard = 1 },
+  },
   {
     id = "scarecrow",
     name = "Scarecrow",

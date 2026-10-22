@@ -97,6 +97,9 @@ function NightText.morning(world, report)
   elseif report.electric > 0 then
     add("Electric heat kept the cold out.")
   end
+  if (report.thawed or 0) > 0 then
+    add(string.format("Burned %s to thaw the frozen pipes.", plural(report.thawed, "log")))
+  end
   if report.cold > 0 then
     add(
       string.format("Too cold: -%d condition.", math.floor(report.cold * needs.coldDamage + 0.5)),

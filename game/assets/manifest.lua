@@ -270,6 +270,7 @@ return {
     icon_lidded_bins = { placeholder = "icon_lidded_bins", w = 12, h = 12 },
     icon_scarecrow = { placeholder = "icon_scarecrow", w = 12, h = 12 },
     icon_bear_box = { placeholder = "icon_bear_box", w = 12, h = 12 },
+    icon_pipe_lagging = { placeholder = "icon_pipe_lagging", w = 12, h = 12 },
 
     -- Fishing mini-game
     bobber = { placeholder = "bobber", w = 8, h = 10 },

@@ -3,8 +3,9 @@
 -- hour and reports it; the handler named here owns the stream and the effect. The tuning is tuning.night (exposure,
 -- mercy) and the handler's own file (tuning.cat, tuning.animals).
 --
---   handler       "cat" | "animals" | "raiders": the system whose nightPlan and nightLand draw and land this threat (mice, fox;
---                 the raccoon, deer and bear are all "raiders", which reads this entry's id and tuning.raiders[id])
+--   handler       "cat" | "animals" | "raiders" | "weather": the system whose nightPlan and nightLand draw and land this threat (mice, fox;
+--                 the raccoon, deer and bear are all "raiders", which reads this entry's id and tuning.raiders[id]; the cold front
+--                 and the pipe freeze are "weather", with tuning.weather.coldFront and .pipeFreeze and exposure 0)
 --   seasons       list of season ids it can come in (absent = every season); the handler's tuning shapes the odds
 --   minDay        earliest day of the run (absent = the handler's own firstDay is the only limit)
 --   minYear       earliest year (absent = any)
@@ -102,5 +103,35 @@ return {
       landed = { report = "A bear tore into the stores and took %s." },
     },
     journalNote = "bear_raid",
+  },
+  {
+    id = "cold_front",
+    name = "Cold front",
+    handler = "weather",
+    seasons = { "autumn", "winter" },
+    weight = 2, -- as likely to be the one that comes as a fox when both would
+    exposure = 0, -- weather is attracted by nothing; the mercy scales still apply
+    warn = { line = "Smoke from the chimney lies flat: a cold front is about tonight. The fire will burn more." },
+    outcomes = {
+      turned = { report = "A cold front came through in the night." }, -- not used: a front is not turned away
+      landed = { report = "A cold front came through in the night. The fire burned more." },
+    },
+    journalNote = "cold_front",
+  },
+  {
+    id = "pipe_freeze",
+    name = "Pipe freeze",
+    handler = "weather",
+    seasons = { "winter" },
+    weight = 2,
+    exposure = 0,
+    counter = "pipe_lagging",
+    guard = "pipeGuard",
+    warn = { line = "Frost on the pump handle: the pipes will freeze tonight." },
+    outcomes = {
+      turned = { report = "A hard frost came in the night. The pipes held." },
+      landed = { report = "The pipes froze in the night. They thaw at noon, or with a little wood." },
+    },
+    journalNote = "pipe_freeze",
   },
 }
