@@ -115,7 +115,7 @@ Exposure is a single readable figure on the Tonight card ("Exposure: high - smok
 
 ### 5.2 Waking
 
-Most threats resolve while the homesteader sleeps and appear in the **morning report** (`nightly.lua` already collects this). A few **wake** the homesteader with a choice (section 6.3). **One tiredness mechanism (D168).** A wake costs only that night's lost study and Condition recovery (cut by `tuning.night.wakePenalty`). **Tired** (the B1 status, section 7) is the carry-over, and the sleep debt of 10.4 *is* Tired, not a second counter: a wake or a late night applies or raises Tired, and nothing else tracks it. At most one wake per night, none in the first three nights, and none under the mercy rules of 6.5 (low Condition, Footing slipped, low reserves).
+Most threats resolve while the homesteader sleeps and appear in the **morning report** (`nightly.lua` already collects this). A few **wake** the homesteader with a choice (section 6.3). **One tiredness mechanism (D168).** A wake costs only that night's lost study (cut by `tuning.night.wakePenalty`). **Trimmed and done (D195, #411):** no Condition cost, no F5 dependency, and Tired comes only from an option the player picks (the hiker's supper), never from a wake or an ignore. **Tired** (the B1 status, section 7) is the carry-over, and the sleep debt of 10.4 *is* Tired, not a second counter: a wake or a late night applies or raises Tired, and nothing else tracks it. At most one wake per night, none in the first three nights, and none under the mercy rules of 6.5 (low Condition, Footing slipped, low reserves).
 
 ### 5.3 Light and watch
 

@@ -120,6 +120,26 @@ T.test("lost hiker: waits for day 5, comes at night, and wakes", function()
   T.eq(world.state.events.wakeNight > 0, true, "it counts as the night's wake")
 end)
 
+T.test("lost hiker: Tired comes only from sharing the supper, never from sending them on or ignoring (D195)", function()
+  local function run(pick)
+    local world = newWorld()
+    setTime(world, SPRING, 22)
+    Ledger.add(world, "wood", 10)
+    Ledger.add(world, "egg", 40)
+    open(world, "lost_hiker")
+    if pick then
+      T.truthy(Events.choose(world, pick))
+    else
+      Events.advanceReal(world, tun.events.ignoreMinSeconds + 1)
+      tick(world, math.ceil(tun.events.ignoreHours * Calendar.hourLength(world) / STEP) + 5)
+    end
+    return Status.has(world, "tired")
+  end
+  T.eq(run(1), true, "a short night after the supper")
+  T.eq(run(2), false)
+  T.eq(run(nil), false, "ignoring a wake never makes you Tired")
+end)
+
 T.test("lost hiker: a supper and a fire pay a tip; sending them on is free and leaves a note", function()
   local world = newWorld()
   setTime(world, SPRING, 22)
@@ -144,7 +164,8 @@ T.test("lost hiker: a supper and a fire pay a tip; sending them on is free and l
   T.eq(Ledger.get(world, "egg"), 40 - eggs)
   T.eq(Ledger.get(world, "money"), 6, "a thank-you in coin")
   T.truthy(Journal.hasNote(world, "kind_stranger"))
-  T.eq(#Status.active(world), 0)
+  T.eq(#Status.active(world), 1, "only Tired, a short night")
+  T.truthy(Status.has(world, "tired"))
 
   local road = newWorld()
   setTime(road, SPRING, 22)
