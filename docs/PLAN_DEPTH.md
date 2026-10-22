@@ -464,6 +464,8 @@ After Established, optional **mutators** (harsher winters, scarcer wood, more ni
 
 A new Journal page of strategy nodes: first-aid, tracking, rotation, trapping, bargaining. Each gives a third option on an event class, an earlier warning, or a cost cut. This is how knowledge changes play, not only the shopping list.
 
+> **Built, simplified (D199, H5 + B10, #388, #354):** a `techniques` Journal chapter with three perks, **Bandaging** (spares the hour of work on a cut), **Splinting** (a third option on a sprain, a cheaper splint on a tear) and **Haggling** (a fifth off the peddler), and one catalog consumable, the **first-aid kit**, offered as a third option on five body events (no cost but the kit). The engine gained `known` (an option reads over once a perk is known) and `extras` (options that appear while a perk is known or an item is in stock) on event content; the card needed no change. Tracking, rotation and trapping are left out: each needs an event or warning hook that the trimmed systems do not have (D184). A technique is never required: the base options and the free ignore stay.
+
 ---
 
 ## 13. How the systems interact
@@ -588,7 +590,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - B7 (#351) Home events pack. **Amended (D168):** lands after F1 wear and G3 tiers. **Simplified (D184):** no wear or tier dependency; keeps roof leak, tarp torn, frozen pump, tool breaks and flue clogged; cuts truck fault and power surge. **Done (D192).**
 - B8 (#352) Land events pack. **Amended (D168):** lands after D, and possibly G1. **Simplified (D184):** late frost, storm-felled tree and livestock in the field; cuts hornets and washout; no G1 dependency. **Done (D193).**
 - B9 (#353) Visitors and luck events pack. **Kept (D184);** absorbs the peddler (E4) and the stray dog (C4). **Done (D194).**
-- B10 (#354) First-aid kit and Techniques notes for body events. **MERGED (D184)** into H5 #388; the kit stays one catalog consumable.
+- B10 (#354) First-aid kit and Techniques notes for body events. **MERGED (D184)** into H5 #388; the kit stays one catalog consumable. **Done (D199)** with H5.
 
 **Phase C: Night threats**
 - C1 (#355) **Done (D187).** Night threat framework; move mice and fox into it; dusk signs; wake hook. **Amended (D168):** designed with B3 (shared exposure units 0 to 10, nightly slot, turned-away threats use the slot and the pity timer); per-guard `covers` and upkeep.
@@ -634,7 +636,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - H2 (#385) Year charters. **Amended (D168):** lands after E, F and G; no draft while slipped. **DEFERRED (D184)** to M10.
 - H3 (#386) Starting loadouts.
 - H4 (#387) Ascension mutators. **DEFERRED (D184)** to M10.
-- H5 (#388) Journal Techniques page. **Kept (D184);** absorbs B10 #354.
+- H5 (#388) Journal Techniques page. **Kept (D184);** absorbs B10 #354. **Done (D199):** three techniques (Bandaging, Splinting, Haggling).
 
 **Phase I: Integration**
 - I1a (#389) Harness policies for the new systems (smoke testing only). **Amended (D168):** the event-choice policies moved to B3 and B5. The full balance pass is I1b (#396) in M9. **Shrunk (D184)** to the surviving systems; #410 adds idle gates and is promoted.

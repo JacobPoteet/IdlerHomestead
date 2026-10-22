@@ -156,6 +156,17 @@ return {
     starter = true,
     gives = { canned_food = 2 },
   },
+  -- The first-aid kit (B10, #354, D199): a consumable. A body event offers it as a third option that spends no hour and
+  -- no wood; buying one writes the note the Bandaging technique needs (kit_bought).
+  {
+    id = "first_aid_kit",
+    name = "First-aid kit",
+    line = "Dressings and salve for one bad day.",
+    page = "supplies",
+    price = 8,
+    starter = true,
+    gives = { first_aid_kit = 1 },
+  },
   {
     id = "bait",
     name = "Bait x6",

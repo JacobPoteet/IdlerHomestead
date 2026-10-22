@@ -78,6 +78,8 @@ return {
   { id = "hen", name = "Hen", category = "animal", capacity = 0, housing = "coop" },
   -- Layer feed: bought in sacks, kept in the ledger, and moved to the coop's feeder by the tend chore.
   { id = "chicken_feed", name = "Chicken feed", category = "supply", capacity = 40 },
+  -- The first-aid kit (B10, D199): a consumable that body events offer as a third option; one is spent a use.
+  { id = "first_aid_kit", name = "First-aid kit", category = "supply", capacity = 6 },
 
   -- Goats (GDD §7.7, D71): a flock count like hens, housed in a goat pen. Hay is the winter feed: bought
   -- in bales, kept in the ledger, and moved to the pen's manger by the tend chore.

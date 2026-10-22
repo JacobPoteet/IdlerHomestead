@@ -12,5 +12,6 @@ return {
   { id = "habits", name = "Habits", pages = { "habits" }, area = "Know-how" },
   { id = "animals", name = "Animals", pages = { "animals" }, area = "Farm" },
   { id = "machines", name = "Machines", pages = { "machines" }, area = "Farm" },
+  { id = "techniques", name = "Techniques", pages = { "techniques" }, area = "Know-how" }, -- strategy nodes: third options and cost cuts on events (H5, D199)
   { id = "upgrades", name = "Upgrades", pages = { "upgrades" }, area = "Farm" }, -- tiers II and III of the catalog ladders (D198)
 }
