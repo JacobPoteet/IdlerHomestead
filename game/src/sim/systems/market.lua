@@ -24,7 +24,8 @@
 --       "market.held" { item } (once per order, when a due delivery is waiting
 --       for storage room; the order stays queued and is retried every tick),
 --       "market.cancelled" { item, amount } (player cancelled a held order, refunded),
---       "market.refunded" { item, amount } (an order that could never fit its store, refunded).
+--       "market.refunded" { item, amount, reason } (an order that could never fit its store, or reason "owned": one-per-run
+--       gear the run already holds by the time it arrives, D203; refunded).
 -- Orders: { item, arriveDay, paid (money charged), held (due but no room) }.
 -- Contracts (D197): the truck sale first fills the open contracts from the surplus (Market.fillContracts), so the default Auto-load
 -- trip serves the board with no input; a contract's goods are not sold to the market.
@@ -379,13 +380,22 @@ function Market.order(world, id)
 end
 
 -- Take order `index` off the list and give back what it cost.
-local function refund(world, index, event)
+local function refund(world, index, event, reason)
   local orders = world.state.market.orders
   local order = table.remove(orders, index)
   local amount = order.paid
   Ledger.add(world, "money", amount, "refund")
-  world.events:emit(event, { item = order.item, amount = amount })
+  world.events:emit(event, { item = order.item, amount = amount, reason = reason })
   return amount
+end
+
+-- Is `id` equipment (one per run, D114) that the run already holds, or a better tier of it?
+local function alreadyHeld(world, id)
+  local item = world.registry:get("catalog", id)
+  if not item.equipment then
+    return false
+  end
+  return Inventory.owns(world, id) or Inventory.supersededBy(world, id) ~= nil
 end
 
 --- Paid orders that are due but waiting for storage room: list of { index, item, paid }.
@@ -439,6 +449,10 @@ function Market.tick(world)
       if Market.neverFits(world, order.item) then
         -- Can never be delivered (the store is smaller than the order): give the money back.
         refund(world, i, "market.refunded")
+      elseif alreadyHeld(world, order.item) then
+        -- One-per-run gear that reached the run another way while the order was on its way (the stray dog, a find,
+        -- an event, D203): the second copy would add nothing, so the money goes back.
+        refund(world, i, "market.refunded", "owned")
       elseif deliver(world, order.item) then
         table.remove(orders, i)
       else

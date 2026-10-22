@@ -376,3 +376,56 @@ T.test("stand tiers: each upgrade is a catalog tier with an overlay sprite and s
   T.truthy(owned.stand_sign, "the lower tier counts as owned once a higher one has replaced it")
   T.falsy(Inventory.hasEquipment(world, "stand_sign"), "but only the top tier's modifiers count")
 end)
+
+-- Guard purchase rules (#274, D203) ------------------------------------------------------------------------
+-- The trimmed night guards (lantern, farm dog, bear box) are one-time equipment, each learned from the note its threat
+-- writes on the first strike, and an order that arrives after the run already got the guard another way (the stray
+-- dog) is refunded rather than delivered for nothing.
+local GUARDS = { lantern = "fox_raid", farm_dog = "raccoon_raid", bear_box = "bear_raid" }
+
+T.test("guard purchase rules: unique equipment, taught by the note of the threat it answers", function()
+  local notes = {}
+  for _, threat in ipairs(reg:all("night_threats")) do
+    if threat.journalNote then
+      notes[threat.journalNote] = true
+    end
+  end
+  for id, note in pairs(GUARDS) do
+    local item = reg:get("catalog", id)
+    T.truthy(item.equipment and item.unique, id .. " is unique equipment")
+    T.same(item.needs, { note }, id .. " is taught by " .. note)
+    T.truthy(notes[note], note .. " is written by a night threat")
+    T.truthy(item.price and item.price > 0, id .. " has a price")
+    T.eq(Market.cannotBuy(newWorld(), id, false), "unknown", id .. " is not for sale before the journal teaches it")
+  end
+end)
+
+T.test("guard purchase rules: bought once; a second order is refused while ordered or owned", function()
+  for id in pairs(GUARDS) do
+    local world = richWorld()
+    T.truthy(Market.order(world, id))
+    T.eq(Market.cannotBuy(world, id, false), "ordered", id)
+    T.eq(Market.cannotBuy(world, id, true), "ordered", id .. " in town too")
+    deliverAll(world)
+    T.truthy(Inventory.hasEquipment(world, id), id .. " delivered")
+    T.eq(Market.cannotBuy(world, id, false), "owned", id)
+  end
+end)
+
+T.test("guard purchase rules: a dog ordered while a stray moves in is refunded on arrival", function()
+  local world = richWorld()
+  local refunds = {}
+  world.events:on("market.refunded", function(e)
+    refunds[#refunds + 1] = e
+  end)
+  local before = Ledger.get(world, "money")
+  T.truthy(Market.order(world, "farm_dog"))
+  Inventory.addEquipment(world, "farm_dog") -- the stray dog find, the night the order is on its way
+  deliverAll(world)
+  T.eq(Ledger.get(world, "money"), before, "the order's money comes back")
+  T.eq(#refunds, 1)
+  T.eq(refunds[1].item, "farm_dog")
+  T.eq(refunds[1].reason, "owned")
+  T.eq(#world.state.market.orders, 0)
+  T.truthy(Inventory.hasEquipment(world, "farm_dog"))
+end)

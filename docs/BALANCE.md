@@ -66,7 +66,7 @@ The issue's "about 17 s" single seed-year was measured before D57; at the merge 
 ### Policies
 
 - **idle**: the player never acts. The idle routine runs from the first second. Since D61 the routine plans a starter field when nothing is planned, so it plants (before D61 it never did).
-- **scripted**: day 1 plans one field tile per starting seed near the creek, then the routine runs. Keep targets stay automatic. Each morning, when the truck is charged, it presses Auto-load and makes the trip if the load is worth selling (else it empties the truck again), orders the next item from a fixed buy list (woodshed, wood stove, axe, smoker, big bucket, sturdy rod, used panel), places delivered objects near the truck, and fills the study queue from a fixed list. It never gives a direct order.
+- **scripted**: day 1 plans one field tile per starting seed near the creek, then the routine runs. Keep targets stay automatic. Each morning, when the truck is charged, it presses Auto-load and makes the trip if the load is worth selling (else it empties the truck again), orders the next item from a fixed buy list (woodshed, wood stove, axe, smoker, big bucket, sturdy rod, used panel), places delivered objects near the truck, and fills the study queue from a fixed list. It never gives a direct order. With the `guards` and `threats` features (D203, on in `all`) it also studies and buys the threat answers: the night guards (farm dog, lantern) and each night threat's counter, and each field threat's counter, first the counter of a field threat on the outlook (warned or active, bought with no money kept back), then any other known answer above the feature reserve, never saved up for. A trip also goes with a light load when an open contract can be filled (the sale fills the board first, D197).
 - **active**: everything `scripted` does, plus a keep target on wood (what its worst-case winter plan still needs, D75, D104) and direct orders like an engaged player: harvest, water (bucket hauling), plant, till, load the smoker, fell trees for the winter's fuel (worst-case severity plus the longest snap), clear junk for cash, hand-fish with the rod, grow the field as seeds come in, buy seeds and bait. It sleeps at night (no orders at bedtime) so study progresses, and hands control to the routine after the takeover delay when it has nothing to order. The fishing mini-game is a dice roll (75 percent landed) plus plausible game time. This is a diligent player with perfect execution, so treat it as an upper bound on what a human achieves.
 - **human** (#410): `active` made fallible, the policy between `active` and `scripted`. After each job it waits `POLICY.humanReactionSeconds` (20 s on average, 0.5x to 1.5x) before the next order, skips each morning chore (trip, buy, place, study, seed orders, field planning) with chance `humanSkipChance` (0.25) on a day, lands fish at `humanFishSkill` (0.5) and does not look at an event card with chance `humanIgnoreCard` (0.25, the card runs out as if ignored). The knobs are first guesses at an average first-year player, not measured from play. Its draws come from the policy's own seeded stream, so a seed repeats exactly.
 
@@ -234,7 +234,7 @@ An eighth feature, `machines`, is on by default: the auto-harvester ($150) is th
 
 ### Threats (#41, #97, D67)
 
-Threats are part of the sim, not a feature switch: every run gets its yearly schedule. The policies buy no countermeasures (#153), so the harness shows them at full force. The report gains a "Threats per run" line (came, struck, crops lost, knocked back). `set=` now accepts list entries, so `set=threats.count.1=0 set=threats.count.2=0 set=threats.count.3=0` turns threats off for a comparison.
+Threats are part of the sim, not a feature switch: every run gets its yearly schedule. The policies bought no countermeasures then (#153), so the harness showed them at full force; since D203 the `threats` feature buys them. The report gains a "Threats per run" line (came, struck, crops lost, knocked back). `set=` now accepts list entries, so `set=threats.count.1=0 set=threats.count.2=0 set=threats.count.3=0` turns threats off for a comparison.
 
 `policy=scripted,active seeds=6 years=3`, before (no threats) and after:
 
@@ -496,7 +496,7 @@ Read: events cost the careful active and scripted players nothing in a year. The
 
 ## The farm dog: smoke test (#358, D189)
 
-Policies buy no dog; a policy offered the stray dog find takes it (score 3), so the dog reaches runs only through that find, which also shifts the find draws, so every seed after the first offer differs from main. Smoke harness `policy=scripted,active,human seeds=5 years=3` ran twice on the branch with identical output (deterministic). Against main:
+Policies bought no dog then (since D203 the `guards` feature does); a policy offered the stray dog find takes it (score 3), so the dog reaches runs only through that find, which also shifts the find draws, so every seed after the first offer differs from main. Smoke harness `policy=scripted,active,human seeds=5 years=3` ran twice on the branch with identical output (deterministic). Against main:
 
 | Run | Failed (main, branch) | Footing reached (main, branch) | Notes |
 |---|---|---|---|
@@ -507,3 +507,7 @@ Policies buy no dog; a policy offered the stray dog find takes it (score 3), so 
 | human, 12 seeds | 10/12, 9/12 | 11/12, 11/12 | year-1 deaths 2 to 3 (hunger), before-winter Footing 11 to 10 |
 
 The human and active failure counts do not move beyond seed noise (the find draws shifted); no new failure class, no crash, Footing stays reachable. The dog's own food (one unit a day, only above a two-day reserve) is not a cause of a death in these runs. Dead gates stay red as on main (D186). Numbers are first guesses for M9.
+
+## Threat answers and the contracts board in the policies: smoke test (#389, #153, D203)
+
+Two features, on in `all`: `guards` (study and buy the farm dog, the lantern and each night threat's counter once its note is written) and `threats` (the same for the field threats' counters, a warned threat's first). The trip also goes for an open contract the surplus covers. The report gains a line "Threat answers and contracts per run" (guards or counters delivered, contracts filled and their pay). Smoke only, no tuning: `policy=all seeds=3 years=2` runs every policy without errors, scripted and active reach Footing on every seed, and the report is byte-identical between `jobs=1` and the default threads (timing lines aside). Balance reading of these numbers is M9 (#396).

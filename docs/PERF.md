@@ -58,6 +58,40 @@ Save file, `Save:write` and `Save:read` of the typical state (mean of 5):
 The grid arrays were 74 percent of the file (terrain 34 KB, soil 62 KB, water table 62 KB at 64x48). What is
 left is mostly `grid.objects` (37 KB at 64x48, 330 KB at 192x128, mostly trees): see follow-ups.
 
+## Homestead depth check (M8, #392, D203), desktop
+
+`lovec tools/perf ticks=12000` (active, seed 1, warm 84 days) after the M8 systems (soil fertility per tile, pest
+pressure, weeds, compost, quality, perennials, night threats, dog, lantern, contracts, tiers). The default map is now
+128x80 (10,240 tiles, 3363 objects), so the 64x48 row (`set=world.mapWidth=64 set=world.mapHeight=48`) is the one to
+read against the D103 "typical after" column above. The probe now keeps the harness policy's morning (an event handler
+inside the calendar's tick) out of the sim figures; before, up to 4 ms and 65 KB of the "calendar" worst tick were
+the policy, not the sim.
+
+| | D103 typical (64x48) | M8, 64x48 | M8, default 128x80 |
+|---|---|---|---|
+| mean ms per tick | 0.023 | 0.022 | 0.070 |
+| p95 / p99 ms per tick | 0.032 / - | 0.037 / 0.119 | 0.085 / 2.3 |
+| ticks over 1 ms (of 12000) | 41 | 5 | 212 |
+| worst tick ms | 4.2 | 1.8 | 4.3 |
+| mean allocation KB per tick | 0.58 | 0.75 | 0.78 |
+| worst tick allocation KB | 190 | 73 | 172 |
+| save bytes on disk | 101,758 | 115,690 | 307,233 |
+| save write / read ms | 5.4 / 2.1 | 6.5 / 3.0 | 16.4 / 7.5 |
+
+All inside the budget below. No M8 system is a hot spot: of the new per-tick and per-day work, threats is 0.003 ms a
+tick and the heaviest new-day handler (soil) 0.22 ms and 12 KB; the night threats, dog and cat stay under 1 ms at worst.
+What grows with the bigger map is the idle job search (`actors`: 0.045 ms a tick mean at 128x80 against 0.003 at
+64x48, and the 212 ticks over 1 ms), the follow-up below, not an M8 cost.
+
+Save size: the M8 grid array `fertility` packs like `soil` and `waterTable` (Gridpack, whole hundredths): 8 KB of
+the 64x48 file and 26 KB of the 128x80 one. The 64x48 file grew 14 KB (14 percent) since D103, about 8 KB of it
+fertility. The biggest part now is `grid.objects` (118 KB of 307 KB at 128x80, 28 KB of 116 KB at 64x48, almost all
+trees, brush and rocks holding only an id), which is what #248 (object packing) targets: anchor lists per id would
+leave a few KB, so about a third of the 128x80 file. `tools/perf` now prints every grid part over 1 KB both plain and
+as the file holds it, and the largest sections of the file, the run and the meta as written.
+
+The F3 overlay shows the same sim figures in a window; it was not read for this check (headless only).
+
 ## Lighting and shader pass (D127-D131), desktop
 
 Wall-clock ms per frame with vsync off and every frame presented (so the GPU is in the number), 300 frames, busy
@@ -142,11 +176,11 @@ Targets for a mid-range phone (about 3 to 4 times slower per thread than the des
 
 | | target | desktop now | note |
 |---|---|---|---|
-| sim per tick, mean | 0.5 ms | 0.02 | `tuning.perf.simMsPerTick` |
+| sim per tick, mean | 0.5 ms | 0.02 (64x48) to 0.07 (128x80, D203) | `tuning.perf.simMsPerTick` |
 | worst single tick | 8 ms | 4 to 9 | `worstTickMs`; idle search on a big map, new-day work |
 | draw (CPU submit), per frame | 8 ms | 0.8 to 2.5 | `drawMs`; leaves the rest of 16.6 ms for update and the GPU |
 | frame | 16.6 ms (60 fps), floor 33 ms | | `frameMs` |
-| allocation per tick, mean | 4 KB | 0.6 | enforced by `tests/test_perf_budget.lua` (`testAllocKbPerTick`) |
+| allocation per tick, mean | 4 KB | 0.75 (D203) | enforced by `tests/test_perf_budget.lua` (`testAllocKbPerTick`) |
 | worst tick allocation | 512 KB | about 150 KB in the test | `testAllocKbWorstTick` |
 
 The headless test counts allocation, not time, so it cannot flake on a slow CI machine; time is checked by
