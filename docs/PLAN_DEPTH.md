@@ -645,7 +645,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - H5 (#388) Journal Techniques page. **Kept (D184);** absorbs B10 #354. **Done (D199):** three techniques (Bandaging, Splinting, Haggling).
 
 **Phase I: Integration**
-- I1a (#389) Harness policies for the new systems (smoke testing only). **Amended (D168):** the event-choice policies moved to B3 and B5. The full balance pass is I1b (#396) in M9. **Shrunk (D184)** to the surviving systems; #410 adds idle gates and is promoted.
+- I1a (#389) Harness policies for the new systems (smoke testing only). **Amended (D168):** the event-choice policies moved to B3 and B5. The full balance pass is I1b (#396) in M9. **Shrunk (D184)** to the surviving systems; #410 adds idle gates and is promoted. **Done (D203):** harness features `guards` (night guards and night-threat counters) and `threats` (field-threat counters, a warned threat's first, #153), on in `all`; trips go for a fillable contract; a report line counts answers bought and contracts filled. Loadouts were already playable (`loadout=`, D201); the plot preview is left to the default plot.
 - I2 (#390) FTUE and tip updates for each phase. **Done (D202):** nine first-run tips (Tonight, an event, night visitors, a status, a Footing slip, what limits you, rotation, weeds, contracts), none for the cut or deferred upkeep, levy and land; and the recovery summary (#156) lists the night threats, field threats and bad events of the run and names what hurt most (one line on a short view).
 - I3 (#391) Merge into GDD, wiki and decision log.
 - I4 (#392) Perf and save-size check.

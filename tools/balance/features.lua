@@ -1,5 +1,5 @@
 -- Optional policy behaviours for the balance harness (issues #80 power, #90 water, #105 stand,
--- #101 weather, #111 finds, #115 cat). `features=` on the command line picks which are on, so a run
+-- #101 weather, #111 finds, #115 cat, #389 guards and threats). `features=` on the command line picks which are on, so a run
 -- can be compared with and without them (`features=none` is the harness as it was before these).
 --
 -- Everything here is *player behaviour* (what to buy, where to put it, which find to take); game
@@ -17,13 +17,15 @@ local Market = require("src.sim.systems.market")
 local Needs = require("src.sim.systems.needs")
 local Power = require("src.sim.systems.power")
 local Soil = require("src.sim.systems.soil")
+local Threats = require("src.sim.systems.threats")
 local Water = require("src.sim.systems.water")
 local Weather = require("src.sim.systems.weather")
 
 local Features = {}
 
 --- Feature ids, in the order they are listed in reports.
-Features.LIST = { "cat", "stand", "chickens", "goats", "water", "power", "machines", "finds", "weather" }
+Features.LIST =
+  { "cat", "stand", "chickens", "goats", "water", "power", "machines", "finds", "weather", "guards", "threats" }
 
 --- Opt-in behaviours: only on when named, never part of `all`, so the standing baselines do not move.
 Features.OPT_IN = { "rotate", "orchard" }
@@ -38,6 +40,8 @@ Features.describe = {
   machines = "buy the auto-harvester last on the list and place it where it reaches the most field (#42)",
   finds = "choose finds by need instead of the first option (#111)",
   weather = "active: no hauling water in the rain (#101)",
+  guards = "study and buy the night guards (dog, lantern) and each night threat's counter once it has come (#274, #389)",
+  threats = "study the field-threat countermeasures; buy one when its threat is warned, or once it has struck (#153)",
   rotate = "replant empty planned tiles with a family other than the one last harvested there, from the seeds in hand (D179)",
   orchard = "learn, buy and plan berry canes and apple trees once money allows (a few of each) (D183)",
 }
@@ -245,6 +249,74 @@ function Features.studyIds(set)
     end
   end
   return ids
+end
+
+-- Threat answers (#389, #153, D203) ----------------------------------------------------------------------
+
+-- Night guards that are no threat's own `counter` but turn several aside (D189, D191). Player behaviour: bought first.
+local NIGHT_GUARDS = { "farm_dog", "lantern" }
+
+-- The catalog ids that answer threats, for a feature set: the night guards and each night threat's counter (`guards`),
+-- then each field threat's counter (`threats`), content order, each once. Read from content, so new threats are covered.
+local function answerIds(registry, set)
+  local ids, seen = {}, {}
+  local function add(id)
+    if id and not seen[id] and registry:has("catalog", id) then
+      seen[id] = true
+      ids[#ids + 1] = id
+    end
+  end
+  if set.guards then
+    for _, id in ipairs(NIGHT_GUARDS) do
+      add(id)
+    end
+    for _, threat in ipairs(registry:all("night_threats")) do
+      add(threat.counter)
+    end
+  end
+  if set.threats then
+    for _, threat in ipairs(registry:all("threats")) do
+      add(threat.counter)
+    end
+  end
+  return ids
+end
+
+--- Ids to study for the threat features (after the core list and the shopping list): an answer is an idea only once its
+--- threat's note is written, so this just keeps the study queue from passing it by.
+function Features.answerStudyIds(world, set)
+  return answerIds(world.registry, set)
+end
+
+-- Order `id` if it is known, not held, buyable and leaves `reserve` dollars. Returns true when ordered.
+local function orderAnswer(world, id, reserve)
+  if not Market.isKnown(world, id) or held(world, id) > 0 or Market.cannotBuy(world, id, false) ~= nil then
+    return false
+  end
+  local cost = Market.itemPrice(world, id) + world.tuning.economy.deliveryFee
+  if Ledger.get(world, "money") - cost < reserve then
+    return false
+  end
+  return Market.order(world, id) == true
+end
+
+--- The morning's threat answers (not strict: an answer it cannot afford yet is skipped, never saved up for, so the
+--- survival kit is not held back). First the warnings (#153): the counter of a field threat on the outlook (warned or
+--- active), with no reserve kept, so it lands in the warning's lead time. Then, above `reserve`, every other known answer
+--- in order. Answers are ideas only after their threat has struck once, so nothing is bought for a threat the run has not
+--- met. (A night threat's dusk sign comes too late for a delivery, so night answers wait for the morning after.)
+function Features.answers(world, set, reserve)
+  if set.threats then
+    for _, warned in ipairs(Threats.outlook(world)) do
+      local counter = world.registry:get("threats", warned.id).counter
+      if counter then
+        orderAnswer(world, counter, 0)
+      end
+    end
+  end
+  for _, id in ipairs(answerIds(world.registry, set)) do
+    orderAnswer(world, id, reserve)
+  end
 end
 
 --- Order what the list asks for. `reserve` is the money to keep back. Strict: the first wanted entry

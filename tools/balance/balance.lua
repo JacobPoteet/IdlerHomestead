@@ -194,6 +194,9 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
       threatsStruck = 0,
       threatLost = 0,
       threatDamaged = 0,
+      answersBought = 0, -- threat answers (#389, D203): night guards and threat counters delivered or bought in town
+      contractsDone = 0, -- the town's board (D197): contracts filled, and the money they paid
+      contractPay = 0,
       harvests = 0, -- rotation (D179): harvests, those repeating the tile's last family, the yield share pest pressure cut (summed), harvests that gave nothing, pest hits, blight outbreaks
       harvestsRepeat = 0,
       pressureCut = 0,
@@ -387,6 +390,19 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
     c[field] = c[field] + 1
     c.raiderLost = c.raiderLost + (e.units or 0)
     c.cropsBrowsed = c.cropsBrowsed + (e.tiles or 0)
+  end)
+  local answers = {}
+  for _, id in ipairs(Features.answerStudyIds(world, Features.parse("guards,threats"))) do
+    answers[id] = true
+  end
+  events:on("market.delivered", function(e) -- an order arriving or a purchase in town
+    if answers[e.item] then
+      result.counters.answersBought = result.counters.answersBought + 1
+    end
+  end)
+  events:on("contract.done", function(e)
+    result.counters.contractsDone = result.counters.contractsDone + 1
+    result.counters.contractPay = result.counters.contractPay + e.reward
   end)
   events:on("raider.stopped", function()
     result.counters.raiderStopped = result.counters.raiderStopped + 1
@@ -1519,7 +1535,7 @@ function Balance.printFeatures(summary, years)
   )
   line(
     string.format(
-      "Threats per run (mean): %.1f came, %.1f struck; crops lost %.1f, knocked back %.1f (policies buy no countermeasures)",
+      "Threats per run (mean): %.1f came, %.1f struck; crops lost %.1f, knocked back %.1f",
       q("threats").mean,
       q("threatsStruck").mean,
       q("threatLost").mean,
@@ -1529,7 +1545,7 @@ function Balance.printFeatures(summary, years)
   line(
     string.format(
       "Night raiders per year (mean): raccoon raids %.2f, deer nights %.2f (%.2f crops browsed), bear raids %.2f, "
-        .. "stores taken %.1f units, raids turned back %.2f (policies buy no countermeasures)",
+        .. "stores taken %.1f units, raids turned back %.2f",
       q("raccoonLanded").mean / years,
       q("deerLanded").mean / years,
       q("cropsBrowsed").mean / years,
@@ -1540,8 +1556,17 @@ function Balance.printFeatures(summary, years)
   )
   line(
     string.format(
+      "Threat answers and contracts per run (mean): %.1f guards or counters bought (features guards, threats); "
+        .. "%.1f contracts filled for $%.0f",
+      q("answersBought").mean,
+      q("contractsDone").mean,
+      q("contractPay").mean
+    )
+  )
+  line(
+    string.format(
       "Weather nights per year (mean): cold fronts %.2f, pipe freezes %.2f (%.2f stopped by a shack or lagging), "
-        .. "wood burned to thaw %.1f (policies buy no lagging)",
+        .. "wood burned to thaw %.1f",
       q("coldFronts").mean / years,
       q("pipeFreezes").mean / years,
       q("pipesStopped").mean / years,

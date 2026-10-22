@@ -9,7 +9,10 @@
 --   scripted  A fixed opening and then the routine, no direct orders. On day 1 it plans one field
 --             tile per starting seed near the creek. Keep targets stay automatic. Every morning
 --             it: auto-loads the truck and sells the load when the truck can make the trip, orders the next catalog item from a fixed buy list, places
---             delivered objects near the truck, and fills the study queue from a fixed study list.
+--             delivered objects near the truck, and fills the study queue from a fixed study list. With the
+--             `guards` and `threats` features it also studies and buys the night guards and the threat counters
+--             (a warned field threat's counter first, #153); a trip also goes when an open contract can be filled
+--             (the sale fills the town's board first, D197).
 --   active    A reasonable engaged player on top of everything `scripted` does. It keeps the wood
 --             its winter plan needs (a keep target, D75) and issues orders
 --             itself (harvest, water, plant, till, load the smoker, fell
@@ -28,6 +31,7 @@
 local Actors = require("src.sim.systems.actors")
 local Animals = require("src.sim.systems.animals")
 local Calendar = require("src.sim.systems.calendar")
+local Contracts = require("src.sim.systems.contracts")
 local Crops = require("src.sim.systems.crops")
 local Features = require("features")
 local Fishing = require("src.sim.systems.fishing")
@@ -326,6 +330,20 @@ function Base:start(world)
   self:planField(world, nil)
 end
 
+-- Is an open contract on the board that the surplus already covers (D197, #389)? Then a trip pays even with a light load:
+-- the sale fills it first (Market.sellLoad).
+local function contractReady(world)
+  if not Contracts.isOpen(world) then
+    return false
+  end
+  for _, c in ipairs(Contracts.list(world)) do
+    if Contracts.cannotFill(world, c) == nil then
+      return true
+    end
+  end
+  return false
+end
+
 function Base:trip(world)
   if not Market.canTrip(world) then
     return
@@ -346,7 +364,7 @@ function Base:trip(world)
     end
   end
   local extra = Features.tripItems(world, self.features)
-  if total < POLICY.minTripValue and not wantsPickup and #extra == 0 then
+  if total < POLICY.minTripValue and not wantsPickup and #extra == 0 and not contractReady(world) then
     Market.clearLoad(world)
     return
   end
@@ -372,6 +390,7 @@ function Base:buy(world)
     end
   end
   Features.buy(world, self.shopping.rest, POLICY.featureReserve)
+  Features.answers(world, self.features, POLICY.featureReserve) -- night guards and threat counters (#389, #153)
 end
 
 function Base:place(world)
@@ -409,6 +428,9 @@ function Base:study(world)
   local order = {}
   local wanted = { unpack(POLICY.studyList) }
   for _, id in ipairs(Features.studyIds(self.features)) do
+    wanted[#wanted + 1] = id
+  end
+  for _, id in ipairs(Features.answerStudyIds(world, self.features)) do
     wanted[#wanted + 1] = id
   end
   for _, id in ipairs(wanted) do

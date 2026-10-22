@@ -138,6 +138,9 @@ local Stand = require("src.sim.systems.stand")
 local Crops = require("src.sim.systems.crops")
 local Ledger = require("src.sim.systems.ledger")
 local Water = require("src.sim.systems.water")
+local Market = require("src.sim.systems.market")
+local Threats = require("src.sim.systems.threats")
+local Calendar = require("src.sim.systems.calendar")
 local Grid = require("src.sim.grid")
 
 local function newWorld(seed)
@@ -145,7 +148,10 @@ local function newWorld(seed)
 end
 
 T.test("balance features: parse and label", function()
-  T.eq(Features.label(Features.parse(nil)), "cat,stand,chickens,goats,water,power,machines,finds,weather")
+  T.eq(
+    Features.label(Features.parse(nil)),
+    "cat,stand,chickens,goats,water,power,machines,finds,weather,guards,threats"
+  )
   T.eq(Features.label(Features.parse("all")), Features.label(Features.parse(nil)))
   T.eq(Features.label(Features.parse("none")), "none")
   T.eq(Features.label(Features.parse("power,cat")), "cat,power", "reports use the canonical order")
@@ -172,6 +178,43 @@ T.test("balance features: shopping list is strict-priority and feature-gated", f
   Features.buy(world, both.rest, 0)
   T.eq(Features.held(world, "well"), 1, "the well is affordable")
   T.eq(Features.held(world, "cistern"), 0, "the cistern is not (saving up)")
+end)
+
+-- Threat answers (#389, #153, D203): the guards and threats features study and buy what turns threats aside.
+T.test("balance features: threat answers are studied and bought, a warned threat's counter first", function()
+  local world = newWorld(1)
+  local ids = {}
+  for _, id in ipairs(Features.answerStudyIds(world, Features.parse("guards,threats"))) do
+    ids[id] = true
+  end
+  for _, id in ipairs({ "farm_dog", "lantern", "bear_box", "lidded_bins", "hail_netting", "straw_mulch" }) do
+    T.truthy(ids[id], id .. " is an answer")
+  end
+  T.eq(#Features.answerStudyIds(world, Features.parse("none")), 0)
+  -- Known answers are bought above the reserve, not saved up for.
+  world.meta.journal.known.lantern = true
+  world.meta.journal.known.bear_box = true
+  world.meta.journal.known.straw_mulch = true
+  local function setMoney(n)
+    Ledger.remove(world, "money", Ledger.get(world, "money"))
+    Ledger.add(world, "money", n)
+  end
+  setMoney(30)
+  local function ordered(id)
+    return Market.cannotBuy(world, id, false) == "ordered"
+  end
+  Features.answers(world, Features.parse("guards"), 8)
+  T.truthy(ordered("lantern"), "the cheap lantern is bought")
+  T.falsy(ordered("bear_box"), "the bear box is out of reach and skipped")
+  T.falsy(ordered("straw_mulch"), "field counters wait for the threats feature")
+  -- A warned drought: its counter is bought with no reserve kept.
+  local schedule = Threats.schedule(world)
+  schedule[#schedule + 1] =
+    { id = "drought", start = Calendar.now(world).day + 2, days = 3, status = "waiting", warned = true }
+  local mulch = Market.itemPrice(world, "straw_mulch") + world.tuning.economy.deliveryFee
+  setMoney(mulch)
+  Features.answers(world, Features.parse("threats"), 8)
+  T.truthy(ordered("straw_mulch"), "the warned drought's mulch is ordered with the last dollars")
 end)
 
 T.test("balance features: the stand is placed beside the road and opens", function()
@@ -254,7 +297,7 @@ T.test("balance harness: policies play a season with every feature on, determini
       T.eq(a[1].final.money, b[1].final.money, name .. " money repeats with features")
     end
     T.truthy(a[1].counters.kwhMade > 0, name .. " counted the energy the panel made")
-    T.eq(a[1].features, "cat,stand,chickens,goats,water,power,machines,finds,weather")
+    T.eq(a[1].features, "cat,stand,chickens,goats,water,power,machines,finds,weather,guards,threats")
   end
   local summary = Balance.summarize(ctx, Balance.playSeed(ctx, "scripted", 2, WEEK, 1, Features.parse("none")), 1)
   T.eq(type(summary.income), "table", "income by source is summarized")
