@@ -36,6 +36,7 @@ local function nightsAhead(world)
   local nights, exact = {}, true
   local insulation = Shelter.nightInsulation(world) -- D82, D149: the shelter you sleep in and the clothes you wear keep part of the cold out
   local idx, day, seenFrozen = now.seasonIndex, now.dayOfSeason, false
+  local front = Weather.frontFactor(world) -- a cold front on tonight (D190) is known; no other night's can be
   for _ = 1, #time.seasons + 1 do
     local season = time.seasons[idx]
     local frozen = Weather.isFrozenSeason(world, season)
@@ -44,7 +45,8 @@ local function nightsAhead(world)
     end
     for d = day, time.daysPerSeason do
       local need, sure = Weather.expectedWarmthNeed(world, season, d)
-      need = need * insulation
+      need = need * insulation * front
+      front = 1
       -- D101 (#175): electric heaters pay a night first (never more than the night needs); fuel pays the rest.
       local electric = math.min(need, Power.heatPerNight(world, season))
       nights[#nights + 1] = { need = need - electric, electric = electric, winter = frozen }
@@ -215,7 +217,7 @@ local function tonightExposure(world)
   return { word = e.word, stores = stores, animals = e.parts.animals, shelter = e.parts.shelter, guards = guards }
 end
 
--- The risks the night ahead carries that the player has been told about: { { id = "snap", days }, { id = "storm", kind },
+-- The risks the night ahead carries that the player has been told about: { { id = "snap", days }, { id = "front" }, { id = "storm", kind },
 -- { id = "sign", threat, line } }. The sign is the night threat framework's dusk sign (D187): set once the threat is drawn.
 local function tonightRisks(world)
   local NightThreats = require("src.sim.systems.nightthreats") -- here, not at load (it reaches Events, and so Food)
@@ -230,6 +232,9 @@ local function tonightRisks(world)
         risks[#risks + 1] = { id = "snap", days = ahead }
       end
     end
+  end
+  if Weather.frontForecast(world, NightThreats.scale(world, world.registry:get("night_threats", "cold_front"))) then
+    risks[#risks + 1] = { id = "front" } -- weather sense: tonight's cold front is on the forecast before the dusk sign (D190)
   end
   if Weather.threat(world) > 1 then -- 1 is an ordinary night; storms and wind raise it
     risks[#risks + 1] = { id = "storm", kind = Weather.kind(world) }
@@ -264,7 +269,7 @@ end
 ---     shelter = { id, name, insulation, heat (a heat source is placed) } (id nil with no shelter placed),
 ---     exposure = { word = "low" | "medium" | "high", stores (names in stock that attract animals), animals (kept),
 ---                  shelter = id, guards (names of the owned guards that lower it, such as the farm dog) } (the word only: the points stay inside Events.exposure, D187),
----     risks = { { id = "snap", days } | { id = "storm", kind } | { id = "sign", threat, line } }, gaps (rows at amber or worse) }
+---     risks = { { id = "snap", days } | { id = "front" } | { id = "storm", kind } | { id = "sign", threat, line } }, gaps (rows at amber or worse) }
 function Readiness.tonight(world)
   local Alerts = require("src.sim.systems.alerts") -- here, not at load: Alerts reaches Food, which requires this file
   local now = Calendar.now(world)

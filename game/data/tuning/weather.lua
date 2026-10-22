@@ -14,6 +14,25 @@ return {
   forecastDays = { 2, 4, 6 }, -- autumn days revealing forecast pieces: severity, snap timing, snap length
   iceCutTime = 6, -- seconds of work to cut a hole in the creek ice (holes stay open all winter)
 
+  -- Weather nights (C5, D190, PLAN_DEPTH 6.1): two night threats on the framework (nightthreats.lua), planned at dusk.
+  -- First guesses, not balanced (M9). Rule behind both (D184): neglect costs a share of a night's wood, never a loss.
+  coldFront = { -- a forecast miss: tonight's warmth need rises from dusk until the midnight draw
+    hour = 23, -- in-game hour the front is reported as landed (it acts from dusk)
+    firstDay = 10, -- days; no front before this day of the run
+    chance = { spring = 0, summer = 0, autumn = 0.1, winter = 0.15 }, -- probability per night, by season (a cold-snap night has none either: it is hard enough)
+    warmthMultiplier = 1.35, -- multiplier on tonight's warmth need while the front is on; never lifts the combined multiplier past tuning.events.mercy.maxWarmthMultiplier
+    senseLead = 1, -- points of the weather-sense stat (forecastLead) at which tonight's front shows on the Tonight card all day, instead of only from the dusk sign
+  },
+  pipeFreeze = { -- a hard frost freezes the pumps and pipes until noon; the cistern stock itself is never lost
+    hour = 23, -- in-game hour the freeze lands
+    firstDay = 1, -- days; no freeze before this day of the run
+    chance = 0.15, -- probability per winter night (needs a well, pump or cistern placed)
+    snapScale = 2, -- multiplier on the chance on a cold-snap night
+    thawHour = 12, -- in-game hour of the next day the sun thaws the pipes by itself
+    thawWood = 2, -- wood burned to thaw the line early when the morning drink needs the cistern; only taken if the night's fire is not short of wood by it
+    shelterRank = 2, -- shelter rank (shelterRank in objects.lua: truck 0, camp 1, shack 2) from which the shelter keeps the pipes from freezing
+  },
+
   -- Day-to-day weather. The sky is a queue of whole days rolled ahead from the "sky" RNG stream:
   -- each spell is one kind lasting a few days, picked by season weight x transition from the last spell.
   startKind = "clear", -- weather on the first day of a run (and for an older save loaded without a sky)

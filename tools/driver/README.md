@@ -47,6 +47,8 @@ Also `storecard` (D107, D164: the store's item card, plus the gate: a test-only 
 
 Also `raiders` (D188, #356: a summer dusk with the deer drawn and the dusk sign on the Tonight card, the raid landing with a browsed crop's tile card, the Journal listing the three new counters, and an autumn dusk with the bear's sign; desktop, phone and landscape).
 
+Also `weathernights` (D190, #359: an autumn dusk with the cold front's sign and raised warmth need on the Tonight card, a winter dusk with the pipe freeze's sign, and the frozen solar pump's tile card; desktop, phone and landscape).
+
 Also `goats` (D71: a goat pen with goats browsing its yard and the object card, milk waiting in the pail, a tap sending the homesteader to milk with its toast, a cheese press loaded with milk, the animal-feed warning toast, the Animals chapter of the journal), and `uxbatch` (D70: the Pantry scrolled by drag and wheel, the amber and red chips with their warning toasts, the winter-readiness pill and card, the won't-ripen warning on a plan and on the tile card, the bedtime toast and the morning report card).
 
 Also `clarity` (D72: the tap-to-explain chip cards and their shortcut, the Tools and More palettes on narrow views, the tool caption, the Journal unlock hint on a ??? idea and on a blank stamp, the truck panel charging and ready with the "ready" chip and toast).

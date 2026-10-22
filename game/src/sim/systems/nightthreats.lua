@@ -1,5 +1,5 @@
 -- The night threat framework (D187, #355, docs/PLAN_DEPTH.md §5, §6.1, §6.5): what comes at the homestead in the night.
--- The threats are content (data/content/night_threats.lua: mice, the fox, the raccoon, deer and rabbits, the bear); each names a handler (Cat, Animals, Raiders)
+-- The threats are content (data/content/night_threats.lua: mice, the fox, the raccoon, deer and rabbits, the bear, the cold front, the pipe freeze); each names a handler (Cat, Animals, Raiders, Weather)
 -- that owns its seeded stream and its effect through `nightPlan` and `nightLand`. This system decides which one comes,
 -- when, and how it is told.
 --
@@ -43,12 +43,14 @@ local Footing = require("src.sim.systems.footing")
 local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
 local Raiders = require("src.sim.systems.raiders")
+local Weather = require("src.sim.systems.weather")
 
 local NightThreats = {}
 
--- The handlers content names: each has nightHour(world, def), nightPlan(world, scale, def) and nightLand(world, plan, opts),
+-- The handlers content names: each has nightHour(world, def), nightPlan(world, scale, def) and nightLand(world, plan, opts)
+-- (and may have nightPlanned(world, plan, def), called once the plan has claimed the night: the cold front starts at dusk),
 -- def being the threat's content entry (a handler that serves several threats, such as the raiders, reads its id).
-local HANDLERS = { cat = Cat, animals = Animals, raiders = Raiders }
+local HANDLERS = { cat = Cat, animals = Animals, raiders = Raiders, weather = Weather }
 
 -- What a handler's landing result means for the night.
 local TURNED = { caught = true, stopped = true }
@@ -127,6 +129,10 @@ local function plan(world)
     return
   end
   s.tonight = { day = now.day, id = pick.def.id, plan = pick.plan, status = "pending" }
+  local planned = HANDLERS[pick.def.handler].nightPlanned
+  if planned then
+    planned(world, pick.plan, pick.def)
+  end
 end
 
 local function tally(world, id)

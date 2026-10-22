@@ -290,10 +290,11 @@ function Homestead:subscribe()
         self:queueToast(string.format("A fox got into the coop: lost %d hen%s", e.killed, e.killed == 1 and "" or "s"))
       end
     end),
-    -- The raccoon, deer and rabbits and the bear (D188): asleep it is in the morning report.
+    -- The raccoon, deer and rabbits and the bear (D188), the cold front and the pipe freeze (D190): asleep it is in the
+    -- morning report.
     events:on("nightthreat.resolved", function(e)
       local d = world.registry:get("night_threats", e.id)
-      if d.handler ~= "raiders" or self.session:sleeping() then
+      if (d.handler ~= "raiders" and d.handler ~= "weather") or self.session:sleeping() then
         return
       end
       if e.outcome == "landed" then
@@ -4400,6 +4401,7 @@ function Homestead:tileInfo(i)
         pumping = string.format("Pumping %g/h", obj.pump.rate),
         slow = "Pumping slowly",
         nopower = "No power: not pumping",
+        frozen = "Frozen: thaws by noon",
         full = "Cistern full",
         nocistern = "Needs a cistern",
       }

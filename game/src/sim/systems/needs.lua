@@ -265,7 +265,17 @@ function Needs.drink(world)
   local cfg, state = world.tuning.needs, world.state.needs
   local need = Needs.waterNeeded(world)
   local drunk = 0
-  local fromStock = math.min(need, Ledger.get(world, WATER))
+  -- Frozen pipes (D190): the cistern stock is out of reach until they thaw. If the canteen cannot cover the day, the line is
+  -- thawed with a little wood, but only wood the night's fire can spare (mercy: a thaw never costs warmth).
+  if Weather.pipesFrozen(world) and Ledger.get(world, WATER) > 0 and need > Needs.canteen(world) then
+    local thaw = world.tuning.weather.pipeFreeze.thawWood
+    local spare = Ledger.get(world, fuel(world).id) - Needs.woodOutlook(world).perNight
+    if spare >= thaw and Ledger.remove(world, fuel(world).id, thaw, "thaw") then
+      Weather.thawPipes(world)
+      world.events:emit("needs.thawed", { wood = thaw })
+    end
+  end
+  local fromStock = Weather.pipesFrozen(world) and 0 or math.min(need, Ledger.get(world, WATER))
   if fromStock > 0 and Ledger.remove(world, WATER, fromStock, "drink") then
     drunk = fromStock
   end

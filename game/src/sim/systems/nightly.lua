@@ -8,7 +8,7 @@
 -- to the same night. A night the player never slept at all carries into the next report.
 --
 -- State: world.state.nightly = { open = { ... }, ready = { ... }? }
---   open  = { ate = { [food id] = n }, burned = { [fuel id] = n }, calories, hungry (shortfall sum 0..),
+--   open  = { ate = { [food id] = n }, burned = { [fuel id] = n }, thawed? (wood burned to thaw frozen pipes, D190), calories, hungry (shortfall sum 0..),
 --             thirsty (shortfall sum), thirstLost (condition lost to thirst), drank (water units),
 --             cold (shortfall sum), warmthNeeded, electric, raided = { [id] = n }, caught (mice the cat
 --             caught), killed (hens lost to a fox), killedGoats (goats lost to one), stopped (fox raids turned back), orders ({ id, why, resource } standing orders that fell back to ignore), spoil = { lost, total }?,
@@ -125,6 +125,9 @@ function Nightly.init(world)
         add(open(world).ate, e.id, -e.delta)
       elseif e.reason == "burn" then
         add(open(world).burned, e.id, -e.delta)
+      elseif e.reason == "thaw" then
+        local acc = open(world)
+        acc.thawed = (acc.thawed or 0) + -e.delta -- wood burned to thaw frozen pipes (D190)
       end
     end
   end)

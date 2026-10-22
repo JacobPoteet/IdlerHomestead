@@ -2,7 +2,8 @@
 --
 -- Rung 0, the creek: the actor fills the bucket at the water's edge (actor.bucket = waterings left).
 -- Rung 1, a dug well and a hand pump: placed on a tile with a high water table (Land.hasWaterTable),
---   they are closer places to fill the bucket (content `waterSource { fillTime }`), and work in winter.
+--   they are closer places to fill the bucket (content `waterSource { fillTime }`), and work in winter, except after a hard
+--   frost has frozen the pipes (Weather.pipesFrozen, D190: until noon, or until the morning drink thaws them with a little wood).
 -- Rung 2, the solar pump and the cistern: the pump is a power sink (content `sink` with schedule
 --   "fill", tier "pumps"); while powered it adds `pump.rate` units an hour, scaled by how well the
 --   pumps tier is served (Power.sinkRatio), to the resource "water". The cistern is what gives
@@ -97,10 +98,13 @@ end
 -- Pumps -----------------------------------------------------------------------------------------
 
 --- What a pump is doing: "off" (switched off), "nocistern" (nowhere to put water), "full",
---- "nopower" (wanted power, got none), "slow" (partly powered) or "pumping".
+--- "nopower" (wanted power, got none), "slow" (partly powered), "frozen" (the pipes are frozen, D190) or "pumping".
 function Water.pumpState(world, anchor)
   if not Power.isEnabled(world, anchor) then
     return "off"
+  end
+  if Weather.pipesFrozen(world) then
+    return "frozen" -- a hard frost froze the pipes (D190): no pumping until they thaw
   end
   if not Water.hasCistern(world) then
     return "nocistern"
@@ -300,7 +304,7 @@ end
 local function canFill(world, i)
   local def = fillObject(world, i)
   if def then
-    return not def.waterSource.stored or Ledger.get(world, STOCK) >= 1
+    return not Weather.pipesFrozen(world) and (not def.waterSource.stored or Ledger.get(world, STOCK) >= 1)
   end
   return Grid.terrain(world, i).water == true
 end
@@ -316,7 +320,7 @@ end
 local function canDrinkAt(world, i)
   local def = fillObject(world, i)
   if def then
-    return not def.waterSource.stored
+    return not def.waterSource.stored and not Weather.pipesFrozen(world)
   end
   return Grid.terrain(world, i).water == true
 end
