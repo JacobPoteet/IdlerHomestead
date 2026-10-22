@@ -17,21 +17,25 @@
 -- A summary also carries greatWinter (bool, D117): the run lived through the Great Winter to the thaw; the
 -- slot's best keeps it as career.best.greatWinter (true once any run did).
 -- A summary also carries hurt (optional, D167): the statuses that took hold this run, { { id, count } }, for the
--- recovery scene.
+-- recovery scene, and faced (D202, #156): the night threats, growing-season threats and bad events that came (see
+-- Run.faced; absent from a summary saved before it).
 -- meta.recovery = { summary, finishedStudy = itemId?, freeStudyUsed = bool, plots = { base = seed, list = { plot summary, ... },
 --                   chosen = index? }, loadout = id? } while recovering. `plots` is the plot preview (D200, #384): made when the
 -- recovery scene opens (Run.offerPlots) and optional to use; Run.startNext takes the chosen plot, else the first.
 -- `loadout` is the starting loadout chosen for the next run (D201, #386; Run.chooseLoadout), absent for the standard start.
 
 local Calendar = require("src.sim.systems.calendar")
+local EventsSystem = require("src.sim.systems.events")
 local Established = require("src.sim.systems.established")
 local Events = require("src.core.events")
 local Ftue = require("src.sim.systems.ftue")
 local Income = require("src.sim.systems.income")
 local Journal = require("src.sim.systems.journal")
+local NightThreats = require("src.sim.systems.nightthreats")
 local Plots = require("src.sim.plots")
 local Rng = require("src.core.rng")
 local Status = require("src.sim.systems.status")
+local Threats = require("src.sim.systems.threats")
 local Wardrobe = require("src.sim.systems.wardrobe")
 local World = require("src.sim.world")
 
@@ -52,6 +56,43 @@ end
 --- A world-like view of the slot's knowledge for Journal calls between runs (no run state).
 function Run.metaWorld(ctx, meta)
   return { meta = meta, registry = ctx.registry, tuning = ctx.tuning, events = ctx.events or Events.new() }
+end
+
+--- What came at the homestead this run (D202, #156), for the recovery scene: plain ids and counts, in content order.
+---   night  = { { id, landed, turned } } every night threat that came (NightThreats.counts, the whole run)
+---   field  = { { id, came, struck, lost, damaged, saved } } the growing-season threats that finished, summed by threat
+---            (Threats.history: the last tuning.threats.historyLimit of them, a few a year)
+---   events = { { id, count } } the bad events offered (Events.tally, the whole run)
+--- Empty lists when nothing came (a summary saved before D202 has no `faced` at all, and the scene shows nothing then).
+function Run.faced(world)
+  local night = {}
+  for _, def in ipairs(world.registry:all("night_threats")) do
+    local c = NightThreats.counts(world, def.id)
+    if c.landed + c.turned > 0 then
+      night[#night + 1] = { id = def.id, landed = c.landed, turned = c.turned }
+    end
+  end
+  local byId = {}
+  for _, h in ipairs(Threats.history(world)) do
+    local f = byId[h.id] or { id = h.id, came = 0, struck = 0, lost = 0, damaged = 0, saved = 0 }
+    byId[h.id] = f
+    f.came = f.came + 1
+    f.struck = f.struck + (h.struck and 1 or 0)
+    f.lost, f.damaged, f.saved = f.lost + (h.lost or 0), f.damaged + (h.damaged or 0), f.saved + (h.saved or 0)
+  end
+  local field = {}
+  for _, def in ipairs(world.registry:all("threats")) do
+    if byId[def.id] then
+      field[#field + 1] = byId[def.id]
+    end
+  end
+  local events = {}
+  for _, e in ipairs(EventsSystem.tally(world)) do
+    if e.bad then
+      events[#events + 1] = { id = e.id, count = e.count }
+    end
+  end
+  return { night = night, field = field, events = events }
 end
 
 --- What this run amounted to: { run, days, year, season, dayOfSeason, notes = { noteId, ... } }.
@@ -77,6 +118,7 @@ function Run.summary(world)
     greatWinter = Established.survived(world.tuning, now.year), -- lived through the Great Winter (D117, #277)
     notes = notes,
     hurt = #hurt > 0 and hurt or nil, -- what injured the homesteader this run: { { id, count } } (D167, #346)
+    faced = Run.faced(world), -- the threats and bad events that came, for the recovery scene (D202, #156)
   }
 end
 
