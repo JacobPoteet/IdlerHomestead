@@ -579,7 +579,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - B6 (#350) **Done (D173).** Body events pack. **Amended (D168):** the first events pack, shipped with B3 and B4; ignore outcomes are safe and non-escalating (6.2); Fever never fires on a night that already cost cold damage.
 - B7 (#351) Home events pack. **Amended (D168):** lands after F1 wear and G3 tiers. **Simplified (D184):** no wear or tier dependency; keeps roof leak, tarp torn, frozen pump, tool breaks and flue clogged; cuts truck fault and power surge. **Done (D192).**
 - B8 (#352) Land events pack. **Amended (D168):** lands after D, and possibly G1. **Simplified (D184):** late frost, storm-felled tree and livestock in the field; cuts hornets and washout; no G1 dependency. **Done (D193).**
-- B9 (#353) Visitors and luck events pack. **Kept (D184);** absorbs the peddler (E4) and the stray dog (C4).
+- B9 (#353) Visitors and luck events pack. **Kept (D184);** absorbs the peddler (E4) and the stray dog (C4). **Done (D194).**
 - B10 (#354) First-aid kit and Techniques notes for body events. **MERGED (D184)** into H5 #388; the kit stays one catalog consumable.
 
 **Phase C: Night threats**

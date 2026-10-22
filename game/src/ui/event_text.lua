@@ -107,6 +107,13 @@ function EventText.effectWords(effect, env)
     end
     out[#out + 1] = "Mended: " .. table.concat(names, ", ")
   end
+  if effect.equipment then
+    local names = {}
+    for _, id in ipairs(effect.equipment) do
+      names[#names + 1] = (env.item and env.item(id) or id):lower()
+    end
+    out[#out + 1] = "Gain a " .. table.concat(names, ", ") .. " for the run"
+  end
   if effect.freezePipes then
     out[#out + 1] = "No pumped water until noon"
   end

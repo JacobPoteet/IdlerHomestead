@@ -2132,6 +2132,9 @@ function Homestead:eventEnv()
     have = function(id)
       return Ledger.get(world, id)
     end,
+    item = function(id)
+      return world.registry:get("catalog", id).name
+    end,
     status = function(id)
       return world.registry:get("statuses", id)
     end,

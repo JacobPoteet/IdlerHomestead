@@ -140,7 +140,8 @@ return {
     wake = "boolean?", -- may wake the homesteader (the card never freezes time)
     seasons = "table?", -- season id -> weight multiplier; absent = every season at 1
     minYear = "number?", -- earliest year it can come
-    conditions = "table?", -- all must hold (when drawn and when offered): weather, frozen, status, noStatus, noColdNight, placed, coldNight, thirsty, feet, outfit; see the header of content/events.lua
+    minDay = "number?", -- earliest day of the run it can come
+    conditions = "table?", -- all must hold (when drawn and when offered): weather, frozen, status, noStatus, noColdNight, placed, coldNight, thirsty, feet, outfit, planted, equipment, noEquipment; see the header of content/events.lua
     drawConditions = "table?", -- the same keys, checked only when the dusk draw picks the event
     fall = "boolean?", -- the weight is multiplied by the statuses' fall chance
     terms = "table?", -- weight terms: { { <a condition key>, mult } }, each that holds multiplies the weight
@@ -149,7 +150,7 @@ return {
     cooldown = "number?", -- days before it can come again
     once = "boolean?", -- at most once a run
     journalNote = "string?", -- note id written the first time it is offered (Journal.write)
-    options = "table", -- exactly two { label, cost?, effect, risk, careful?, bold? }
+    options = "table", -- exactly two { label, cost?, meal?, trade?, effect, risk, careful?, bold? }
     ignore = "table", -- { label, effect, risk }: applies when nobody answers in the window; free, safe, never escalates
   },
   night_threats = { -- night threats (D187, #355); see the header of content/night_threats.lua
