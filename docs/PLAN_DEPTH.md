@@ -646,7 +646,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 
 **Phase I: Integration**
 - I1a (#389) Harness policies for the new systems (smoke testing only). **Amended (D168):** the event-choice policies moved to B3 and B5. The full balance pass is I1b (#396) in M9. **Shrunk (D184)** to the surviving systems; #410 adds idle gates and is promoted.
-- I2 (#390) FTUE and tip updates for each phase. **Recovery summary done (D202, #156):** the recovery scene lists the night threats, field threats and bad events of the run and names what hurt most (one line on a short view).
+- I2 (#390) FTUE and tip updates for each phase. **Done (D202):** nine first-run tips (Tonight, an event, night visitors, a status, a Footing slip, what limits you, rotation, weeds, contracts), none for the cut or deferred upkeep, levy and land; and the recovery summary (#156) lists the night threats, field threats and bad events of the run and names what hurt most (one line on a short view).
 - I3 (#391) Merge into GDD, wiki and decision log.
 - I4 (#392) Perf and save-size check.
 - I5 (#393) Driver scenarios and screenshots.

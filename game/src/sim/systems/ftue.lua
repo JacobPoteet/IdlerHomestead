@@ -188,11 +188,15 @@ function Ftue.current(world)
   return nil
 end
 
---- A step's text with its {domain.key} tokens read from tuning.
+--- A step's text with its {domain.key} tokens read from tuning (a nested key too: {night.footing.streakNights}).
 function Ftue.text(world, def)
   return (
-    def.text:gsub("{([%w_]+)%.([%w_]+)}", function(domain, key)
-      return tostring(world.tuning[domain][key])
+    def.text:gsub("{([%w_]+%.[%w_.]+)}", function(path)
+      local value = world.tuning
+      for key in path:gmatch("[^.]+") do
+        value = value[key]
+      end
+      return tostring(value)
     end)
   )
 end
