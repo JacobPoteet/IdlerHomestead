@@ -379,7 +379,9 @@ function Homestead:subscribe()
       self:showToast(string.format("Cancelled %s: refunded $%d", name("catalog", e.item), e.amount))
     end),
     events:on("market.refunded", function(e)
-      self:queueToast(string.format("%s can never fit in storage: refunded $%d", name("catalog", e.item), e.amount))
+      local why = e.reason == "owned" and "%s is already yours: refunded $%d"
+        or "%s can never fit in storage: refunded $%d"
+      self:queueToast(string.format(why, name("catalog", e.item), e.amount))
     end),
     events:on("fish.lost", function(e)
       if e.reason == "full" then

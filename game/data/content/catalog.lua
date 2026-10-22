@@ -613,6 +613,7 @@ return {
     needs = { "bear_raid" },
     studyNights = 2,
     equipment = true,
+    unique = true,
     modifiers = { bearGuard = 0.9 },
   },
   -- Goats (GDD §7.7, D71). Chickens come first (their notes gate all of this) and the first frost sets

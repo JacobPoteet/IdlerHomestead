@@ -150,7 +150,7 @@ A **night threat** is a content entry: `id`, `seasons`, `minDay`, `minYear`, `ex
 
 > **Built (D189, C4):** the farm dog (`systems/dog.lua`, `tuning/dog.lua`): a guard added to the raiders' and the fox's guard roll, with the exposure word lowered for what it covers. It eats from the food ledger, not a feed purchase, above a two-day reserve. Wolves and coyotes and the strong pen stay deferred to M10.
 
-> **Built (D191, C7):** the lantern (`systems/lantern.lua`, `tuning/lantern.lua`): a one-time $8 buy taught by the fox note, with no fuel and no chore, that adds its guard to the same roll as the dog (fox, raccoon, partly bear) and lowers the exposure word. The trip line and the bell are cut. #274 becomes guard purchase rules (unique, one-time, journal-gated).
+> **Built (D191, C7):** the lantern (`systems/lantern.lua`, `tuning/lantern.lua`): a one-time $8 buy taught by the fox note, with no fuel and no chore, that adds its guard to the same roll as the dog (fox, raccoon, partly bear) and lowers the exposure word. The trip line and the bell are cut. #274 becomes guard purchase rules (unique, one-time, journal-gated). **Done (D203):** the lantern, the farm dog and the bear box are unique one-time equipment, each taught by the note its threat writes (fox, raccoon, bear); an order that arrives after the run got the guard another way (the stray dog) is refunded.
 
 > **Built (D190, C5):** the cold front and the pipe freeze (`systems/weather.lua`, `tuning/weather.lua`). **Simplified:** windstorm and power outage are cut; the front is a forecast miss on tonight's warmth need (weather sense reads it from a roll drawn the dusk before); the pipe freeze stops the pumps and the morning cistern drink until noon, costs two wood to thaw early, and is stopped for free by a shack or by Pipe lagging. No pump-house radius (#211).
 
@@ -605,7 +605,7 @@ Issues are written to be done by an agent alone: each states its goal, design re
 - C4 (#358) Wolves and coyotes; the dog companion. **Simplified (D184):** the dog only, eating from the food ledger. **Wolves and coyotes DEFERRED** to M10. **Done (D189):** the dog is built.
 - C5 (#359) Weather nights: cold front, windstorm, pipe freeze, power outage. **Simplified (D184):** cold front plus pipe freeze (folds in #91, #211); windstorm and power outage are **CUT** (#213 closed). **Done (D190):** the cold front and the pipe freeze are built.
 - C6 (#360) Stove fire and soot (links to F2). **Amended (D168):** lands after F1 wear; no stove loss while slipped. **CUT (D184, closed).** The flue-clogged event in B7 takes the smoke.
-- C7 (#361) Night gear: lantern, trip line, bell. **Simplified (D184):** the lantern alone, a one-time buy with no fuel; trip line and bell cut. #274 becomes guard purchase rules.
+- C7 (#361) Night gear: lantern, trip line, bell. **Simplified (D184):** the lantern alone, a one-time buy with no fuel; trip line and bell cut. #274 becomes guard purchase rules. **Done (D203).**
 - C8 (#362) **Done (D171).** Winter wood is a stockpile problem, not an on-demand chop (tracked with #65, #202, #251). **Amended (D168):** pulled forward to right after B3. Unowned tiles can be chopped (Q12, D170). Built as a per-season allowance on wood from trees (`tuning.wood.fellAllowance`, winter 24, first guess), shown on the Tonight and readiness cards; the keep logic and the balance numbers of #202 and #251 are unchanged (M9).
 
 **Phase D: Fields and soil**
