@@ -2,6 +2,8 @@
 
 Idle / roguelite homestead game in LÖVE 11.5 (LuaJIT). The design source of truth is [docs/GDD.md](docs/GDD.md). Read the relevant sections before implementing a feature, and update the doc (including the decision log) when a design decision changes.
 
+Follows the workflow standard in the user CLAUDE.md: squash merges, `/ship` to land a PR, `/release` to cut one, bugs fixed when found. Deviations are listed at the end.
+
 ## Running
 - `love game` (or `lovec game` on Windows for console output). LÖVE is installed at `C:\Program Files\LOVE`.
 - Tests: `lovec tests` (optional name filter, e.g. `lovec tests m3`; `jobs=N` sets how many files run at once in child processes, default `min(8, CPUs)`, about 35 s instead of 70; `jobs=1` runs in one process, for a debugger). Headless (no window or GPU needed); exits 1 if any test failed or a test file errored. CI runs exactly this (`.github/workflows/tests.yml`, called by `ci.yml` on push to main and on PRs, and by `build.yml` before every build).
@@ -25,8 +27,7 @@ Idle / roguelite homestead game in LÖVE 11.5 (LuaJIT). The design source of tru
 - When adding a sim helper module outside `src/sim/systems/`, add it to the list in `tests/test_architecture.lua`.
 
 ## Wiki
-- Project documentation lives in the wiki, which sits outside this repo. **The wiki is updated only when a release is tagged, not per PR.** A PR updates the repo docs only: `docs/GDD.md` (the design source of truth, including the decision log row when a choice had a constraint behind it) and the matching `docs/PLAN_*.md` callout. At release time one pass brings the wiki notes and Decision Log in line with the GDD changes since the last tag.
-- The wiki's location is held in agent memory and in the gitignored `.claude/wiki-path.local`. Never write its path in the repo (a file, comment or commit message).
+- Project documentation lives in the wiki (path in the gitignored `.claude/wiki-path.local`). A PR updates the repo docs only: `docs/GDD.md` (the design source of truth, including the decision log row when a choice had a constraint behind it) and the matching `docs/PLAN_*.md` callout, and lists the wiki notes it affects under `## Wiki notes`. The `/release` pass brings the wiki notes and Decision Log in line with the GDD changes since the last tag.
 
 ## Working on a feature (agents and humans)
 - **Start from the code headers.** Each system's header comment explains its rules, state shape and events. Read the header of the system you extend and of the framework it plugs into before searching further. Examples: `game/src/sim/systems/nightthreats.lua` (night threats: content in `data/content/night_threats.lua`, handlers own their stream through `nightPlan`/`nightLand`; guards, exposure and mercy rules live there), `events.lua` (event engine, slots, mercy), `footing.lua`, `routine.lua` and `data/content/task_categories.lua` (default routine).
@@ -38,11 +39,23 @@ Idle / roguelite homestead game in LÖVE 11.5 (LuaJIT). The design source of tru
 - **Tuning guesses:** the PR lists every new or changed tuning number under "Tuning guesses". No balancing.
 
 ## Tracking work
-- Remaining work is tracked as GitHub issues grouped into milestones **M3–M7** (matching GDD §13).
-- When you notice follow-up work that the GDD doesn't track (shortcuts, polish, tech debt), open an issue labelled `found-during-dev` plus a topic label (`tech-debt`, `ux`, `art`, `shader`, `audio`, `balance`, `tooling`).
-- Verify UI changes by actually running the game (a scripted screenshot driver is planned as a repo tool, see the "screenshot driver" issue).
+- Remaining work is tracked as GitHub issues grouped into milestones (matching GDD §13).
+- A bug you find while working gets fixed, per the standard. Follow-up work the GDD doesn't track (shortcuts, polish, tech debt) gets an issue labelled `found-during-dev` plus a topic label (`tech-debt`, `ux`, `art`, `shader`, `audio`, `balance`, `tooling`).
+- Verify UI changes by running the game, with the screenshot driver for the scenarios the change touches.
 
 ## Style
 - Follow `.editorconfig` and `.stylua.toml` (2-space indent).
 - CI blocks merges on format and lint: run `stylua game tests tools` (StyLua 2.0.2, the version pinned in `.github/workflows/ci.yml`; other versions format differently) and `luacheck game tests tools` (config in `.luacheckrc`) before pushing.
 - Modules return a table; prefer `local M = {}` ... `return M`.
+
+## Cutting a release
+- Run `/release`. Tags are `vX.Y.Z` from v0.5.0 on; tags up to 0.4.0 had no `v`, and `build.yml` still matches both. A `v0.` tag publishes as a pre-release.
+- The version lives only in the tag: `tools/stamp_version.sh` stamps it into packaged builds and the title screen shows it. There is no version file to bump.
+- Release notes are `docs/patch-notes/<tag>.md`, hand-written from `TEMPLATE.md` per `docs/patch-notes/README.md`, committed through a `release/<tag>` PR before the tag. The `Compose release notes` step puts the file at the top of the release page.
+- After the run, check every platform artifact is attached to the release.
+
+## Deviations from the standard
+| Deviation | Why |
+| --- | --- |
+| `docs/` keeps the GDD, `PLAN_*.md`, `BALANCE.md`, `PERF.md`, `ASSETS.md` and patch notes in the repo | The GDD is the design source of truth and changes in the same PR as the code. The wiki summarises it at release |
+| A PR updates `docs/GDD.md` with a decision row as well as listing wiki notes | Decisions are numbered (D-numbers) and cited from code comments |
