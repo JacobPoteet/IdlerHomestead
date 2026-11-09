@@ -3,6 +3,8 @@ name: Build LÖVE 🩷💙
 on:
   push:
     tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+      # Tags before v0.5.0 carried no v. Kept so an old tag can still be rebuilt.
       - "[0-9]+.[0-9]+.[0-9]+*"
   workflow_dispatch:
 
@@ -222,7 +224,7 @@ jobs:
           body_path: release_notes.md
           draft: false
           # Tags starting with 0. are pre-releases until the game launches.
-          prerelease: ${{ startsWith(github.ref_name, '0.') }}
+          prerelease: ${{ startsWith(github.ref_name, 'v0.') || startsWith(github.ref_name, '0.') }}
 
   build-love:
     runs-on: ubuntu-22.04
