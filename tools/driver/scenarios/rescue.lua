@@ -7,6 +7,12 @@ return function(d)
   local world = d:world()
   world.meta.journal.known.sturdy_rod = true -- two loadouts unlocked, three still locked (D201)
   world.meta.journal.known.axe = true
+  -- Every note written on an earlier run, so the free study lists its full five ideas (#455: the list scrolls on a
+  -- short view) while the run's own notes stay as they were.
+  for _, note in ipairs(world.registry:all("notes")) do
+    world.meta.journal.notes[note.id] = world.meta.journal.notes[note.id]
+      or { day = 1, season = "spring", year = 1, run = 0 }
+  end
   -- What came at the homestead (D202, #156), set in the run state as the threat and event systems keep it: the recovery
   -- summary names the night threats, the field threats, the misfortunes and the one that hurt most.
   world.state.nightthreats.tally.fox = { landed = 2, turned = 1 }
@@ -24,6 +30,19 @@ return function(d)
   d:click(40, 40) -- a tap moves on
   d:frames(4)
   d:shot("recovery") -- cause, next rung, first change, what came at you, the free study below, and the Choose land button
+  local recovery = d:scene()
+  assert(recovery.name == "recovery", "on the recovery scene, not " .. tostring(recovery.name))
+  assert(#recovery.ideaRows == 5, "five ideas listed, not " .. #recovery.ideaRows)
+  assert(#recovery.facedLines == 4, "what came at you, whole")
+  d:key("end") -- the panel keys scroll the list (#455): the last idea and its Learn button come into view
+  d:frames(4)
+  local last = recovery.ideaRows[5]
+  local view = recovery.list.view
+  assert(last.y + 24 <= view.y + view.h, "the last idea is in view after End")
+  assert(recovery.rowButtons:hit(recovery.box.x + recovery.box.w - 40, last.y + 12), "and its Learn button answers")
+  d:shot("recovery_end")
+  d:key("home")
+  d:frames(4)
 
   d:press("Choose land") -- the plot preview (D200, #384): three plots, traits and a risk and reward tag
   d:frames(4)

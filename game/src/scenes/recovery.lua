@@ -2,6 +2,10 @@
 -- land. Shown after the rescue, and on loading a slot that's still recovering. Under what ended the run, a short summary
 -- of what came at the homestead (D202, #156: the night threats, the field threats, the bad events and the one that hurt
 -- most, from the summary's `faced`; words in src/ui/faced_text.lua).
+--
+-- Everything between the run line and the footer (the progress table, the notes, the clothes, what ended the run, what
+-- came at you and the free study with its Learn buttons) is one ScrollList (#455): on a short view it scrolls by drag,
+-- wheel and the panel keys (arrows, W/S, Page Up/Down, Home/End), so every block shows whole at every size.
 
 local Character = require("src.render.character")
 local Journal = require("src.sim.systems.journal")
@@ -21,6 +25,8 @@ local Panel = require("src.ui.panel")
 local Text = require("src.ui.text")
 local theme = require("src.ui.theme")
 
+local ScrollList = require("src.ui.scroll_list")
+
 local Recovery = { name = "recovery", opaque = true }
 Recovery.__index = Recovery
 
@@ -35,7 +41,8 @@ local TABLE_H = 66 -- vertical space the two-row progress table takes; everythin
 local COL_LABEL_W = 138 -- row label column
 local COL_WIDTHS = { 124, 84, 84 } -- this run (cell and marker), previous run, slot best
 local FACED_GAP = 6 -- space above the "what came at you" summary, under the cause lines
-local FACED_GAP_COMPACT = 2 -- the same above its one-line form on a short view
+local WIN_TOP = 50 -- where the scrolling blocks start, under the heading and the run line (content y is laid out from the box top)
+local END_PAD = 4 -- space under the last block of the scrolling list
 
 function Recovery.new()
   return setmetatable({}, Recovery)
@@ -45,6 +52,10 @@ function Recovery:enter(slot, data)
   self.slot, self.data = slot, data
   self.metaWorld = Run.metaWorld(self.app.ctx, data.meta)
   self.buttons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget)
+  self.rowButtons = Buttons.new(self.app.ctx.tuning.input.minTouchTarget) -- the Learn buttons, which scroll with the list
+  self.list = ScrollList.new(function()
+    self:layout()
+  end)
   Run.offerPlots(data, self.metaWorld) -- the three plots for the next run (D200, #384); optional to look at
   self.app.ctx.store:write(slot, data) -- recovering survives a quit
   self.wardrobeCfg = self.app.ctx.tuning.ui.wardrobe
@@ -130,24 +141,21 @@ function Recovery:layout()
     self.clothesOutfits[n] = WardrobeText.outfitWith(Wardrobe.committed(self.metaWorld), def.slot, id) -- what is worn, with this garment on
   end
   local stacked = self.view.w < wcfg.recoveryStackWidth -- narrow views put Change clothes above Head out
-  -- What came at the homestead (D202, #156), under the cause: none for a summary saved before it was recorded. Where the
-  -- whole of it would push the free study into the footer (a short view), only the "hurt most" line is kept.
-  local faced = recovery.summary.faced
-  local function shiftWith(facedH)
-    return self.tableH + self.clothesH + math.max(0, math.ceil(height + facedH) - 12) -- the block starts at +108 and the study label sits at +132, both below the progress table
-  end
-  local footerTop = b.y + b.h - (stacked and 66 or 36) - 4
-  local function fits(h)
-    return b.y + 150 + shiftWith(h) + self:studyHeight() <= footerTop
-  end
-  self.facedLines, self.facedTitled, self.facedH = self:facedBlock(faced, false)
-  if self.facedLines and not fits(self.facedH) then
-    self.facedLines, self.facedTitled, self.facedH = self:facedBlock(faced, true)
-  end
-  if self.facedLines and not fits(self.facedH) then
-    self.facedLines, self.facedTitled, self.facedH = nil, false, 0 -- the free study comes first
-  end
-  self.shift = shiftWith(self.facedH)
+  -- What came at the homestead (D202, #156), under the cause, always whole (the list scrolls, #455): none for a summary
+  -- saved before it was recorded.
+  self.facedLines, self.facedH = self:facedBlock(recovery.summary.faced)
+  self.shift = self.tableH + self.clothesH + math.max(0, math.ceil(height + self.facedH) - 12) -- the block starts at +108 and the study label sits at +132, both below the progress table
+  -- The scrolling window: from under the run line to the footer and its buttons.
+  local ui = ctx.tuning.ui
+  self.footerTop = b.y + b.h - (stacked and 66 or 36) - 4
+  local contentH = 150 + self.shift + self:studyHeight() + END_PAD - WIN_TOP
+  self.list:fit(
+    { x = b.x, y = b.y + WIN_TOP, w = b.w, h = self.footerTop - b.y - WIN_TOP },
+    contentH,
+    ui.scrollHintHeight,
+    ROW_H
+  )
+  self.top = self.list:origin() - WIN_TOP -- the box top the scrolling blocks are laid out from
   self.footerW = b.w - 24 - 136 - (stacked and 0 or 124 + 8)
   -- Choose land (D200, #384) sits top right, level with the heading: it never competes with the footer buttons.
   local words = ctx.tuning.plots.words
@@ -185,10 +193,12 @@ function Recovery:layout()
     end,
   })
   self.ideaRows = {}
+  self.rowButtons:clear()
   if recovery.freeStudyUsed then
     return
   end
-  local y = b.y + 150 + self.shift
+  local y = self.top + 150 + self.shift
+  local bar = self.list.overflow and ui.scrollBarWidth + 2 or 0 -- keep the Learn buttons clear of the thumb
   for n, def in ipairs(Journal.ideas(self.metaWorld)) do
     if n > MAX_IDEAS then
       break
@@ -196,43 +206,39 @@ function Recovery:layout()
     local textW = self:textWidth(def)
     local rowH = math.max(ROW_H, 14 + Text.wrappedHeight(def.line, "small", textW) + 2)
     self.ideaRows[#self.ideaRows + 1] = { item = def, y = y, textW = textW }
-    self.buttons:add({
-      x = b.x + b.w - LEARN_W - 12,
-      y = y,
-      w = LEARN_W,
-      h = 24,
-      label = "Learn",
-      size = "small",
-      style = "accent",
-      onPress = function()
-        Run.freeStudy(self.data, self.metaWorld, def.id)
-        self.app.ctx.store:write(self.slot, self.data)
-        self:layout()
-      end,
-    })
+    if self.list:visible(y, 24) then -- only rows in view get a button
+      self.rowButtons:add({
+        x = b.x + b.w - LEARN_W - 12 - bar,
+        y = y,
+        w = LEARN_W,
+        h = 24,
+        label = "Learn",
+        size = "small",
+        style = "accent",
+        onPress = function()
+          Run.freeStudy(self.data, self.metaWorld, def.id)
+          self.app.ctx.store:write(self.slot, self.data)
+          self:layout()
+        end,
+      })
+    end
     y = y + rowH
   end
 end
 
---- The "what came at you" block: its lines, whether it has the title, and its height; nil, false, 0 for a summary that
---- has none (D202). `compact` keeps only the last line, untitled: what hurt most, or the quiet line when nothing came.
-function Recovery:facedBlock(faced, compact)
+--- The "what came at you" block, title and all: its lines and its height; nil, 0 for a summary that has none (D202).
+function Recovery:facedBlock(faced)
   if not faced then
-    return nil, false, 0
+    return nil, 0
   end
   local ctx = self.app.ctx
   local cfg = ctx.tuning.ui.faced
   local lines = FacedText.lines(cfg, ctx.registry, faced)
-  local h = FACED_GAP
-  if compact then
-    lines, h = { lines[#lines] }, FACED_GAP_COMPACT
-  else
-    h = h + Text.wrappedHeight(cfg.title, "small", self.causeW)
-  end
+  local h = FACED_GAP + Text.wrappedHeight(cfg.title, "small", self.causeW)
   for _, line in ipairs(lines) do
     h = h + Text.wrappedHeight(line.text, "small", self.causeW)
   end
-  return lines, not compact, h
+  return lines, h
 end
 
 --- Height of the free study block under its label: the learned idea, the "no ideas" line or the idea rows.
@@ -258,7 +264,22 @@ function Recovery:textWidth(def)
 end
 
 function Recovery:action(name, data)
-  self.buttons:action(name, data)
+  if name == "press" or name == "release" then
+    self.list:action(name, data)
+  end
+  if self.buttons:action(name, data) then
+    return true
+  end
+  if name == "press" or name == "select" or name == "hover" then
+    -- A Learn button answers only inside the window, never where a half-scrolled row is clipped.
+    if self.list:contains(data.x, data.y) then
+      self.rowButtons:action(name, data)
+    end
+  elseif name == "release" then
+    self.rowButtons:action(name, data)
+  elseif self.list:action(name, data, self.app.ctx.tuning.ui) then
+    self:layout()
+  end
   return true
 end
 
@@ -316,25 +337,27 @@ function Recovery:draw()
     { size = "small", color = dim }
   )
 
-  self:drawProgress(b.x + 12, b.y + TABLE_Y)
+  self.list:begin(view.scale)
+  local by = self.top -- the scrolling blocks are laid out from here, not from the box top
+  self:drawProgress(b.x + 12, by + TABLE_Y)
 
   local top = self.tableH -- the notes, study and cause blocks sit below the progress table
-  Text.draw(string.format("Notes this run (%d)", #s.notes), b.x + 12, b.y + 54 + top, { size = "small", color = dim })
+  Text.draw(string.format("Notes this run (%d)", #s.notes), b.x + 12, by + 54 + top, { size = "small", color = dim })
   local x = b.x + 12
   for _, id in ipairs(s.notes) do
     if x > b.x + b.w - 24 then
       break
     end
-    Panel.icon(registry:get("notes", id).icon, x, b.y + 68 + top)
+    Panel.icon(registry:get("notes", id).icon, x, by + 68 + top)
     x = x + 16
   end
   if #s.notes == 0 then
-    Text.draw("None this time.", b.x + 12, b.y + 68 + top, { size = "small", color = dim })
+    Text.draw("None this time.", b.x + 12, by + 68 + top, { size = "small", color = dim })
   end
 
   if #self.clothes > 0 then
     local wcfg = self.wardrobeCfg
-    local cy = b.y + 90 + top
+    local cy = by + 90 + top
     Text.draw(string.format(wcfg.recoveryRow, #self.clothes), b.x + 12, cy, { size = "small", color = dim })
     local scale = wcfg.recoveryThumbScale
     local step = Character.W * scale + wcfg.recoveryThumbGap
@@ -352,7 +375,7 @@ function Recovery:draw()
     end
   end
 
-  local y = b.y + 92 + top + self.clothesH
+  local y = by + 92 + top + self.clothesH
   if recovery.finishedStudy then
     Text.draw("Finished studying: " .. Journal.node(self.metaWorld, recovery.finishedStudy).name, b.x + 12, y, {
       size = "small",
@@ -362,9 +385,9 @@ function Recovery:draw()
 
   local f = self.failure
   local below = top + self.clothesH
-  Panel.icon(f.icon, b.x + 12, b.y + 108 + below)
-  Text.draw(f.line, b.x + 30, b.y + 108 + below, { size = "small", width = self.causeW })
-  local cy = b.y + 108 + below + Text.wrappedHeight(f.line, "small", self.causeW)
+  Panel.icon(f.icon, b.x + 12, by + 108 + below)
+  Text.draw(f.line, b.x + 30, by + 108 + below, { size = "small", width = self.causeW })
+  local cy = by + 108 + below + Text.wrappedHeight(f.line, "small", self.causeW)
   Text.draw(f.hint, b.x + 30, cy, { size = "small", width = self.causeW, color = dim })
   cy = cy + Text.wrappedHeight(f.hint, "small", self.causeW)
   if self.firstChange then
@@ -378,14 +401,10 @@ function Recovery:draw()
     cy = cy + Text.wrappedHeight(self.hurt, "small", self.causeW)
   end
   if self.facedLines then
-    if self.facedTitled then
-      local title = self.app.ctx.tuning.ui.faced.title
-      cy = cy + FACED_GAP
-      Text.draw(title, b.x + 30, cy, { size = "small", width = self.causeW, color = dim })
-      cy = cy + Text.wrappedHeight(title, "small", self.causeW)
-    else
-      cy = cy + FACED_GAP_COMPACT
-    end
+    local title = self.app.ctx.tuning.ui.faced.title
+    cy = cy + FACED_GAP
+    Text.draw(title, b.x + 30, cy, { size = "small", width = self.causeW, color = dim })
+    cy = cy + Text.wrappedHeight(title, "small", self.causeW)
     for _, line in ipairs(self.facedLines) do
       local ink = line.accent and theme.colors.accent or theme.colors.text
       Text.draw(line.text, b.x + 30, cy, { size = "small", width = self.causeW, color = ink })
@@ -393,25 +412,36 @@ function Recovery:draw()
     end
   end
 
-  Text.draw("One free study while you recover", b.x + 12, b.y + 132 + self.shift, { size = "small", color = dim })
+  Text.draw("One free study while you recover", b.x + 12, by + 132 + self.shift, { size = "small", color = dim })
   if recovery.freeStudyUsed then
-    Text.draw("Learned: " .. Journal.node(self.metaWorld, recovery.freeStudy).name, b.x + 12, b.y + 150 + self.shift, {
+    Text.draw("Learned: " .. Journal.node(self.metaWorld, recovery.freeStudy).name, b.x + 12, by + 150 + self.shift, {
       size = "body",
       color = theme.colors.accent,
     })
   elseif #self.ideaRows == 0 then
-    Text.draw("No ideas yet. Notes from your next run will spark some.", b.x + 12, b.y + 150 + self.shift, {
+    Text.draw("No ideas yet. Notes from your next run will spark some.", b.x + 12, by + 150 + self.shift, {
       size = "small",
       color = dim,
     })
   end
+  local bar = self.list.overflow and self.app.ctx.tuning.ui.scrollBarWidth + 2 or 0
   for _, row in ipairs(self.ideaRows) do
     Panel.icon(Panel.nodeIcon(registry, row.item), b.x + 12, row.y + 6)
     Text.draw(row.item.name, b.x + 30, row.y + 1, { size = "small", width = row.textW })
     Text.draw(row.item.line, b.x + 30, row.y + 13, { size = "small", width = row.textW, color = dim })
     local stampsW = #(row.item.needs or {}) * (STAMP + STAMP_GAP)
-    NodeView.needStamps(self.metaWorld, row.item, b.x + b.w - LEARN_W - 12 - 8 - stampsW, row.y + 3, STAMP, STAMP_GAP)
+    NodeView.needStamps(
+      self.metaWorld,
+      row.item,
+      b.x + b.w - LEARN_W - 12 - 8 - stampsW - bar,
+      row.y + 3,
+      STAMP,
+      STAMP_GAP
+    )
   end
+  self.rowButtons:draw()
+  self.list:finish()
+  self.list:drawCue(self.app.ctx.tuning.ui)
 
   Text.draw("New land, same knowledge. Nothing else comes with you.", b.x + 12, b.y + b.h - 34, {
     size = "small",
