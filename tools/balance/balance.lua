@@ -715,10 +715,10 @@ end
 --- choice policy), and return the events-on results; each carries `off`, the facts of the events-off run with the same
 --- run index (nil when that career ended sooner). The two careers are independent: a run that dies in one has its own
 --- recovery and next run, so only run indexes both legs reached are paired.
-function Balance.playPair(ctx, policyName, seed, years, runs, features, outfit, eventMode)
+function Balance.playPair(ctx, policyName, seed, years, runs, features, outfit, eventMode, loadout)
   assert(eventMode and eventMode ~= "off", "a paired run needs an event policy (events=ignore|careful|bold|random)")
-  local off = Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, "off")
-  local on = Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode)
+  local off = Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, "off", false, loadout)
+  local on = Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode, false, loadout)
   for _, r in ipairs(on) do
     r.off = off[r.run] and offLeg(off[r.run]) or nil
   end
@@ -732,7 +732,7 @@ end
 --- results.
 function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode, pair, loadout)
   if pair then
-    return Balance.playPair(ctx, policyName, seed, years, runs, features, outfit, eventMode)
+    return Balance.playPair(ctx, policyName, seed, years, runs, features, outfit, eventMode, loadout)
   end
   if eventMode ~= nil then
     ctx.tuning.events.enabled = eventMode ~= "off" -- the engine follows the mode (a paired run plays both ways in one process)
@@ -760,6 +760,7 @@ function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, 
     local result = playRun(ctx, session, policyName, runSeed, years, features, eventMode)
     result.run = r
     result.baseSeed = seed
+    result.loadout = session.world.state.loadout -- the starting loadout the run had (nil: the standard start)
     result.notesThisRun = 0
     results[#results + 1] = result
     if result.alive then

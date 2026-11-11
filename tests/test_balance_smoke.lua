@@ -398,6 +398,8 @@ T.test("balance harness: a paired run carries its events-off twin and counts eve
   local again = Balance.playSeed(ctx, "scripted", 1, 0.5, 1, nil, nil, "random", true)
   T.eq(again[1].final.money, on[1].final.money, "a paired run repeats")
   T.eq(again[1].off.money, on[1].off.money, "its twin repeats")
+  local kit = Balance.playSeed(ctx, "scripted", 1, 0.25, 1, nil, nil, "random", true, "lumberjack")
+  T.eq(kit[1].loadout, "lumberjack", "loadout= reaches a paired run")
   T.errors(function()
     Balance.playSeed(ctx, "scripted", 1, 0.25, 1, nil, nil, nil, true)
   end, "event policy")
