@@ -173,7 +173,8 @@ function JournalScene:ideaIds()
 end
 
 --- What to do to learn a node that is still unknown (D72, #160): "Needs: Fell a tree; Catch a fish", from
---- the hints of the notes it is missing. Nil when it is not unknown. The node's name stays hidden.
+--- the hints of the notes it is missing ("... or ..." for a node any one note opens, D206). Nil when it is not unknown.
+--- The node's name stays hidden.
 function JournalScene:unlockText(id)
   if not id or Journal.status(self.world, id) ~= "unknown" then
     return nil
@@ -185,7 +186,7 @@ function JournalScene:unlockText(id)
   if #parts == 0 then
     return nil
   end
-  return "Needs: " .. table.concat(parts, "; ")
+  return "Needs: " .. table.concat(parts, Journal.node(self.world, id).needsAny and " or " or "; ")
 end
 
 --- The open card's height: tall enough for the unlock text, which wraps under the title.

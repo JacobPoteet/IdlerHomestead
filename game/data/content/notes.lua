@@ -355,6 +355,17 @@ return {
     event = "threat.struck",
     match = { threat = "drought" },
   },
+  -- Weeds (D206, #426): the first bed that runs to weeds (soil.weedHigh, the level the tile card calls "high") writes the
+  -- note, which, like the Dry spell note, makes straw mulch an idea.
+  {
+    id = "weeds",
+    name = "Weeds",
+    line = "Weeds choked a bed I left alone.",
+    hint = "Let a bed run to weeds",
+    icon = "icon_tool_hoe",
+    event = "soil.weeds",
+    match = { cause = "grow", to = { min = 0.5 } }, -- min = tuning.soil.weedHigh (0.5); a data test keeps them equal
+  },
   {
     id = "locust_swarm",
     name = "Locusts",

@@ -59,6 +59,14 @@ return function(d)
 
   d:newGame()
   midGame(d:world())
+  -- Straw mulch opens on either note (D206): unwrite both and unlearn it so its card lists the two alternatives.
+  local j = d:world().meta.journal
+  j.notes.dry_spell, j.notes.weeds, j.known.straw_mulch = nil, nil, nil
+  for i = #j.queue, 1, -1 do
+    if j.queue[i] == "straw_mulch" then
+      table.remove(j.queue, i)
+    end
+  end
   d:frames(3)
 
   d:pick("Journal")
@@ -98,6 +106,10 @@ return function(d)
   chip("Queue")
   d:frames(2)
   d:shot("queue_jump")
+  chip("All")
+  d:scene():select("straw_mulch")
+  d:frames(3)
+  d:shot("card_either") -- "Needs: ... or ...": one of the two notes opens it (D206)
   d:key("escape") -- card away
   d:key("escape") -- back to the overview
   d:key("escape") -- close

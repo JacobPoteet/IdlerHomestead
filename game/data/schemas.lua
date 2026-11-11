@@ -198,7 +198,8 @@ return {
     page = "string", -- catalog page / journal chapter grouping
     price = "number?", -- $; omitted on a tier past I, whose price is the exponential curve (Tiers.price, D198)
     starter = "boolean?", -- known from the start; others are learned in the Field Journal
-    needs = "table?", -- note ids that make this an idea (non-starter items)
+    needs = "table?", -- note ids that make this an idea (non-starter items): all of them, unless `needsAny`
+    needsAny = "boolean?", -- true: any one note of `needs` makes it an idea (D206; all-of is the default)
     studyNights = "number?", -- nights of study to learn it (non-starter items)
     gives = "table?", -- resource -> amount delivered
     object = "string?", -- placeable object added to inventory
@@ -213,7 +214,8 @@ return {
     page = "string", -- journal chapter grouping
     icon = "string", -- sprite id
     line = "string", -- what it does (<= ~8 words)
-    needs = "table", -- note ids that make it an idea
+    needs = "table", -- note ids that make it an idea: all of them, unless `needsAny`
+    needsAny = "boolean?", -- true: any one note of `needs` makes it an idea (D206; all-of is the default)
     studyNights = "number", -- nights of study to learn it
     startingResources = "table?", -- resource -> amount added at the start of every run
     startingEquipment = "table?", -- catalog equipment ids owned at the start of every run

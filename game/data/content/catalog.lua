@@ -1049,7 +1049,8 @@ return {
     line = "Mulched beds stay damp and grow few weeds.",
     page = "weather",
     price = 15,
-    needs = { "dry_spell" },
+    needs = { "dry_spell", "weeds" }, -- either one (D206): a drought or a bed gone to weeds teaches it
+    needsAny = true,
     studyNights = 1,
     equipment = true,
     modifiers = { droughtGuard = 0.75, weedGuard = 0.75 }, -- weedGuard: the share of weed sprouting and growth it holds back (D180)

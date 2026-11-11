@@ -321,6 +321,8 @@ Seed return and heirloom lines (seed saving) are a later add (8.7).
 - **Weeds** grow on tilled tiles on a timer and on neglected tiles; they cut yield and quality until pulled. A new task `weed` (category `maintenance` or its own) is routine-able. **Mulch** (straw) delays them.
 - **Companions** (optional later): some pairs lower pest pressure.
 
+> **M9 (D206, #426):** straw mulch is an idea after either the Dry spell note (a drought) or the new Weeds note (the first bed that runs to weeds). Journal needs gained an any-of form (`needsAny`); all-of stays the default.
+
 ### 8.4 Compost and manure loop
 
 A **compost bin** takes crop residue, spoiled food and manure and returns compost over days; hens and goats produce manure into their pen, which the Tend chores can move to the bin. Animals now feed the farm, not only the larder. Spoiled food stops being pure loss.

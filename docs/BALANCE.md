@@ -561,3 +561,15 @@ The careful answers now pay, the status share falls a little (the cheap careful 
 **The stand-in counters stay.** Every offered event, logged by season over `policy=scripted,active,human seeds=12 years=2 events=careful` (146 cards): back strain came 7 times (winter 4, summer 3, autumn 0), once while Tired. It is rare and never lands somewhere a strained back reads wrong, so the autumn and Tired terms stand in for a carry streak; a counter would change a card that comes once in twenty run-years. The stove burn (and the clogged flue) came 0 times, because no policy places a wood stove in two years: the stove needs the Cold night note, which only a night short of warmth writes, and the diligent policies never have one (opened as an issue). A placed stove burns every cold night, so "a stove is placed" already means "the stove is in use"; a use counter would add nothing.
 
 **The active random-answers starvation (D173 note) no longer reproduces.** `events=random pair=1`, 12 seeds: active fails 0/12 with events on and off. The one paired event-caused failure left is scripted seed 1 (day 34, hunger): its events-off twin falls to Condition 2 on the same day and lives by a hair, so the events cost it about 5 Condition on a run already starving in spring of year 2. That is the scripted year-2 food economy (Bundle D), not an event outcome.
+
+### Straw mulch opens on weeds too (#426)
+
+Straw mulch carries the weed guard (D180) but needed the Dry spell note, which only a drought writes. It now needs either that note or a new Weeds note, written the first time a bed reaches the "high" weed level (`soil.weedHigh`). `lovec tools/balance policy=scripted,active,human,idle seeds=12 years=2` (events off), before (main) and after:
+
+| | scripted (before, after) | active before | active after | human before | human after |
+|---|---|---|---|---|---|
+| guards or counters bought per run | 4.0, 4.0 | 5.0 | 5.4 | 0.5 | 0.5 |
+| overgrown tile-days per run | 9.9, 9.9 | 54.0 | 23.8 | 596 | 624 |
+| failed in two years | 0/12, 0/12 | 0/12 | 0/12 | 8/12 | 9/12 |
+
+The active player now learns and buys mulch after its first weedy bed and spends less than half as many days with an overgrown tile. Scripted is unchanged (its beds rarely run to weeds). The human policy still buys no counter (it skips the buy list too often); its extra failure comes from the run diverging once one more note is written (the study queue and the find draws shift), not from mulch. Idle is unchanged.

@@ -9,6 +9,7 @@ local Crops = require("src.sim.systems.crops")
 local Gridpack = require("src.core.gridpack")
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
+local Journal = require("src.sim.systems.journal")
 local Ledger = require("src.sim.systems.ledger")
 local Save = require("src.core.save")
 local Soil = require("src.sim.systems.soil")
@@ -277,6 +278,54 @@ T.test("weeds: straw mulch (weedGuard) cuts sprouting and growth, and the rolls 
   T.eq(next0, next1, "the stream advances the same with or without mulch")
   T.truthy(reg:get("catalog", "straw_mulch").modifiers.weedGuard > 0, "the catalog item carries the guard")
 end)
+
+-- The Weeds note and the any-of gate (D206, #426) ------------------------------------------------------
+
+T.test("weeds: the first bed that runs to weeds writes the Weeds note, at the tile card's 'high' level", function()
+  T.eq(reg:get("notes", "weeds").match.to.min, cfg.weedHigh, "the note's level is soil.weedHigh")
+  local world = newWorld(5)
+  setTime(world, SUMMER + 2)
+  field(world, 40)
+  local guard = 0
+  while not Journal.hasNote(world, "weeds") and guard < 30 do
+    newDay(world)
+    guard = guard + 1
+    local high = false
+    for _, i in ipairs(Soil.weedTiles(world)) do
+      high = high or Soil.weeds(world, i) >= cfg.weedHigh
+    end
+    T.eq(Journal.hasNote(world, "weeds"), high, "written exactly when a bed first reaches weedHigh")
+  end
+  T.truthy(Journal.hasNote(world, "weeds"), "a neglected field runs to weeds")
+end)
+
+T.test(
+  "weeds: straw mulch is an idea after either the Weeds or the Dry spell note; all-of stays the default",
+  function()
+    local function journalWith(notes)
+      local world = newWorld()
+      for _, id in ipairs(notes) do
+        Journal.write(world, id)
+      end
+      return world
+    end
+    T.eq(reg:get("catalog", "straw_mulch").needsAny, true)
+    local none = journalWith({})
+    T.eq(Journal.isIdea(none, "straw_mulch"), false)
+    T.eq(#Journal.missingNotes(none, "straw_mulch"), 2, "both alternatives are listed while neither is written")
+    for _, note in ipairs({ "weeds", "dry_spell" }) do
+      local world = journalWith({ note })
+      T.eq(Journal.isIdea(world, "straw_mulch"), true, note .. " alone opens it")
+      T.eq(#Journal.missingNotes(world, "straw_mulch"), 0, note .. ": nothing left to find")
+    end
+    -- An all-of item still needs every note: the wood stove needs a first fire and a cold night.
+    T.eq(reg:get("catalog", "wood_stove").needsAny, nil)
+    local half = journalWith({ "first_fire" })
+    T.eq(Journal.isIdea(half, "wood_stove"), false)
+    T.eq(#Journal.missingNotes(half, "wood_stove"), 1)
+    T.eq(Journal.isIdea(journalWith({ "first_fire", "cold_night" }), "wood_stove"), true)
+  end
+)
 
 -- Saving ----------------------------------------------------------------------------------------------
 
