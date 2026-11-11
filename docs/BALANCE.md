@@ -573,3 +573,21 @@ Straw mulch carries the weed guard (D180) but needed the Dry spell note, which o
 | failed in two years | 0/12, 0/12 | 0/12 | 0/12 | 8/12 | 9/12 |
 
 The active player now learns and buys mulch after its first weedy bed and spends less than half as many days with an overgrown tile. Scripted is unchanged (its beds rarely run to weeds). The human policy still buys no counter (it skips the buy list too often); its extra failure comes from the run diverging once one more note is written (the study queue and the find draws shift), not from mulch. Idle is unchanged.
+
+### Default routine thresholds stay off (#150)
+
+The routine's "only when" conditions (D66) ship with none, and the editor is hidden by the playtest switch `idle.routineConditions = false` (D158). The question: does a default condition help an unattended homestead without hurting the others? Each trial switched the conditions on and gave a new run one default, with `policy=scripted,active,human,idle seeds=12 years=2` (idle also at `years=1`).
+
+Where idle's day goes, one seed, first 21 days (game seconds with a job in hand): fishing 2392, asleep 1979, Clear land 1525, harvest 198, watering 171, the rest under 100. Idle eats every crop it grows and is short of food from day 3. Clearing is its only wood (the store holds 60, so it never has a winter's worth), and its stone and scrap are never sold.
+
+| Trial (new runs only) | idle failed (1 year) | idle Footing | idle fish per run | idle fuel on day 1 of winter | scripted winter-2 fuel | scripted year-1 truck |
+|---|---|---|---|---|---|---|
+| none (shipped) | 12/12 (hunger) | 0/12 | 40 | 0.61 | 1.03 | $147 |
+| Clear land only while food at least 3 days | 12/12 (hunger 3, cold or both 9) | 0/12 | 65 | 0.25 | | |
+| Clear land only while food at least 5 days | 12/12 (cold or both 12) | 3/12 | 67 | 0.00 | | |
+| Clear land only while wood below 40 | 12/12 (hunger) | 3/12 | 65 | 0.40 | | |
+| Clear land only while wood below 50 | 12/12 (hunger) | 5/12 | 67 | 0.49 | | |
+| Clear land only while wood below 60 (the base store) | 12/12 (hunger) | 2/12 | 64 | 0.61 | 0.46 | $111 |
+| Fish only while food below 10 days | 12/12 (hunger) | 0/12 | 40 | 0.61 | 1.03 | $153 |
+
+Read: moving Clear land's time to fishing gives idle about 25 more fish a run and sometimes Footing, but every idle run still starves, and a food gate on clearing takes away its only wood, so it freezes instead. The one gate that keeps idle's wood (wood below the store's 60) halves the scripted player's winter-2 fuel (1.03 to 0.46 of need) and cuts its truck income by a quarter, because scripted lives on the stone it clears (318 units sold a run). Fishing only on low food changes nothing for idle (its food is always low). Active and human give their own orders and were unchanged in every trial. No default helps idle without hurting scripted, so none ships and the conditions stay off (D206). Idle starves because the starter field and the hand-fishing rate cannot feed one person through the first season; that is the routine's food economy (#138, Bundle D), and routine order does not fix it.
