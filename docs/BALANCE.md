@@ -591,3 +591,34 @@ Where idle's day goes, one seed, first 21 days (game seconds with a job in hand)
 | Fish only while food below 10 days | 12/12 (hunger) | 0/12 | 40 | 0.61 | 1.03 | $153 |
 
 Read: moving Clear land's time to fishing gives idle about 25 more fish a run and sometimes Footing, but every idle run still starves, and a food gate on clearing takes away its only wood, so it freezes instead. The one gate that keeps idle's wood (wood below the store's 60) halves the scripted player's winter-2 fuel (1.03 to 0.46 of need) and cuts its truck income by a quarter, because scripted lives on the stone it clears (318 units sold a run). Fishing only on low food changes nothing for idle (its food is always low). Active and human give their own orders and were unchanged in every trial. No default helps idle without hurting scripted, so none ships and the conditions stay off (D206). Idle starves because the starter field and the hand-fishing rate cannot feed one person through the first season; that is the routine's food economy (#138, Bundle D), and routine order does not fix it.
+
+### The automatic wood keep stays at two winters (#202)
+
+The issue was written when the automatic keep was the whole woodpile. Since D104 it is the wood for the nights to the end of the next `food.keepWinters` winters (2, one more during a winter), capped at the stock. The issue's two options map onto that knob: "through the end of the winter after next" is the current rule, and "up to the store's room" is the whole woodpile again, because since D104 wood is one resource and the woodpile can never pass the store's room. Only the scripted policy uses the automatic keep; active and human set their own wood keep each morning (D75). `lovec tools/balance policy=scripted,active,human seeds=12 years=2 set=food.keepWinters=N`:
+
+| `keepWinters` | scripted failed | scripted winter-2 fuel (median, p25) | scripted wood sold per run | scripted year-1 contracts | active, human |
+|---|---|---|---|---|---|
+| 1 (the coming winter only) | 0/12 | 1.03, 0.88 | 12.6 | $44 | unchanged |
+| 2 (shipped) | 0/12 | 1.03, 0.91 | 0 | $8 | unchanged |
+| 3 | 0/12 | 1.03, 0.91 | 0 | $8 | unchanged |
+| 10 (the whole woodpile, the store's room) | 0/12 | 1.03, 0.91 | 0 | $8 | unchanged |
+
+Read: from two winters up, scripted never holds more wood than the horizon asks, so it sells none and the runs are byte-identical. One winter sells about 13 wood a run (mostly into contracts) and lowers the winter-2 fuel quartile a little without a failure in two years; D104 lost 2 of 5 scripted runs to it in the old economy. Neither option the issue names beats the current rule, so `keepWinters` stays 2 (D206). A big woodpile above two winters' need is already spare without a confirmation.
+
+### After the bundle, against §15
+
+The same commands on the finished branch (events off: `policy=scripted,active,human,idle seeds=12 years=2`; events: `policy=scripted,active,human seeds=12 years=2 events=careful pair=1`). Run twice, and once with `jobs=1`: identical reports.
+
+| §15 metric | Target | scripted (before → after) | active | human | idle |
+|---|---|---|---|---|---|
+| Median day of Footing | active 12, scripted 16 | 10 → 10 | 7 → 7 | 11 → 11 | never → never |
+| First-winter failure | active 40 to 60%, scripted 60 to 80% | 0% → 0% | 0% → 0% | 17% → 17% | 92% → 92% |
+| Failed in two years | (none) | 0/12 → 0/12 | 0/12 → 0/12 | 8/12 → 9/12 | 12/12 → 12/12 |
+| Events per year (careful) | 6 to 10 | 2.3 → 2.3 | 2.0 → 2.1 | 1.8 → 1.8 | - |
+| Days with a status (careful) | active under 15% | 29% → 27% | 19% → 18% | 15% → 16% | - |
+| Event-caused failure (careful, paired) | 0 | 0 → 0 | 0 → 0 | 1 → 0 | - |
+| Distinct crops planted in year 2 | active at least 4 | 2 → 2 | 3 → 3 | 3 → 3 | - |
+| Money unspent at day 28 | under 35% of year-1 income | 12% → 12% | 3% → 3% | 13% → 12% | - |
+| Idle year-1 income against active | 40 to 60% | | | | 0% → 0% |
+
+The bundle moves the status share down a little and nothing else outside seed noise (the human runs diverge as soon as one more note or one paid careful option changes a day). The far targets (first-winter failure, events per year, idle income) are the economy's and the event cadence's, for Bundles D and E.

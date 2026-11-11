@@ -4,7 +4,7 @@ return {
   -- roadside stand and the truck load sell. These set the automatic (default) targets for food.
   defaultPantryDays = 3, -- days of eating the automatic keep holds in fresh food
   defaultWinterDays = 10, -- days of eating the automatic keep holds for winter (preserved food, potatoes, food waiting for the smoker)
-  keepWinters = 2, -- winters of wood the automatic keep covers (D104; D75 lost scripted runs by selling wood the winter after next needed); a winter already in progress counts one more
+  keepWinters = 2, -- winters of wood the automatic keep covers (D104; D75 lost scripted runs by selling wood the winter after next needed; measured again in M9, D206: 1 thins winter-2 fuel, 3 or more plays the same as 2); a winter already in progress counts one more
   maxKeep = 999, -- units; the highest keep target the Pantry stepper sets
   loadStationTime = 2, -- seconds of work to load a processing station (smoker)
   -- D68 (#163): the automatic keep holds a perishable only as long as it will be eaten before it

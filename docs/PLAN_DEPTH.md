@@ -533,6 +533,8 @@ These are not acceptance gates for M8 slices. M8 uses the smoke harness only; th
 
 Targets move with real human play.
 
+> **M9 bundle A (D206):** baseline and after tables in [BALANCE.md](BALANCE.md) "M9 bundle A" (12 seeds, two years, paired events). On v0.5.0 the diligent policies never fail and earn Footing by day 7 to 10, idle starves in every run, and events come about 2 a year. The bundle (water costs from the canteen, mulch on weeds, no default routine thresholds, the wood keep left at two winters) lowers the careful status share a little and moves no other target; the economy and the event cadence are later bundles' work.
+
 ## 16. Risks and open questions
 
 | # | Question | Default if not decided |
