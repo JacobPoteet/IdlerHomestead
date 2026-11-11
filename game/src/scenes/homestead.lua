@@ -2134,7 +2134,7 @@ function Homestead:eventEnv()
       return world.registry:get("resources", id).name
     end,
     have = function(id)
-      return Ledger.get(world, id)
+      return Events.stock(world, id)
     end,
     item = function(id)
       return world.registry:get("catalog", id).name

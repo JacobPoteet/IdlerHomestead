@@ -11,8 +11,9 @@
 --          only for autoPantryHorizon of its shelf life (D68); winter days (defaultWinterDays) in
 --          preserved food first, then fresh food that keeps for winter (potatoes), then fresh food a
 --          placed processor can preserve (held for the smoker while the winter stock is short).
---   Wood   the wood that gives the warmth from tonight to the end of the coming winter (during a
---          winter, the next one too), cautious where the forecast is silent (Readiness.warmthAhead, D104).
+--   Wood   the wood that gives the warmth from tonight to the end of the next tuning.food.keepWinters
+--          winters (2; during a winter one more), capped at the stock, cautious where the forecast is
+--          silent (Readiness.warmthAhead, D104; kept at 2 after the M9 measure, D206).
 --   Other  0 (scrap, stone: all surplus).
 -- Food and fuel the player set by hand count first, so automatic targets fill only what is left.
 -- A per-good "truck only" flag keeps a good away from the roadside stand (D62).

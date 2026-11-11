@@ -40,6 +40,10 @@
 -- player set, under the wood still needed to reach the end of winter, or under a day's drinking water (Events.orderFloor); an unaffordable or keep-blocked option adds a line to the morning
 -- report ("event.orderFallback"). Until the perk is known every order reads as Ask me, so nothing changes without it.
 --
+-- WATER COSTS ARE DRINKING WATER (D206, #415). An option's `water` cost (a compress, a rinse, a brew) is paid from the drinking
+-- water within reach (Events.stock, Needs.drinkable): the cistern stock first, as the day's drink takes it, then the canteen,
+-- so a run with no cistern can still choose it. Frozen pipes keep the cistern out of reach. Careful leaves a day's drink.
+--
 -- KNOWLEDGE AND THE KIT CHANGE THE OPTIONS (H5 + B10, #388, #354, D199, PLAN_DEPTH 12.5). Besides its two base options an event may
 -- carry `known = { [perk id] = { cost?, effect?, risk?, label? } }` on an option (the option reads as that, once the Techniques perk
 -- is known: a cost cut, a lost hour spared) and `extras`, further options that appear while their `requires` hold
@@ -773,14 +777,37 @@ local function costOf(world, o)
   return out
 end
 
+--- What an option can draw on for resource `id`: the ledger stock, except water, which is drinking water (D206): the
+--- canteen plus the cistern within reach (Needs.drinkable), so a compress or a rinse needs no cistern.
+function Events.stock(world, id)
+  if id == Needs.WATER then
+    return Needs.drinkable(world)
+  end
+  return Ledger.get(world, id)
+end
+
 --- Resources an option costs that are not in stock: the first such id, or nil.
 local function lacking(world, cost)
   for _, id in ipairs(sortedKeys(cost or {})) do
-    if Ledger.get(world, id) < cost[id] then
+    if Events.stock(world, id) < cost[id] then
       return id
     end
   end
   return nil
+end
+
+--- Pay an option's cost (checked first with `lacking`): water from the drinking water (Needs.spendWater), the rest
+--- from the ledger.
+local function pay(world, cost)
+  local rest = {}
+  for _, id in ipairs(sortedKeys(cost)) do
+    if id == Needs.WATER then
+      Needs.spendWater(world, cost[id], "event")
+    else
+      rest[id] = cost[id]
+    end
+  end
+  Ledger.spend(world, rest, "event")
 end
 
 local function optionView(world, o, index)
@@ -900,7 +927,7 @@ local function orderChoice(world, d, mode)
     return nil, "short", missing
   end
   for _, id in ipairs(sortedKeys(cost or {})) do
-    if Ledger.get(world, id) - cost[id] < Events.orderFloor(world, id) then
+    if Events.stock(world, id) - cost[id] < Events.orderFloor(world, id) then
       return nil, "keep", id
     end
   end
@@ -924,7 +951,7 @@ function Events.answerByOrder(world, d)
   if index then
     local cost = costOf(world, Events.options(world, d)[index])
     if cost then
-      Ledger.spend(world, cost, "event")
+      pay(world, cost)
     end
   elseif why ~= "none" then
     world.events:emit(
@@ -937,7 +964,7 @@ function Events.answerByOrder(world, d)
 end
 
 --- Answer the open card with option 1 or 2. Returns true, or false + the reason ("no event", "no such option",
---- "lacks <resource>"). The cost is paid from the ledger.
+--- "lacks <resource>"). The cost is paid from the ledger (water from the drinking water, D206).
 function Events.choose(world, index)
   local entry = state(world).pending[1]
   if not entry then
@@ -953,7 +980,7 @@ function Events.choose(world, index)
     return false, "lacks " .. missing
   end
   if cost then
-    Ledger.spend(world, cost, "event")
+    pay(world, cost)
   end
   resolve(world, index)
   return true

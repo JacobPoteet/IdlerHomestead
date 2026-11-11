@@ -219,6 +219,32 @@ function Needs.waterDays(world)
   return Needs.waterOutlook(world).days
 end
 
+--- Drinking water within reach right now: the canteen plus the cistern stock, unless the pipes are frozen (D190).
+function Needs.drinkable(world)
+  local cistern = Weather.pipesFrozen(world) and 0 or Ledger.get(world, WATER)
+  return cistern + Needs.canteen(world)
+end
+
+--- Spend `units` of drinking water on something besides the day's drink (an event's compress, rinse or brew, D206):
+--- the cistern stock first, as the drink takes it, then the canteen. Returns false and spends nothing when there is
+--- not that much within reach (Needs.drinkable).
+function Needs.spendWater(world, units, reason)
+  if units <= 0 then
+    return true
+  end
+  if Needs.drinkable(world) < units then
+    return false
+  end
+  local fromStock = Weather.pipesFrozen(world) and 0 or math.min(units, Ledger.get(world, WATER))
+  if fromStock > 0 then
+    Ledger.remove(world, WATER, fromStock, reason)
+  end
+  if units > fromStock then
+    world.state.needs.canteen = Needs.canteen(world) - (units - fromStock)
+  end
+  return true
+end
+
 --- Pour up to `units` into the canteen (what a creek, well or melted snow gives). Returns what fit.
 function Needs.fillCanteen(world, units)
   local added = math.min(units, Needs.waterOutlook(world).room)

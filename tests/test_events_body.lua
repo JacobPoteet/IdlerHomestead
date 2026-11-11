@@ -84,7 +84,8 @@ local function place(world, id)
   error("no tile for " .. id)
 end
 
---- Offer `id` now and answer it: option 1 or 2, or "ignore". Gives the world the stock the cost needs (water needs a cistern).
+--- Offer `id` now and answer it: option 1 or 2, or "ignore". Gives the world the stock the cost needs (a cistern with water,
+--- which a water cost draws on before the canteen, D206).
 local function answer(world, id, how)
   Ledger.setCapacity(world, "water", 60) -- a cistern: water has nowhere to go without one
   Ledger.add(world, "wood", 10)
@@ -445,6 +446,48 @@ T.test("stove burn: it needs a stove; a compress costs water, shrugging it off s
   T.near(Status.modifier(world, "workSpeed"), 0.9, 1e-9)
   T.eq(Status.get(world, "sting").left, 1)
 end)
+
+T.test(
+  "water costs are drinking water: the canteen pays without a cistern, frozen pipes keep the cistern out (D206, #415)",
+  function()
+    local world = newWorld()
+    setTime(world, AUTUMN, 9)
+    place(world, "wood_stove")
+    T.eq(Ledger.capacity(world, "water"), 0, "no cistern")
+    T.truthy(Events.force(world, "stove_burn"))
+    local card = Events.pending(world)
+    T.eq(card.options[1].affordable, true, "the compress is open with a full canteen")
+    T.eq(Events.stock(world, "water"), tun.needs.canteenCapacity)
+    T.truthy(Events.choose(world, 1))
+    T.eq(Needs.canteen(world), tun.needs.canteenCapacity - 1, "paid from the canteen")
+
+    local dry = newWorld()
+    setTime(dry, AUTUMN, 9)
+    place(dry, "wood_stove")
+    dry.state.needs.canteen = 0
+    T.truthy(Events.force(dry, "stove_burn"))
+    T.eq(Events.pending(dry).options[1].lacking, "water", "an empty canteen and no cistern: disabled with the reason")
+    T.eq(select(2, Events.choose(dry, 1)), "lacks water")
+
+    local frozen = newWorld()
+    setTime(frozen, AUTUMN, 9)
+    Ledger.setCapacity(frozen, "water", 20)
+    Ledger.add(frozen, "water", 5)
+    frozen.state.needs.canteen = 1
+    T.eq(Events.stock(frozen, "water"), 6, "cistern plus canteen")
+    T.truthy(Needs.spendWater(frozen, 2, "test"))
+    T.eq(Ledger.get(frozen, "water"), 3, "the cistern pays first, as the day's drink takes it")
+    T.eq(Needs.canteen(frozen), 1)
+    frozen.state.weather.pipes = { day = AUTUMN + 1, hour = 12 } -- frozen until tomorrow noon (Weather.freezePipes needs pipes placed)
+    T.eq(Weather.pipesFrozen(frozen), true)
+    T.eq(Events.stock(frozen, "water"), 1, "frozen pipes: only the canteen is in reach")
+    T.eq(Needs.spendWater(frozen, 2, "test"), false, "not enough in reach: nothing spent")
+    T.eq(Needs.canteen(frozen), 1)
+    T.truthy(Needs.spendWater(frozen, 1, "test"))
+    T.eq(Needs.canteen(frozen), 0)
+    T.eq(Ledger.get(frozen, "water"), 3, "the frozen cistern is untouched")
+  end
+)
 
 -- Heat exhaustion -----------------------------------------------------------------------------------------------------
 

@@ -23,7 +23,8 @@
 --   fall             the weight is multiplied by the fall chance of the statuses (a bad ankle makes a fall likelier)
 --   terms            weight terms: { <any condition key above>, mult }, each that holds multiplies the weight
 --   journalNote      note id (data/content/notes.lua) written the first time the event is offered
---   options          exactly two: { label, cost = { resource = n }?, effect, risk (qualitative words, never odds; the card
+--   options          exactly two: { label, cost = { resource = n }? (a `water` cost is drinking water: the cistern, then the
+--                    canteen, D206), effect, risk (qualitative words, never odds; the card
 --                    (B4, D172) says the cost and the effect in plain words itself from `cost` and `effect`, so `risk` is
 --                    only how safe the choice is, e.g. "Safe. It passes by tomorrow."),
 --                    meal = true? (adds a supper to the cost: the cheapest stocked food worth tuning.events.visitors.mealCalories),
@@ -263,7 +264,8 @@ return {
     terms = {
       { status = { "tired" }, mult = 1.5 },
     },
-    -- Nothing counts a run of heavy carrying yet, so the autumn harvest and being Tired stand in for the plan's "carry streak".
+    -- Nothing counts a run of heavy carrying, so the autumn harvest and being Tired stand in for the plan's "carry streak".
+    -- Kept in M9 (D206): in the harness it is rare (7 cards in 72 two-year runs) and never fires out of place.
     seasons = { spring = 1, summer = 1, autumn = 1.5, winter = 0.7 },
     cooldown = 6,
     journalNote = "bad_back",
@@ -304,7 +306,7 @@ return {
     when = "morning",
     bad = true,
     wake = false,
-    conditions = { placed = { "wood_stove" } }, -- stove use
+    conditions = { placed = { "wood_stove" } }, -- stove use: a placed stove is the night's heat source, so it is used every cold night (kept, D206)
     seasons = { spring = 0.7, autumn = 1, winter = 1.5 },
     weight = 0.7,
     cooldown = 6,

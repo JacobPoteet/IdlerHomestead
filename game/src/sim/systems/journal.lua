@@ -2,7 +2,8 @@
 --
 -- Notes are written from world events by data rules (data/content/notes.lua); the systems that
 -- emit those events never know the journal exists (GDD §12.1 #8). Journal nodes are catalog items
--- and perks (one id space); a node becomes an idea once every note in its `needs` is written. The player queues ideas to study; the head of
+-- and perks (one id space); a node becomes an idea once every note in its `needs` is written, or any one of them when it is
+-- marked `needsAny` (D206: straw mulch, taught by a drought or by weeds). The player queues ideas to study; the head of
 -- the queue makes progress while the homesteader sleeps (longer nights study faster, equipment
 -- with a `studySpeed` modifier speeds it up) and becomes known for good.
 --
@@ -140,25 +141,34 @@ function Journal.isKnown(world, id)
   return isStarter(world, id) or journal(world).known[id] == true
 end
 
---- Has every note this item needs been written? (Known items count too.)
+--- Has every note this item needs been written (any one of them for a `needsAny` item, D206)? (Known items count too.)
 local function needsMet(world, def)
   if not def.needs then
     return false
   end
+  local any = def.needsAny == true
   for _, note in ipairs(def.needs) do
-    if not journal(world).notes[note] then
+    local written = journal(world).notes[note] ~= nil
+    if written and any then
+      return true
+    elseif not written and not any then
       return false
     end
   end
-  return true
+  return not any
 end
 
 --- An item you could study: all its notes are written but it isn't known yet.
 --- The notes an item still needs, in `needs` order: list of { id, name, hint } for each note not yet
---- written (empty once it is an idea or known). The hint says what to do, never what the item is (D72, #160).
+--- written (empty once it is an idea or known; for a `needsAny` item these are alternatives, and the list is empty once
+--- one is written, D206). The hint says what to do, never what the item is (D72, #160).
 function Journal.missingNotes(world, id)
   local list = {}
-  for _, noteId in ipairs(item(world, id).needs or {}) do
+  local def = item(world, id)
+  if def.needsAny and needsMet(world, def) then
+    return list
+  end
+  for _, noteId in ipairs(def.needs or {}) do
     if not journal(world).notes[noteId] then
       local note = world.registry:get("notes", noteId)
       list[#list + 1] = { id = noteId, name = note.name, hint = note.hint }

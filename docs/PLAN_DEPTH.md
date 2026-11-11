@@ -246,6 +246,8 @@ About 24 entries at first; each in its own content table so more can be added by
 
 The Routine screen gets one setting per event class (body, home, land, visitors): **Ask me** (default), **Careful** (the safe-cost option when it is affordable), or **Bold** (the no-cost option). Careful and Bold are chosen by the content's `careful` and `bold` flags, so a designer decides which option each means. **Careful respects keep targets (D168):** if paying the option's cost would drop a stock below its keep target (or the winter reserve target), Careful falls back to the ignore outcome and adds a line to the morning report ("kept the wood, ignored the splint"). Bold costs nothing, so it needs no check. The setting is unlocked by a journal perk ("Rules of thumb"); until then the ignore outcome applies. This keeps GDD §5.2's rule that decisions are never automated unless the player has chosen the rule.
 
+> **M9 (D206, #415):** an option's water cost is drinking water: the cistern stock first, then the canteen, so the careful cut, burn, tooth and flue options work without a cistern. Careful still leaves a day's drink. Back strain and the stove burn keep their stand-ins (autumn and Tired; a placed stove) after a harness count.
+
 ### 6.5 Mercy rules (so events never snowball)
 
 The rules key on Footing state and reserves, not only Condition (D168).
@@ -318,6 +320,8 @@ Seed return and heirloom lines (seed saving) are a later add (8.7).
 - **Families** (roots, brassicas, nightshades, legumes, cucurbits). Planting the same family twice in a row builds **pest pressure** on the tile; high pressure invites a pest event or a yield cut. Rotating clears it.
 - **Weeds** grow on tilled tiles on a timer and on neglected tiles; they cut yield and quality until pulled. A new task `weed` (category `maintenance` or its own) is routine-able. **Mulch** (straw) delays them.
 - **Companions** (optional later): some pairs lower pest pressure.
+
+> **M9 (D206, #426):** straw mulch is an idea after either the Dry spell note (a drought) or the new Weeds note (the first bed that runs to weeds). Journal needs gained an any-of form (`needsAny`); all-of stays the default.
 
 ### 8.4 Compost and manure loop
 
@@ -528,6 +532,8 @@ These are not acceptance gates for M8 slices. M8 uses the smoke harness only; th
 - **Event-choice policies** (careful, bold, ignore, random) land with B3 and B5, not I1a, so every smoke run exercises more than ignore, and they report per event class.
 
 Targets move with real human play.
+
+> **M9 bundle A (D206):** baseline and after tables in [BALANCE.md](BALANCE.md) "M9 bundle A" (12 seeds, two years, paired events). On v0.5.0 the diligent policies never fail and earn Footing by day 7 to 10, idle starves in every run, and events come about 2 a year. The bundle (water costs from the canteen, mulch on weeds, no default routine thresholds, the wood keep left at two winters) lowers the careful status share a little and moves no other target; the economy and the event cadence are later bundles' work.
 
 ## 16. Risks and open questions
 

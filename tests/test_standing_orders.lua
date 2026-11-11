@@ -221,6 +221,7 @@ T.test("orders: Careful will not spend drinking water below the day's need", fun
     Ledger.setCapacity(world, "water", 20) -- a cistern
     Ledger.remove(world, "water", Ledger.get(world, "water"))
     Ledger.add(world, "water", water)
+    world.state.needs.canteen = 0 -- the canteen counts too (D206): empty, so the cistern alone is judged
     local fallbacks = collect(world, "event.orderFallback")
     T.truthy(Events.force(world, "festering_cut")) -- Clean and bandage costs 1 water
     return world, fallbacks
@@ -233,6 +234,33 @@ T.test("orders: Careful will not spend drinking water below the day's need", fun
   local wet = cut(need + 1)
   T.eq(Ledger.get(wet, "water"), need, "water above the day's need is spent")
 end)
+
+T.test(
+  "orders: without a cistern Careful pays a water cost from the canteen, down to the day's need (D206, #415)",
+  function()
+    local function cut(canteen)
+      local world = withRules(newWorld())
+      setTime(world, 5, 13)
+      Events.setOrder(world, "body", "careful")
+      T.eq(Ledger.capacity(world, "water"), 0, "no cistern")
+      world.state.needs.canteen = canteen
+      local fallbacks = collect(world, "event.orderFallback")
+      T.truthy(Events.force(world, "festering_cut")) -- Clean and bandage costs 1 water
+      return world, fallbacks
+    end
+    local full = tun.needs.canteenCapacity
+    local world, fallbacks = cut(full)
+    T.eq(#fallbacks, 0, "a full canteen pays")
+    T.eq(Needs.canteen(world), full - 1)
+    T.eq(Events.history(world)[1].how, "chosen")
+    T.eq(Status.has(world, "tending"), true, "the careful outcome")
+    local need = math.ceil(Needs.waterNeeded(newWorld()))
+    local dry, dryFallbacks = cut(need)
+    T.eq(dryFallbacks[1].why, "keep")
+    T.eq(dryFallbacks[1].resource, "water")
+    T.eq(Needs.canteen(dry), need, "today's drink stays in the canteen")
+  end
+)
 
 T.test("orders: an away player's standing orders still answer, and the rest wait", function()
   local world = withRules(newWorld())

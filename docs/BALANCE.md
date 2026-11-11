@@ -519,3 +519,106 @@ The human and active failure counts do not move beyond seed noise (the find draw
 ## Threat answers and the contracts board in the policies: smoke test (#389, #153, D203)
 
 Two features, on in `all`: `guards` (study and buy the farm dog, the lantern and each night threat's counter once its note is written) and `threats` (the same for the field threats' counters, a warned threat's first). The trip also goes for an open contract the surplus covers. The report gains a line "Threat answers and contracts per run" (guards or counters delivered, contracts filled and their pay). Smoke only, no tuning: `policy=all seeds=3 years=2` runs every policy without errors, scripted and active reach Footing on every seed, and the report is byte-identical between `jobs=1` and the default threads (timing lines aside). Balance reading of these numbers is M9 (#396).
+
+## M9 bundle A: body events, the mulch gate, routine defaults, the wood keep (#415, #426, #150, #202, D206)
+
+The first M9 pass. Agents tune toward the PLAN_DEPTH §15 targets here, read with the human policy and paired runs (D168), so these runs use 12 seeds and two years. Bundle A owns four issues; the economy (truck and stand income, wood heat, the year-3 death) is Bundle D's and the final measure Bundle E's.
+
+### Baseline against §15 (main at v0.5.0)
+
+Commands: `lovec tools/balance policy=scripted,active,human,idle seeds=12 years=2` (events off) for the economy and Footing rows, and `lovec tools/balance policy=scripted,active,human seeds=12 years=2 events=careful pair=1` for the event rows (`events=random pair=1` beside it). Twelve seeds, two years (56 days).
+
+| §15 metric | Target | scripted | active | human | idle |
+|---|---|---|---|---|---|
+| Median day of Footing | active 12, scripted 16 | 10 | 7 | 11 | never (0/12) |
+| First-winter failure | active 40 to 60%, scripted 60 to 80% | 0% | 0% | 17% (2/12 in winter 1, 1 more in autumn) | 92% (11/12, hunger) |
+| Failed in two years | (none) | 0/12 | 0/12 | 8/12 (hunger 7) | 12/12 |
+| Events per year (careful) | 6 to 10 | 2.3 | 2.0 | 1.8 | - |
+| Days with a status (careful) | active under 15% | 29% | 19% | 15% | - |
+| Event-caused failure (careful, paired) | 0 | 0 | 0 | 1/12 (seed 9, day 55, hunger) | - |
+| Distinct crops planted in year 2 | active at least 4 | 2 | 3 | 3 | - |
+| Money unspent at day 28, share of year-1 income | under 35% | 12% ($19 of $155) | 3% ($9 of $330) | 13% ($6.5 of $49) | - |
+| Year-1 income, idle against active | idle 40 to 60% of active | | $330 (truck $177, stand $3, contracts $150) | | 0% ($0) |
+
+Read: the two ends are both off target. A diligent player (`active`, `scripted`) never fails and earns Footing early, so the first winter is far too easy for them; the routine alone (`idle`) starves in every run before the first winter ends and earns nothing. Events come about a third as often as §15 asks, and the careful scripted player carries a status on 29% of days (mostly the hour of work and the hiker's Tired). Money does not pile up: every policy spends what it earns. None of these targets is this bundle's to hit; the table is the yardstick for Bundles D and E.
+
+### Water costs come from the drinking water (#415)
+
+The cut's Clean and bandage, the stove burn's compress, the bad tooth's brew and the clogged flue's douse each cost 1 water. Water was the cistern's ledger stock, which has no room until a cistern is placed, so most runs saw those options disabled and Careful (as a standing order or as the `events=careful` policy) fell back to ignoring. They now draw on the drinking water the D160 system already models: the cistern stock first, as the day's drink takes it, then the canteen (3 units, full at the start). Frozen pipes keep the cistern out of reach. Careful still leaves a day's drink. Chosen over a new stand-in because the canteen is water the homesteader carries anyway, it refills from the creek for free, and the card's "Costs 1 water" stays true.
+
+`events=careful pair=1`, 12 seeds, 2 years, before and after:
+
+| | scripted before | scripted after | active before | active after | human before | human after |
+|---|---|---|---|---|---|---|
+| festering cut: chosen / ignored | 0 / 2 | 3 / 0 | 0 / 3 | 4 / 0 | (not offered) | (not offered) |
+| bad tooth: chosen / ignored | 0 / 1 | 1 / 0 | 0 / 1 | 1 / 0 | (not offered) | (not offered) |
+| days with a status | 29% | 27% | 19% | 18% | 15% | 15% |
+| failed in two years | 0/12 | 0/12 | 0/12 | 0/12 | 9/12 | 9/12 |
+| event-caused failures | 0 | 0 | 0 | 0 | 1 | 1 |
+
+The careful answers now pay, the status share falls a little (the cheap careful option replaces the ignore outcome's two-day status), and nothing else moves.
+
+**The stand-in counters stay.** Every offered event, logged by season over `policy=scripted,active,human seeds=12 years=2 events=careful` (146 cards): back strain came 7 times (winter 4, summer 3, autumn 0), once while Tired. It is rare and never lands somewhere a strained back reads wrong, so the autumn and Tired terms stand in for a carry streak; a counter would change a card that comes once in twenty run-years. The stove burn (and the clogged flue) came 0 times, because no policy places a wood stove in two years: the stove needs the Cold night note, which only a night short of warmth writes, and the diligent policies never have one (opened as an issue). A placed stove burns every cold night, so "a stove is placed" already means "the stove is in use"; a use counter would add nothing.
+
+**The active random-answers starvation (D173 note) no longer reproduces.** `events=random pair=1`, 12 seeds: active fails 0/12 with events on and off. The one paired event-caused failure left is scripted seed 1 (day 34, hunger): its events-off twin falls to Condition 2 on the same day and lives by a hair, so the events cost it about 5 Condition on a run already starving in spring of year 2. That is the scripted year-2 food economy (Bundle D), not an event outcome.
+
+### Straw mulch opens on weeds too (#426)
+
+Straw mulch carries the weed guard (D180) but needed the Dry spell note, which only a drought writes. It now needs either that note or a new Weeds note, written the first time a bed reaches the "high" weed level (`soil.weedHigh`). `lovec tools/balance policy=scripted,active,human,idle seeds=12 years=2` (events off), before (main) and after:
+
+| | scripted (before, after) | active before | active after | human before | human after |
+|---|---|---|---|---|---|
+| guards or counters bought per run | 4.0, 4.0 | 5.0 | 5.4 | 0.5 | 0.5 |
+| overgrown tile-days per run | 9.9, 9.9 | 54.0 | 23.8 | 596 | 624 |
+| failed in two years | 0/12, 0/12 | 0/12 | 0/12 | 8/12 | 9/12 |
+
+The active player now learns and buys mulch after its first weedy bed and spends less than half as many days with an overgrown tile. Scripted is unchanged (its beds rarely run to weeds). The human policy still buys no counter (it skips the buy list too often); its extra failure comes from the run diverging once one more note is written (the study queue and the find draws shift), not from mulch. Idle is unchanged.
+
+### Default routine thresholds stay off (#150)
+
+The routine's "only when" conditions (D66) ship with none, and the editor is hidden by the playtest switch `idle.routineConditions = false` (D158). The question: does a default condition help an unattended homestead without hurting the others? Each trial switched the conditions on and gave a new run one default, with `policy=scripted,active,human,idle seeds=12 years=2` (idle also at `years=1`).
+
+Where idle's day goes, one seed, first 21 days (game seconds with a job in hand): fishing 2392, asleep 1979, Clear land 1525, harvest 198, watering 171, the rest under 100. Idle eats every crop it grows and is short of food from day 3. Clearing is its only wood (the store holds 60, so it never has a winter's worth), and its stone and scrap are never sold.
+
+| Trial (new runs only) | idle failed (1 year) | idle Footing | idle fish per run | idle fuel on day 1 of winter | scripted winter-2 fuel | scripted year-1 truck |
+|---|---|---|---|---|---|---|
+| none (shipped) | 12/12 (hunger) | 0/12 | 40 | 0.61 | 1.03 | $147 |
+| Clear land only while food at least 3 days | 12/12 (hunger 3, cold or both 9) | 0/12 | 65 | 0.25 | | |
+| Clear land only while food at least 5 days | 12/12 (cold or both 12) | 3/12 | 67 | 0.00 | | |
+| Clear land only while wood below 40 | 12/12 (hunger) | 3/12 | 65 | 0.40 | | |
+| Clear land only while wood below 50 | 12/12 (hunger) | 5/12 | 67 | 0.49 | | |
+| Clear land only while wood below 60 (the base store) | 12/12 (hunger) | 2/12 | 64 | 0.61 | 0.46 | $111 |
+| Fish only while food below 10 days | 12/12 (hunger) | 0/12 | 40 | 0.61 | 1.03 | $153 |
+
+Read: moving Clear land's time to fishing gives idle about 25 more fish a run and sometimes Footing, but every idle run still starves, and a food gate on clearing takes away its only wood, so it freezes instead. The one gate that keeps idle's wood (wood below the store's 60) halves the scripted player's winter-2 fuel (1.03 to 0.46 of need) and cuts its truck income by a quarter, because scripted lives on the stone it clears (318 units sold a run). Fishing only on low food changes nothing for idle (its food is always low). Active and human give their own orders and were unchanged in every trial. No default helps idle without hurting scripted, so none ships and the conditions stay off (D206). Idle starves because the starter field and the hand-fishing rate cannot feed one person through the first season; that is the routine's food economy (#138, Bundle D), and routine order does not fix it.
+
+### The automatic wood keep stays at two winters (#202)
+
+The issue was written when the automatic keep was the whole woodpile. Since D104 it is the wood for the nights to the end of the next `food.keepWinters` winters (2, one more during a winter), capped at the stock. The issue's two options map onto that knob: "through the end of the winter after next" is the current rule, and "up to the store's room" is the whole woodpile again, because since D104 wood is one resource and the woodpile can never pass the store's room. Only the scripted policy uses the automatic keep; active and human set their own wood keep each morning (D75). `lovec tools/balance policy=scripted,active,human seeds=12 years=2 set=food.keepWinters=N`:
+
+| `keepWinters` | scripted failed | scripted winter-2 fuel (median, p25) | scripted wood sold per run | scripted year-1 contracts | active, human |
+|---|---|---|---|---|---|
+| 1 (the coming winter only) | 0/12 | 1.03, 0.88 | 12.6 | $44 | unchanged |
+| 2 (shipped) | 0/12 | 1.03, 0.91 | 0 | $8 | unchanged |
+| 3 | 0/12 | 1.03, 0.91 | 0 | $8 | unchanged |
+| 10 (the whole woodpile, the store's room) | 0/12 | 1.03, 0.91 | 0 | $8 | unchanged |
+
+Read: from two winters up, scripted never holds more wood than the horizon asks, so it sells none and the runs are byte-identical. One winter sells about 13 wood a run (mostly into contracts) and lowers the winter-2 fuel quartile a little without a failure in two years; D104 lost 2 of 5 scripted runs to it in the old economy. Neither option the issue names beats the current rule, so `keepWinters` stays 2 (D206). A big woodpile above two winters' need is already spare without a confirmation.
+
+### After the bundle, against §15
+
+The same commands on the finished branch (events off: `policy=scripted,active,human,idle seeds=12 years=2`; events: `policy=scripted,active,human seeds=12 years=2 events=careful pair=1`). Run twice, and once with `jobs=1`: identical reports.
+
+| §15 metric | Target | scripted (before → after) | active | human | idle |
+|---|---|---|---|---|---|
+| Median day of Footing | active 12, scripted 16 | 10 → 10 | 7 → 7 | 11 → 11 | never → never |
+| First-winter failure | active 40 to 60%, scripted 60 to 80% | 0% → 0% | 0% → 0% | 17% → 17% | 92% → 92% |
+| Failed in two years | (none) | 0/12 → 0/12 | 0/12 → 0/12 | 8/12 → 9/12 | 12/12 → 12/12 |
+| Events per year (careful) | 6 to 10 | 2.3 → 2.3 | 2.0 → 2.1 | 1.8 → 1.8 | - |
+| Days with a status (careful) | active under 15% | 29% → 27% | 19% → 18% | 15% → 16% | - |
+| Event-caused failure (careful, paired) | 0 | 0 → 0 | 0 → 0 | 1 → 0 | - |
+| Distinct crops planted in year 2 | active at least 4 | 2 → 2 | 3 → 3 | 3 → 3 | - |
+| Money unspent at day 28 | under 35% of year-1 income | 12% → 12% | 3% → 3% | 13% → 12% | - |
+| Idle year-1 income against active | 40 to 60% | | | | 0% → 0% |
+
+The bundle moves the status share down a little and nothing else outside seed noise (the human runs diverge as soon as one more note or one paid careful option changes a day). The far targets (first-winter failure, events per year, idle income) are the economy's and the event cadence's, for Bundles D and E.
