@@ -12,6 +12,11 @@
 -- Pick up and move (D98, #15) live here too: `Placement.pickUp` returns a placed object to the inventory and
 -- `Placement.requestMove` relocates one, through the same orders when the new spot needs clearing.
 --
+-- No placement walls the homesteader in (D204, #435): a request or move is refused (reason "shutIn") when the
+-- object would leave the homesteader's tile, or the spot a bed is slept in from, with no walk to the road
+-- (`Inventory.shutsIn`, a flood fill run on the request and again when the object goes up, never per tick).
+-- An order that would shut someone in by the time its spot is clear is dropped (reason "shutIn").
+--
 -- State: world.state.placement = { orders = { { object = objectId, tile = anchorIndex, from? = anchor of the
 --   placed object being moved there, why? } ... } }
 --   why: nil, or { kind = "full", resource = id } (a store has no room for the clearing),
@@ -106,7 +111,7 @@ end
 
 --- Take the item to tile i: place it at once when the footprint is clear, else queue an order (crops and
 --- plans under it go later, when the rest is clear). Returns "placed", "queued", or nil plus the reason it was refused
---- ("none" when no such item is free, else the Inventory.check reason).
+--- ("none" when no such item is free, "shutIn" when it would wall the homesteader in, else the Inventory.check reason).
 function Placement.request(world, id, i)
   if Placement.available(world, id) <= 0 then
     return nil, "none"
@@ -114,6 +119,9 @@ function Placement.request(world, id, i)
   local result = Inventory.check(world, id, i)
   if not result.ok then
     return nil, result.reason, result.rule
+  end
+  if Inventory.shutsIn(world, id, result) then
+    return nil, "shutIn"
   end
   if result.immediate then
     if Inventory.place(world, id, i) then
@@ -409,7 +417,7 @@ end
 --- (`Placement.preview(world, id, i, anchor)`), the object goes at once when the way is clear and otherwise a
 --- move order is queued behind the clearing (crops and plans go last, D86). Until the move happens the object
 --- stays where it is and keeps working; cancelling the order leaves it there. Returns "placed", "queued", or
---- nil plus the reason it was refused (the `moveCheck` reasons, or an `Inventory.check` reason and rule).
+--- nil plus the reason it was refused (the `moveCheck` reasons, "shutIn", or an `Inventory.check` reason and rule).
 function Placement.requestMove(world, anchor, i)
   local shared = Placement.moveCheck(world, anchor)
   if not shared.ok then
@@ -419,6 +427,9 @@ function Placement.requestMove(world, anchor, i)
   local result = Placement.preview(world, id, i, anchor)
   if not result.ok then
     return nil, result.reason, result.rule
+  end
+  if Inventory.shutsIn(world, id, result, anchor) then
+    return nil, "shutIn"
   end
   dropMoves(world, anchor, "replaced") -- one move at a time per object
   if result.immediate then
@@ -566,6 +577,10 @@ function Placement.tick(world)
       index = index + 1 -- the old bed is in use tonight: the order waits until the homesteader is up (D115)
     elseif not check.ok then
       drop(world, index, check.reason) -- something that can't be cleared now stands there
+    elseif #check.clear == 0 and not check.actor and Inventory.shutsIn(world, order.object, check, from) then
+      -- Ready to go up, but what changed since the order was made would wall the homesteader in now. Checked
+      -- before the crops and plans go, so the drop loses nothing (D86).
+      drop(world, index, "shutIn")
     else
       if #check.clear == 0 and not check.actor and (#check.crops > 0 or check.plans > 0) then
         -- Everything else is clear and nobody stands in the way: the crops and plans go now, the last step

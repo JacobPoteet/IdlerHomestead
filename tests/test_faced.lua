@@ -126,7 +126,7 @@ T.test("faced text: an id no longer in content is left out", function()
 end)
 
 T.test(
-  "faced: the recovery scene shows the summary whole, as one line, or not at all, never into the footer",
+  "faced: the recovery scene always shows the summary whole and scrolls to the free study, never into the footer (#455)",
   function()
     local Recovery = require("src.scenes.recovery")
     local Text = require("src.ui.text")
@@ -152,18 +152,20 @@ T.test(
     end
     local tall = scene(390, 844, true)
     T.eq(#tall.facedLines, 4, "a phone held upright has room for all of it")
-    T.truthy(tall.facedTitled)
+    T.falsy(tall.list.overflow, "and nothing to scroll")
     for _, h in ipairs({ 300, 360, 390 }) do
       local short = scene(640, h, true)
-      local b = short.box
-      if short.facedLines then
-        T.truthy(
-          b.y + 150 + short.shift + short:studyHeight() <= b.y + b.h - 40,
-          h .. ": shown only where the free study stays above the footer"
-        )
-      end
+      local b, list = short.box, short.list
+      T.eq(#short.facedLines, 4, h .. ": the summary is whole on a short view too")
+      T.truthy(list.overflow, h .. ": the list scrolls instead")
+      T.truthy(list.view.y + list.view.h <= short.footerTop, h .. ": the window stops above the footer")
+      -- Scrolled to the end, the free study's last line sits inside the window.
+      list:action("listEnd", {}, tun.ui)
+      short:layout()
+      local studyEnd = short.top + 150 + short.shift + short:studyHeight()
+      T.truthy(studyEnd <= list.view.y + list.view.h, h .. ": the free study can be scrolled into view")
+      T.truthy(b.y + b.h > list.view.y + list.view.h, h .. ": inside the panel")
     end
-    T.eq(scene(640, 300, true).facedLines, nil, "no room at all: the free study comes first")
     T.eq(scene(390, 844, false).facedLines, nil, "a summary saved before D202 shows nothing")
     Text.wrappedHeight, Text.measure = wrappedHeight, measure
   end

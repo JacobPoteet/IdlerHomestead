@@ -42,17 +42,25 @@ local SPRING, SUMMER, WINTER = 1, 8, 22
 local function place(world, id)
   local grid = world.state.grid
   local sx, sy = Grid.coords(grid, Land.spawn(world))
-  local best, bestDist
+  local spots = {}
   for i = 1, #grid.terrain do
-    local x, y = Grid.coords(grid, i)
-    local d = (x - sx) ^ 2 + (y - sy) ^ 2
-    if (not bestDist or d < bestDist) and Inventory.canPlace(world, id, i) then
-      best, bestDist = i, d
+    if Inventory.canPlace(world, id, i) then
+      local x, y = Grid.coords(grid, i)
+      spots[#spots + 1] = { tile = i, d = (x - sx) ^ 2 + (y - sy) ^ 2 }
     end
   end
+  table.sort(spots, function(a, b)
+    return a.d < b.d or (a.d == b.d and a.tile < b.tile)
+  end)
+  T.truthy(#spots > 0, "a spot for " .. id)
   Inventory.addObject(world, id)
-  T.truthy(Inventory.place(world, id, best), "placed " .. id)
-  return best
+  -- Nearest first; a spot that would wall the homesteader in is refused (D204), so the next one is tried.
+  for _, spot in ipairs(spots) do
+    if Inventory.place(world, id, spot.tile) then
+      return spot.tile
+    end
+  end
+  T.truthy(false, "placed " .. id)
 end
 
 --- Remove the starting folding panel so tests control the generation.

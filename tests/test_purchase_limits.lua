@@ -41,10 +41,16 @@ local function deliverAll(world)
   Market.tick(world)
 end
 
+-- Off the map's first rows and columns: a bed in the corner has no tile to sleep from, and is refused (D204).
+local function inland(world, i)
+  local x, y = Grid.coords(world.state.grid, i)
+  return x >= 3 and y >= 3
+end
+
 --- A tile where the camp (2x2) fits and a shack (3x2) over it also fits.
 local function campSpot(world)
   for i = 1, #world.state.grid.terrain do
-    if Inventory.canPlace(world, "camp", i) and Inventory.canPlace(world, "shack", i) then
+    if inland(world, i) and Inventory.canPlace(world, "camp", i) and Inventory.canPlace(world, "shack", i) then
       return i
     end
   end
@@ -297,7 +303,7 @@ T.test("shack: with a camp standing it must go over the camp, otherwise anywhere
   -- No camp placed: anywhere legal works.
   local free
   for i = 1, #world.state.grid.terrain do
-    if Inventory.canPlace(world, "shack", i) then
+    if inland(world, i) and Inventory.canPlace(world, "shack", i) then
       free = i
       break
     end
@@ -308,7 +314,7 @@ T.test("shack: with a camp standing it must go over the camp, otherwise anywhere
   T.eq(PlaceText.replaceTag(world, "shack", preview), nil)
   local far
   for i = 1, #world.state.grid.terrain do
-    if Grid.distance(world.state.grid, spot, i) > 4 and Inventory.canPlace(world, "shack", i) then
+    if inland(world, i) and Grid.distance(world.state.grid, spot, i) > 4 and Inventory.canPlace(world, "shack", i) then
       far = i
       break
     end
@@ -344,7 +350,7 @@ T.test("shack: an unplaced camp in the inventory is dropped when the shack goes 
   Inventory.addObject(world, "shack")
   local free
   for i = 1, #world.state.grid.terrain do
-    if Inventory.canPlace(world, "shack", i) then
+    if inland(world, i) and Inventory.canPlace(world, "shack", i) then
       free = i
       break
     end

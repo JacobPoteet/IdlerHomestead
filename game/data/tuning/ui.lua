@@ -249,6 +249,7 @@ return {
     cancelled = "Cancelled the %s order",
     done = "Built the %s",
     lostItem = "The %s order was dropped",
+    shutInDropped = "The %s order was dropped: it would wall the homesteader in", -- D204
     noUntill = "Only tilled soil can be untilled",
     noWater = "Nothing to water there", -- the Pail tapped where no crop is thirsty (D138)
     noClear = "Nothing to clear there", -- the Axe tapped where nothing can be cleared (D138)
@@ -312,6 +313,7 @@ return {
       water = "Needs to touch the creek",
       replace = "An upgrade goes over the building it replaces: place it on that one",
       replaceAsleep = "The homesteader is sleeping in the old building: wait for morning",
+      shutIn = "That would wall the homesteader in: leave a way through", -- D204
     },
   },
   book = { -- the Notebook and the Ledger, tabbed paper books (GDD §9.4, D140, D143; src/ui/books.lua, src/scenes/book.lua)

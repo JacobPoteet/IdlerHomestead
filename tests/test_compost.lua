@@ -52,26 +52,39 @@ local function collect(world, name)
 end
 
 --- The free tile for `id` nearest the truck.
-local function spotFor(world, id, skip)
+-- The free tiles for `id`, nearest the spawn first.
+local function spotsFor(world, id, skip)
   local grid = world.state.grid
   local sx, sy = Grid.coords(grid, require("src.sim.systems.land").spawn(world))
-  local best, bestDist
+  local spots = {}
   for i = 1, #grid.terrain do
-    local x, y = Grid.coords(grid, i)
-    local dist = (x - sx) ^ 2 + (y - sy) ^ 2
-    if (not bestDist or dist < bestDist) and i ~= skip and Inventory.canPlace(world, id, i) then
-      best, bestDist = i, dist
+    if i ~= skip and Inventory.canPlace(world, id, i) then
+      local x, y = Grid.coords(grid, i)
+      spots[#spots + 1] = { tile = i, d = (x - sx) ^ 2 + (y - sy) ^ 2 }
     end
   end
-  return best
+  table.sort(spots, function(a, b)
+    return a.d < b.d or (a.d == b.d and a.tile < b.tile)
+  end)
+  return spots
+end
+
+local function spotFor(world, id, skip)
+  local first = spotsFor(world, id, skip)[1]
+  return first and first.tile
 end
 
 local function place(world, id, skip)
-  local spot = spotFor(world, id, skip)
-  T.truthy(spot, "a spot for " .. id)
+  local spots = spotsFor(world, id, skip)
+  T.truthy(#spots > 0, "a spot for " .. id)
   Inventory.addObject(world, id)
-  T.truthy(Inventory.place(world, id, spot))
-  return spot
+  -- Nearest first; a spot that would wall the homesteader in is refused (D204), so the next one is tried.
+  for _, spot in ipairs(spots) do
+    if Inventory.place(world, id, spot.tile) then
+      return spot.tile
+    end
+  end
+  T.truthy(false, "placed " .. id)
 end
 
 --- A world with a bin placed (summer, clear). Returns world, bin anchor.

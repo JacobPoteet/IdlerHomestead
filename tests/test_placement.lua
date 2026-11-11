@@ -576,3 +576,109 @@ T.test(
     )
   end
 )
+
+-- No placement walls the homesteader in (D204, #435) --------------------------------------------------------
+
+-- The homesteader stands on (x, y), in the middle of an open 5 x 5 block, with nothing to do.
+local function standIn(world)
+  local _, x, y = openBlock(world, 5, 5)
+  local hs = Actors.homesteader(world)
+  hs.job, hs.order, hs.path = nil, nil, nil
+  hs.x, hs.y = x + 2, y + 2
+  return x + 2, y + 2
+end
+
+T.test("placement: the last building that would box the homesteader in is refused (D204, #435)", function()
+  local world = newWorld(1)
+  local grid = world.state.grid
+  local x, y = standIn(world)
+  Inventory.addObject(world, "smoker", 8)
+  -- The diagonals and three sides go up: a way out is left on the west.
+  for _, d in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 }, { 0, -1 }, { 1, 0 }, { 0, 1 } }) do
+    T.eq(Placement.request(world, "smoker", Grid.index(grid, x + d[1], y + d[2])), "placed")
+  end
+  local west = Grid.index(grid, x - 1, y)
+  local result, reason = Placement.request(world, "smoker", west)
+  T.eq(result, nil, "the fourth side is refused")
+  T.eq(reason, "shutIn")
+  T.falsy(world.occupancy[west], "nothing went up there")
+  T.eq(Placement.available(world, "smoker"), 1, "the item stays in the crate")
+  T.falsy(Inventory.place(world, "smoker", west), "the direct path refuses it too (the harness places this way)")
+  local text = require("src.ui.place_text").reason(world, reason)
+  T.truthy(text:find("wall the homesteader in", 1, true), "the toast says why")
+end)
+
+T.test("placement: a building that cuts the bed off from the road is refused (D204, #435)", function()
+  local world = newWorld(1)
+  local grid = world.state.grid
+  local x, y = standIn(world)
+  local hs = Actors.homesteader(world)
+  -- A camp whose only bed spot is the tile west of its top-left corner, with smokers round that spot.
+  put(world, "camp", x, y)
+  put(world, "smoker", x - 1, y - 1)
+  put(world, "smoker", x, y - 1)
+  put(world, "smoker", x + 1, y - 1)
+  put(world, "smoker", x - 2, y - 1)
+  put(world, "smoker", x - 2, y)
+  put(world, "smoker", x - 2, y + 1)
+  put(world, "smoker", x - 2, y + 2)
+  hs.x, hs.y = x + 3, y + 3 -- out of the way, free to walk
+  Inventory.addObject(world, "smoker")
+  local result, reason = Placement.request(world, "smoker", Grid.index(grid, x - 1, y + 1))
+  T.eq(result, nil)
+  T.eq(reason, "shutIn", "the bed spot at the camp's corner would be cut off")
+end)
+
+T.test("placement: a move into the last gap is refused too (D204)", function()
+  local world = newWorld(1)
+  local grid = world.state.grid
+  local x, y = standIn(world)
+  for _, d in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 }, { 0, -1 }, { 1, 0 }, { 0, 1 } }) do
+    put(world, "smoker", x + d[1], y + d[2])
+  end
+  local _, ox, oy = openBlock(world, 1, 1, 12, 0)
+  local away = put(world, "smoker", ox, oy)
+  local result, reason = Placement.requestMove(world, away, Grid.index(grid, x - 1, y))
+  T.eq(result, nil)
+  T.eq(reason, "shutIn")
+  T.truthy(world.state.grid.objects[away], "the smoker stays where it was")
+end)
+
+T.test("placement: a pocket already shut does not stop placing elsewhere (D204)", function()
+  local world = newWorld(1)
+  local grid = world.state.grid
+  local x, y = standIn(world)
+  for _, d in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 }, { 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 } }) do
+    put(world, "smoker", x + d[1], y + d[2]) -- shut in already (an old save)
+  end
+  Inventory.addObject(world, "smoker")
+  local _, ox, oy = openBlock(world, 1, 1, 12, 0)
+  T.eq(Placement.request(world, "smoker", Grid.index(grid, ox, oy)), "placed")
+end)
+
+T.test(
+  "placement: a queued order that would shut the homesteader in by now is dropped, losing nothing (D204)",
+  function()
+    local world = newWorld(1)
+    local grid = world.state.grid
+    local x, y = standIn(world)
+    local hs = Actors.homesteader(world)
+    for _, d in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 }, { 0, -1 }, { 1, 0 }, { 0, 1 } }) do
+      put(world, "smoker", x + d[1], y + d[2])
+    end
+    -- A queued order on the gap (a crop under it), made while the homesteader was elsewhere.
+    local west = Grid.index(grid, x - 1, y)
+    plant(world, west)
+    hs.x, hs.y = x + 4, y + 4
+    Inventory.addObject(world, "smoker")
+    T.eq(Placement.request(world, "smoker", west), "queued")
+    hs.x, hs.y = x, y -- now inside the pocket
+    hs.job, hs.order, hs.path = nil, nil, nil
+    local dropped = collect(world, "placement.cancelled")
+    Placement.tick(world)
+    T.eq(#Placement.orders(world), 0, "the order is dropped")
+    T.eq(dropped[1] and dropped[1].reason, "shutIn")
+    T.truthy(world.state.crops[west], "the crop under it is still there (D86)")
+    T.falsy(world.occupancy[west])
+  end
+)

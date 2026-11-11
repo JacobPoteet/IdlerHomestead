@@ -289,13 +289,183 @@ function Inventory.check(world, id, i, ignoreHeld, ignoreAnchor)
   return result
 end
 
+-- Reachability (D204, #435) ---------------------------------------------------------------------------------
+
+-- Pathfinding's moves: eight ways, no cutting a corner past a blocked tile (src/sim/pathfind.lua).
+local STEPS = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } }
+
+-- Where the walk starts: the road (walkable, never buildable, so nothing can stand on it), or the tiles
+-- round the truck on land with no road.
+local function roadTiles(world)
+  local road = Grid.bankTiles(world, "road")
+  if #road > 0 then
+    return road
+  end
+  local truck = Land.truck(world)
+  local tiles = {}
+  if truck then
+    local grid = world.state.grid
+    local x, y = Grid.coords(grid, truck)
+    for dy = -1, 2 do
+      for dx = -1, 2 do
+        if Grid.inBounds(grid, x + dx, y + dy) then
+          tiles[#tiles + 1] = Grid.index(grid, x + dx, y + dy)
+        end
+      end
+    end
+  end
+  return tiles
+end
+
+-- Which of `goals` (a list of tile lists; a goal is met when any one of its tiles is reached) can be walked to
+-- from the road, with walkability given by `open(t)`? A breadth-first flood that stops once every goal is met.
+-- Returns a list of booleans, one per goal.
+local function reach(world, open, goals)
+  local grid = world.state.grid
+  local w, h = grid.w, grid.h
+  local met, left, goalsAt = {}, 0, {}
+  for g, tiles in ipairs(goals) do
+    met[g] = false
+    left = left + 1
+    for _, t in ipairs(tiles) do
+      goalsAt[t] = goalsAt[t] or {}
+      table.insert(goalsAt[t], g)
+    end
+  end
+  local seen, queue, head = {}, {}, 1
+  for _, t in ipairs(roadTiles(world)) do
+    if not seen[t] and open(t) then
+      seen[t] = true
+      queue[#queue + 1] = t
+    end
+  end
+  while head <= #queue and left > 0 do
+    local t = queue[head]
+    head = head + 1
+    for _, g in ipairs(goalsAt[t] or {}) do
+      if not met[g] then
+        met[g] = true
+        left = left - 1
+      end
+    end
+    local x = (t - 1) % w + 1
+    local y = (t - x) / w + 1
+    for _, d in ipairs(STEPS) do
+      local nx, ny = x + d[1], y + d[2]
+      if nx >= 1 and ny >= 1 and nx <= w and ny <= h then
+        local n = (ny - 1) * w + nx
+        if not seen[n] and open(n) then
+          local ok = d[1] == 0 or d[2] == 0 or (open((y - 1) * w + nx) and open((ny - 1) * w + x))
+          if ok then
+            seen[n] = true
+            queue[#queue + 1] = n
+          end
+        end
+      end
+    end
+  end
+  return met
+end
+
+-- The tiles a bed is slept in from: within one step of the shelter's top-left tile (Tasks' work spot).
+local function bedSpots(grid, anchor)
+  local x, y = Grid.coords(grid, anchor)
+  local tiles = {}
+  for dy = -1, 1 do
+    for dx = -1, 1 do
+      if Grid.inBounds(grid, x + dx, y + dy) then
+        tiles[#tiles + 1] = Grid.index(grid, x + dx, y + dy)
+      end
+    end
+  end
+  return tiles
+end
+
+--- Would putting an object of this type at tile i wall the homesteader in (D204, #435)? `check` is the
+--- `Inventory.check` result for that spot (ok), `ignoreAnchor` the object being moved. The spot is refused when,
+--- with the object standing there (and what it clears, replaces or moves gone), the homesteader's tile or the
+--- spot a bed is slept in from (a new bed's too) could no longer be walked to from the road although it could
+--- before. A flood
+--- fill over the land: call it when a placement is asked for or carried out, never per tick or per frame.
+function Inventory.shutsIn(world, id, check, ignoreAnchor)
+  local def = world.registry:get("objects", id)
+  if not def.blocks then
+    return false
+  end
+  local grid = world.state.grid
+  local covered, gone = {}, {}
+  for _, t in ipairs(check.tiles) do
+    covered[t] = true
+  end
+  for _, anchor in ipairs(check.replaces) do
+    gone[anchor] = true
+  end
+  for _, c in ipairs(check.clear) do
+    gone[c.anchor] = true
+  end
+  if ignoreAnchor then
+    gone[ignoreAnchor] = true
+  end
+  local goals = {}
+  local hs = Actors.homesteader(world) -- (none yet while the starting kit is set out)
+  if hs then
+    local here = Grid.index(grid, math.floor(hs.x + 0.5), math.floor(hs.y + 0.5))
+    if not covered[here] then -- (one standing where it goes steps aside first; the order checks again then)
+      goals[#goals + 1] = { here }
+    end
+  end
+  for _, anchor in ipairs(Grid.anchorsWith(world, "shelter")) do
+    if not gone[anchor] then
+      goals[#goals + 1] = bedSpots(grid, anchor)
+    end
+  end
+  if def.shelter then
+    goals[#goals + 1] = bedSpots(grid, check.tiles[1]) -- the new bed (a corner of the map has no spot to sleep from)
+  end
+  if #goals == 0 then
+    return false
+  end
+  local after = reach(world, function(t)
+    if covered[t] then
+      return false
+    end
+    local anchor = world.occupancy[t]
+    if anchor and gone[anchor] then
+      return Grid.terrain(world, t).walkable == true
+    end
+    return Grid.walkable(world, t)
+  end, goals)
+  local cut = {}
+  for g in ipairs(goals) do
+    if not after[g] then
+      cut[#cut + 1] = goals[g]
+    end
+  end
+  if #cut == 0 then
+    return false
+  end
+  -- Something is out of reach: refuse only if this placement is what cut it off (a pocket that was already shut
+  -- before, on an old save, does not stop every placement on the land; a new bed deep in an uncleared wood was
+  -- out of reach before too, and the homesteader keeps sleeping in the bed it can reach, D82).
+  local before = reach(world, function(t)
+    return Grid.walkable(world, t)
+  end, cut)
+  for g in ipairs(cut) do
+    if before[g] then
+      return true
+    end
+  end
+  return false
+end
+
 --- Can an object of this type be placed with its top-left at tile i right now, with nothing to clear
 --- or remove first? (Tilled soil without a crop or plan is fine, D79.)
 function Inventory.canPlace(world, id, i)
   return Inventory.check(world, id, i).immediate
 end
 
---- Place an object from inventory at tile i. Returns true on success. Tilled soil under the footprint is
+--- Place an object from inventory at tile i. Returns true on success (false too when it would wall the homesteader
+--- in, `Inventory.shutsIn`). Tilled soil under the footprint is
 --- covered (the object remembers which tiles were tilled, `tilled = { [tile] = true }`, so picking it up
 --- can hand the soil back as it was, #15).
 ---
@@ -308,7 +478,7 @@ function Inventory.place(world, id, i)
     return false
   end
   local check = Inventory.check(world, id, i)
-  if not check.immediate then
+  if not check.immediate or Inventory.shutsIn(world, id, check) then
     return false
   end
   local grid = world.state.grid
