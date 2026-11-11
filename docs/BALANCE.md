@@ -519,3 +519,45 @@ The human and active failure counts do not move beyond seed noise (the find draw
 ## Threat answers and the contracts board in the policies: smoke test (#389, #153, D203)
 
 Two features, on in `all`: `guards` (study and buy the farm dog, the lantern and each night threat's counter once its note is written) and `threats` (the same for the field threats' counters, a warned threat's first). The trip also goes for an open contract the surplus covers. The report gains a line "Threat answers and contracts per run" (guards or counters delivered, contracts filled and their pay). Smoke only, no tuning: `policy=all seeds=3 years=2` runs every policy without errors, scripted and active reach Footing on every seed, and the report is byte-identical between `jobs=1` and the default threads (timing lines aside). Balance reading of these numbers is M9 (#396).
+
+## M9 bundle A: body events, the mulch gate, routine defaults, the wood keep (#415, #426, #150, #202, D206)
+
+The first M9 pass. Agents tune toward the PLAN_DEPTH §15 targets here, read with the human policy and paired runs (D168), so these runs use 12 seeds and two years. Bundle A owns four issues; the economy (truck and stand income, wood heat, the year-3 death) is Bundle D's and the final measure Bundle E's.
+
+### Baseline against §15 (main at v0.5.0)
+
+Commands: `lovec tools/balance policy=scripted,active,human,idle seeds=12 years=2` (events off) for the economy and Footing rows, and `lovec tools/balance policy=scripted,active,human seeds=12 years=2 events=careful pair=1` for the event rows (`events=random pair=1` beside it). Twelve seeds, two years (56 days).
+
+| §15 metric | Target | scripted | active | human | idle |
+|---|---|---|---|---|---|
+| Median day of Footing | active 12, scripted 16 | 10 | 7 | 11 | never (0/12) |
+| First-winter failure | active 40 to 60%, scripted 60 to 80% | 0% | 0% | 17% (2/12 in winter 1, 1 more in autumn) | 92% (11/12, hunger) |
+| Failed in two years | (none) | 0/12 | 0/12 | 8/12 (hunger 7) | 12/12 |
+| Events per year (careful) | 6 to 10 | 2.3 | 2.0 | 1.8 | - |
+| Days with a status (careful) | active under 15% | 29% | 19% | 15% | - |
+| Event-caused failure (careful, paired) | 0 | 0 | 0 | 1/12 (seed 9, day 55, hunger) | - |
+| Distinct crops planted in year 2 | active at least 4 | 2 | 3 | 3 | - |
+| Money unspent at day 28, share of year-1 income | under 35% | 12% ($19 of $155) | 3% ($9 of $330) | 13% ($6.5 of $49) | - |
+| Year-1 income, idle against active | idle 40 to 60% of active | | $330 (truck $177, stand $3, contracts $150) | | 0% ($0) |
+
+Read: the two ends are both off target. A diligent player (`active`, `scripted`) never fails and earns Footing early, so the first winter is far too easy for them; the routine alone (`idle`) starves in every run before the first winter ends and earns nothing. Events come about a third as often as §15 asks, and the careful scripted player carries a status on 29% of days (mostly the hour of work and the hiker's Tired). Money does not pile up: every policy spends what it earns. None of these targets is this bundle's to hit; the table is the yardstick for Bundles D and E.
+
+### Water costs come from the drinking water (#415)
+
+The cut's Clean and bandage, the stove burn's compress, the bad tooth's brew and the clogged flue's douse each cost 1 water. Water was the cistern's ledger stock, which has no room until a cistern is placed, so most runs saw those options disabled and Careful (as a standing order or as the `events=careful` policy) fell back to ignoring. They now draw on the drinking water the D160 system already models: the cistern stock first, as the day's drink takes it, then the canteen (3 units, full at the start). Frozen pipes keep the cistern out of reach. Careful still leaves a day's drink. Chosen over a new stand-in because the canteen is water the homesteader carries anyway, it refills from the creek for free, and the card's "Costs 1 water" stays true.
+
+`events=careful pair=1`, 12 seeds, 2 years, before and after:
+
+| | scripted before | scripted after | active before | active after | human before | human after |
+|---|---|---|---|---|---|---|
+| festering cut: chosen / ignored | 0 / 2 | 3 / 0 | 0 / 3 | 4 / 0 | (not offered) | (not offered) |
+| bad tooth: chosen / ignored | 0 / 1 | 1 / 0 | 0 / 1 | 1 / 0 | (not offered) | (not offered) |
+| days with a status | 29% | 27% | 19% | 18% | 15% | 15% |
+| failed in two years | 0/12 | 0/12 | 0/12 | 0/12 | 9/12 | 9/12 |
+| event-caused failures | 0 | 0 | 0 | 0 | 1 | 1 |
+
+The careful answers now pay, the status share falls a little (the cheap careful option replaces the ignore outcome's two-day status), and nothing else moves.
+
+**The stand-in counters stay.** Every offered event, logged by season over `policy=scripted,active,human seeds=12 years=2 events=careful` (146 cards): back strain came 7 times (winter 4, summer 3, autumn 0), once while Tired. It is rare and never lands somewhere a strained back reads wrong, so the autumn and Tired terms stand in for a carry streak; a counter would change a card that comes once in twenty run-years. The stove burn (and the clogged flue) came 0 times, because no policy places a wood stove in two years: the stove needs the Cold night note, which only a night short of warmth writes, and the diligent policies never have one (opened as an issue). A placed stove burns every cold night, so "a stove is placed" already means "the stove is in use"; a use counter would add nothing.
+
+**The active random-answers starvation (D173 note) no longer reproduces.** `events=random pair=1`, 12 seeds: active fails 0/12 with events on and off. The one paired event-caused failure left is scripted seed 1 (day 34, hunger): its events-off twin falls to Condition 2 on the same day and lives by a hair, so the events cost it about 5 Condition on a run already starving in spring of year 2. That is the scripted year-2 food economy (Bundle D), not an event outcome.

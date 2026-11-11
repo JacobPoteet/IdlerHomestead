@@ -246,6 +246,8 @@ About 24 entries at first; each in its own content table so more can be added by
 
 The Routine screen gets one setting per event class (body, home, land, visitors): **Ask me** (default), **Careful** (the safe-cost option when it is affordable), or **Bold** (the no-cost option). Careful and Bold are chosen by the content's `careful` and `bold` flags, so a designer decides which option each means. **Careful respects keep targets (D168):** if paying the option's cost would drop a stock below its keep target (or the winter reserve target), Careful falls back to the ignore outcome and adds a line to the morning report ("kept the wood, ignored the splint"). Bold costs nothing, so it needs no check. The setting is unlocked by a journal perk ("Rules of thumb"); until then the ignore outcome applies. This keeps GDD §5.2's rule that decisions are never automated unless the player has chosen the rule.
 
+> **M9 (D206, #415):** an option's water cost is drinking water: the cistern stock first, then the canteen, so the careful cut, burn, tooth and flue options work without a cistern. Careful still leaves a day's drink. Back strain and the stove burn keep their stand-ins (autumn and Tired; a placed stove) after a harness count.
+
 ### 6.5 Mercy rules (so events never snowball)
 
 The rules key on Footing state and reserves, not only Condition (D168).
