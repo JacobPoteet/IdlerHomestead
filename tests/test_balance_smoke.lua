@@ -44,6 +44,60 @@ T.test("balance harness: summaries, careers after failure, and tuning overrides"
   end, "no such number")
 end)
 
+T.test("balance harness: career=choose takes a plot from the offer and an unlocked loadout (#454)", function()
+  local plots = {
+    { soil = 3, water = 3, wood = 3, sun = 3, hazard = "stony" },
+    { soil = 2, water = 1, wood = 2, sun = 2 },
+    { soil = 2, water = 2, wood = 2, sun = 2 },
+  }
+  T.eq(Policies.choosePlot("scripted", plots), 3, "no hazard first, then the most trait levels")
+  T.eq(Policies.choosePlot("idle", plots), nil, "idle heads out without choosing (the first plot)")
+  plots[2].water = 2
+  T.eq(Policies.choosePlot("active", plots), 2, "a tie goes to the first in the offer")
+
+  local Save = require("src.core.save")
+  local Run = require("src.meta.run")
+  local data = Save.newSlotData("Kit")
+  require("src.session").new({
+    store = Save.new(Save.memoryBackend(), { slotCount = 1 }),
+    slot = 1,
+    data = data,
+    registry = ctx.registry,
+    tuning = ctx.tuning,
+    seed = 4,
+  })
+  local metaWorld = Run.metaWorld(ctx, data.meta)
+  T.eq(Policies.chooseLoadout("scripted", metaWorld), nil, "nothing unlocked: the standard start")
+  data.meta.journal.known.sturdy_rod = true
+  T.eq(Policies.chooseLoadout("scripted", metaWorld), "angler", "the first unlocked one on its list")
+  data.meta.journal.known.axe = true
+  T.eq(Policies.chooseLoadout("scripted", metaWorld), "lumberjack")
+  T.eq(Policies.chooseLoadout("idle", metaWorld), nil, "idle never takes a kit")
+
+  local starter = ctx.tuning.farming.starterField
+  ctx.tuning.farming.starterField = {} -- idle starves in the first spring, so the career reaches a recovery
+  local a = Balance.playSeed(ctx, "idle", 1, WEEK, 2, nil, nil, nil, nil, nil, "choose")
+  local b = Balance.playSeed(ctx, "idle", 1, WEEK, 2, nil, nil, nil, nil, nil, "choose")
+  local fresh = Balance.playSeed(ctx, "idle", 1, WEEK, 2)
+  local forced = Balance.playSeed(ctx, "idle", 1, WEEK, 2, nil, nil, nil, nil, "lumberjack", "choose")
+  ctx.tuning.farming.starterField = starter
+  T.eq(a[1].plot, nil, "run 1 has no offer")
+  T.eq(a[2].plot.index, 1, "idle takes the first plot")
+  T.eq(a[2].loadout, nil)
+  T.eq(b[2].plot.levels, a[2].plot.levels, "the offer repeats")
+  T.eq(b[2].final.money, a[2].final.money, "the chosen run repeats")
+  T.eq(fresh[2].plot, nil, "the fresh career has no offer")
+  T.eq(forced[2].loadout, "lumberjack", "loadout= still forces the kit")
+  T.truthy(forced[2].plot, "and the plot is still taken from the offer")
+  local starts = Balance.summarize(ctx, { a[2] }, WEEK).starts
+  T.eq(starts.n, 1)
+  T.eq(starts.loadouts.standard, 1)
+  T.eq(Balance.summarize(ctx, { fresh[2] }, WEEK).starts, nil, "no starts line without an offer")
+  T.errors(function()
+    Balance.playSeed(ctx, "idle", 1, WEEK, 1, nil, nil, nil, nil, nil, "nonsense")
+  end, "career must be")
+end)
+
 -- Footing metrics (#344, D165) ----------------------------------------------------------------------------
 
 T.test("balance harness: Footing metrics reach the summary, the CSV and the JSON", function()

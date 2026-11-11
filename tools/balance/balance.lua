@@ -22,6 +22,7 @@ local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
 local Policies = require("policies")
 local Registry = require("src.core.registry")
+local Rng = require("src.core.rng")
 local Run = require("src.meta.run")
 local Save = require("src.core.save")
 local Status = require("src.sim.systems.status")
@@ -715,10 +716,10 @@ end
 --- choice policy), and return the events-on results; each carries `off`, the facts of the events-off run with the same
 --- run index (nil when that career ended sooner). The two careers are independent: a run that dies in one has its own
 --- recovery and next run, so only run indexes both legs reached are paired.
-function Balance.playPair(ctx, policyName, seed, years, runs, features, outfit, eventMode, loadout)
+function Balance.playPair(ctx, policyName, seed, years, runs, features, outfit, eventMode, loadout, career)
   assert(eventMode and eventMode ~= "off", "a paired run needs an event policy (events=ignore|careful|bold|random)")
-  local off = Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, "off", false, loadout)
-  local on = Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode, false, loadout)
+  local off = Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, "off", false, loadout, career)
+  local on = Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode, false, loadout, career)
   for _, r in ipairs(on) do
     r.off = off[r.run] and offLeg(off[r.run]) or nil
   end
@@ -728,22 +729,26 @@ end
 --- Play one seed. With `runs` > 1, a failed run is followed by recovery (the policy's free study)
 --- and a fresh run on new land with the knowledge kept (GDD §4.3); a run that survives the span
 --- ends the career there. `loadout` (a loadout id, optional) starts every run with that starting loadout (D201). `outfit` ("light", "mid" or "heavy", optional) dresses the homesteader in the first
---- garment of that weight class in every slot at the start of each run (Balance.dress). Returns a list of run
---- results.
-function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode, pair, loadout)
+--- garment of that weight class in every slot at the start of each run (Balance.dress). `career` "choose" (#454, D205)
+--- has the policy take a plot from the recovery's offer (Policies.choosePlot; the offer's base seed is derived from the
+--- next run's seed, so it repeats) and an unlocked loadout (Policies.chooseLoadout, unless `loadout` forces one);
+--- "fresh" or nil starts the next run on a fresh seed with the standard start, as before. Returns a list of run results.
+function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode, pair, loadout, career)
   if pair then
-    return Balance.playPair(ctx, policyName, seed, years, runs, features, outfit, eventMode, loadout)
+    return Balance.playPair(ctx, policyName, seed, years, runs, features, outfit, eventMode, loadout, career)
   end
+  assert(career == nil or career == "fresh" or career == "choose", "career must be choose or fresh")
   if eventMode ~= nil then
     ctx.tuning.events.enabled = eventMode ~= "off" -- the engine follows the mode (a paired run plays both ways in one process)
   end
   local data = Save.newSlotData("balance")
   local store = Save.new(Save.memoryBackend(), { slotCount = 1 })
   local results = {}
+  local nextPlot -- career=choose: the plot the next run was taken from
   for r = 1, runs or 1 do
     local runSeed = seed + (r - 1) * 7919
-    if loadout and not data.run then
-      data.run = World.newState(runSeed) -- a run that starts with a loadout (D201): the choice is run state
+    if loadout then
+      data.run = data.run or World.newState(runSeed) -- a run that starts with a loadout (D201): the choice is run state
       data.run.loadout = loadout
     end
     local session = Session.new({
@@ -761,6 +766,7 @@ function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, 
     result.run = r
     result.baseSeed = seed
     result.loadout = session.world.state.loadout -- the starting loadout the run had (nil: the standard start)
+    result.plot = nextPlot -- career=choose: { index, hazard, levels } of the plot taken from the offer (nil: run 1, fresh)
     result.notesThisRun = 0
     results[#results + 1] = result
     if result.alive then
@@ -771,6 +777,17 @@ function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, 
     local idea = Policies.freeStudy(metaWorld)
     if idea then
       Run.freeStudy(data, metaWorld, idea)
+    end
+    nextPlot = nil
+    if career == "choose" then
+      local plots = Run.offerPlots(data, metaWorld, Rng.deriveSeed(seed + r * 7919, "plots"))
+      local index = Policies.choosePlot(policyName, plots)
+      Run.choosePlot(data, index)
+      local p = Run.pickedPlot(data)
+      nextPlot = { index = index or 1, hazard = p.hazard, levels = p.soil + p.water + p.wood + p.sun }
+      if not loadout then
+        assert(Run.chooseLoadout(data, metaWorld, Policies.chooseLoadout(policyName, metaWorld)))
+      end
     end
     Run.startNext(data)
   end
@@ -911,6 +928,27 @@ function Balance.footingSummary(results)
     f.failFuelMean[season] = count / n
   end
   return f
+end
+
+--- How the runs started (#454, D205): with career=choose, the plot taken from each offer (by offer index, how many had
+--- a hazard, the mean sum of trait levels) and the loadouts; nil when no run was taken from an offer (run 1, fresh).
+function Balance.startsSummary(results)
+  local s = { n = 0, plots = {}, hazard = 0, levels = 0, loadouts = {} }
+  for _, r in ipairs(results) do
+    if r.plot then
+      s.n = s.n + 1
+      s.plots[r.plot.index] = (s.plots[r.plot.index] or 0) + 1
+      s.hazard = s.hazard + (r.plot.hazard and 1 or 0)
+      s.levels = s.levels + r.plot.levels
+      local id = r.loadout or "standard"
+      s.loadouts[id] = (s.loadouts[id] or 0) + 1
+    end
+  end
+  if s.n == 0 then
+    return nil
+  end
+  s.levels = s.levels / s.n
+  return s
 end
 
 --- Crops across runs (D177, #363), reporting only: the starter crops' share of what the farm sold (the check that
@@ -1164,6 +1202,7 @@ function Balance.summarize(ctx, results, years, policyName)
   summary.features = results[1] and results[1].features or "none"
   summary.footing = Balance.footingSummary(results)
   summary.crops = Balance.cropsSummary(ctx, results, years)
+  summary.starts = Balance.startsSummary(results)
   summary.events = Balance.eventsSummary(results)
   summary.spiral = Balance.spiralSummary(results)
   summary.paired = Balance.pairedSummary(results)
@@ -1693,6 +1732,33 @@ function Balance.printFeatures(summary, years)
   table.sort(sold)
   line("Sold per run by good, truck and stand (mean units): " .. (#sold > 0 and table.concat(sold, ", ") or "-"))
   Balance.printCrops(summary.crops, years)
+  Balance.printStarts(summary.starts)
+end
+
+--- The starts line of a summary (#454, D205): only for runs taken from a recovery's plot offer (career=choose).
+function Balance.printStarts(s)
+  if not s then
+    return
+  end
+  local plots, kits = {}, {}
+  for index, n in pairs(s.plots) do
+    plots[#plots + 1] = string.format("#%d %d", index, n)
+  end
+  for id, n in pairs(s.loadouts) do
+    kits[#kits + 1] = string.format("%s %d", id, n)
+  end
+  table.sort(plots)
+  table.sort(kits)
+  line(
+    string.format(
+      "Starts taken from the plot offer (%d runs): plot %s, with a hazard %d, trait levels mean %.1f; loadouts %s",
+      s.n,
+      table.concat(plots, ", "),
+      s.hazard,
+      s.levels,
+      table.concat(kits, ", ")
+    )
+  )
 end
 
 --- The crops block of a summary (D177, #363): reporting only, no target. The share is the check behind #263: how much
@@ -1876,6 +1942,8 @@ function Balance.runRecord(r)
     spiral = r.spiral,
     events = r.events,
     off = r.off,
+    loadout = r.loadout,
+    plot = r.plot,
   }
 end
 

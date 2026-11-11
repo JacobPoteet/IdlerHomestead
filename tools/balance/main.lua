@@ -22,6 +22,11 @@ Idler Homestead balance harness. Usage:  lovec tools/balance [key=value ...]
   loadout=<id>                          every run of the career starts with that starting loadout (angler,
                                         gardener, herder, lumberjack, tinkerer; D201). The Journal unlock is skipped:
                                         this measures the loadout, not the unlock. Default: the standard start
+  career=fresh|choose                   how a career's next run starts after recovery (runs above 1; #454, D205):
+                                        fresh (default) a fresh seed and the standard start, as before; choose has
+                                        the policy take the easiest plot from the recovery's offer (no hazard first,
+                                        then the most trait levels) and its preferred unlocked loadout (idle takes
+                                        the first plot and the standard start). loadout=<id> still forces the kit
   jobs=N                                worker threads that play seeds in parallel (default: the
                                         CPU count, at most 16); jobs=1 plays them one after another
                                         in this thread. The report and out= files are identical.
@@ -104,10 +109,12 @@ function love.load(args)
 
     local loadout = opts.loadout
     assert(loadout == nil or ctx.registry:has("loadouts", loadout), "loadout= must be a loadout id")
+    local career = opts.career
+    assert(career == nil or career == "fresh" or career == "choose", "career= must be fresh or choose")
 
     io.write(
       string.format(
-        "balance: policies=%s seeds=%d (from %d) years=%d runs=%d features=%s%s%s%s\n",
+        "balance: policies=%s seeds=%d (from %d) years=%d runs=%d features=%s%s%s%s%s%s\n",
         table.concat(names, ","),
         seeds,
         seed0,
@@ -116,6 +123,7 @@ function love.load(args)
         Features.label(features),
         outfit and (" outfit=" .. outfit) or "",
         loadout and (" loadout=" .. loadout) or "",
+        career and (" career=" .. career) or "",
         pair and (" paired events off/" .. opts.events) or "",
         #opts.sets > 0 and (" overrides: " .. table.concat(opts.sets, " ")) or ""
       )
@@ -151,6 +159,7 @@ function love.load(args)
         features = opts.features,
         outfit = outfit,
         loadout = loadout,
+        career = career,
         events = opts.events,
         pair = pair,
         sets = opts.sets,
@@ -169,12 +178,12 @@ function love.load(args)
       if played then
         return played[name][seed]
       end
-      return Balance.playSeed(ctx, name, seed, years, runs, features, outfit, opts.events, pair, loadout)
+      return Balance.playSeed(ctx, name, seed, years, runs, features, outfit, opts.events, pair, loadout, career)
     end
 
     local all, report =
       {}, {
-        config = { seeds = seeds, seed0 = seed0, years = years, runs = runs, overrides = opts.sets, features = Features.label(features), outfit = outfit, loadout = loadout, events = opts.events, pair = pair },
+        config = { seeds = seeds, seed0 = seed0, years = years, runs = runs, overrides = opts.sets, features = Features.label(features), outfit = outfit, loadout = loadout, career = career, events = opts.events, pair = pair },
         policies = {},
       }
     for _, name in ipairs(names) do

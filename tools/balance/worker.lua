@@ -33,7 +33,8 @@ local ok, err = xpcall(function()
       config.outfit or nil,
       config.events or nil,
       config.pair or nil,
-      config.loadout or nil
+      config.loadout or nil,
+      config.career or nil
     )
     done:push("ok\t" .. name .. "\t" .. seed .. "\t" .. Parallel.encode(results))
   end

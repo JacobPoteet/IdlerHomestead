@@ -43,6 +43,7 @@ local Ledger = require("src.sim.systems.ledger")
 local Market = require("src.sim.systems.market")
 local Needs = require("src.sim.systems.needs")
 local Rng = require("src.core.rng")
+local Run = require("src.meta.run")
 local Shelter = require("src.sim.systems.shelter")
 local Sleep = require("src.sim.systems.sleep")
 local Stats = require("src.sim.stats")
@@ -75,6 +76,13 @@ local POLICY = {
   humanIgnoreCard = 0.25, -- human: chance an event card is not looked at (its window runs out)
   humanFishSkill = 0.5, -- human: chance the tension mini-game ends in a landed fish
   featureReserve = 8, -- $ kept back when buying feature items (power, water, stand, cat) so seeds and bait stay affordable
+  -- Careers with career=choose (#454, D205): the starting loadout each policy takes in recovery, the first unlocked one
+  -- in its list (none unlocked, or not listed: the standard start). Idle never chooses (first plot, standard start).
+  loadoutPrefs = {
+    scripted = { "lumberjack", "angler" }, -- its runs end over winter wood; the rod feeds it while the field grows
+    active = { "lumberjack", "tinkerer", "gardener", "herder", "angler" },
+    human = { "lumberjack", "tinkerer", "gardener", "herder", "angler" },
+  },
 }
 Policies.POLICY = POLICY
 
@@ -936,6 +944,39 @@ function Policies.new(name, world, seed, features)
   inst:attach(world)
   inst:start(world)
   return inst
+end
+
+--- Careers with career=choose (#454, D205): which offered plot (Run.offerPlots) the policy takes, as an index into
+--- `plots`, or nil for the first (what Head out without choosing does). The easiest by the preview's own data: a plot
+--- with no hazard before one with a hazard, then the highest sum of the four trait levels, then the first in the offer.
+--- Deterministic: the offer is the only input. Idle never chooses.
+function Policies.choosePlot(name, plots)
+  if name == "idle" or not plots or #plots == 0 then
+    return nil
+  end
+  local best, bestKey
+  for i, p in ipairs(plots) do
+    local key = (p.hazard and 0 or 100) + p.soil + p.water + p.wood + p.sun
+    if not bestKey or key > bestKey then
+      best, bestKey = i, key
+    end
+  end
+  return best
+end
+
+--- Careers with career=choose (#454, D205): the starting loadout the policy takes, the first unlocked one in its
+--- POLICY.loadoutPrefs list (Run.loadouts), or nil for the standard start.
+function Policies.chooseLoadout(name, metaWorld)
+  local unlocked = {}
+  for _, entry in ipairs(Run.loadouts(metaWorld)) do
+    unlocked[entry.def.id] = entry.unlocked
+  end
+  for _, id in ipairs(POLICY.loadoutPrefs[name] or {}) do
+    if unlocked[id] then
+      return id
+    end
+  end
+  return nil
 end
 
 --- During recovery the one free study: the first idea on the study list, else any idea.
