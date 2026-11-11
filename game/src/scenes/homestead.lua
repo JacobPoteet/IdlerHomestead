@@ -365,6 +365,8 @@ function Homestead:subscribe()
       local p = self.app.ctx.tuning.ui.placement
       if e.reason == "player" then
         self:queueToast(string.format(p.cancelled, name("objects", e.object):lower()))
+      elseif e.reason == "shutIn" then
+        self:queueToast(string.format(p.shutInDropped, name("objects", e.object):lower()))
       else
         self:queueToast(string.format(p.lostItem, name("objects", e.object):lower()))
       end
@@ -2742,11 +2744,12 @@ function Homestead:tap(i)
     elseif preview.immediate and #preview.replaces == 0 then
       self.placeCard = nil
       local name = world.registry:get("objects", self.placing).name:lower()
-      if self:requestHere(i) == "placed" then
+      local result, reason, rule = self:requestHere(i)
+      if result == "placed" then
         self:showToast(self.moving and string.format(self.app.ctx.tuning.ui.placement.moved, name) or "Placed " .. name)
         self:setHand(nil, nil)
       else
-        self:showToast(PlaceText.reason(world, "bounds"))
+        self:showToast(PlaceText.reason(world, reason or "bounds", rule))
       end
     else
       self.placeCard = { kind = "confirm", tile = i }

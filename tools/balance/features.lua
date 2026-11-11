@@ -432,7 +432,7 @@ function Features.place(world, id, ringFrom)
   else
     cx, cy = Grid.coords(grid, world.state.land.truck)
   end
-  local best, bestScore
+  local spots = {}
   for i = 1, #grid.terrain do
     if Inventory.canPlace(world, id, i) and Grid.terrain(world, i).id ~= "road" then
       local x, y = Grid.coords(grid, i)
@@ -453,13 +453,23 @@ function Features.place(world, id, ringFrom)
           end
           score = -covered * 100 + d
         end
-        if not bestScore or score < bestScore then
-          best, bestScore = i, score
-        end
+        spots[#spots + 1] = { tile = i, score = score }
       end
     end
   end
-  return best ~= nil and Inventory.place(world, id, best)
+  -- Best first (ties to the lower tile, as before); the next one when a spot would wall the homesteader in (D204).
+  table.sort(spots, function(a, b)
+    if a.score ~= b.score then
+      return a.score < b.score
+    end
+    return a.tile < b.tile
+  end)
+  for _, spot in ipairs(spots) do
+    if Inventory.place(world, id, spot.tile) then
+      return true
+    end
+  end
+  return false
 end
 
 --- Catalog ids to buy while in town this trip, for a feature set (pickup-only items): three more

@@ -11,16 +11,24 @@ local Power = require("src.sim.systems.power")
 local function place(world, id)
   local grid = world.state.grid
   local sx, sy = Grid.coords(grid, Land.spawn(world))
-  local best, bestDist
+  local spots = {}
   for i = 1, #grid.terrain do
-    local x, y = Grid.coords(grid, i)
-    local dist = (x - sx) ^ 2 + (y - sy) ^ 2
-    if (not bestDist or dist < bestDist) and Inventory.canPlace(world, id, i) then
-      best, bestDist = i, dist
+    if Inventory.canPlace(world, id, i) then
+      local x, y = Grid.coords(grid, i)
+      spots[#spots + 1] = { tile = i, dist = (x - sx) ^ 2 + (y - sy) ^ 2 }
     end
   end
+  table.sort(spots, function(a, b)
+    return a.dist < b.dist or (a.dist == b.dist and a.tile < b.tile)
+  end)
   Inventory.addObject(world, id)
-  assert(Inventory.place(world, id, best), "could not place " .. id)
+  -- Nearest first; a spot that would wall the homesteader in is refused (D204), so the next one is tried.
+  for _, spot in ipairs(spots) do
+    if Inventory.place(world, id, spot.tile) then
+      return
+    end
+  end
+  error("could not place " .. id)
 end
 
 --- A random find can pop up after the clock moves: take it so the homestead is on top again.

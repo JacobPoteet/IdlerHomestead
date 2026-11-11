@@ -56,6 +56,9 @@ end
 --- on every save; the lookup keeps that an implementation detail).
 function Actors.homesteader(world)
   local list = world.state.actors
+  if not list then
+    return nil -- before the actors system has initialised (the starting kit is set out first)
+  end
   for _, actor in ipairs(list) do
     if actor.kind == "homesteader" then
       return actor
