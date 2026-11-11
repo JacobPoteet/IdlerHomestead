@@ -12,7 +12,6 @@ local Finds = require("src.sim.systems.finds")
 local Footing = require("src.sim.systems.footing")
 local Gates = require("gates")
 local Inventory = require("src.sim.systems.inventory")
-local Market = require("src.sim.systems.market")
 local Machines = require("src.sim.systems.machines")
 local Power = require("src.sim.systems.power")
 local Soil = require("src.sim.systems.soil")
@@ -23,6 +22,7 @@ local Ledger = require("src.sim.systems.ledger")
 local Needs = require("src.sim.systems.needs")
 local Policies = require("policies")
 local Registry = require("src.core.registry")
+local Rng = require("src.core.rng")
 local Run = require("src.meta.run")
 local Save = require("src.core.save")
 local Status = require("src.sim.systems.status")
@@ -136,6 +136,49 @@ local function winterNeed(world, year)
   return sum * winter.severity
 end
 
+--- Sales value (#448, D177): add what each sale really paid to `sales` ({ all, crops, starter, truck, stand,
+--- contracts }), read from the sale events' own lines (after saturation, quality tiers and market day, D196) and the
+--- contracts' fixed pay (D197). `crops` counts crop produce, `starter` the starter field's crops.
+function Balance.trackSales(ctx, world, sales)
+  local produceOf, starterProduce = {}, {} -- resource id -> true, for crop produce and for the starter field's
+  for _, crop in ipairs(ctx.registry:all("crops")) do
+    produceOf[crop.produce] = true
+  end
+  for _, entry in ipairs(ctx.tuning.farming.starterField) do
+    starterProduce[ctx.registry:get("crops", entry.crop).produce] = true
+  end
+  local events = world.events
+  local function sold(id, worth)
+    sales.all = sales.all + worth
+    if produceOf[id] then
+      sales.crops = sales.crops + worth
+      if starterProduce[id] then
+        sales.starter = sales.starter + worth
+      end
+    end
+  end
+  events:on("market.sold", function(e)
+    sales.truck = sales.truck + e.earnings
+    for _, l in ipairs(e.lines) do
+      sold(l.id, l.worth)
+    end
+  end)
+  events:on("stand.sold", function(e)
+    sales.stand = sales.stand + e.earned
+    local raw = 0
+    for _, l in ipairs(e.lines) do
+      raw = raw + l.worth
+    end
+    for _, l in ipairs(e.lines) do -- scaled so the lines add up to the rounded day's earnings
+      sold(l.id, raw > 0 and l.worth * e.earned / raw or 0)
+    end
+  end)
+  events:on("contract.done", function(e)
+    sales.contracts = sales.contracts + e.reward
+    sold(e.item, e.reward)
+  end)
+end
+
 --- Simulate one run to its end or `years` years. Returns a result table:
 ---   alive, failDay, failSeason, failYear, cause, snaps[day], counters, winters[year].
 --- `session` carries the slot data (a fresh Session per run).
@@ -222,10 +265,11 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
     finds = {}, -- find id -> times picked
     spoiledBy = {}, -- resource id -> units spoiled (D73)
     soldBy = {}, -- resource id -> units sold by the truck and the stand (D75)
-    -- Crop income (D177, #363): $ the truck and the stand paid, at the price of the moment: `all` for every good,
-    -- `crops` for crop produce, `starter` for the starter field's crops (tuning.farming.starterField). The check
-    -- behind "starting-crop income must not fund the mid game" (#263): reporting only, no target.
-    sales = { all = 0, crops = 0, starter = 0 },
+    -- Crop income (D177, #363): $ the truck, the stand and the contracts board really paid, read from the sale events
+    -- (#448: after saturation, tiers and market day, D196): `all` for every good, `crops` for crop produce, `starter`
+    -- for the starter field's crops (tuning.farming.starterField), and `truck`, `stand`, `contracts` by source. The
+    -- check behind "starting-crop income must not fund the mid game" (#263): reporting only, no target.
+    sales = { all = 0, crops = 0, starter = 0, truck = 0, stand = 0, contracts = 0 },
     plantedByYear = {}, -- game year -> crop id -> plantings (how many kinds the player grows once the others are known)
     daysTotal = daysTotal,
     features = Features.label(features or {}),
@@ -259,13 +303,6 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
       result.footing.winterDay = (n - 1) * tuning.time.daysPerSeason + 1
       break
     end
-  end
-  local produceOf, starterProduce = {}, {} -- resource id -> true, for crop produce and for the starter field's
-  for _, crop in ipairs(ctx.registry:all("crops")) do
-    produceOf[crop.produce] = true
-  end
-  for _, entry in ipairs(tuning.farming.starterField) do
-    starterProduce[ctx.registry:get("crops", entry.crop).produce] = true
   end
   local hourSeconds = tuning.time.dayLength / 24
   local damage = { hunger = 0, cold = 0, thirst = 0 } -- Condition lost since the last day with no damage
@@ -357,17 +394,9 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
   events:on("ledger.changed", function(e)
     if (e.reason == "sold" or e.reason == "stand") and e.delta < 0 then
       result.soldBy[e.id] = (result.soldBy[e.id] or 0) - e.delta
-      local price = e.reason == "stand" and Stand.unitPrice(world, e.id) or Market.sellPrice(world, e.id)
-      local worth = -e.delta * price
-      result.sales.all = result.sales.all + worth
-      if produceOf[e.id] then
-        result.sales.crops = result.sales.crops + worth
-        if starterProduce[e.id] then
-          result.sales.starter = result.sales.starter + worth
-        end
-      end
     end
   end)
+  Balance.trackSales(ctx, world, result.sales)
   events:on("crop.planted", function(e)
     local year = Calendar.now(world).year
     local by = result.plantedByYear[year] or {}
@@ -486,6 +515,7 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
       end
       result.snaps[e.day].truckEarned = result.counters.earned
       result.snaps[e.day].standEarned = Stand.total(world).earned
+      result.snaps[e.day].contractEarned = result.counters.contractPay
       local kind = Weather.kind(world)
       if Weather.isRaining(world) then
         result.counters.rainDays = result.counters.rainDays + 1
@@ -603,6 +633,7 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
   result.final = snapshot(world)
   result.final.truckEarned = result.counters.earned
   result.final.standEarned = Stand.total(world).earned
+  result.final.contractEarned = result.counters.contractPay
   -- Per-run facts read through public accessors.
   local water = Features.waterStats(world)
   result.counters.waterHand, result.counters.waterDrip = water.hand, water.drip
@@ -685,10 +716,10 @@ end
 --- choice policy), and return the events-on results; each carries `off`, the facts of the events-off run with the same
 --- run index (nil when that career ended sooner). The two careers are independent: a run that dies in one has its own
 --- recovery and next run, so only run indexes both legs reached are paired.
-function Balance.playPair(ctx, policyName, seed, years, runs, features, outfit, eventMode)
+function Balance.playPair(ctx, policyName, seed, years, runs, features, outfit, eventMode, loadout, career)
   assert(eventMode and eventMode ~= "off", "a paired run needs an event policy (events=ignore|careful|bold|random)")
-  local off = Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, "off")
-  local on = Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode)
+  local off = Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, "off", false, loadout, career)
+  local on = Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode, false, loadout, career)
   for _, r in ipairs(on) do
     r.off = off[r.run] and offLeg(off[r.run]) or nil
   end
@@ -698,22 +729,26 @@ end
 --- Play one seed. With `runs` > 1, a failed run is followed by recovery (the policy's free study)
 --- and a fresh run on new land with the knowledge kept (GDD §4.3); a run that survives the span
 --- ends the career there. `loadout` (a loadout id, optional) starts every run with that starting loadout (D201). `outfit` ("light", "mid" or "heavy", optional) dresses the homesteader in the first
---- garment of that weight class in every slot at the start of each run (Balance.dress). Returns a list of run
---- results.
-function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode, pair, loadout)
+--- garment of that weight class in every slot at the start of each run (Balance.dress). `career` "choose" (#454, D205)
+--- has the policy take a plot from the recovery's offer (Policies.choosePlot; the offer's base seed is derived from the
+--- next run's seed, so it repeats) and an unlocked loadout (Policies.chooseLoadout, unless `loadout` forces one);
+--- "fresh" or nil starts the next run on a fresh seed with the standard start, as before. Returns a list of run results.
+function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, eventMode, pair, loadout, career)
   if pair then
-    return Balance.playPair(ctx, policyName, seed, years, runs, features, outfit, eventMode)
+    return Balance.playPair(ctx, policyName, seed, years, runs, features, outfit, eventMode, loadout, career)
   end
+  assert(career == nil or career == "fresh" or career == "choose", "career must be choose or fresh")
   if eventMode ~= nil then
     ctx.tuning.events.enabled = eventMode ~= "off" -- the engine follows the mode (a paired run plays both ways in one process)
   end
   local data = Save.newSlotData("balance")
   local store = Save.new(Save.memoryBackend(), { slotCount = 1 })
   local results = {}
+  local nextPlot -- career=choose: the plot the next run was taken from
   for r = 1, runs or 1 do
     local runSeed = seed + (r - 1) * 7919
-    if loadout and not data.run then
-      data.run = World.newState(runSeed) -- a run that starts with a loadout (D201): the choice is run state
+    if loadout then
+      data.run = data.run or World.newState(runSeed) -- a run that starts with a loadout (D201): the choice is run state
       data.run.loadout = loadout
     end
     local session = Session.new({
@@ -730,6 +765,8 @@ function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, 
     local result = playRun(ctx, session, policyName, runSeed, years, features, eventMode)
     result.run = r
     result.baseSeed = seed
+    result.loadout = session.world.state.loadout -- the starting loadout the run had (nil: the standard start)
+    result.plot = nextPlot -- career=choose: { index, hazard, levels } of the plot taken from the offer (nil: run 1, fresh)
     result.notesThisRun = 0
     results[#results + 1] = result
     if result.alive then
@@ -740,6 +777,17 @@ function Balance.playSeed(ctx, policyName, seed, years, runs, features, outfit, 
     local idea = Policies.freeStudy(metaWorld)
     if idea then
       Run.freeStudy(data, metaWorld, idea)
+    end
+    nextPlot = nil
+    if career == "choose" then
+      local plots = Run.offerPlots(data, metaWorld, Rng.deriveSeed(seed + r * 7919, "plots"))
+      local index = Policies.choosePlot(policyName, plots)
+      Run.choosePlot(data, index)
+      local p = Run.pickedPlot(data)
+      nextPlot = { index = index or 1, hazard = p.hazard, levels = p.soil + p.water + p.wood + p.sun }
+      if not loadout then
+        assert(Run.chooseLoadout(data, metaWorld, Policies.chooseLoadout(policyName, metaWorld)))
+      end
     end
     Run.startNext(data)
   end
@@ -882,14 +930,39 @@ function Balance.footingSummary(results)
   return f
 end
 
+--- How the runs started (#454, D205): with career=choose, the plot taken from each offer (by offer index, how many had
+--- a hazard, the mean sum of trait levels) and the loadouts; nil when no run was taken from an offer (run 1, fresh).
+function Balance.startsSummary(results)
+  local s = { n = 0, plots = {}, hazard = 0, levels = 0, loadouts = {} }
+  for _, r in ipairs(results) do
+    if r.plot then
+      s.n = s.n + 1
+      s.plots[r.plot.index] = (s.plots[r.plot.index] or 0) + 1
+      s.hazard = s.hazard + (r.plot.hazard and 1 or 0)
+      s.levels = s.levels + r.plot.levels
+      local id = r.loadout or "standard"
+      s.loadouts[id] = (s.loadouts[id] or 0) + 1
+    end
+  end
+  if s.n == 0 then
+    return nil
+  end
+  s.levels = s.levels / s.n
+  return s
+end
+
 --- Crops across runs (D177, #363), reporting only: the starter crops' share of what the farm sold (the check that
 --- starting-crop income does not fund the mid game, #263) and how many kinds were planted each year.
 function Balance.cropsSummary(ctx, results, years)
   local perYear = #ctx.tuning.time.seasons * ctx.tuning.time.daysPerSeason
   local shares, starterSales, allSales = {}, 0, 0
+  local bySource = { truck = 0, stand = 0, contracts = 0 }
   for _, r in ipairs(results) do
     local s = r.sales or { all = 0, crops = 0, starter = 0 }
     starterSales, allSales = starterSales + s.starter, allSales + s.all
+    for source, total in pairs(bySource) do
+      bySource[source] = total + (s[source] or 0)
+    end
     if s.all > 0 then
       shares[#shares + 1] = s.starter / s.all
     end
@@ -897,7 +970,10 @@ function Balance.cropsSummary(ctx, results, years)
   local out = {
     starterShare = quantiles(shares), -- per run: starter-crop sales / all sales, runs that sold anything
     starterSalesMean = starterSales / math.max(1, #results), -- $ per run
-    salesMean = allSales / math.max(1, #results), -- $ per run, every good
+    salesMean = allSales / math.max(1, #results), -- $ per run, every good (what the sales really paid, #448)
+    truckMean = bySource.truck / math.max(1, #results), -- $ per run by source: the truck, the stand, the contracts board
+    standMean = bySource.stand / math.max(1, #results),
+    contractsMean = bySource.contracts / math.max(1, #results),
     starterCrops = #ctx.tuning.farming.starterField,
     planted = {}, -- year -> { kinds = quantiles of distinct crops planted, beyondStarters = share of runs planting another }
   }
@@ -1073,17 +1149,20 @@ function Balance.summarize(ctx, results, years, policyName)
   local perYear = #ctx.tuning.time.seasons * ctx.tuning.time.daysPerSeason
   summary.income = {}
   for year = 1, years do
-    local truck, stand = {}, {}
+    local truck, stand, contract = {}, {}, {}
     local from, to = (year - 1) * perYear + 1, year * perYear + 1
     for _, r in ipairs(results) do
-      local a, b = r.snaps[from] or (year == 1 and { truckEarned = 0, standEarned = 0 }), r.snaps[to]
+      local a = r.snaps[from] or (year == 1 and { truckEarned = 0, standEarned = 0, contractEarned = 0 })
+      local b = r.snaps[to]
       if a and b then
         truck[#truck + 1] = b.truckEarned - a.truckEarned
         stand[#stand + 1] = b.standEarned - a.standEarned
+        contract[#contract + 1] = b.contractEarned - a.contractEarned
       end
     end
     if #truck > 0 then
-      summary.income[year] = { n = #truck, truck = quantiles(truck), stand = quantiles(stand) }
+      summary.income[year] =
+        { n = #truck, truck = quantiles(truck), stand = quantiles(stand), contracts = quantiles(contract) }
     end
   end
 
@@ -1123,6 +1202,7 @@ function Balance.summarize(ctx, results, years, policyName)
   summary.features = results[1] and results[1].features or "none"
   summary.footing = Balance.footingSummary(results)
   summary.crops = Balance.cropsSummary(ctx, results, years)
+  summary.starts = Balance.startsSummary(results)
   summary.events = Balance.eventsSummary(results)
   summary.spiral = Balance.spiralSummary(results)
   summary.paired = Balance.pairedSummary(results)
@@ -1472,7 +1552,8 @@ function Balance.printFeatures(summary, years)
       local share = truck + stand > 0 and stand / (truck + stand) or 0
       line(
         string.format(
-          "Income year %d (median of %d alive): truck $%s [p25-p75 %s-%s], stand $%s [%s-%s], stand share of the two %s",
+          "Income year %d (median of %d alive): truck $%s [p25-p75 %s-%s], stand $%s [%s-%s], stand share of the two %s; "
+            .. "contracts $%s [%s-%s]",
           year,
           inc.n,
           num(truck, 0),
@@ -1481,7 +1562,10 @@ function Balance.printFeatures(summary, years)
           num(stand, 0),
           num(inc.stand.p25, 0),
           num(inc.stand.p75, 0),
-          pct(share)
+          pct(share),
+          num(inc.contracts.p50, 0),
+          num(inc.contracts.p25, 0),
+          num(inc.contracts.p75, 0)
         )
       )
     end
@@ -1648,6 +1732,33 @@ function Balance.printFeatures(summary, years)
   table.sort(sold)
   line("Sold per run by good, truck and stand (mean units): " .. (#sold > 0 and table.concat(sold, ", ") or "-"))
   Balance.printCrops(summary.crops, years)
+  Balance.printStarts(summary.starts)
+end
+
+--- The starts line of a summary (#454, D205): only for runs taken from a recovery's plot offer (career=choose).
+function Balance.printStarts(s)
+  if not s then
+    return
+  end
+  local plots, kits = {}, {}
+  for index, n in pairs(s.plots) do
+    plots[#plots + 1] = string.format("#%d %d", index, n)
+  end
+  for id, n in pairs(s.loadouts) do
+    kits[#kits + 1] = string.format("%s %d", id, n)
+  end
+  table.sort(plots)
+  table.sort(kits)
+  line(
+    string.format(
+      "Starts taken from the plot offer (%d runs): plot %s, with a hazard %d, trait levels mean %.1f; loadouts %s",
+      s.n,
+      table.concat(plots, ", "),
+      s.hazard,
+      s.levels,
+      table.concat(kits, ", ")
+    )
+  )
 end
 
 --- The crops block of a summary (D177, #363): reporting only, no target. The share is the check behind #263: how much
@@ -1659,11 +1770,15 @@ function Balance.printCrops(c, years)
   local share = c.starterShare
   line(
     string.format(
-      "Starter-crop income (the #263 check): %s of sales value median%s, $%.0f of $%.0f per run (mean)",
+      "Starter-crop income (the #263 check): %s of sales value median%s, $%.0f of $%.0f per run (mean; truck $%.0f, "
+        .. "stand $%.0f, contracts $%.0f)",
       share and pct(share.p50) or "-",
       share and string.format(" [p25-p75 %s-%s]", pct(share.p25), pct(share.p75)) or "",
       c.starterSalesMean,
-      c.salesMean
+      c.salesMean,
+      c.truckMean,
+      c.standMean,
+      c.contractsMean
     )
   )
   for year = 1, years do
@@ -1827,6 +1942,8 @@ function Balance.runRecord(r)
     spiral = r.spiral,
     events = r.events,
     off = r.off,
+    loadout = r.loadout,
+    plot = r.plot,
   }
 end
 

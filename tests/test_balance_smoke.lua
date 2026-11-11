@@ -44,6 +44,60 @@ T.test("balance harness: summaries, careers after failure, and tuning overrides"
   end, "no such number")
 end)
 
+T.test("balance harness: career=choose takes a plot from the offer and an unlocked loadout (#454)", function()
+  local plots = {
+    { soil = 3, water = 3, wood = 3, sun = 3, hazard = "stony" },
+    { soil = 2, water = 1, wood = 2, sun = 2 },
+    { soil = 2, water = 2, wood = 2, sun = 2 },
+  }
+  T.eq(Policies.choosePlot("scripted", plots), 3, "no hazard first, then the most trait levels")
+  T.eq(Policies.choosePlot("idle", plots), nil, "idle heads out without choosing (the first plot)")
+  plots[2].water = 2
+  T.eq(Policies.choosePlot("active", plots), 2, "a tie goes to the first in the offer")
+
+  local Save = require("src.core.save")
+  local Run = require("src.meta.run")
+  local data = Save.newSlotData("Kit")
+  require("src.session").new({
+    store = Save.new(Save.memoryBackend(), { slotCount = 1 }),
+    slot = 1,
+    data = data,
+    registry = ctx.registry,
+    tuning = ctx.tuning,
+    seed = 4,
+  })
+  local metaWorld = Run.metaWorld(ctx, data.meta)
+  T.eq(Policies.chooseLoadout("scripted", metaWorld), nil, "nothing unlocked: the standard start")
+  data.meta.journal.known.sturdy_rod = true
+  T.eq(Policies.chooseLoadout("scripted", metaWorld), "angler", "the first unlocked one on its list")
+  data.meta.journal.known.axe = true
+  T.eq(Policies.chooseLoadout("scripted", metaWorld), "lumberjack")
+  T.eq(Policies.chooseLoadout("idle", metaWorld), nil, "idle never takes a kit")
+
+  local starter = ctx.tuning.farming.starterField
+  ctx.tuning.farming.starterField = {} -- idle starves in the first spring, so the career reaches a recovery
+  local a = Balance.playSeed(ctx, "idle", 1, WEEK, 2, nil, nil, nil, nil, nil, "choose")
+  local b = Balance.playSeed(ctx, "idle", 1, WEEK, 2, nil, nil, nil, nil, nil, "choose")
+  local fresh = Balance.playSeed(ctx, "idle", 1, WEEK, 2)
+  local forced = Balance.playSeed(ctx, "idle", 1, WEEK, 2, nil, nil, nil, nil, "lumberjack", "choose")
+  ctx.tuning.farming.starterField = starter
+  T.eq(a[1].plot, nil, "run 1 has no offer")
+  T.eq(a[2].plot.index, 1, "idle takes the first plot")
+  T.eq(a[2].loadout, nil)
+  T.eq(b[2].plot.levels, a[2].plot.levels, "the offer repeats")
+  T.eq(b[2].final.money, a[2].final.money, "the chosen run repeats")
+  T.eq(fresh[2].plot, nil, "the fresh career has no offer")
+  T.eq(forced[2].loadout, "lumberjack", "loadout= still forces the kit")
+  T.truthy(forced[2].plot, "and the plot is still taken from the offer")
+  local starts = Balance.summarize(ctx, { a[2] }, WEEK).starts
+  T.eq(starts.n, 1)
+  T.eq(starts.loadouts.standard, 1)
+  T.eq(Balance.summarize(ctx, { fresh[2] }, WEEK).starts, nil, "no starts line without an offer")
+  T.errors(function()
+    Balance.playSeed(ctx, "idle", 1, WEEK, 1, nil, nil, nil, nil, nil, "nonsense")
+  end, "career must be")
+end)
+
 -- Footing metrics (#344, D165) ----------------------------------------------------------------------------
 
 T.test("balance harness: Footing metrics reach the summary, the CSV and the JSON", function()
@@ -269,6 +323,59 @@ T.test("balance features: a drip line goes where it waters the most planned tile
   T.truthy(n >= 6, "the drip line sits beside the patch and covers two columns of it, got " .. n)
 end)
 
+T.test("balance features: compost (opt-in) buys the bin once it is known and sets it by the field (#425)", function()
+  T.falsy(Features.parse("all").compost, "not part of all")
+  T.eq(Features.label(Features.parse("all,compost")), Features.label(Features.parse("all")) .. ",compost")
+  local set = Features.parse("compost")
+  T.truthy(Features.handles(set, "compost_bin"))
+  T.falsy(Features.handles(Features.parse("all"), "compost_bin"), "without the feature it goes in the plain ring")
+  local world = newWorld(1)
+  local list = Features.shopping(set).early
+  T.eq(list[1].id, "compost_bin")
+  Ledger.add(world, "money", 100)
+  Features.buy(world, list, 0)
+  T.eq(Features.held(world, "compost_bin"), 0, "not before the Produce rots note teaches it")
+  world.meta.journal.known.compost_bin = true
+  Features.buy(world, list, 0)
+  T.eq(Features.held(world, "compost_bin"), 1, "ordered once it is known")
+  Features.buy(world, list, 0)
+  T.eq(Features.held(world, "compost_bin"), 1, "one bin")
+
+  local grid = world.state.grid
+  local far
+  for i = 1, #grid.terrain do
+    local x, y = Grid.coords(grid, i)
+    local tx, ty = Grid.coords(grid, world.state.land.truck)
+    if
+      math.max(math.abs(x - tx), math.abs(y - ty)) >= 12
+      and Grid.terrain(world, i).tillable
+      and not world.occupancy[i]
+    then
+      far = i
+      break
+    end
+  end
+  T.truthy(far, "a free tillable tile away from the truck")
+  Crops.setPlan(world, far, "radish")
+  Inventory.addObject(world, "compost_bin")
+  T.truthy(Features.place(world, "compost_bin", 2))
+  local anchor
+  for a, obj in pairs(grid.objects) do
+    if obj.id == "compost_bin" then
+      anchor = a
+    end
+  end
+  local ax, ay = Grid.coords(grid, anchor)
+  local fx, fy = Grid.coords(grid, far)
+  T.truthy(math.max(math.abs(ax - fx), math.abs(ay - fy)) <= 3, "the bin stands beside the field")
+
+  T.eq(Features.compostTarget(world), nil, "no compost in stock, nothing to spread")
+  Ledger.add(world, "compost", 2)
+  world.state.soil.worked[far] = true
+  world.state.grid.fertility[far] = 0.1
+  T.eq(Features.compostTarget(world), far, "the worn field tile")
+end)
+
 T.test("balance features: finds are chosen by need", function()
   local world = newWorld(1)
   local h = {
@@ -302,6 +409,30 @@ T.test("balance harness: policies play a season with every feature on, determini
   local summary = Balance.summarize(ctx, Balance.playSeed(ctx, "scripted", 2, WEEK, 1, Features.parse("none")), 1)
   T.eq(type(summary.income), "table", "income by source is summarized")
   T.truthy(summary.totals.earned, "per-run totals are summarized")
+end)
+
+T.test("balance harness: sales are valued at what they paid, not the sticker (#448)", function()
+  local Food = require("src.sim.systems.food")
+  local world = World.new({ registry = ctx.registry, tuning = ctx.tuning }, World.newState(1))
+  world.state.market.prices = {} -- plain prices
+  local sales = { all = 0, crops = 0, starter = 0, truck = 0, stand = 0, contracts = 0 }
+  Balance.trackSales(ctx, world, sales)
+  local n = ctx.tuning.economy.cargoCapacity
+  Ledger.add(world, "radish", n)
+  Food.setKeep(world, "radish", 0)
+  Market.setLoad(world, "radish", n)
+  world.state.power.charge[world.state.land.truck] = ctx.tuning.economy.tripCost
+  T.truthy(Market.startTrip(world))
+  local earned = Market.sellLoad(world)
+  T.truthy(earned > 0)
+  T.truthy(earned < n * Market.sellPrice(world, "radish"), "a full load of one crop saturates the town")
+  T.eq(sales.truck, earned)
+  T.eq(sales.all, earned, "the saturated load is valued at what it paid, below its sticker")
+  T.eq(sales.starter, earned, "radish is a starter crop")
+  world.events:emit("contract.done", { id = 1, item = "potato", amount = 5, reward = 30, done = 1 })
+  T.eq(sales.contracts, 30, "contract pay is its own line")
+  T.eq(sales.all, earned + 30)
+  T.eq(sales.crops, earned + 30)
 end)
 
 T.test("balance harness: an idle player with the starter field survives the first spring (#66)", function()
@@ -374,6 +505,8 @@ T.test("balance harness: a paired run carries its events-off twin and counts eve
   local again = Balance.playSeed(ctx, "scripted", 1, 0.5, 1, nil, nil, "random", true)
   T.eq(again[1].final.money, on[1].final.money, "a paired run repeats")
   T.eq(again[1].off.money, on[1].off.money, "its twin repeats")
+  local kit = Balance.playSeed(ctx, "scripted", 1, 0.25, 1, nil, nil, "random", true, "lumberjack")
+  T.eq(kit[1].loadout, "lumberjack", "loadout= reaches a paired run")
   T.errors(function()
     Balance.playSeed(ctx, "scripted", 1, 0.25, 1, nil, nil, nil, true)
   end, "event policy")

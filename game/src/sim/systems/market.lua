@@ -19,7 +19,8 @@
 -- State: world.state.market = { orders = { { item, arriveDay } }, prices = { [resourceId] = mult },
 --                               specials = { [catalogId] = true }, week, inTown, load = { [id] = n },
 --                               sat = { [id] = units } }
--- Emits "market.ordered" { item }, "market.delivered" { item }, "market.sold" { earnings, units },
+-- Emits "market.ordered" { item }, "market.delivered" { item }, "market.sold" { earnings, units, lines } (`lines` = the
+--       load quote's { id, units, worth } per good, what each line paid after tiers, saturation and market day),
 --       "market.trip" {}, "market.tripReady" {} (the truck's charge reached a full trip's worth),
 --       "market.held" { item } (once per order, when a due delivery is waiting
 --       for storage room; the order stays queued and is retried every tick),
@@ -732,17 +733,19 @@ function Market.sellLoad(world)
   end
   Market.fillContracts(world)
   local lines, total, units = Market.loadQuote(world)
+  local sold = {}
   for _, line in ipairs(lines) do
     Quality.take(world, line.id, line.units, "best") -- the best units go to town; the ledger then drops the count
     Ledger.remove(world, line.id, line.units, "sold")
     Market.addSaturation(world, line.id, line.units)
+    sold[#sold + 1] = { id = line.id, units = line.units, worth = line.worth }
   end
   Market.clearLoad(world)
   if units == 0 then
     return 0
   end
   Ledger.add(world, "money", total, "sold")
-  world.events:emit("market.sold", { earnings = total, units = units })
+  world.events:emit("market.sold", { earnings = total, units = units, lines = sold })
   return total
 end
 

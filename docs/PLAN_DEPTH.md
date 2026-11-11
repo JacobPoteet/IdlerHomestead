@@ -462,7 +462,7 @@ At the start of each spring after Footing the player drafts one of three **chart
 
 Loadouts unlocked by Journal learning: Angler (better rod and bait), Gardener (more seed types), Herder (a hen start), Lumberjack (axe and more wood), Tinkerer (better power start). Each is a bundle of existing items with a small penalty elsewhere.
 
-> **Built (D201, #386, H3):** `data/content/loadouts.lua`, five loadouts, each a bundle of existing items with one small penalty (a stock taken off the start, never below zero). A loadout opens when the Journal node it names is known (sturdy rod, carrot seeds, hens, axe, used panel); no new node kind. Chosen from the Plots scene's Starting kit button, optional, the standard start is the default. The camp start perk of #215 is built with it (`pack_camp`, `startingObjects` on perks). The harness takes `loadout=<id>`. The Footing floor question (Q15) stays for M9.
+> **Built (D201, #386, H3):** `data/content/loadouts.lua`, five loadouts, each a bundle of existing items with one small penalty (a stock taken off the start, never below zero). A loadout opens when the Journal node it names is known (sturdy rod, carrot seeds, hens, axe, used panel); no new node kind. Chosen from the Plots scene's Starting kit button, optional, the standard start is the default. The camp start perk of #215 is built with it (`pack_camp`, `startingObjects` on perks). The harness takes `loadout=<id>`, and `career=choose` (D205, #454) has a career's policy take the easiest offered plot and its preferred unlocked loadout at each recovery. The Footing floor question (Q15) stays for M9.
 
 ### 12.4 Ascension
 

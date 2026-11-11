@@ -12,7 +12,8 @@
 --
 -- State: world.state.stand = { lastDay = day of the last sale run,
 --                              last = { day, units, earned, cap } or nil, total = { units, earned } }
--- Emits "stand.sold" { day, units, earned, cap } (only when something sold).
+-- Emits "stand.sold" { day, units, earned, cap, lines } (only when something sold; `lines` = { id, units, worth } per
+-- good, `worth` before the day's total is rounded to whole dollars, so the lines sum to `earned` within a dollar).
 
 local Calendar = require("src.sim.systems.calendar")
 local Food = require("src.sim.systems.food")
@@ -132,28 +133,30 @@ function Stand.sell(world)
   for _, entry in ipairs(sellingOrder(world)) do
     local n = math.min(entry.n, cap - units)
     if n > 0 then
-      taken[#taken + 1] = { id = entry.id, n = n }
       -- the stand sells the worst units (the ledger drops them first) at the tier's price (D182)
-      raw = raw
-        + Stand.unitPrice(world, entry.id)
-          * Quality.worth(world, entry.id, n, "worst")
-          * Market.satFactor(world, entry.id, n)
+      local worth = Stand.unitPrice(world, entry.id)
+        * Quality.worth(world, entry.id, n, "worst")
+        * Market.satFactor(world, entry.id, n)
+      taken[#taken + 1] = { id = entry.id, n = n, worth = worth }
+      raw = raw + worth
       units = units + n
     end
   end
   if units == 0 then
     return 0, 0
   end
+  local lines = {}
   for _, line in ipairs(taken) do
     Ledger.remove(world, line.id, line.n, "stand")
     Market.addSaturation(world, line.id, line.n)
+    lines[#lines + 1] = { id = line.id, units = line.n, worth = line.worth }
   end
   local earned = math.floor(raw + 0.5)
   Ledger.add(world, "money", earned, "stand")
   state.last = { day = now.day, units = units, earned = earned, cap = cap }
   state.total.units = state.total.units + units
   state.total.earned = state.total.earned + earned
-  world.events:emit("stand.sold", { day = now.day, units = units, earned = earned, cap = cap })
+  world.events:emit("stand.sold", { day = now.day, units = units, earned = earned, cap = cap, lines = lines })
   return units, earned
 end
 
