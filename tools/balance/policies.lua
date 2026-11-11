@@ -815,6 +815,16 @@ function Active:choose(world, actor)
       return true
     end
   end
+  -- Compost (#425): spread it on the most worn field tile (an Upkeep tap; a weed on the tile is pulled first).
+  local worn = self.features.compost and Features.compostTarget(world)
+  if
+    worn
+    and tryOrder(self, world, actor, { worn }, function()
+      return { categories = { maintenance = true } }
+    end)
+  then
+    return true
+  end
   -- Load the smoker.
   local stations = objectAnchors(world, function(def)
     return def.station ~= nil

@@ -459,6 +459,12 @@ Reporting only, no target. Two new lines per policy and run index, under the per
 
 First look (5 seeds, 2 years, first-guess crop numbers, not tuned): scripted plants the starters only (it buys no seeds); active planted 2 kinds in year 1 and 3 in year 2 (60 percent of runs planting a third), starter share of sales 62 percent. Everyone survives, Footing is reached at day 10 (scripted) and 7 (active), and two runs of the same command, and `jobs=1`, print the same report. The active policy now keeps at most `starterFieldShare` (0.75) of its 48 field tiles for radish and potato, so it can plant what it has learned; the seed ideas come after the policy's nine listed items in its study order, so year 1 sees little of them.
 
+## Compost in the policies (#425)
+
+`features=all,compost` (opt-in, not in `all`): the compost bin joins the early shopping list beside the cat, so it is bought as soon as the Produce rots note teaches it (and the study queue takes it early), and it goes beside the field. The bin draws residue, spoiled food and the coop's manure on its own (D185). The active player also spreads compost itself: with compost in stock it taps the most worn farmed tile under the routine's `fertilizeBelow` with the Upkeep tool (a weed there is pulled first). The routine alone spreads little, because a fertilize job wins only when no weed is nearer. It stays out of `all` because the bin is a strict early purchase that moves the money, and with it every standing baseline.
+
+Smoke (3 seeds, 2 years, `policy=scripted,active`): active makes 53 compost a run and spreads 52 (it learns the bin in late year 1 or early year 2). Without its own taps the routine spread none in two years (30 made, the store full) and 8 a run in three. Scripted makes none: nothing rots in its runs, so the Produce rots note that teaches the bin is never written. Reporting only; whether the loop matters is the M9 reading.
+
 ## Spiral measures, paired events and gates (#410, D186)
 
 Reporting first, gates second; nothing here changes a run. Every limit lives in `tools/balance/gates.lua` and is a first guess for the M9 pass. The gates print under each policy's report (and as `summary.gates` in the JSON); `gates=strict` makes the harness exit 1 when one fails, the default only reports. The last line of a run is `Gates failed: N`.

@@ -1,5 +1,5 @@
 -- Optional policy behaviours for the balance harness (issues #80 power, #90 water, #105 stand,
--- #101 weather, #111 finds, #115 cat, #389 guards and threats). `features=` on the command line picks which are on, so a run
+-- #101 weather, #111 finds, #115 cat, #389 guards and threats, #425 compost). `features=` on the command line picks which are on, so a run
 -- can be compared with and without them (`features=none` is the harness as it was before these).
 --
 -- Everything here is *player behaviour* (what to buy, where to put it, which find to take); game
@@ -7,6 +7,7 @@
 
 local Animals = require("src.sim.systems.animals")
 local Calendar = require("src.sim.systems.calendar")
+local Compost = require("src.sim.systems.compost")
 local Crops = require("src.sim.systems.crops")
 local Grid = require("src.sim.grid")
 local Inventory = require("src.sim.systems.inventory")
@@ -28,7 +29,7 @@ Features.LIST =
   { "cat", "stand", "chickens", "goats", "water", "power", "machines", "finds", "weather", "guards", "threats" }
 
 --- Opt-in behaviours: only on when named, never part of `all`, so the standing baselines do not move.
-Features.OPT_IN = { "rotate", "orchard" }
+Features.OPT_IN = { "rotate", "orchard", "compost" }
 
 Features.describe = {
   cat = "buy the shelter cat once the Mice note unlocks it (#115)",
@@ -44,6 +45,7 @@ Features.describe = {
   threats = "study the field-threat countermeasures; buy one when its threat is warned, or once it has struck (#153)",
   rotate = "replant empty planned tiles with a family other than the one last harvested there, from the seeds in hand (D179)",
   orchard = "learn, buy and plan berry canes and apple trees once money allows (a few of each) (D183)",
+  compost = "learn and buy a compost bin once the Produce rots note teaches it, and place it by the field (#425, D181)",
 }
 
 --- Parse a `features=` value: nil/"all" is every feature, "none" is none, else a comma list.
@@ -143,6 +145,9 @@ end
 --- walks it in order and saves up for the first entry it cannot yet afford rather than skipping it.
 local SHOPPING = {
   { id = "shelter_cat", feature = "cat", early = true },
+  -- Compost (opt-in, #425): early, ahead of the buy list, since the Produce rots note that teaches it comes late in year 1
+  -- and the bin only pays once the field has worn; it draws residue, spoiled food and the coop's muck on its own.
+  { id = "compost_bin", feature = "compost", early = true },
   { id = "roadside_stand", feature = "stand" },
   { id = "chicken_coop", feature = "chickens" },
   { id = "hens", feature = "chickens" }, -- pickup only: bought on truck trips (Features.tripItems); listed so it is studied
@@ -386,6 +391,7 @@ local BY_FIELD = {
   sprinkler = true,
   drip_line = true,
   auto_harvester = true,
+  compost_bin = true, -- beside the field it feeds (it draws manure, residue and spoiled food on its own, D185)
 }
 
 --- An upgrade object (the shack, D115) goes over the building it replaces. Returns nil when `id` is not an
@@ -498,6 +504,9 @@ function Features.handles(set, id)
   if id == "auto_harvester" then
     return set.machines == true
   end
+  if id == "compost_bin" then
+    return set.compost == true
+  end
   if BY_FIELD[id] then
     return set.water == true
   end
@@ -594,6 +603,22 @@ function Features.orchard(world)
       end
     end
   end
+end
+
+--- Compost (#425): the field tile the active player spreads compost on, or nil: with compost in stock, the most worn
+--- farmed tile under the routine's own `fertilizeBelow` (the routine does the same, but only when no weed is nearer).
+function Features.compostTarget(world)
+  if Ledger.get(world, "compost") < 1 then
+    return nil
+  end
+  local best, lowest
+  for _, i in ipairs(Soil.worn(world, world.tuning.compost.fertilizeBelow)) do
+    local fertility = Soil.fertility(world, i)
+    if Compost.canSpread(world, i, true) and (not best or fertility < lowest) then
+      best, lowest = i, fertility
+    end
+  end
+  return best
 end
 
 --- Morning switches: while it is warm the truck is charged before the battery bank; near winter the

@@ -323,6 +323,59 @@ T.test("balance features: a drip line goes where it waters the most planned tile
   T.truthy(n >= 6, "the drip line sits beside the patch and covers two columns of it, got " .. n)
 end)
 
+T.test("balance features: compost (opt-in) buys the bin once it is known and sets it by the field (#425)", function()
+  T.falsy(Features.parse("all").compost, "not part of all")
+  T.eq(Features.label(Features.parse("all,compost")), Features.label(Features.parse("all")) .. ",compost")
+  local set = Features.parse("compost")
+  T.truthy(Features.handles(set, "compost_bin"))
+  T.falsy(Features.handles(Features.parse("all"), "compost_bin"), "without the feature it goes in the plain ring")
+  local world = newWorld(1)
+  local list = Features.shopping(set).early
+  T.eq(list[1].id, "compost_bin")
+  Ledger.add(world, "money", 100)
+  Features.buy(world, list, 0)
+  T.eq(Features.held(world, "compost_bin"), 0, "not before the Produce rots note teaches it")
+  world.meta.journal.known.compost_bin = true
+  Features.buy(world, list, 0)
+  T.eq(Features.held(world, "compost_bin"), 1, "ordered once it is known")
+  Features.buy(world, list, 0)
+  T.eq(Features.held(world, "compost_bin"), 1, "one bin")
+
+  local grid = world.state.grid
+  local far
+  for i = 1, #grid.terrain do
+    local x, y = Grid.coords(grid, i)
+    local tx, ty = Grid.coords(grid, world.state.land.truck)
+    if
+      math.max(math.abs(x - tx), math.abs(y - ty)) >= 12
+      and Grid.terrain(world, i).tillable
+      and not world.occupancy[i]
+    then
+      far = i
+      break
+    end
+  end
+  T.truthy(far, "a free tillable tile away from the truck")
+  Crops.setPlan(world, far, "radish")
+  Inventory.addObject(world, "compost_bin")
+  T.truthy(Features.place(world, "compost_bin", 2))
+  local anchor
+  for a, obj in pairs(grid.objects) do
+    if obj.id == "compost_bin" then
+      anchor = a
+    end
+  end
+  local ax, ay = Grid.coords(grid, anchor)
+  local fx, fy = Grid.coords(grid, far)
+  T.truthy(math.max(math.abs(ax - fx), math.abs(ay - fy)) <= 3, "the bin stands beside the field")
+
+  T.eq(Features.compostTarget(world), nil, "no compost in stock, nothing to spread")
+  Ledger.add(world, "compost", 2)
+  world.state.soil.worked[far] = true
+  world.state.grid.fertility[far] = 0.1
+  T.eq(Features.compostTarget(world), far, "the worn field tile")
+end)
+
 T.test("balance features: finds are chosen by need", function()
   local world = newWorld(1)
   local h = {
