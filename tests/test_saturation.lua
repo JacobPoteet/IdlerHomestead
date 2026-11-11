@@ -125,6 +125,50 @@ T.test("saturation: the stand and the truck share the town's demand", function()
   T.eq(Market.freeUnits(world, "radish"), SAT.freeUnits - 6)
 end)
 
+T.test("saturation: the sale events carry what each good really earned (#448)", function()
+  local world = newWorld()
+  local truck
+  world.events:on("market.sold", function(e)
+    truck = e
+  end)
+  local earned = sellLoad(world, { radish = CARGO - 4, potato = 4 })
+  T.eq(#truck.lines, 2, "one line per good sold")
+  local sum, radish = 0, nil
+  for _, line in ipairs(truck.lines) do
+    sum = sum + line.worth
+    radish = line.id == "radish" and line or radish
+  end
+  T.eq(sum, earned, "the lines add up to the trip's earnings")
+  T.eq(radish.units, CARGO - 4)
+  T.truthy(
+    radish.worth < (CARGO - 4) * Market.sellPrice(world, "radish"),
+    "a saturated line is worth less than its sticker"
+  )
+
+  local spot
+  for i = 1, #world.state.grid.terrain do
+    if Inventory.canPlace(world, "roadside_stand", i) then
+      spot = i
+      break
+    end
+  end
+  Inventory.addObject(world, "roadside_stand")
+  T.truthy(Inventory.place(world, "roadside_stand", spot))
+  local stand
+  world.events:on("stand.sold", function(e)
+    stand = e
+  end)
+  setTime(world, DPS + 1, tun.stand.sellHour + 0.25)
+  world.state.weather.sky.days[1] = "clear"
+  stock(world, "radish", 6)
+  world:tick(STEP)
+  T.eq(#stand.lines, 1)
+  T.eq(stand.lines[1].id, "radish")
+  T.eq(stand.lines[1].units, 6)
+  T.eq(math.floor(stand.lines[1].worth + 0.5), stand.earned, "the line rounds to the day's earnings")
+  T.truthy(stand.lines[1].worth < 6 * Stand.unitPrice(world, "radish"), "the saturated town pays the stand less too")
+end)
+
 T.test("market day: the last day of a season pays the truck more and doubles the stand", function()
   local world = newWorld()
   setTime(world, DPS - 1, 9)

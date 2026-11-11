@@ -304,6 +304,30 @@ T.test("balance harness: policies play a season with every feature on, determini
   T.truthy(summary.totals.earned, "per-run totals are summarized")
 end)
 
+T.test("balance harness: sales are valued at what they paid, not the sticker (#448)", function()
+  local Food = require("src.sim.systems.food")
+  local world = World.new({ registry = ctx.registry, tuning = ctx.tuning }, World.newState(1))
+  world.state.market.prices = {} -- plain prices
+  local sales = { all = 0, crops = 0, starter = 0, truck = 0, stand = 0, contracts = 0 }
+  Balance.trackSales(ctx, world, sales)
+  local n = ctx.tuning.economy.cargoCapacity
+  Ledger.add(world, "radish", n)
+  Food.setKeep(world, "radish", 0)
+  Market.setLoad(world, "radish", n)
+  world.state.power.charge[world.state.land.truck] = ctx.tuning.economy.tripCost
+  T.truthy(Market.startTrip(world))
+  local earned = Market.sellLoad(world)
+  T.truthy(earned > 0)
+  T.truthy(earned < n * Market.sellPrice(world, "radish"), "a full load of one crop saturates the town")
+  T.eq(sales.truck, earned)
+  T.eq(sales.all, earned, "the saturated load is valued at what it paid, below its sticker")
+  T.eq(sales.starter, earned, "radish is a starter crop")
+  world.events:emit("contract.done", { id = 1, item = "potato", amount = 5, reward = 30, done = 1 })
+  T.eq(sales.contracts, 30, "contract pay is its own line")
+  T.eq(sales.all, earned + 30)
+  T.eq(sales.crops, earned + 30)
+end)
+
 T.test("balance harness: an idle player with the starter field survives the first spring (#66)", function()
   local results = Balance.playSeed(ctx, "idle", 1, WEEK, 1)
   T.eq(results[1].alive, true, "the routine plans and works a starter field, so day 6 is survived")

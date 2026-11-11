@@ -12,7 +12,6 @@ local Finds = require("src.sim.systems.finds")
 local Footing = require("src.sim.systems.footing")
 local Gates = require("gates")
 local Inventory = require("src.sim.systems.inventory")
-local Market = require("src.sim.systems.market")
 local Machines = require("src.sim.systems.machines")
 local Power = require("src.sim.systems.power")
 local Soil = require("src.sim.systems.soil")
@@ -136,6 +135,49 @@ local function winterNeed(world, year)
   return sum * winter.severity
 end
 
+--- Sales value (#448, D177): add what each sale really paid to `sales` ({ all, crops, starter, truck, stand,
+--- contracts }), read from the sale events' own lines (after saturation, quality tiers and market day, D196) and the
+--- contracts' fixed pay (D197). `crops` counts crop produce, `starter` the starter field's crops.
+function Balance.trackSales(ctx, world, sales)
+  local produceOf, starterProduce = {}, {} -- resource id -> true, for crop produce and for the starter field's
+  for _, crop in ipairs(ctx.registry:all("crops")) do
+    produceOf[crop.produce] = true
+  end
+  for _, entry in ipairs(ctx.tuning.farming.starterField) do
+    starterProduce[ctx.registry:get("crops", entry.crop).produce] = true
+  end
+  local events = world.events
+  local function sold(id, worth)
+    sales.all = sales.all + worth
+    if produceOf[id] then
+      sales.crops = sales.crops + worth
+      if starterProduce[id] then
+        sales.starter = sales.starter + worth
+      end
+    end
+  end
+  events:on("market.sold", function(e)
+    sales.truck = sales.truck + e.earnings
+    for _, l in ipairs(e.lines) do
+      sold(l.id, l.worth)
+    end
+  end)
+  events:on("stand.sold", function(e)
+    sales.stand = sales.stand + e.earned
+    local raw = 0
+    for _, l in ipairs(e.lines) do
+      raw = raw + l.worth
+    end
+    for _, l in ipairs(e.lines) do -- scaled so the lines add up to the rounded day's earnings
+      sold(l.id, raw > 0 and l.worth * e.earned / raw or 0)
+    end
+  end)
+  events:on("contract.done", function(e)
+    sales.contracts = sales.contracts + e.reward
+    sold(e.item, e.reward)
+  end)
+end
+
 --- Simulate one run to its end or `years` years. Returns a result table:
 ---   alive, failDay, failSeason, failYear, cause, snaps[day], counters, winters[year].
 --- `session` carries the slot data (a fresh Session per run).
@@ -222,10 +264,11 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
     finds = {}, -- find id -> times picked
     spoiledBy = {}, -- resource id -> units spoiled (D73)
     soldBy = {}, -- resource id -> units sold by the truck and the stand (D75)
-    -- Crop income (D177, #363): $ the truck and the stand paid, at the price of the moment: `all` for every good,
-    -- `crops` for crop produce, `starter` for the starter field's crops (tuning.farming.starterField). The check
-    -- behind "starting-crop income must not fund the mid game" (#263): reporting only, no target.
-    sales = { all = 0, crops = 0, starter = 0 },
+    -- Crop income (D177, #363): $ the truck, the stand and the contracts board really paid, read from the sale events
+    -- (#448: after saturation, tiers and market day, D196): `all` for every good, `crops` for crop produce, `starter`
+    -- for the starter field's crops (tuning.farming.starterField), and `truck`, `stand`, `contracts` by source. The
+    -- check behind "starting-crop income must not fund the mid game" (#263): reporting only, no target.
+    sales = { all = 0, crops = 0, starter = 0, truck = 0, stand = 0, contracts = 0 },
     plantedByYear = {}, -- game year -> crop id -> plantings (how many kinds the player grows once the others are known)
     daysTotal = daysTotal,
     features = Features.label(features or {}),
@@ -259,13 +302,6 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
       result.footing.winterDay = (n - 1) * tuning.time.daysPerSeason + 1
       break
     end
-  end
-  local produceOf, starterProduce = {}, {} -- resource id -> true, for crop produce and for the starter field's
-  for _, crop in ipairs(ctx.registry:all("crops")) do
-    produceOf[crop.produce] = true
-  end
-  for _, entry in ipairs(tuning.farming.starterField) do
-    starterProduce[ctx.registry:get("crops", entry.crop).produce] = true
   end
   local hourSeconds = tuning.time.dayLength / 24
   local damage = { hunger = 0, cold = 0, thirst = 0 } -- Condition lost since the last day with no damage
@@ -357,17 +393,9 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
   events:on("ledger.changed", function(e)
     if (e.reason == "sold" or e.reason == "stand") and e.delta < 0 then
       result.soldBy[e.id] = (result.soldBy[e.id] or 0) - e.delta
-      local price = e.reason == "stand" and Stand.unitPrice(world, e.id) or Market.sellPrice(world, e.id)
-      local worth = -e.delta * price
-      result.sales.all = result.sales.all + worth
-      if produceOf[e.id] then
-        result.sales.crops = result.sales.crops + worth
-        if starterProduce[e.id] then
-          result.sales.starter = result.sales.starter + worth
-        end
-      end
     end
   end)
+  Balance.trackSales(ctx, world, result.sales)
   events:on("crop.planted", function(e)
     local year = Calendar.now(world).year
     local by = result.plantedByYear[year] or {}
@@ -486,6 +514,7 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
       end
       result.snaps[e.day].truckEarned = result.counters.earned
       result.snaps[e.day].standEarned = Stand.total(world).earned
+      result.snaps[e.day].contractEarned = result.counters.contractPay
       local kind = Weather.kind(world)
       if Weather.isRaining(world) then
         result.counters.rainDays = result.counters.rainDays + 1
@@ -603,6 +632,7 @@ local function playRun(ctx, session, policyName, seed, years, features, eventMod
   result.final = snapshot(world)
   result.final.truckEarned = result.counters.earned
   result.final.standEarned = Stand.total(world).earned
+  result.final.contractEarned = result.counters.contractPay
   -- Per-run facts read through public accessors.
   local water = Features.waterStats(world)
   result.counters.waterHand, result.counters.waterDrip = water.hand, water.drip
@@ -887,9 +917,13 @@ end
 function Balance.cropsSummary(ctx, results, years)
   local perYear = #ctx.tuning.time.seasons * ctx.tuning.time.daysPerSeason
   local shares, starterSales, allSales = {}, 0, 0
+  local bySource = { truck = 0, stand = 0, contracts = 0 }
   for _, r in ipairs(results) do
     local s = r.sales or { all = 0, crops = 0, starter = 0 }
     starterSales, allSales = starterSales + s.starter, allSales + s.all
+    for source, total in pairs(bySource) do
+      bySource[source] = total + (s[source] or 0)
+    end
     if s.all > 0 then
       shares[#shares + 1] = s.starter / s.all
     end
@@ -897,7 +931,10 @@ function Balance.cropsSummary(ctx, results, years)
   local out = {
     starterShare = quantiles(shares), -- per run: starter-crop sales / all sales, runs that sold anything
     starterSalesMean = starterSales / math.max(1, #results), -- $ per run
-    salesMean = allSales / math.max(1, #results), -- $ per run, every good
+    salesMean = allSales / math.max(1, #results), -- $ per run, every good (what the sales really paid, #448)
+    truckMean = bySource.truck / math.max(1, #results), -- $ per run by source: the truck, the stand, the contracts board
+    standMean = bySource.stand / math.max(1, #results),
+    contractsMean = bySource.contracts / math.max(1, #results),
     starterCrops = #ctx.tuning.farming.starterField,
     planted = {}, -- year -> { kinds = quantiles of distinct crops planted, beyondStarters = share of runs planting another }
   }
@@ -1073,17 +1110,20 @@ function Balance.summarize(ctx, results, years, policyName)
   local perYear = #ctx.tuning.time.seasons * ctx.tuning.time.daysPerSeason
   summary.income = {}
   for year = 1, years do
-    local truck, stand = {}, {}
+    local truck, stand, contract = {}, {}, {}
     local from, to = (year - 1) * perYear + 1, year * perYear + 1
     for _, r in ipairs(results) do
-      local a, b = r.snaps[from] or (year == 1 and { truckEarned = 0, standEarned = 0 }), r.snaps[to]
+      local a = r.snaps[from] or (year == 1 and { truckEarned = 0, standEarned = 0, contractEarned = 0 })
+      local b = r.snaps[to]
       if a and b then
         truck[#truck + 1] = b.truckEarned - a.truckEarned
         stand[#stand + 1] = b.standEarned - a.standEarned
+        contract[#contract + 1] = b.contractEarned - a.contractEarned
       end
     end
     if #truck > 0 then
-      summary.income[year] = { n = #truck, truck = quantiles(truck), stand = quantiles(stand) }
+      summary.income[year] =
+        { n = #truck, truck = quantiles(truck), stand = quantiles(stand), contracts = quantiles(contract) }
     end
   end
 
@@ -1472,7 +1512,8 @@ function Balance.printFeatures(summary, years)
       local share = truck + stand > 0 and stand / (truck + stand) or 0
       line(
         string.format(
-          "Income year %d (median of %d alive): truck $%s [p25-p75 %s-%s], stand $%s [%s-%s], stand share of the two %s",
+          "Income year %d (median of %d alive): truck $%s [p25-p75 %s-%s], stand $%s [%s-%s], stand share of the two %s; "
+            .. "contracts $%s [%s-%s]",
           year,
           inc.n,
           num(truck, 0),
@@ -1481,7 +1522,10 @@ function Balance.printFeatures(summary, years)
           num(stand, 0),
           num(inc.stand.p25, 0),
           num(inc.stand.p75, 0),
-          pct(share)
+          pct(share),
+          num(inc.contracts.p50, 0),
+          num(inc.contracts.p25, 0),
+          num(inc.contracts.p75, 0)
         )
       )
     end
@@ -1659,11 +1703,15 @@ function Balance.printCrops(c, years)
   local share = c.starterShare
   line(
     string.format(
-      "Starter-crop income (the #263 check): %s of sales value median%s, $%.0f of $%.0f per run (mean)",
+      "Starter-crop income (the #263 check): %s of sales value median%s, $%.0f of $%.0f per run (mean; truck $%.0f, "
+        .. "stand $%.0f, contracts $%.0f)",
       share and pct(share.p50) or "-",
       share and string.format(" [p25-p75 %s-%s]", pct(share.p25), pct(share.p75)) or "",
       c.starterSalesMean,
-      c.salesMean
+      c.salesMean,
+      c.truckMean,
+      c.standMean,
+      c.contractsMean
     )
   )
   for year = 1, years do
